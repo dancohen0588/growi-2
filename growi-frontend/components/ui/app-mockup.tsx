@@ -62,7 +62,7 @@ export function AppMockup() {
               <div className="flex-none w-20 bg-sun/20 rounded-xl p-2 text-center">
                 <div className="text-lg">☀️</div>
                 <div className="font-poppins font-bold text-forest text-xs">22°C</div>
-                <div className="text-[9px] text-forest/50">Aujourd'hui</div>
+                <div className="text-[9px] text-forest/50">Aujourd&apos;hui</div>
               </div>
               <div className="flex-1 bg-lime/15 rounded-xl p-2 flex items-center gap-2">
                 <span className="text-sm">🔔</span>
@@ -82,7 +82,7 @@ export function AppMockup() {
                   NEW
                 </div>
               </div>
-              <div className="text-[10px] text-forest/50">Pointe l'appareil vers ta plante</div>
+              <div className="text-[10px] text-forest/50">Pointe l&apos;appareil vers ta plante</div>
             </div>
           </div>
 
