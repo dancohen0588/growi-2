@@ -2,26 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Growi palette (HSL space-separated for shadcn) */
+    --color-lime:   179 83% 67%;
+    --color-forest: 139 51% 23%;
+    --color-sand:   52 50% 95%;
+    --color-sun:    43 91% 62%;
+
+    /* shadcn tokens mapped to Growi */
+    --background:             52 50% 95%;
+    --foreground:             139 51% 23%;
+    --card:                   52 50% 97%;
+    --card-foreground:        139 51% 23%;
+    --popover:                52 50% 97%;
+    --popover-foreground:     139 51% 23%;
+    --primary:                179 83% 67%;
+    --primary-foreground:     139 51% 23%;
+    --secondary:              52 50% 90%;
+    --secondary-foreground:   139 51% 23%;
+    --muted:                  52 30% 88%;
+    --muted-foreground:       139 20% 40%;
+    --accent:                 43 91% 62%;
+    --accent-foreground:      139 51% 23%;
+    --destructive:            0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border:                 139 20% 80%;
+    --input:                  139 20% 80%;
+    --ring:                   179 83% 67%;
+    --radius:                 0.75rem;
+
+    --space-section:   5rem;
+    --space-container: 2rem;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-raleway;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-poppins;
+  }
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+/* Respect prefers-reduced-motion for Tailwind animation classes */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-pulse-soft {
+    animation: none !important;
   }
 }
