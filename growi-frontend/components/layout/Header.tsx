@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Menu } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
+import { UserMenu } from '@/components/auth/UserMenu'
 import {
   Sheet,
   SheetContent,
@@ -21,6 +23,7 @@ const navLinks = [
 export function Header() {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
+  const { status } = useSession()
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
@@ -60,10 +63,16 @@ export function Header() {
           </nav>
 
           {/* Desktop CTA */}
-          <div className="hidden md:block">
-            <Button variant="primary" size="sm">
-              Télécharger l&apos;app
-            </Button>
+          <div className="hidden md:flex items-center gap-3">
+            {status === 'loading' && (
+              <div className="h-9 w-9 rounded-full bg-forest/10 animate-pulse" aria-hidden />
+            )}
+            {status === 'unauthenticated' && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/login">Connexion</Link>
+              </Button>
+            )}
+            {status === 'authenticated' && <UserMenu />}
           </div>
 
           {/* Mobile burger */}
@@ -91,6 +100,20 @@ export function Header() {
                     {link.label}
                   </Link>
                 ))}
+                {status === 'unauthenticated' && (
+                  <Link
+                    href="/login"
+                    className="font-raleway text-forest text-lg hover:text-forest-light transition-colors"
+                    onClick={() => setOpen(false)}
+                  >
+                    Connexion
+                  </Link>
+                )}
+                {status === 'authenticated' && (
+                  <div className="flex items-center gap-3">
+                    <UserMenu />
+                  </div>
+                )}
                 <Button variant="primary" size="default" className="mt-4 w-full">
                   Télécharger l&apos;app
                 </Button>

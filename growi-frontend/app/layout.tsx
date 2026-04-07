@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
 import { Poppins, Raleway } from 'next/font/google'
+import { SessionProvider } from 'next-auth/react'
 import './globals.css'
-import { Header } from '@/components/layout/Header'
-import { Footer } from '@/components/layout/Footer'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -48,9 +47,7 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${poppins.variable} ${raleway.variable}`}>
       <body className="min-h-screen flex flex-col antialiased">
-        <Header />
-        {children}
-        <Footer />
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   )
