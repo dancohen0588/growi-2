@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 const validFeatures = [
-  'plantes',
   'calendrier',
   'diagnostic',
   'meteo',
@@ -15,7 +14,6 @@ const validFeatures = [
 type Feature = (typeof validFeatures)[number]
 
 const featureLabels: Record<Feature, string> = {
-  plantes:     'Mes plantes',
   calendrier:  'Calendrier',
   diagnostic:  'Diagnostic IA',
   meteo:       'Météo locale',
