@@ -211,6 +211,15 @@ export function getPlantById(id: string): Plant | undefined {
   return mockPlants.find(p => p.id === id)
 }
 
+/**
+ * Returns all plants for a given user.
+ * In the mock, all plants belong to seed-user-1.
+ */
+export function getUserPlants(userId: string): Plant[] {
+  if (userId === 'seed-user-1') return mockPlants
+  return []
+}
+
 export const healthStatusConfig: Record<HealthStatus, { label: string; color: string; icon: string }> = {
   healthy:  { label: 'En bonne santé', color: 'bg-lime/20 text-forest',  icon: '✅' },
   warning:  { label: 'À surveiller',   color: 'bg-sun/20 text-forest',   icon: '⚠️' },
