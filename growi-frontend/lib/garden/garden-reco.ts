@@ -24,7 +24,7 @@ export function generateReco(config: GardenConfig): string {
   else if (slopeDeg > 10) reco += 'Pente modérée : des cordons de retenue entre tes rangs amélioreront le drainage. '
 
   if (microclimats.includes('gel'))   reco += "❄️ Risque gel : protège tes plantes fragiles avec un voile d'hivernage. "
-  if (microclimats.includes('vente')) reco += '💨 Vent dominant : installe des brise-vent naturels (bambous, haies). '
+  if (microclimats.includes('vent')) reco += '💨 Vent dominant : installe des brise-vent naturels (bambous, haies). '
   if (microclimats.includes('sec'))   reco += "☀️ Sol sec : privilégie le paillage épais pour conserver l'humidité. "
 
   return (reco.trim() || 'Configure ton jardin pour obtenir des recommandations personnalisées.') + ' 🌿'

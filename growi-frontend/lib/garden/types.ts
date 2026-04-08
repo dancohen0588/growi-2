@@ -18,7 +18,7 @@ export type ClimateZone =
   | 'oceanique' | 'continental' | 'mediterr' | 'montagne'
 
 export type MicroClimat =
-  | 'abrite' | 'vente' | 'humide' | 'sec' | 'gel' | 'urban'
+  | 'abrite' | 'vent' | 'humide' | 'sec' | 'gel' | 'urban'
 
 export type GardenOrientation = 'S' | 'N' | 'E' | 'O' | 'SE' | 'SO' | 'NE' | 'NO'
 
