@@ -13,13 +13,15 @@ export const DEFAULT_GARDEN_CONFIG: GardenConfig = {
   climateZone: 'oceanique',
 }
 
-export const DEFAULT_GARDEN: Garden = {
-  id: 'main',
-  name: 'Mon jardin',
-  elements: [],
-  config: DEFAULT_GARDEN_CONFIG,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
+export function createDefaultGarden(): Garden {
+  return {
+    id: 'main',
+    name: 'Mon jardin',
+    elements: [],
+    config: DEFAULT_GARDEN_CONFIG,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
 }
 
 export const SOL_INFOS: Record<SolType, string> = {
