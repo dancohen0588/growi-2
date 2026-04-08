@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { Garden, GardenElement, GardenConfig } from '@/lib/garden/types'
 import type { PaletteItem } from '@/lib/garden/palette'
 import { createDefaultGarden } from '@/lib/garden/defaults'
@@ -35,11 +35,20 @@ export function useGarden(): UseGardenReturn {
   const [zoom, setZoom] = useState(1)
   const [isSaving, setIsSaving] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Load from localStorage on mount
   useEffect(() => {
     const saved = loadGarden()
     if (saved) setGarden(saved)
+  }, [])
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      if (savingTimerRef.current) clearTimeout(savingTimerRef.current)
+    }
   }, [])
 
   // Auto-save with debounce on every garden change
@@ -62,7 +71,10 @@ export function useGarden(): UseGardenReturn {
     setSelectedId(id)
   }, [])
 
-  const selectedElement = garden.elements.find(e => e.id === selectedId) ?? null
+  const selectedElement = useMemo(
+    () => garden.elements.find(e => e.id === selectedId) ?? null,
+    [garden.elements, selectedId],
+  )
 
   const addElement = useCallback((item: PaletteItem, x: number, y: number) => {
     const newEl: GardenElement = {
@@ -112,7 +124,7 @@ export function useGarden(): UseGardenReturn {
   const saveGarden = useCallback(() => {
     setIsSaving(true)
     persistGarden(garden)
-    setTimeout(() => setIsSaving(false), 600)
+    savingTimerRef.current = setTimeout(() => setIsSaving(false), 600)
   }, [garden])
 
   const exportPNG = useCallback(async (containerId: string) => {
