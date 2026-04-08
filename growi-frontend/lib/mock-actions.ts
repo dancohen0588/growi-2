@@ -1,0 +1,321 @@
+export type ActionType =
+  | 'arrosage'
+  | 'taille'
+  | 'semis'
+  | 'rempotage'
+  | 'fertilisation'
+  | 'traitement'
+  | 'recolte'
+  | 'autre'
+
+export type ActionPriority = 'high' | 'medium' | 'low'
+
+export interface GardenAction {
+  id: string
+  type: ActionType
+  label: string
+  shortLabel: string
+  plantId?: string
+  plantName?: string
+  plantEmoji?: string
+  dueDate: string          // ISO date string "YYYY-MM-DD"
+  done: boolean
+  doneAt?: string
+  priority: ActionPriority
+  notes?: string
+  estimatedMinutes?: number
+  recurringDays?: number
+}
+
+// Lucide icon name per type — used in card/row components
+export const actionTypeIcon: Record<ActionType, string> = {
+  arrosage:     'Droplets',
+  taille:       'Scissors',
+  semis:        'Sprout',
+  rempotage:    'Package',
+  fertilisation:'FlaskConical',
+  traitement:   'Shield',
+  recolte:      'Apple',
+  altre:        'Wrench',
+}
+
+// Dot colour per type — used in CalendarView
+export const actionTypeDotColor: Record<ActionType, string> = {
+  arrosage:     'bg-blue-400',
+  taille:       'bg-forest',
+  semis:        'bg-lime',
+  rempotage:    'bg-amber-500',
+  fertilisation:'bg-purple-400',
+  traitement:   'bg-red-400',
+  recolte:      'bg-sun',
+  altre:        'bg-gray-400',
+}
+
+// Today = 2026-04-08 (reference date for mock data)
+export const mockActions: GardenAction[] = [
+  // --- TODAY ---
+  {
+    id: 'a1',
+    type: 'arrosage',
+    label: 'Arroser le Monstera',
+    shortLabel: 'Arrosage',
+    plantId: '1',
+    plantName: 'Monstera',
+    plantEmoji: '🌿',
+    dueDate: '2026-04-08',
+    done: false,
+    priority: 'high',
+    notes: 'Vérifie que les 3 premiers cm de terre sont secs avant d\'arroser.',
+    estimatedMinutes: 5,
+    recurringDays: 7,
+  },
+  {
+    id: 'a2',
+    type: 'fertilisation',
+    label: 'Fertiliser les tomates cerises',
+    shortLabel: 'Fertilisation',
+    plantId: '2',
+    plantName: 'Tomates cerises',
+    plantEmoji: '🍅',
+    dueDate: '2026-04-08',
+    done: false,
+    priority: 'medium',
+    notes: 'Dilue l\'engrais tomates à 1/2 dose dans l\'eau d\'arrosage.',
+    estimatedMinutes: 10,
+  },
+  {
+    id: 'a3',
+    type: 'traitement',
+    label: 'Traiter le Ficus lyrata contre les araignées',
+    shortLabel: 'Traitement',
+    plantId: '5',
+    plantName: 'Ficus lyrata',
+    plantEmoji: '🌳',
+    dueDate: '2026-04-08',
+    done: false,
+    priority: 'high',
+    notes: 'Pulvérise de l\'huile de neem diluée sur toutes les faces des feuilles.',
+    estimatedMinutes: 15,
+  },
+  // --- TOMORROW ---
+  {
+    id: 'a4',
+    type: 'arrosage',
+    label: 'Arroser le basilic',
+    shortLabel: 'Arrosage',
+    plantId: '4',
+    plantName: 'Basilic',
+    plantEmoji: '🌱',
+    dueDate: '2026-04-09',
+    done: false,
+    priority: 'medium',
+    estimatedMinutes: 5,
+    recurringDays: 2,
+  },
+  {
+    id: 'a5',
+    type: 'taille',
+    label: 'Tailler le rosier grimpant',
+    shortLabel: 'Taille',
+    plantId: '6',
+    plantName: 'Rosier grimpant',
+    plantEmoji: '🌹',
+    dueDate: '2026-04-09',
+    done: false,
+    priority: 'low',
+    notes: 'Retire les tiges mortes et les croisées. Garde une forme aérée.',
+    estimatedMinutes: 30,
+  },
+  // --- THIS WEEK (2–7 days) ---
+  {
+    id: 'a6',
+    type: 'arrosage',
+    label: 'Arroser la lavande',
+    shortLabel: 'Arrosage',
+    plantId: '3',
+    plantName: 'Lavande',
+    plantEmoji: '💜',
+    dueDate: '2026-04-11',
+    done: false,
+    priority: 'low',
+    estimatedMinutes: 5,
+    recurringDays: 14,
+  },
+  {
+    id: 'a7',
+    type: 'rempotage',
+    label: 'Rempoter le Monstera',
+    shortLabel: 'Rempotage',
+    plantId: '1',
+    plantName: 'Monstera',
+    plantEmoji: '🌿',
+    dueDate: '2026-04-12',
+    done: false,
+    priority: 'medium',
+    notes: 'Passe dans un pot 4 cm plus grand avec terreau universel + perlite.',
+    estimatedMinutes: 30,
+  },
+  {
+    id: 'a8',
+    type: 'arrosage',
+    label: 'Arroser le rosier grimpant',
+    shortLabel: 'Arrosage',
+    plantId: '6',
+    plantName: 'Rosier grimpant',
+    plantEmoji: '🌹',
+    dueDate: '2026-04-13',
+    done: false,
+    priority: 'medium',
+    estimatedMinutes: 10,
+    recurringDays: 5,
+  },
+  {
+    id: 'a9',
+    type: 'semis',
+    label: 'Semer les courgettes en godets',
+    shortLabel: 'Semis',
+    plantName: 'Courgettes',
+    plantEmoji: '🥒',
+    dueDate: '2026-04-14',
+    done: false,
+    priority: 'high',
+    notes: 'Sème 2 graines par godet à 1 cm de profondeur. Arrose légèrement.',
+    estimatedMinutes: 20,
+  },
+  // --- THIS MONTH (8–30 days) ---
+  {
+    id: 'a10',
+    type: 'arrosage',
+    label: 'Arroser le Monstera',
+    shortLabel: 'Arrosage',
+    plantId: '1',
+    plantName: 'Monstera',
+    plantEmoji: '🌿',
+    dueDate: '2026-04-18',
+    done: false,
+    priority: 'medium',
+    estimatedMinutes: 5,
+    recurringDays: 7,
+  },
+  {
+    id: 'a11',
+    type: 'fertilisation',
+    label: 'Fertiliser la lavande',
+    shortLabel: 'Fertilisation',
+    plantId: '3',
+    plantName: 'Lavande',
+    plantEmoji: '💜',
+    dueDate: '2026-04-20',
+    done: false,
+    priority: 'low',
+    estimatedMinutes: 5,
+  },
+  {
+    id: 'a12',
+    type: 'taille',
+    label: 'Tailler les haies',
+    shortLabel: 'Taille',
+    plantEmoji: '🌿',
+    dueDate: '2026-04-22',
+    done: false,
+    priority: 'medium',
+    notes: 'Première taille de printemps — vise une forme régulière.',
+    estimatedMinutes: 60,
+  },
+  {
+    id: 'a13',
+    type: 'traitement',
+    label: 'Traitement préventif mildiou tomates',
+    shortLabel: 'Traitement',
+    plantId: '2',
+    plantName: 'Tomates cerises',
+    plantEmoji: '🍅',
+    dueDate: '2026-04-25',
+    done: false,
+    priority: 'high',
+    notes: 'Bouillie bordelaise diluée à 1%. Par temps sec et sans vent.',
+    estimatedMinutes: 20,
+  },
+  {
+    id: 'a14',
+    type: 'arrosage',
+    label: 'Arroser les tomates cerises',
+    shortLabel: 'Arrosage',
+    plantId: '2',
+    plantName: 'Tomates cerises',
+    plantEmoji: '🍅',
+    dueDate: '2026-04-28',
+    done: false,
+    priority: 'medium',
+    estimatedMinutes: 10,
+    recurringDays: 2,
+  },
+  // --- LATER (> 30 days) ---
+  {
+    id: 'a15',
+    type: 'semis',
+    label: 'Semis tomates en pleine terre',
+    shortLabel: 'Semis',
+    plantId: '2',
+    plantName: 'Tomates',
+    plantEmoji: '🍅',
+    dueDate: '2026-05-10',
+    done: false,
+    priority: 'high',
+    notes: 'Attends que les gelées soient passées (min. 10°C la nuit).',
+    estimatedMinutes: 30,
+  },
+  {
+    id: 'a16',
+    type: 'taille',
+    label: 'Taille des haies d\'été',
+    shortLabel: 'Taille',
+    plantEmoji: '✂️',
+    dueDate: '2026-05-20',
+    done: false,
+    priority: 'low',
+    estimatedMinutes: 90,
+  },
+  {
+    id: 'a17',
+    type: 'recolte',
+    label: 'Récolte des premières tomates cerises',
+    shortLabel: 'Récolte',
+    plantId: '2',
+    plantName: 'Tomates cerises',
+    plantEmoji: '🍅',
+    dueDate: '2026-06-15',
+    done: false,
+    priority: 'medium',
+    estimatedMinutes: 20,
+  },
+  // --- ALREADY DONE (for history) ---
+  {
+    id: 'a18',
+    type: 'arrosage',
+    label: 'Arroser le Ficus lyrata',
+    shortLabel: 'Arrosage',
+    plantId: '5',
+    plantName: 'Ficus lyrata',
+    plantEmoji: '🌳',
+    dueDate: '2026-04-06',
+    done: true,
+    doneAt: '2026-04-06T09:30:00',
+    priority: 'medium',
+    estimatedMinutes: 5,
+  },
+  {
+    id: 'a19',
+    type: 'fertilisation',
+    label: 'Fertiliser le Monstera',
+    shortLabel: 'Fertilisation',
+    plantId: '1',
+    plantName: 'Monstera',
+    plantEmoji: '🌿',
+    dueDate: '2026-04-05',
+    done: true,
+    doneAt: '2026-04-05T11:00:00',
+    priority: 'low',
+    estimatedMinutes: 10,
+  },
+]
