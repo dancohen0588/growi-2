@@ -1,3 +1,4 @@
+'use client'
 // growi-frontend/components/dashboard/calendrier/timeline/TodaySection.tsx
 import { motion } from 'framer-motion'
 import { GardenAction } from '@/lib/mock-actions'
