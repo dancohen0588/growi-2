@@ -36,7 +36,7 @@ export const actionTypeIcon: Record<ActionType, string> = {
   fertilisation:'FlaskConical',
   traitement:   'Shield',
   recolte:      'Apple',
-  altre:        'Wrench',
+  autre:        'Wrench',
 }
 
 // Dot colour per type — used in CalendarView
@@ -48,7 +48,7 @@ export const actionTypeDotColor: Record<ActionType, string> = {
   fertilisation:'bg-purple-400',
   traitement:   'bg-red-400',
   recolte:      'bg-sun',
-  altre:        'bg-gray-400',
+  autre:        'bg-gray-400',
 }
 
 // Today = 2026-04-08 (reference date for mock data)
