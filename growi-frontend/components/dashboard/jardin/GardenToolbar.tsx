@@ -33,8 +33,12 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, i
   }
 
   function handleSave() {
-    onSave()
-    toast('✅ Ton jardin a été sauvegardé 🌱')
+    try {
+      onSave()
+      toast('✅ Ton jardin a été sauvegardé 🌱')
+    } catch {
+      toast('❌ Erreur lors de la sauvegarde')
+    }
   }
 
   return (
@@ -89,6 +93,7 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, i
           <button
             onClick={handleSave}
             disabled={isSaving}
+            aria-busy={isSaving}
             className={cn(
               'flex items-center gap-1.5 px-4 py-1.5 rounded-lg font-poppins font-semibold text-xs text-forest bg-lime hover:bg-lime-hover transition-colors',
               isSaving && 'opacity-70 cursor-not-allowed',
