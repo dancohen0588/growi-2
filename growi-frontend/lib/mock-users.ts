@@ -3,21 +3,12 @@
 // Each user stored as { id, firstName, email, passwordHash }.
 // Passwords hashed with Web Crypto API (SHA-256) — NOT bcrypt, no Node runtime needed.
 
-export interface UserAddress {
-  street?: string
-  city: string
-  postalCode?: string
-  country: string
-  latitude?: number
-  longitude?: number
-}
-
 export interface MockUser {
   id: string
   firstName: string
   email: string
   passwordHash: string
-  address?: UserAddress
+  address?: string // Plain string address, e.g. "1 Rue de Rivoli, Paris 75001, France"
 }
 
 // In-memory store — resets on server restart (MVP only)
@@ -27,14 +18,7 @@ const users: MockUser[] = [
     firstName: 'Dan',
     email: 'dan0588@gmail.com',
     passwordHash: 'c723ad78fe681b3eaa3a790262f22711c1a0446b5e631348bb4c81faa571d7ef',
-    address: {
-      street: '1 Rue de Rivoli',
-      city: 'Paris',
-      postalCode: '75001',
-      country: 'France',
-      latitude: 48.8566,
-      longitude: 2.3522,
-    },
+    address: '1 Rue de Rivoli, Paris 75001, France',
   },
 ]
 

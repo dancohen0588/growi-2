@@ -14,35 +14,65 @@ import { WeatherGardenContextCard } from './WeatherGardenContextCard'
 import { WeatherGardenTips } from './WeatherGardenTips'
 import { WeatherSkeleton } from './WeatherSkeleton'
 
-import { fetchWeatherByCoordinates } from '@/lib/weather-api'
+import { fetchWeatherByCoordinates, geocodeAddress } from '@/lib/weather-api'
 import { buildGardenContext } from '@/lib/garden-context'
 import { getUserPlants } from '@/lib/mock-plants'
 import { mockWeatherData } from '@/lib/mock-weather'
 
 import type { LocationMode, WeatherData, GardenContext, GeocodingResult } from '@/types/weather'
-import type { UserAddress } from '@/lib/mock-users'
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_WEATHER === 'true'
 
 interface WeatherPageClientProps {
-  userAddress: UserAddress | null
+  userAddress: string | null
   userId: string
 }
 
 type GeoStatus = 'idle' | 'requesting' | 'granted' | 'denied'
+type Coords = { lat: number; lon: number }
 
-export function WeatherPageClient({ userAddress, userId }: WeatherPageClientProps) {
+export function WeatherPageClient({ userAddress: initialAddress, userId }: WeatherPageClientProps) {
   const [mode, setMode] = useState<LocationMode>('account')
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null)
   const [gardenContext, setGardenContext] = useState<GardenContext | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle')
+  const [accountAddress, setAccountAddress] = useState<string | null>(initialAddress)
+  const [accountCoords, setAccountCoords] = useState<Coords | null>(null)
 
   const plants = useMemo(() => getUserPlants(userId), [userId])
 
-  // ── Fetch weather and compute garden context ──────────────────────────────
+  // ── Geocode account address whenever it changes ───────────────────────────
+  useEffect(() => {
+    if (!accountAddress) {
+      setAccountCoords(null)
+      return
+    }
+    geocodeAddress(accountAddress)
+      .then((results) => {
+        if (results.length > 0) {
+          setAccountCoords({ lat: results[0].latitude, lon: results[0].longitude })
+        } else {
+          setAccountCoords(null)
+        }
+      })
+      .catch(() => setAccountCoords(null))
+  }, [accountAddress])
 
+  // ── Listen for profile updates (address changed in /parametres) ───────────
+  useEffect(() => {
+    function handleProfileUpdate(e: Event) {
+      const detail = (e as CustomEvent<{ address?: string }>).detail
+      if (detail?.address !== undefined) {
+        setAccountAddress(detail.address || null)
+      }
+    }
+    window.addEventListener('growi:profile-updated', handleProfileUpdate)
+    return () => window.removeEventListener('growi:profile-updated', handleProfileUpdate)
+  }, [])
+
+  // ── Fetch weather and compute garden context ──────────────────────────────
   const loadWeather = useCallback(
     async (lat: number, lon: number, elevation?: number) => {
       setIsLoading(true)
@@ -52,16 +82,13 @@ export function WeatherPageClient({ userAddress, userId }: WeatherPageClientProp
 
       try {
         let data: WeatherData
-
         if (USE_MOCK) {
-          await new Promise((r) => setTimeout(r, 600)) // simulate network
+          await new Promise((r) => setTimeout(r, 600))
           data = { ...mockWeatherData, fetchedAt: new Date().toISOString() }
         } else {
           data = await fetchWeatherByCoordinates(lat, lon)
         }
-
         setWeatherData(data)
-
         const ctx = buildGardenContext(lat, lon, elevation ?? data.elevation, data, plants)
         setGardenContext(ctx)
       } catch (err) {
@@ -77,44 +104,37 @@ export function WeatherPageClient({ userAddress, userId }: WeatherPageClientProp
     [plants],
   )
 
-  // ── Mode: account — auto-load on mount ───────────────────────────────────
-
+  // ── Mode: account — load when coords are resolved ────────────────────────
   useEffect(() => {
-    if (mode === 'account' && userAddress?.latitude && userAddress?.longitude) {
-      void loadWeather(userAddress.latitude, userAddress.longitude)
+    if (mode === 'account' && accountCoords) {
+      void loadWeather(accountCoords.lat, accountCoords.lon)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, accountCoords])
 
   // ── Mode: search — load on address selection ──────────────────────────────
-
   function handleAddressSelect(result: GeocodingResult) {
     void loadWeather(result.latitude, result.longitude)
   }
 
   // ── Mode: geolocation ─────────────────────────────────────────────────────
-
   function requestGeolocation() {
     if (!navigator.geolocation) {
       setGeoStatus('denied')
       return
     }
     setGeoStatus('requesting')
-
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setGeoStatus('granted')
         void loadWeather(pos.coords.latitude, pos.coords.longitude)
       },
-      () => {
-        setGeoStatus('denied')
-      },
+      () => { setGeoStatus('denied') },
       { timeout: 10000, maximumAge: 60000 },
     )
   }
 
   // ── Mode switch ───────────────────────────────────────────────────────────
-
   function handleModeChange(next: LocationMode) {
     setMode(next)
     setWeatherData(null)
@@ -123,11 +143,8 @@ export function WeatherPageClient({ userAddress, userId }: WeatherPageClientProp
     if (next !== 'geolocation') setGeoStatus('idle')
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
     <div className="max-w-2xl mx-auto space-y-5">
-      {/* Page header */}
       <div>
         <h1 className="font-poppins font-bold text-2xl text-forest">Météo jardin</h1>
         <p className="font-raleway text-sm text-forest/60 mt-0.5">
@@ -135,15 +152,13 @@ export function WeatherPageClient({ userAddress, userId }: WeatherPageClientProp
         </p>
       </div>
 
-      {/* Mode switcher */}
       <LocationModeSwitcher
         mode={mode}
         onChange={handleModeChange}
-        hasAccountAddress={!!(userAddress?.latitude && userAddress?.longitude)}
+        hasAccountAddress={!!accountAddress}
       />
 
-      {/* Mode-specific input */}
-      {mode === 'account' && !userAddress?.latitude && (
+      {mode === 'account' && !accountAddress && (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-forest/10 bg-white p-8 text-center">
           <MapPin size={32} aria-hidden className="text-forest/30" />
           <p className="font-poppins font-semibold text-forest">Aucune adresse configurée</p>
@@ -159,18 +174,14 @@ export function WeatherPageClient({ userAddress, userId }: WeatherPageClientProp
         </div>
       )}
 
-      {mode === 'search' && (
-        <AddressSearchBar onSelect={handleAddressSelect} />
-      )}
+      {mode === 'search' && <AddressSearchBar onSelect={handleAddressSelect} />}
 
       {mode === 'geolocation' && geoStatus !== 'granted' && (
         <GeolocationButton status={geoStatus} onRequest={requestGeolocation} />
       )}
 
-      {/* Loading skeleton */}
       {isLoading && <WeatherSkeleton />}
 
-      {/* Error state */}
       {!isLoading && error && (
         <div
           role="alert"
@@ -180,8 +191,8 @@ export function WeatherPageClient({ userAddress, userId }: WeatherPageClientProp
           <p className="font-poppins font-semibold text-forest">{error}</p>
           <button
             onClick={() => {
-              if (mode === 'account' && userAddress?.latitude && userAddress?.longitude) {
-                void loadWeather(userAddress.latitude, userAddress.longitude)
+              if (mode === 'account' && accountCoords) {
+                void loadWeather(accountCoords.lat, accountCoords.lon)
               } else if (mode === 'geolocation') {
                 requestGeolocation()
               }
@@ -194,7 +205,6 @@ export function WeatherPageClient({ userAddress, userId }: WeatherPageClientProp
         </div>
       )}
 
-      {/* Weather results */}
       {!isLoading && weatherData && (
         <>
           <WeatherCurrentCard data={weatherData} />
