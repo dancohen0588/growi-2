@@ -9,6 +9,7 @@ import {
   ShoppingBag,
   UserCircle,
   TrendingUp,
+  Map,
 } from 'lucide-react'
 import { FeatureCard } from '@/components/dashboard/FeatureCard'
 
@@ -17,6 +18,12 @@ export const metadata: Metadata = {
 }
 
 const featureCards = [
+  {
+    href: '/dashboard/jardin',
+    title: 'Mon Jardin',
+    description: 'Crée la carte de ton jardin et planifie tes zones.',
+    icon: Map,
+  },
   {
     href: '/dashboard/plantes',
     title: 'Mes plantes',

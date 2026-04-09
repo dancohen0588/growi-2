@@ -11,11 +11,13 @@ import {
   CloudSun,
   ShoppingBag,
   UserCircle,
+  Map,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
   { href: '/dashboard',            label: 'Accueil',       icon: LayoutDashboard },
+  { href: '/dashboard/jardin',     label: 'Mon Jardin',    icon: Map },
   { href: '/dashboard/plantes',    label: 'Mes plantes',   icon: Leaf },
   { href: '/dashboard/calendrier', label: 'Calendrier',    icon: CalendarDays },
   { href: '/dashboard/diagnostic', label: 'Diagnostic IA', icon: Stethoscope },
