@@ -71,3 +71,62 @@ export async function verifyUser(
   const hash = await hashPassword(password)
   return hash === user.passwordHash ? user : null
 }
+
+// ─── UserProfile — stored in localStorage key 'growi_user_profile' ───────────
+
+export type NotificationChannel = 'push' | 'email' | 'both' | 'none'
+export type AlertFrequency = 'immediate' | 'daily_digest' | 'weekly_digest'
+
+export interface AlertConfig {
+  // Alertes météo jardinage
+  frostAlert: boolean
+  frostThreshold: number           // seuil °C, défaut 2
+  heatAlert: boolean
+  rainAlert: boolean
+  windAlert: boolean
+  // Alertes plantes & entretien
+  wateringReminder: boolean
+  wateringFrequencyDays: number    // défaut 2
+  repottingReminder: boolean
+  pruningReminder: boolean
+  // Alertes calendrier
+  seedingAlerts: boolean
+  harvestAlerts: boolean
+  // Canaux & fréquence
+  channel: NotificationChannel
+  frequency: AlertFrequency
+  quietHoursEnabled: boolean
+  quietHoursStart: string          // "HH:MM"
+  quietHoursEnd: string            // "HH:MM"
+}
+
+export interface UserProfile {
+  firstName: string
+  lastName: string
+  email: string
+  address?: string                 // plain string, same as MockUser.address
+  city?: string                    // display city
+  avatarColor?: string             // hex, e.g. '#B4DD7F'
+  gardenType?: 'potager' | 'ornement' | 'mixte' | 'interieur' | 'balcon'
+  timezone?: string
+  alertConfig: AlertConfig
+}
+
+export const defaultAlertConfig: AlertConfig = {
+  frostAlert: true,
+  frostThreshold: 2,
+  heatAlert: true,
+  rainAlert: false,
+  windAlert: false,
+  wateringReminder: true,
+  wateringFrequencyDays: 2,
+  repottingReminder: true,
+  pruningReminder: false,
+  seedingAlerts: true,
+  harvestAlerts: true,
+  channel: 'push',
+  frequency: 'immediate',
+  quietHoursEnabled: false,
+  quietHoursStart: '22:00',
+  quietHoursEnd: '07:00',
+}
