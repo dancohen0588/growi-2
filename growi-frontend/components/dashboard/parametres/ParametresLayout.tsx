@@ -44,7 +44,7 @@ export function ParametresLayout({ initialSession }: ParametresLayoutProps) {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
+      <Tabs value={activeTab} defaultValue="profil" onValueChange={handleTabChange}>
         <TabsList className="border-b border-forest/10 bg-transparent w-full justify-start rounded-none p-0 h-auto gap-1">
           <TabsTrigger
             value="profil"
