@@ -12,18 +12,20 @@ import {
   ShoppingBag,
   UserCircle,
   Map,
+  Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { href: '/dashboard',            label: 'Accueil',       icon: LayoutDashboard },
-  { href: '/dashboard/jardin',     label: 'Mon Jardin',    icon: Map },
-  { href: '/dashboard/plantes',    label: 'Mes plantes',   icon: Leaf },
-  { href: '/dashboard/calendrier', label: 'Calendrier',    icon: CalendarDays },
-  { href: '/dashboard/diagnostic', label: 'Diagnostic IA', icon: Stethoscope },
-  { href: '/dashboard/meteo',      label: 'Météo',         icon: CloudSun },
-  { href: '/dashboard/marketplace',label: 'Marketplace',   icon: ShoppingBag },
-  { href: '/dashboard/compte',     label: 'Mon compte',    icon: UserCircle },
+  { href: '/dashboard',              label: 'Accueil',       icon: LayoutDashboard },
+  { href: '/dashboard/jardin',       label: 'Mon Jardin',    icon: Map },
+  { href: '/dashboard/plantes',      label: 'Mes plantes',   icon: Leaf },
+  { href: '/dashboard/calendrier',   label: 'Calendrier',    icon: CalendarDays },
+  { href: '/dashboard/diagnostic',   label: 'Diagnostic IA', icon: Stethoscope },
+  { href: '/dashboard/meteo',        label: 'Météo',         icon: CloudSun },
+  { href: '/dashboard/marketplace',  label: 'Marketplace',   icon: ShoppingBag },
+  { href: '/dashboard/compte',       label: 'Mon compte',    icon: UserCircle },
+  { href: '/dashboard/parametres',   label: 'Paramètres',    icon: Settings },
 ] as const
 
 export function DashboardNav() {
