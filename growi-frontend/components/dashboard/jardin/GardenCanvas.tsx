@@ -5,6 +5,7 @@ import { Stage, Layer, Group, Rect, Ellipse, Text, Transformer, Line } from 'rea
 import type Konva from 'konva'
 import { DndContext, useDroppable, useDndMonitor } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
+import { Layers } from 'lucide-react'
 
 import { useGarden } from '@/hooks/useGarden'
 import type { GardenElement } from '@/lib/garden/types'
@@ -18,6 +19,7 @@ import { GardenCompass } from './GardenCompass'
 import { GardenEmptyState } from './GardenEmptyState'
 import { GardenStatsBar } from './GardenStatsBar'
 import { GardenZoomControls } from './GardenZoomControls'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 // ─── Single Konva element ─────────────────────────────────────────────────────
 
@@ -175,6 +177,7 @@ export function GardenCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
 
   useEffect(() => {
     const container = containerRef.current
@@ -268,6 +271,27 @@ export function GardenCanvas() {
             />
             <GardenStatsBar elements={garden.garden.elements} />
             <GardenZoomControls zoom={garden.zoom} onZoom={garden.setZoom} />
+
+            {/* Mobile FAB — only visible on small screens */}
+            <button
+              onClick={() => setMobileSheetOpen(true)}
+              className="md:hidden absolute bottom-16 right-3 z-30 w-12 h-12 rounded-full bg-lime shadow-lg flex items-center justify-center hover:bg-lime-hover transition-colors"
+              aria-label="Ouvrir la palette d'éléments"
+              title="Palette d'éléments"
+            >
+              <Layers size={20} className="text-forest" aria-hidden />
+            </button>
+
+            <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
+              <SheetContent side="bottom" className="h-[70vh] flex flex-col p-0">
+                <SheetHeader className="px-4 py-3 border-b border-forest/10">
+                  <SheetTitle className="font-poppins text-sm text-forest">Palette d&apos;éléments</SheetTitle>
+                </SheetHeader>
+                <div className="flex-1 overflow-y-auto">
+                  <GardenPalette embedded />
+                </div>
+              </SheetContent>
+            </Sheet>
           </CanvasDropZone>
 
           <GardenRightPanel
