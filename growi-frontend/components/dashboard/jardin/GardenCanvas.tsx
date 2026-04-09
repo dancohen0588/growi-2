@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { Stage, Layer, Group, Rect, Ellipse, Text, Transformer, Line } from 'react-konva'
 import type Konva from 'konva'
 import { DndContext, useDroppable, useDndMonitor } from '@dnd-kit/core'
@@ -26,7 +26,7 @@ interface KonvaElementProps {
   isSelected: boolean
   onSelect: () => void
   onMove: (x: number, y: number) => void
-  onResize: (w: number, h: number, x: number, y: number) => void
+  onResize: (w: number, h: number, x: number, y: number, rotation: number) => void
 }
 
 function KonvaElement({ element, isSelected, onSelect, onMove, onResize }: KonvaElementProps) {
@@ -59,13 +59,14 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize }: Konva
     if (!node) return
     const scaleX = node.scaleX()
     const scaleY = node.scaleY()
+    const rotation = node.rotation()
     const newW = Math.max(40, Math.round((node.width() * scaleX) / 20) * 20)
     const newH = Math.max(40, Math.round((node.height() * scaleY) / 20) * 20)
     const newX = snapToGrid(node.x())
     const newY = snapToGrid(node.y())
     node.scaleX(1)
     node.scaleY(1)
-    onResize(newW, newH, newX, newY)
+    onResize(newW, newH, newX, newY, rotation)
   }
 
   const sunBadge = element.sun === 'full' ? '☀️' : element.sun === 'half' ? '⛅' : '🌿'
@@ -83,6 +84,7 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize }: Konva
         y={element.y}
         width={element.width}
         height={element.height}
+        rotation={element.rotation}
         draggable
         onClick={onSelect}
         onTap={onSelect}
@@ -171,21 +173,37 @@ function CanvasDropZone({ children, onDrop }: { children: React.ReactNode; onDro
 export function GardenCanvas() {
   const garden = useGarden()
   const containerRef = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<Konva.Stage>(null)
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
 
   useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
     function measure() {
-      if (containerRef.current) {
-        setStageSize({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        })
-      }
+      setStageSize({
+        width: container!.clientWidth,
+        height: container!.clientHeight,
+      })
     }
+
     measure()
-    window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
+
+    const observer = new ResizeObserver(measure)
+    observer.observe(container)
+
+    return () => observer.disconnect()
   }, [])
+
+  const handleExport = useCallback(() => {
+    const stage = stageRef.current
+    if (!stage) return
+    const dataUrl = stage.toDataURL({ pixelRatio: 2 })
+    const link = document.createElement('a')
+    link.download = `${garden.garden.name.replace(/\s+/g, '-').toLowerCase()}.png`
+    link.href = dataUrl
+    link.click()
+  }, [garden.garden.name])
 
   return (
     <DndContext>
@@ -194,7 +212,7 @@ export function GardenCanvas() {
           name={garden.garden.name}
           onNameChange={garden.updateName}
           onSave={garden.saveGarden}
-          onExport={() => garden.exportPNG(CANVAS_ID)}
+          onExport={handleExport}
           onClear={garden.clearCanvas}
           isSaving={garden.isSaving}
         />
@@ -218,6 +236,7 @@ export function GardenCanvas() {
               {garden.garden.elements.length === 0 && <GardenEmptyState />}
 
               <Stage
+                ref={stageRef}
                 width={stageSize.width}
                 height={stageSize.height}
                 scaleX={garden.zoom}
@@ -236,7 +255,7 @@ export function GardenCanvas() {
                       isSelected={garden.selectedId === el.id}
                       onSelect={() => garden.selectElement(el.id)}
                       onMove={(x, y) => garden.updateElement(el.id, { x, y })}
-                      onResize={(w, h, x, y) => garden.updateElement(el.id, { width: w, height: h, x, y })}
+                      onResize={(w, h, x, y, rotation) => garden.updateElement(el.id, { width: w, height: h, x, y, rotation })}
                     />
                   ))}
                 </Layer>
