@@ -14,9 +14,13 @@ export function AddPlantClient() {
   const router = useRouter()
 
   async function handleSubmit(data: PlantFormValues) {
-    const newPlant = addPlant(data)
+    const newPlant = await addPlant(data)
     toast(`🌿 ${data.name} a bien été ajoutée !`)
-    router.push(`/dashboard/plantes/${newPlant.id}`)
+    if (newPlant) {
+      router.push(`/dashboard/plantes/${newPlant.id}`)
+    } else {
+      router.push('/dashboard/plantes')
+    }
   }
 
   return (

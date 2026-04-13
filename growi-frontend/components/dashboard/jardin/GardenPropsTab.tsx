@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { GardenElement, ElementSun } from '@/lib/garden/types'
-import { mockPlants } from '@/lib/mock-plants'
+import type { Plant } from '@/lib/plant-types'
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
@@ -26,9 +26,10 @@ interface GardenPropsTabProps {
   element: GardenElement
   onChange: (patch: Partial<GardenElement>) => void
   onDelete: () => void
+  plants?: Plant[]
 }
 
-export function GardenPropsTab({ element, onChange, onDelete }: GardenPropsTabProps) {
+export function GardenPropsTab({ element, onChange, onDelete, plants = [] }: GardenPropsTabProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const sunOptions: Array<{ value: ElementSun; emoji: string; label: string }> = [
@@ -171,7 +172,7 @@ export function GardenPropsTab({ element, onChange, onDelete }: GardenPropsTabPr
           className="border border-border rounded-lg px-2.5 py-1.5 font-raleway text-xs text-forest focus:outline-none focus:ring-1 focus:ring-lime bg-white"
         >
           <option value="">— Aucune —</option>
-          {mockPlants.map(p => (
+          {plants.map(p => (
             <option key={p.id} value={p.id}>{p.emoji} {p.name}</option>
           ))}
         </select>
