@@ -1,17 +1,12 @@
+// app/dashboard/plantes/layout.tsx
+import type { ReactNode } from 'react'
 import { PlantsProvider } from '@/lib/plants-context'
-import { getUserPlants } from '@/lib/actions/plant.actions'
 import { ToastProvider } from '@/components/ui/toast'
 
-export default async function PlantesLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const plants = await getUserPlants()
-
+export default function PlantesLayout({ children }: { children: ReactNode }) {
   return (
     <ToastProvider>
-      <PlantsProvider initialPlants={plants}>
+      <PlantsProvider>
         {children}
       </PlantsProvider>
     </ToastProvider>

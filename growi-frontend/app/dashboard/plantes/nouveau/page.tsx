@@ -15,13 +15,9 @@ export default function NouvelleePlantePage() {
   const router = useRouter()
 
   async function handleSubmit(data: PlantFormValues) {
-    const newPlant = await addPlant(data)
+    const newPlant = addPlant(data)
     toast(`🌿 ${data.name} a bien été ajoutée à ton jardin !`)
-    if (newPlant) {
-      router.push(`/dashboard/plantes/${newPlant.id}`)
-    } else {
-      router.push('/dashboard/plantes')
-    }
+    router.push(`/dashboard/plantes/${newPlant.id}`)
   }
 
   return (
