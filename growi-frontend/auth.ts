@@ -1,12 +1,15 @@
-// growi-frontend/auth.ts
 import NextAuth from 'next-auth'
+import { PrismaAdapter } from '@auth/prisma-adapter'
 import Credentials from 'next-auth/providers/credentials'
+import { prisma } from '@/lib/prisma'
 import { loginSchema } from '@/lib/auth-schemas'
-import { verifyUser } from '@/lib/mock-users'
+import bcrypt from 'bcryptjs'
 
 // TODO: Add Google / GitHub OAuth providers here when ready.
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  adapter: PrismaAdapter(prisma),
+  session: { strategy: 'jwt' },
   providers: [
     Credentials({
       credentials: {
@@ -17,45 +20,60 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const parsed = loginSchema.safeParse(credentials)
         if (!parsed.success) return null
 
-        const user = await verifyUser(parsed.data.email, parsed.data.password)
-        if (!user) return null
+        const user = await prisma.user.findUnique({
+          where: { email: parsed.data.email },
+        })
+        if (!user?.password) return null
 
-        return { id: user.id, name: user.firstName, email: user.email }
+        const valid = await bcrypt.compare(parsed.data.password, user.password)
+        if (!valid) return null
+
+        return {
+          id:        user.id,
+          email:     user.email,
+          name:      user.firstName ?? user.name ?? undefined,
+          firstName: user.firstName ?? undefined,
+          plan:      user.plan,
+        }
       },
     }),
   ],
-  session: { strategy: 'jwt' },
-  pages: {
-    signIn: '/login',
-  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.firstName = user.name
-        token.id = user.id
+        token.id        = user.id
+        token.firstName = (user as any).firstName
+        token.plan      = (user as any).plan
       }
       return token
     },
     async session({ session, token }) {
+      session.user.id        = token.id as string
       session.user.firstName = token.firstName as string
-      session.user.id = token.id as string
+      session.user.plan      = token.plan as string
       return session
     },
   },
+  pages: {
+    signIn: '/login',
+    error:  '/login',
+  },
 })
 
-// Augment session types for TypeScript strict mode
+// Session type augmentation
 declare module 'next-auth' {
   interface Session {
     user: {
-      id: string
+      id:        string
       firstName: string
-      email: string
-      name?: string | null
-      image?: string | null
+      plan:      string
+      email:     string
+      name?:     string | null
+      image?:    string | null
     }
   }
   interface User {
     firstName?: string
+    plan?:      string
   }
 }

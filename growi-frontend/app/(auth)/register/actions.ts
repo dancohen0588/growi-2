@@ -1,8 +1,10 @@
 'use server'
-// growi-frontend/app/(auth)/register/actions.ts
+
 import { registerSchema } from '@/lib/auth-schemas'
-import { createUser } from '@/lib/mock-users'
 import { signIn } from '@/auth'
+import { prisma } from '@/lib/prisma'
+import bcrypt from 'bcryptjs'
+import { Prisma } from '@prisma/client'
 import type { RegisterInput } from '@/lib/auth-schemas'
 
 // TODO: Add "mot de passe oublié" flow when email provider is set up.
@@ -15,10 +17,23 @@ export async function registerAction(
     return { error: parsed.error.issues[0].message }
   }
 
+  const hashedPassword = await bcrypt.hash(parsed.data.password, 12)
+
   try {
-    await createUser(parsed.data.firstName, parsed.data.email, parsed.data.password)
+    await prisma.user.create({
+      data: {
+        email: parsed.data.email,
+        firstName: parsed.data.firstName,
+        name: parsed.data.firstName,
+        password: hashedPassword,
+        plan: 'FREE',
+      },
+    })
   } catch (err) {
-    if ((err as Error).message === 'EMAIL_TAKEN') {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2002'
+    ) {
       return { error: 'Un compte existe déjà avec cet email.' }
     }
     return { error: 'Erreur lors de la création du compte.' }
