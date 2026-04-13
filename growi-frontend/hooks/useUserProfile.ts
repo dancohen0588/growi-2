@@ -2,8 +2,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { UserProfile, AlertConfig } from '@/lib/mock-users'
-import { defaultAlertConfig } from '@/lib/mock-users'
+import type { UserProfile, AlertConfig } from '@/lib/user-types'
+import { defaultAlertConfig } from '@/lib/user-types'
 
 const STORAGE_KEY = 'growi_user_profile'
 
