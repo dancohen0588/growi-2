@@ -1,4 +1,4 @@
-import { type Plant } from '@/lib/mock-plants'
+import { type Plant } from '@/lib/plant-types'
 import {
   Accordion,
   AccordionContent,

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
-import { type Plant, locationConfig } from '@/lib/mock-plants'
+import { type Plant, locationConfig } from '@/lib/plant-types'
 import { PlantHealthBadge } from './PlantHealthBadge'
 import { PlantWateringBar } from './PlantWateringBar'
 

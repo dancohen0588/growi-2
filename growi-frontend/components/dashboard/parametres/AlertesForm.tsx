@@ -37,7 +37,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/toast'
 
-import type { UserProfile, AlertConfig, NotificationChannel, AlertFrequency } from '@/lib/mock-users'
+import type { UserProfile, AlertConfig, NotificationChannel, AlertFrequency } from '@/lib/user-types'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 

@@ -7,7 +7,7 @@ import {
   getDaysUntilWatering,
   getWateringProgress,
   getWateringBarColor,
-} from '@/lib/mock-plants'
+} from '@/lib/plant-types'
 
 interface PlantWateringBarProps {
   plant: Plant

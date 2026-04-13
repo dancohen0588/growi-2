@@ -47,11 +47,23 @@ export const locationConfig: Record<PlantLocation, { label: string; icon: string
 
 export const healthStatusConfig: Record<
   HealthStatus,
-  { label: string; color: string; dot: string }
+  { label: string; color: string; dot: string; icon: string }
 > = {
-  healthy:  { label: 'En bonne santé', color: 'text-emerald-600', dot: 'bg-emerald-500' },
-  warning:  { label: 'À surveiller',   color: 'text-amber-600',   dot: 'bg-amber-400'  },
-  critical: { label: 'En danger',      color: 'text-red-600',     dot: 'bg-red-500'    },
+  healthy:  { label: 'En bonne santé', color: 'text-emerald-600', dot: 'bg-emerald-500', icon: '✅' },
+  warning:  { label: 'À surveiller',   color: 'text-amber-600',   dot: 'bg-amber-400',   icon: '⚠️' },
+  critical: { label: 'En danger',      color: 'text-red-600',     dot: 'bg-red-500',     icon: '🚨' },
+}
+
+export const sunExposureConfig: Record<SunExposure, { label: string; icon: string }> = {
+  full:    { label: 'Plein soleil', icon: '☀️' },
+  partial: { label: 'Mi-ombre',    icon: '⛅' },
+  shade:   { label: 'Ombre',       icon: '🌥️' },
+}
+
+export const difficultyConfig: Record<WateringDifficulty, { label: string; color: string }> = {
+  easy:      { label: 'Facile',   color: 'text-lime' },
+  medium:    { label: 'Moyen',    color: 'text-sun'  },
+  demanding: { label: 'Exigeant', color: 'text-red-500' },
 }
 
 export function getDaysUntilWatering(plant: Plant): number {
@@ -66,4 +78,10 @@ export function getWateringProgress(plant: Plant): number {
   const last = new Date(plant.lastWateredDate).getTime()
   const elapsed = (Date.now() - last) / 86_400_000
   return Math.min(100, Math.round((elapsed / plant.wateringFrequencyDays) * 100))
+}
+
+export function getWateringBarColor(progress: number): string {
+  if (progress < 50) return 'bg-lime'
+  if (progress < 80) return 'bg-sun'
+  return 'bg-red-400'
 }

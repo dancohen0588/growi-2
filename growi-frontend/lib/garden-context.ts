@@ -11,7 +11,7 @@ import type {
   ForecastDay,
   WeatherCurrent,
 } from '@/types/weather'
-import type { Plant } from '@/lib/mock-plants'
+import type { Plant } from '@/lib/plant-types'
 
 // ─── Climate zone labels ──────────────────────────────────────────────────────
 

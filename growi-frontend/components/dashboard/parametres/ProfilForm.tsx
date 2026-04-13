@@ -36,7 +36,7 @@ import { useToast } from '@/components/ui/toast'
 
 import { profilSchema, changePasswordSchema } from '@/lib/schemas/profil-schema'
 import type { ProfilInput, ChangePasswordInput } from '@/lib/schemas/profil-schema'
-import type { UserProfile } from '@/lib/mock-users'
+import type { UserProfile } from '@/lib/user-types'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 

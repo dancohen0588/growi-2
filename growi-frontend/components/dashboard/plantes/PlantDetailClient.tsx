@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { usePlants } from '@/lib/plants-context'
-import { type Plant } from '@/lib/mock-plants'
+import { type Plant } from '@/lib/plant-types'
 import { PlantDetailHero } from './PlantDetailHero'
 import { PlantInfoGrid } from './PlantInfoGrid'
 import { PlantCareTipsSection } from './PlantCareTipsSection'

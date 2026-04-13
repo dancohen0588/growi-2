@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
 import { usePlants } from '@/lib/plants-context'
 import { useToast } from '@/components/ui/toast'
-import { type Plant } from '@/lib/mock-plants'
+import { type Plant } from '@/lib/plant-types'
 import type { PlantFormValues } from '@/lib/plant-schemas'
 import { PlantForm } from './PlantForm'
 

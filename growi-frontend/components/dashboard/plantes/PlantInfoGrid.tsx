@@ -4,7 +4,7 @@ import {
   sunExposureConfig,
   locationConfig,
   difficultyConfig,
-} from '@/lib/mock-plants'
+} from '@/lib/plant-types'
 
 const MONTHS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
 

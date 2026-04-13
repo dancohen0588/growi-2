@@ -1,6 +1,6 @@
 'use client'
 
-import { healthStatusConfig, type HealthStatus } from '@/lib/mock-plants'
+import { healthStatusConfig, type HealthStatus } from '@/lib/plant-types'
 import { cn } from '@/lib/utils'
 
 interface PlantHealthBadgeProps {
