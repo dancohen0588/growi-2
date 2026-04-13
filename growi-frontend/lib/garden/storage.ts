@@ -1,6 +1,16 @@
-// growi-frontend/lib/garden/storage.ts
-import type { Garden } from './types'
+// lib/garden/storage.ts
+// Persistence layer for the garden canvas.
+// Reads/writes canvasData to the database via Server Actions.
 
+import type { Garden } from './types'
+import { updateGardenCanvas } from '@/lib/actions/garden.actions'
+
+export async function saveGardenToDB(gardenId: string, garden: Garden): Promise<void> {
+  await updateGardenCanvas(gardenId, JSON.stringify(garden))
+}
+
+// Legacy localStorage helpers — kept only for migration read on first load.
+// Remove after all users have migrated (safe to delete after MVP launch).
 const STORAGE_KEY = 'growi_garden_v1'
 
 function isGarden(v: unknown): v is Garden {
@@ -14,17 +24,7 @@ function isGarden(v: unknown): v is Garden {
   )
 }
 
-export function saveGarden(garden: Garden): void {
-  if (typeof window === 'undefined') return
-  try {
-    const updated = { ...garden, updatedAt: new Date().toISOString() }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-  } catch {
-    console.warn('[Growi] Impossible de sauvegarder le jardin dans localStorage')
-  }
-}
-
-export function loadGarden(): Garden | null {
+export function loadGardenFromLocalStorage(): Garden | null {
   if (typeof window === 'undefined') return null
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -36,6 +36,7 @@ export function loadGarden(): Garden | null {
   }
 }
 
-// TODO: Replace with API calls:
-// POST /api/garden  → saveGarden
-// GET  /api/garden  → loadGarden
+export function clearLocalStorageGarden(): void {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(STORAGE_KEY)
+}

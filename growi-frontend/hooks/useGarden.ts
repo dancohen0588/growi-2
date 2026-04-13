@@ -4,7 +4,12 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { Garden, GardenElement, GardenConfig } from '@/lib/garden/types'
 import type { PaletteItem } from '@/lib/garden/palette'
 import { createDefaultGarden } from '@/lib/garden/defaults'
-import { loadGarden, saveGarden as persistGarden } from '@/lib/garden/storage'
+import { getOrCreateDefaultGarden } from '@/lib/actions/garden.actions'
+import {
+  saveGardenToDB,
+  loadGardenFromLocalStorage,
+  clearLocalStorageGarden,
+} from '@/lib/garden/storage'
 import { snapToGrid } from '@/lib/garden/compute-sun'
 
 export interface UseGardenReturn {
@@ -36,11 +41,41 @@ export function useGarden(): UseGardenReturn {
   const [isSaving, setIsSaving] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const gardenDbIdRef = useRef<string | null>(null)
 
-  // Load from localStorage on mount
+  // Load from DB on mount (with one-time localStorage migration fallback)
   useEffect(() => {
-    const saved = loadGarden()
-    if (saved) setGarden(saved)
+    async function init() {
+      const dbGarden = await getOrCreateDefaultGarden()
+      if (!dbGarden) return
+      gardenDbIdRef.current = dbGarden.id
+
+      if (dbGarden.canvasData) {
+        try {
+          const parsed: unknown = JSON.parse(dbGarden.canvasData)
+          if (
+            parsed &&
+            typeof parsed === 'object' &&
+            'elements' in parsed &&
+            Array.isArray((parsed as any).elements)
+          ) {
+            setGarden(parsed as Garden)
+            return
+          }
+        } catch {
+          // Invalid JSON — fall through
+        }
+      }
+
+      // One-time migration: import from localStorage if DB canvas is empty
+      const local = loadGardenFromLocalStorage()
+      if (local) {
+        setGarden(local)
+        clearLocalStorageGarden()
+        await saveGardenToDB(dbGarden.id, local)
+      }
+    }
+    init()
   }, [])
 
   // Cleanup debounce timer on unmount
@@ -55,7 +90,9 @@ export function useGarden(): UseGardenReturn {
   const scheduleAutoSave = useCallback((updated: Garden) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      persistGarden(updated)
+      if (gardenDbIdRef.current) {
+        saveGardenToDB(gardenDbIdRef.current, updated)
+      }
     }, 1500)
   }, [])
 
@@ -122,9 +159,11 @@ export function useGarden(): UseGardenReturn {
   }, [updateGarden])
 
   const saveGarden = useCallback(() => {
+    if (!gardenDbIdRef.current) return
     setIsSaving(true)
-    persistGarden(garden)
-    savingTimerRef.current = setTimeout(() => setIsSaving(false), 600)
+    saveGardenToDB(gardenDbIdRef.current, garden).then(() => {
+      savingTimerRef.current = setTimeout(() => setIsSaving(false), 800)
+    })
   }, [garden])
 
   const exportPNG = useCallback(async (containerId: string) => {
