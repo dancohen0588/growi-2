@@ -21,22 +21,24 @@ const featureLabels: Record<Feature, string> = {
   compte:      'Mon compte',
 }
 
-export function generateMetadata({
+export async function generateMetadata({
   params,
 }: {
-  params: { feature: string }
-}): Metadata {
-  if (!validFeatures.includes(params.feature as Feature)) return {}
-  return { title: featureLabels[params.feature as Feature] }
+  params: Promise<{ feature: string }>
+}): Promise<Metadata> {
+  const { feature } = await params
+  if (!validFeatures.includes(feature as Feature)) return {}
+  return { title: featureLabels[feature as Feature] }
 }
 
-export default function FeaturePage({
+export default async function FeaturePage({
   params,
 }: {
-  params: { feature: string }
+  params: Promise<{ feature: string }>
 }) {
-  if (!validFeatures.includes(params.feature as Feature)) notFound()
-  const feature = params.feature as Feature
+  const { feature: featureParam } = await params
+  if (!validFeatures.includes(featureParam as Feature)) notFound()
+  const feature = featureParam as Feature
 
   const label = featureLabels[feature]
 

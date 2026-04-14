@@ -16,7 +16,6 @@ import { WeatherSkeleton } from './WeatherSkeleton'
 
 import { fetchWeatherByCoordinates, geocodeAddress } from '@/lib/weather-api'
 import { buildGardenContext } from '@/lib/garden-context'
-import { getUserPlants } from '@/lib/mock-plants'
 import { mockWeatherData } from '@/lib/mock-weather'
 
 import type { LocationMode, WeatherData, GardenContext, GeocodingResult } from '@/types/weather'
@@ -31,7 +30,7 @@ interface WeatherPageClientProps {
 type GeoStatus = 'idle' | 'requesting' | 'granted' | 'denied'
 type Coords = { lat: number; lon: number }
 
-export function WeatherPageClient({ userAddress: initialAddress, userId }: WeatherPageClientProps) {
+export function WeatherPageClient({ userAddress: initialAddress }: WeatherPageClientProps) {
   const [mode, setMode] = useState<LocationMode>('account')
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null)
   const [gardenContext, setGardenContext] = useState<GardenContext | null>(null)
@@ -41,7 +40,8 @@ export function WeatherPageClient({ userAddress: initialAddress, userId }: Weath
   const [accountAddress, setAccountAddress] = useState<string | null>(initialAddress)
   const [accountCoords, setAccountCoords] = useState<Coords | null>(null)
 
-  const plants = useMemo(() => getUserPlants(userId), [userId])
+  // Plants are passed via props when available; default to empty array for weather context
+  const plants = useMemo(() => [], [])
 
   // ── Geocode account address whenever it changes ───────────────────────────
   useEffect(() => {

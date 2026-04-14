@@ -5,6 +5,11 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   staticPageGenerationTimeout: 180,
+  // Treat Prisma and bcryptjs as server-side external packages (not bundled by webpack).
+  // Required to prevent build worker timeouts when these packages are imported in Server Components.
+  experimental: {
+    serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs', '@auth/prisma-adapter'],
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [],

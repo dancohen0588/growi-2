@@ -1,17 +1,19 @@
 import type { NextAuthConfig } from 'next-auth'
 
-// Edge-safe auth config — no Node.js-only imports (no Prisma, no bcrypt).
-// Used by middleware.ts to protect routes.
-// The full auth.ts (with PrismaAdapter + bcrypt) is used for server-side operations.
-export const authConfig: NextAuthConfig = {
+export const authConfig = {
   pages: {
     signIn: '/login',
-    error:  '/login',
   },
   callbacks: {
-    authorized({ auth }) {
-      return !!auth?.user
+    authorized({ auth, request: { nextUrl } }) {
+      const isLoggedIn = !!auth?.user
+      const isOnDashboard = nextUrl.pathname.startsWith('/dashboard')
+      if (isOnDashboard) {
+        if (isLoggedIn) return true
+        return false
+      }
+      return true
     },
   },
   providers: [],
-}
+} satisfies NextAuthConfig

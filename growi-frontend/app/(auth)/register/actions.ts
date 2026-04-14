@@ -23,10 +23,8 @@ export async function registerAction(
     await prisma.user.create({
       data: {
         email: parsed.data.email,
-        firstName: parsed.data.firstName,
         name: parsed.data.firstName,
         password: hashedPassword,
-        plan: 'FREE',
       },
     })
   } catch (err) {

@@ -19,7 +19,7 @@ export function EditPlantClient({ plant }: EditPlantClientProps) {
   const router = useRouter()
 
   async function handleSubmit(data: PlantFormValues) {
-    updatePlant(plant.id, data)
+    await updatePlant(plant.id, data)
     toast(`✅ Ta plante a bien été mise à jour.`)
     router.push(`/dashboard/plantes/${plant.id}`)
   }

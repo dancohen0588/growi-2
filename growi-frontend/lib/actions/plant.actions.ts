@@ -4,84 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import type { Plant, PlantLocation, SunExposure, HealthStatus, WateringDifficulty } from '@/lib/plant-types'
-import type { PlantInstance, PlantCatalog, GardenZone, SunExposure as PrismaSunExposure } from '@prisma/client'
-
-// ── Types ──────────────────────────────────────────────────────────────────
-
-type PlantInstanceWithRelations = PlantInstance & {
-  catalogPlant: PlantCatalog | null
-  zone: GardenZone | null
-}
-
-// ── Mapper: Prisma → Plant (presentation type) ────────────────────────────
-
-const locationMap: Record<string, PlantLocation> = {
-  OUTDOOR:    'exterieur',
-  INDOOR:     'interieur',
-  GREENHOUSE: 'serre',
-  BALCONY:    'balcon',
-}
-
-const healthMap: Record<string, HealthStatus> = {
-  HEALTHY:  'healthy',
-  WARNING:  'warning',
-  CRITICAL: 'critical',
-}
-
-const sunMap: Record<string, SunExposure> = {
-  FULL_SUN: 'full',
-  PARTIAL:  'partial',
-  SHADE:    'shade',
-}
-
-const difficultyMap: Record<string, WateringDifficulty> = {
-  EASY:      'easy',
-  MEDIUM:    'medium',
-  DEMANDING: 'demanding',
-}
-
-const categoryMap: Record<string, Plant['category']> = {
-  INDOOR:       'interieur',
-  VEGETABLE:    'potager',
-  FLOWERS:      'fleurs',
-  TREES_SHRUBS: 'arbres',
-  HERBS:        'aromatiques',
-  SUCCULENTS:   'interieur',
-  AQUATIC:      'potager',
-  CLIMBING:     'fleurs',
-}
-
-export function toPlant(instance: PlantInstanceWithRelations): Plant {
-  const cat = instance.catalogPlant
-  const wateringFreqDays = instance.wateringFreqDays ?? cat?.wateringFreqDays ?? 7
-
-  return {
-    id:                 instance.id,
-    name:               instance.customName ?? cat?.commonName ?? 'Ma plante',
-    scientificName:     cat?.scientificName,
-    emoji:              instance.emoji ?? cat?.emoji ?? '🌿',
-    category:           categoryMap[cat?.category ?? ''] ?? 'interieur',
-    location:           locationMap[instance.location] ?? 'exterieur',
-    zone:               instance.zone?.name,
-    dateAdded:          instance.dateAdded.toISOString(),
-    datePlanted:        instance.datePlanted?.toISOString(),
-    photoUrl:           instance.photoUrl ?? undefined,
-    wateringFrequencyDays: wateringFreqDays,
-    lastWateredDate:    instance.lastWateredAt?.toISOString(),
-    nextWateringDate:   instance.lastWateredAt
-      ? new Date(instance.lastWateredAt.getTime() + wateringFreqDays * 86_400_000).toISOString()
-      : undefined,
-    sunExposure:        sunMap[instance.sunExposure ?? cat?.sunExposure ?? 'PARTIAL'] ?? 'partial',
-    soilType:           instance.soilType ?? undefined,
-    wateringDifficulty: difficultyMap[cat?.wateringDifficulty ?? 'EASY'] ?? 'easy',
-    healthStatus:       healthMap[instance.healthStatus] ?? 'healthy',
-    healthNote:         instance.healthNote ?? undefined,
-    description:        cat?.descriptionShort ?? '',
-    careTips:           { watering: '', light: '', soil: '' },
-    notes:              instance.notes ?? undefined,
-  }
-}
+import type { Plant } from '@/lib/plant-types'
+import { toPlant } from '@/lib/plant-mapper'
 
 // ── Validation schemas ─────────────────────────────────────────────────────
 
@@ -127,7 +51,7 @@ export async function addPlantToMyGarden(
 
   const validated = addPlantSchema.parse(data)
 
-  let defaults: { wateringFreqDays?: number; sunExposure?: PrismaSunExposure; emoji?: string } = {}
+  let defaults: { wateringFreqDays?: number; sunExposure?: string; emoji?: string } = {}
   if (validated.catalogPlantId) {
     const cat = await prisma.plantCatalog.findUnique({
       where: { id: validated.catalogPlantId },
