@@ -4,10 +4,12 @@ import Credentials from 'next-auth/providers/credentials'
 import { prisma } from '@/lib/prisma'
 import { loginSchema } from '@/lib/auth-schemas'
 import bcrypt from 'bcryptjs'
+import { authConfig } from '@/auth.config'
 
 // TODO: Add Google / GitHub OAuth providers here when ready.
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: PrismaAdapter(prisma),
   session: { strategy: 'jwt' },
   providers: [
@@ -53,10 +55,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.plan      = token.plan as string
       return session
     },
-  },
-  pages: {
-    signIn: '/login',
-    error:  '/login',
   },
 })
 
