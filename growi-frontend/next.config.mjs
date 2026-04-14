@@ -4,6 +4,7 @@ const nextConfig = {
     // ESLint is run separately via `npm run lint`; skip during `next build` to avoid broken node_modules issues
     ignoreDuringBuilds: true,
   },
+  staticPageGenerationTimeout: 180,
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [],
