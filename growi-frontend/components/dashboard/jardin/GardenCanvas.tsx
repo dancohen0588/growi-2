@@ -4,7 +4,7 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import { Stage, Layer, Group, Rect, Ellipse, Text, Transformer, Line } from 'react-konva'
 import type Konva from 'konva'
 import { DndContext, useDroppable, useDndMonitor } from '@dnd-kit/core'
-import type { DragEndEvent } from '@dnd-kit/core'
+import type { DragEndEvent, DragMoveEvent } from '@dnd-kit/core'
 import { Layers } from 'lucide-react'
 
 import { useGarden } from '@/hooks/useGarden'
@@ -147,7 +147,7 @@ function CanvasDropZone({ children, onDrop }: { children: React.ReactNode; onDro
   const dragPosRef = useRef({ x: 0, y: 0 })
 
   useDndMonitor({
-    onDragMove(event) {
+    onDragMove(event: DragMoveEvent) {
       const init = event.activatorEvent as PointerEvent
       dragPosRef.current = { x: init.clientX + event.delta.x, y: init.clientY + event.delta.y }
     },
