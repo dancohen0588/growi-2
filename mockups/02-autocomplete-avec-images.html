@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mockup — Autocomplete avec images (/plantes/nouveau)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f5f5f0; padding: 32px; }
+
+    :root {
+      --forest: #1a3c2e;
+      --lime: #a3e635;
+      --lime-light: rgba(163,230,53,.12);
+      --sand: #fafaf5;
+      --card-shadow: 0 1px 4px rgba(26,60,46,.08), 0 4px 16px rgba(26,60,46,.06);
+    }
+
+    h2 { font-size: 20px; font-weight: 700; color: var(--forest); margin-bottom: 6px; }
+    .sub { font-size: 13px; color: rgba(26,60,46,.55); margin-bottom: 32px; }
+
+    .search-section { max-width: 520px; }
+
+    /* Search input */
+    .search-wrap { position: relative; }
+    .search-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: rgba(26,60,46,.4); font-size: 16px; pointer-events: none;
+    }
+    .search-input {
+      width: 100%; padding: 12px 12px 12px 38px;
+      border: 1.5px solid rgba(163,230,53,.6); border-radius: 12px;
+      font-size: 14px; color: var(--forest);
+      background: white; outline: none;
+      box-shadow: 0 0 0 3px rgba(163,230,53,.18);
+    }
+
+    /* ── Dropdown ── */
+    .dropdown {
+      position: relative; /* not absolute for mockup */
+      margin-top: 4px;
+      background: white;
+      border: 1.5px solid rgba(26,60,46,.10);
+      border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(26,60,46,.14);
+      overflow: hidden;
+    }
+
+    /* ── Item row ── */
+    .item {
+      display: flex; align-items: center; gap: 0;
+      cursor: pointer; transition: background .12s;
+    }
+    .item:hover, .item.active { background: var(--lime-light); }
+    .item + .item { border-top: 1px solid rgba(26,60,46,.05); }
+
+    /* Image column — NEW */
+    .item-img-col {
+      width: 64px; height: 64px; flex-shrink: 0; overflow: hidden;
+      background: #e8f5e9;
+    }
+    .item-img-col img {
+      width: 100%; height: 100%; object-fit: cover;
+      transition: transform .2s;
+    }
+    .item:hover .item-img-col img { transform: scale(1.05); }
+    /* Emoji fallback */
+    .item-img-col.no-img {
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(163,230,53,.1); font-size: 28px;
+    }
+
+    /* Text column */
+    .item-text { flex: 1; padding: 10px 14px; min-width: 0; }
+    .item-name { font-size: 13px; font-weight: 700; color: var(--forest); }
+    .item-sci  { font-size: 11px; font-style: italic; color: rgba(26,60,46,.45); margin-top: 1px; }
+    .item-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .tag {
+      font-size: 10px; padding: 2px 6px; border-radius: 5px;
+      background: #f0fdf4; color: rgba(26,60,46,.65);
+      border: 1px solid rgba(163,230,53,.35);
+    }
+    .tag-toxic { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+    .tag-indoor { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+
+    /* Right arrow / check */
+    .item-action { padding: 0 14px; color: rgba(26,60,46,.3); font-size: 18px; }
+
+    /* Selected preview card */
+    .preview-card {
+      margin-top: 16px; border-radius: 14px; overflow: hidden;
+      border: 2px solid rgba(163,230,53,.6); background: var(--lime-light);
+    }
+    .preview-img { width: 100%; height: 160px; object-fit: cover; }
+    .preview-body { padding: 14px 16px; }
+    .preview-title { font-size: 16px; font-weight: 700; color: var(--forest); }
+    .preview-sci   { font-size: 12px; font-style: italic; color: rgba(26,60,46,.5); }
+    .preview-desc  { font-size: 12px; color: rgba(26,60,46,.7); margin-top: 8px; line-height: 1.6; }
+    .preview-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .badge-sm {
+      font-size: 11px; padding: 4px 10px; border-radius: 7px;
+      background: white; border: 1px solid rgba(163,230,53,.5); color: rgba(26,60,46,.7);
+    }
+
+    /* Annotation */
+    .annot {
+      background: #fffbeb; border: 1.5px dashed #f59e0b; border-radius: 10px;
+      padding: 10px 14px; font-size: 11px; color: #92400e; margin-top: 24px;
+    }
+    .annot strong { color: #78350f; }
+  </style>
+</head>
+<body>
+
+  <h2>Ajouter une plante 🌱</h2>
+  <p class="sub">Renseigne les informations de ta plante pour commencer à suivre son entretien.</p>
+
+  <div class="search-section">
+
+    <!-- Titre de section -->
+    <p style="font-size:13px;font-weight:600;color:var(--forest);margin-bottom:10px;">
+      1. Trouve ta plante
+    </p>
+
+    <!-- Search input (état : "tomate" tapé) -->
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" type="text" value="tomate" placeholder="Rechercher une plante dans le catalogue…" />
+    </div>
+
+    <!-- Dropdown ouvert -->
+    <div class="dropdown">
+
+      <!-- Résultat 1 : avec image + actif -->
+      <div class="item active">
+        <div class="item-img-col">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Tomato_je.jpg/200px-Tomato_je.jpg" alt="Tomate cerise" />
+        </div>
+        <div class="item-text">
+          <div class="item-name">Tomate cerise</div>
+          <div class="item-sci">Solanum lycopersicum var. cerasiforme</div>
+          <div class="item-tags">
+            <span class="tag">🥕 Potager</span>
+            <span class="tag">💧 3j</span>
+            <span class="tag">🟢 Facile</span>
+            <span class="tag">🍅 Comestible</span>
+          </div>
+        </div>
+        <div class="item-action">↵</div>
+      </div>
+
+      <!-- Résultat 2 -->
+      <div class="item">
+        <div class="item-img-col">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Tomate-tomates.jpg/200px-Tomate-tomates.jpg"
+               onerror="this.parentNode.classList.add('no-img');this.remove();this.parentNode.textContent='🍅'"
+               alt="Tomate Roma" />
+        </div>
+        <div class="item-text">
+          <div class="item-name">Tomate Roma</div>
+          <div class="item-sci">Solanum lycopersicum 'Roma'</div>
+          <div class="item-tags">
+            <span class="tag">🥕 Potager</span>
+            <span class="tag">💧 3j</span>
+            <span class="tag">🟡 Moyen</span>
+          </div>
+        </div>
+        <div class="item-action">›</div>
+      </div>
+
+      <!-- Résultat 3 : toxique -->
+      <div class="item">
+        <div class="item-img-col no-img">🍆</div>
+        <div class="item-text">
+          <div class="item-name">Tomate d'arbre (Tamarillo)</div>
+          <div class="item-sci">Solanum betaceum</div>
+          <div class="item-tags">
+            <span class="tag">🌳 Extérieur</span>
+            <span class="tag">💧 7j</span>
+            <span class="tag">🔴 Exigeant</span>
+            <span class="tag tag-toxic">⚠️ Toxique</span>
+          </div>
+        </div>
+        <div class="item-action">›</div>
+      </div>
+
+      <!-- Résultat 4 : intérieur -->
+      <div class="item">
+        <div class="item-img-col no-img">🪴</div>
+        <div class="item-text">
+          <div class="item-name">Tomatillo</div>
+          <div class="item-sci">Physalis ixocarpa</div>
+          <div class="item-tags">
+            <span class="tag">🥕 Potager</span>
+            <span class="tag">💧 4j</span>
+            <span class="tag">🟢 Facile</span>
+          </div>
+        </div>
+        <div class="item-action">›</div>
+      </div>
+
+      <!-- Fallback saisie manuelle -->
+      <div style="padding:10px 14px; border-top:1px solid rgba(26,60,46,.06); background:#fafaf5;">
+        <span style="font-size:11px; color:rgba(26,60,46,.5);">
+          Plante non trouvée ?
+          <a href="#" style="font-weight:600;color:var(--forest);text-decoration:underline;">Saisie manuelle →</a>
+        </span>
+      </div>
+    </div>
+
+    <!-- État 2 : après sélection → preview card enrichie avec image -->
+    <div style="margin-top:32px;">
+      <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(26,60,46,.4);margin-bottom:10px;">
+        → ÉTAT APRÈS SÉLECTION
+      </p>
+      <div class="preview-card">
+        <img class="preview-img"
+             src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Tomato_je.jpg/600px-Tomato_je.jpg"
+             alt="Tomate cerise" />
+        <div class="preview-body">
+          <div class="preview-title">🍅 Tomate cerise</div>
+          <div class="preview-sci">Solanum lycopersicum var. cerasiforme</div>
+          <p class="preview-desc">
+            La tomate cerise est idéale pour les jardiniers débutants. Très productive, elle aime
+            les expositions ensoleillées et un arrosage régulier. Parfaite en pot sur un balcon.
+          </p>
+          <div class="preview-badges">
+            <span class="badge-sm">💧 Arrosage tous les 3j</span>
+            <span class="badge-sm">☀️ Plein soleil</span>
+            <span class="badge-sm">🟢 Facile</span>
+            <span class="badge-sm">🍅 Comestible</span>
+          </div>
+        </div>
+      </div>
+      <button style="margin-top:8px;font-size:11px;color:rgba(26,60,46,.5);background:none;border:none;cursor:pointer;text-decoration:underline;">
+        ↺ Changer de plante
+      </button>
+    </div>
+
+  </div>
+
+  <div class="annot">
+    <strong>Modifications dans PlantSearchInput.tsx</strong><br/>
+    • La liste déroulante affiche une thumbnail <code>64×64 px</code> via <code>&lt;Image&gt;</code> Next.js<br/>
+    • Source : <code>plant.imageUrl</code> depuis le catalogue — fallback emoji si absent<br/>
+    • <code>CatalogPreviewCard</code> reçoit aussi l'image : une bannière <code>h-40 object-cover</code> en haut de la carte<br/>
+    • API <code>searchCatalog</code> doit inclure le champ <code>imageUrl</code> dans la projection Prisma<br/>
+    • Perf : <code>width={64} height={64}</code>, <code>quality={60}</code>, priorité basse (liste scrollable)
+  </div>
+
+</body>
+</html>

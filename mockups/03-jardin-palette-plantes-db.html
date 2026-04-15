@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mockup — Mon jardin > Palette Plantes (DB-driven)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f5f5f0; display: flex; }
+
+    :root {
+      --forest: #1a3c2e;
+      --lime: #a3e635;
+      --lime-light: rgba(163,230,53,.12);
+      --sand: #fafaf5;
+    }
+
+    /* ── Layout simulé du GardenCanvas ── */
+    .layout { display: flex; width: 100%; min-height: 100vh; }
+
+    /* ── Palette sidebar ── */
+    .palette {
+      width: 200px; flex-shrink: 0; background: white;
+      border-right: 1px solid rgba(26,60,46,.10);
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .palette-header {
+      padding: 10px 12px; border-bottom: 1px solid rgba(26,60,46,.08);
+    }
+    .palette-header h3 { font-size: 10px; font-weight: 700; color: rgba(26,60,46,.5); text-transform: uppercase; letter-spacing: .8px; }
+    .palette-header p { font-size: 9px; color: rgba(26,60,46,.35); margin-top: 2px; }
+
+    /* Sections non-plantes (collapsed — titre seul) */
+    .section-collapsed {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; cursor: pointer;
+      border-bottom: 1px solid rgba(26,60,46,.06);
+    }
+    .section-collapsed span { font-size: 11px; font-weight: 600; color: rgba(26,60,46,.5); }
+    .section-collapsed .arrow { font-size: 10px; color: rgba(26,60,46,.3); }
+
+    /* ── Section Plantes — EXPANDED & DB-driven ── */
+    .section-plants {
+      border-bottom: 1px solid rgba(26,60,46,.06);
+    }
+    .section-plants-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; background: rgba(163,230,53,.08); cursor: pointer;
+    }
+    .section-plants-header span { font-size: 11px; font-weight: 700; color: var(--forest); }
+
+    .section-plants-body { padding: 8px; }
+
+    /* Category dropdown */
+    .cat-select-wrap { margin-bottom: 8px; position: relative; }
+    .cat-select {
+      width: 100%; padding: 6px 24px 6px 8px; border-radius: 8px;
+      border: 1.5px solid rgba(26,60,46,.15); background: white;
+      font-size: 11px; color: var(--forest); cursor: pointer;
+      appearance: none;
+    }
+    .cat-arrow {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      font-size: 10px; color: rgba(26,60,46,.4); pointer-events: none;
+    }
+
+    /* Search mini-input */
+    .plant-search {
+      width: 100%; padding: 5px 8px 5px 24px; border-radius: 8px;
+      border: 1px solid rgba(26,60,46,.12); font-size: 11px; color: var(--forest);
+      background: #fafaf8; outline: none; margin-bottom: 8px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231a3c2e66' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: 6px center;
+    }
+
+    /* Plant items in palette — WITH image thumbnail */
+    .plant-items { display: flex; flex-direction: column; gap: 3px; }
+    .plant-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 6px; border-radius: 8px; cursor: grab;
+      border: 1px solid transparent; transition: all .15s;
+    }
+    .plant-item:hover { background: var(--lime-light); border-color: rgba(163,230,53,.4); }
+    .plant-item:active { cursor: grabbing; }
+
+    /* Thumbnail in palette item — NEW */
+    .item-thumb {
+      width: 36px; height: 36px; border-radius: 6px; overflow: hidden;
+      background: rgba(163,230,53,.1); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .item-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .item-thumb .emoji { font-size: 20px; }
+
+    .item-info { flex: 1; min-width: 0; }
+    .item-name { font-size: 11px; font-weight: 600; color: var(--forest); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-sub  { font-size: 9px; color: rgba(26,60,46,.45); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Grab handle */
+    .drag-handle { color: rgba(26,60,46,.2); font-size: 14px; }
+
+    /* "Charger plus" */
+    .load-more {
+      text-align: center; padding: 6px 0;
+      font-size: 10px; color: rgba(26,60,46,.4); cursor: pointer;
+    }
+    .load-more:hover { color: var(--forest); }
+
+    /* ── Canvas area ── */
+    .canvas {
+      flex: 1; background: #e8ede6; position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .canvas-placeholder { text-align: center; }
+    .canvas-placeholder h4 { font-size: 15px; color: rgba(26,60,46,.4); }
+    .canvas-placeholder p { font-size: 12px; color: rgba(26,60,46,.3); margin-top: 4px; }
+
+    /* ── Annotation ── */
+    .annot {
+      position: fixed; bottom: 24px; right: 24px; width: 260px;
+      background: #fffbeb; border: 1.5px dashed #f59e0b; border-radius: 10px;
+      padding: 12px 14px; font-size: 11px; color: #92400e; line-height: 1.7;
+      box-shadow: 0 4px 12px rgba(0,0,0,.08);
+    }
+    .annot strong { color: #78350f; display: block; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ── Palette sidebar ── -->
+  <aside class="palette">
+    <div class="palette-header">
+      <h3>Éléments</h3>
+      <p>Glisse sur le canvas</p>
+    </div>
+
+    <!-- Structures (collapsed) -->
+    <div class="section-collapsed">
+      <span>🧱 Structures</span><span class="arrow">›</span>
+    </div>
+    <!-- Zones (collapsed) -->
+    <div class="section-collapsed">
+      <span>🟩 Zones</span><span class="arrow">›</span>
+    </div>
+
+    <!-- ✨ Plantes — EXPANDED, DB-driven -->
+    <div class="section-plants">
+      <div class="section-plants-header">
+        <span>🌿 Plantes</span>
+        <span style="font-size:9px;background:#a3e635;color:#1a3c2e;padding:2px 5px;border-radius:4px;font-weight:700;">DB</span>
+      </div>
+
+      <div class="section-plants-body">
+
+        <!-- Catégorie dropdown -->
+        <div class="cat-select-wrap">
+          <select class="cat-select" onchange="filterCategory(this.value)">
+            <option value="all">— Toutes catégories —</option>
+            <option value="potager" selected>🥕 Potager</option>
+            <option value="fleurs">🌸 Fleurs</option>
+            <option value="arbres">🌳 Arbres & Arbustes</option>
+            <option value="aromatiques">🌿 Aromatiques</option>
+            <option value="interieur">🏠 Intérieur</option>
+            <option value="grimpants">🍀 Grimpants</option>
+            <option value="succulentes">🌵 Succulentes</option>
+          </select>
+          <span class="cat-arrow">▾</span>
+        </div>
+
+        <!-- Mini search -->
+        <input class="plant-search" type="text" placeholder="Filtrer…" />
+
+        <!-- Plant items from DB — WITH thumbnails -->
+        <div class="plant-items" id="plant-items">
+
+          <div class="plant-item">
+            <div class="item-thumb">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Tomato_je.jpg/80px-Tomato_je.jpg"
+                   onerror="this.style.display='none';this.nextSibling.style.display='block'"
+                   alt="Tomate" />
+              <span class="emoji" style="display:none">🍅</span>
+            </div>
+            <div class="item-info">
+              <div class="item-name">Tomate cerise</div>
+              <div class="item-sub">💧 3j · ☀️ Plein soleil</div>
+            </div>
+            <span class="drag-handle">⠿</span>
+          </div>
+
+          <div class="plant-item">
+            <div class="item-thumb">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Herb_Basil.jpg/80px-Herb_Basil.jpg" alt="Basilic" />
+            </div>
+            <div class="item-info">
+              <div class="item-name">Basilic grand vert</div>
+              <div class="item-sub">💧 2j · ☀️ Plein soleil</div>
+            </div>
+            <span class="drag-handle">⠿</span>
+          </div>
+
+          <div class="plant-item">
+            <div class="item-thumb">
+              <span class="emoji">🥕</span>
+            </div>
+            <div class="item-info">
+              <div class="item-name">Carotte Nantaise</div>
+              <div class="item-sub">💧 5j · ⛅ Mi-ombre</div>
+            </div>
+            <span class="drag-handle">⠿</span>
+          </div>
+
+          <div class="plant-item">
+            <div class="item-thumb">
+              <span class="emoji">🥒</span>
+            </div>
+            <div class="item-info">
+              <div class="item-name">Courgette Noire</div>
+              <div class="item-sub">💧 3j · ☀️ Plein soleil</div>
+            </div>
+            <span class="drag-handle">⠿</span>
+          </div>
+
+          <div class="plant-item">
+            <div class="item-thumb">
+              <span class="emoji">🥬</span>
+            </div>
+            <div class="item-info">
+              <div class="item-name">Laitue Batavia</div>
+              <div class="item-sub">💧 3j · 🌥️ Ombre</div>
+            </div>
+            <span class="drag-handle">⠿</span>
+          </div>
+
+          <div class="plant-item">
+            <div class="item-thumb">
+              <span class="emoji">🫑</span>
+            </div>
+            <div class="item-info">
+              <div class="item-name">Poivron doux</div>
+              <div class="item-sub">💧 4j · ☀️ Plein soleil</div>
+            </div>
+            <span class="drag-handle">⠿</span>
+          </div>
+
+        </div><!-- /plant-items -->
+
+        <div class="load-more">↓ 147 autres plantes "Potager"…</div>
+
+      </div>
+    </div>
+
+    <!-- Arbres (collapsed) -->
+    <div class="section-collapsed">
+      <span>🌳 Arbres</span><span class="arrow">›</span>
+    </div>
+    <!-- Eau & Équipements (collapsed) -->
+    <div class="section-collapsed">
+      <span>⛲ Eau & Équip.</span><span class="arrow">›</span>
+    </div>
+
+  </aside>
+
+  <!-- ── Canvas area ── -->
+  <div class="canvas">
+    <div class="canvas-placeholder">
+      <div style="font-size:48px">🌿</div>
+      <h4>Canvas du jardin</h4>
+      <p>Glisse des éléments depuis la palette</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Annotation -->
+<div class="annot">
+  <strong>Évolutions GardenPalette + palette.ts</strong>
+  La section "Plantes" n'est plus hardcodée dans <code>palette.ts</code> :<br/>
+  • <code>GardenPaletteSection</code> reçoit une prop <code>dynamicPlants?: PlantCatalog[]</code><br/>
+  • Chargement via Server Action <code>getCatalogByCategory(cat)</code> avec pagination<br/>
+  • Dropdown catégorie = enum <code>category</code> de la DB<br/>
+  • Input de recherche filtre côté client (debounce 200ms)<br/>
+  • Thumbnail : <code>imageUrl</code> → fallback emoji<br/>
+  • Le drag payload reste identique : <code>{ type:'plante', emoji, label, … }</code>
+</div>
+
+</body>
+</html>

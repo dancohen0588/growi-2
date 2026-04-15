@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mockup — /dashboard/plantes avec images catalogue</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f5f5f0; padding: 24px; }
+
+    /* ── Tokens ── */
+    :root {
+      --forest: #1a3c2e;
+      --lime: #a3e635;
+      --lime-light: #d9f99d;
+      --sand: #fafaf5;
+      --card-shadow: 0 1px 4px rgba(26,60,46,.08), 0 4px 16px rgba(26,60,46,.06);
+    }
+
+    h2 { font-size: 22px; font-weight: 700; color: var(--forest); margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: rgba(26,60,46,.55); margin-bottom: 20px; }
+
+    /* ── Filters ── */
+    .filters { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 500; cursor: pointer;
+      border: 1.5px solid transparent; transition: all .15s;
+    }
+    .chip-inactive { background: white; color: rgba(26,60,46,.7); border-color: rgba(26,60,46,.15); }
+    .chip-active   { background: var(--forest); color: white; }
+
+    /* NEW: category chips with color codes */
+    .chip-cat { background: white; border-color: rgba(26,60,46,.15); }
+    .chip-cat.active { background: var(--forest); color: white; border-color: var(--forest); }
+
+    /* ── Sort + View toolbar ── */
+    .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .sort-select {
+      font-size: 12px; color: rgba(26,60,46,.7); border: 1.5px solid rgba(26,60,46,.15);
+      border-radius: 8px; padding: 6px 10px; background: white;
+    }
+    .view-toggle { display: flex; gap: 4px; }
+    .view-btn {
+      width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center;
+      justify-content: center; border: 1.5px solid rgba(26,60,46,.15); background: white;
+      cursor: pointer; font-size: 14px;
+    }
+    .view-btn.active { background: var(--forest); border-color: var(--forest); }
+
+    /* ── Grid ── */
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+
+    /* ── PlantCard ── */
+    .plant-card {
+      background: white; border-radius: 18px; overflow: hidden;
+      box-shadow: var(--card-shadow); position: relative; transition: all .2s;
+    }
+    .plant-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(26,60,46,.14); }
+
+    /* Image wrapper — NEW: occupies top 55% with real photo */
+    .card-img-wrap {
+      position: relative; aspect-ratio: 4/3; overflow: hidden;
+      background: #e8f5e9;
+    }
+    .card-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    /* Fallback emoji (no image) */
+    .card-img-wrap.no-img {
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(163,230,53,.1);
+    }
+    .card-img-wrap.no-img .fallback-emoji { font-size: 52px; }
+
+    /* Catalog badge — NEW: petit badge "catalogue" en haut à gauche */
+    .badge-catalog {
+      position: absolute; top: 8px; left: 8px;
+      background: rgba(26,60,46,.75); backdrop-filter: blur(4px);
+      color: white; font-size: 10px; font-weight: 600;
+      padding: 3px 7px; border-radius: 6px; display: flex; align-items: center; gap: 4px;
+    }
+
+    /* Health badge — top right */
+    .badge-health {
+      position: absolute; top: 8px; right: 8px;
+      padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    }
+    .badge-healthy { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef9c3; color: #854d0e; }
+    .badge-critical{ background: #fee2e2; color: #991b1b; }
+
+    /* Card body */
+    .card-body { padding: 12px 14px 14px; }
+    .card-name { font-size: 14px; font-weight: 700; color: var(--forest); line-height: 1.25; }
+    .card-sci  { font-size: 11px; font-style: italic; color: rgba(26,60,46,.45); margin-top: 2px; }
+    .card-meta { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .meta-chip {
+      font-size: 10px; padding: 2px 7px; border-radius: 5px;
+      background: #f0fdf4; color: rgba(26,60,46,.7); border: 1px solid rgba(163,230,53,.4);
+    }
+
+    /* Watering bar */
+    .water-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .water-label { font-size: 10px; color: rgba(26,60,46,.5); min-width: 28px; }
+    .water-track { flex: 1; height: 5px; background: rgba(26,60,46,.08); border-radius: 9px; overflow: hidden; }
+    .water-fill { height: 100%; border-radius: 9px; background: var(--lime); }
+    .water-fill.alert { background: #f97316; }
+    .water-fill.critical { background: #ef4444; }
+
+    /* ── Alert banner ── */
+    .alert-banner {
+      background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 12px;
+      padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+      margin-bottom: 20px; font-size: 13px; color: #b91c1c;
+    }
+
+    /* ── Add btn ── */
+    .add-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--forest); color: white; font-size: 13px; font-weight: 600;
+      padding: 10px 18px; border-radius: 10px; text-decoration: none;
+    }
+
+    /* ── Annotation labels ── */
+    .annotation {
+      background: #fef3c7; border: 1.5px dashed #f59e0b; border-radius: 8px;
+      padding: 6px 10px; font-size: 11px; color: #92400e; margin-top: 8px;
+      display: inline-block;
+    }
+    .section-label {
+      font-size: 11px; font-weight: 700; color: #b45309;
+      text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:4px;">
+    <div>
+      <h2>Mes plantes 🌿</h2>
+      <p class="subtitle">8 plantes dans ton jardin</p>
+    </div>
+    <a class="add-btn" href="#">+ Ajouter une plante</a>
+  </div>
+
+  <!-- Alert banner -->
+  <div class="alert-banner">
+    💧 <strong>2 plantes</strong> doivent être arrosées maintenant !
+  </div>
+
+  <!-- Filters: localisation + santé -->
+  <div class="filters">
+    <div class="filter-row" role="group" aria-label="Emplacement">
+      <button class="chip chip-active">Toutes</button>
+      <button class="chip chip-inactive">🏠 Intérieur</button>
+      <button class="chip chip-inactive">🌳 Extérieur</button>
+      <button class="chip chip-inactive">🌇 Balcon</button>
+      <button class="chip chip-inactive">🏡 Serre</button>
+    </div>
+    <div class="filter-row" role="group" aria-label="Santé">
+      <button class="chip chip-active">Tous états</button>
+      <button class="chip chip-inactive">✅ Bonne santé</button>
+      <button class="chip chip-inactive">⚠️ À surveiller</button>
+      <button class="chip chip-inactive">🚨 En danger</button>
+    </div>
+  </div>
+
+  <!-- Toolbar : tri + vue -->
+  <div class="toolbar">
+    <select class="sort-select">
+      <option>Trier par : nom A→Z</option>
+      <option>Trier par : arrosage urgent</option>
+      <option>Trier par : ajout récent</option>
+    </select>
+    <div class="view-toggle">
+      <button class="view-btn active" title="Grille">⊞</button>
+      <button class="view-btn" title="Liste">☰</button>
+    </div>
+  </div>
+
+  <!-- Annotation -->
+  <div class="annotation" style="margin-bottom:16px;">
+    ✨ <strong>NOUVEAU :</strong> Les cartes affichent maintenant la photo du catalogue (<code>imageUrl</code>)
+    quand elle est disponible. Badge "📚 Catalogue" si la plante vient de la DB.
+  </div>
+
+  <!-- Grid -->
+  <div class="grid">
+
+    <!-- Card 1 : avec photo catalogue -->
+    <div class="plant-card">
+      <div class="card-img-wrap">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png"
+             onerror="this.parentNode.classList.add('no-img'); this.style.display='none'; this.parentNode.innerHTML+='<span class=fallback-emoji>🌹</span>'"
+             alt="Rosier 'Pierre de Ronsard'" />
+        <span class="badge-catalog">📚 Catalogue</span>
+        <span class="badge-health badge-healthy">✅</span>
+      </div>
+      <div class="card-body">
+        <div class="card-name">Rosier 'Pierre de Ronsard'</div>
+        <div class="card-sci">Rosa 'Pierre de Ronsard'</div>
+        <div class="card-meta">
+          <span class="meta-chip">🌇 Balcon</span>
+          <span class="meta-chip">☀️ Plein soleil</span>
+        </div>
+        <div class="water-row">
+          <span class="water-label">💧</span>
+          <div class="water-track"><div class="water-fill" style="width:45%"></div></div>
+          <span style="font-size:10px;color:rgba(26,60,46,.5)">J+3</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2 : avec photo catalogue (imageUrl réelle simulée) -->
+    <div class="plant-card">
+      <div class="card-img-wrap" style="background:#e8f5e9;">
+        <!-- Simulate a real plant image from Wikimedia -->
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Monstera_deliciosa3.jpg/320px-Monstera_deliciosa3.jpg" alt="Monstera" />
+        <span class="badge-catalog">📚 Catalogue</span>
+        <span class="badge-health badge-healthy">✅</span>
+      </div>
+      <div class="card-body">
+        <div class="card-name">Monstera</div>
+        <div class="card-sci">Monstera deliciosa</div>
+        <div class="card-meta">
+          <span class="meta-chip">🏠 Intérieur</span>
+          <span class="meta-chip">⛅ Mi-ombre</span>
+        </div>
+        <div class="water-row">
+          <span class="water-label">💧</span>
+          <div class="water-track"><div class="water-fill" style="width:80%"></div></div>
+          <span style="font-size:10px;color:#f97316;font-weight:600;">Bientôt !</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3 : ALERTE arrosage -->
+    <div class="plant-card">
+      <div class="card-img-wrap" style="background:#fff3cd;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Herb_Basil.jpg/320px-Herb_Basil.jpg" alt="Basilic" />
+        <span class="badge-catalog">📚 Catalogue</span>
+        <span class="badge-health badge-warning">⚠️</span>
+      </div>
+      <div class="card-body">
+        <div class="card-name">Basilic grand vert</div>
+        <div class="card-sci">Ocimum basilicum</div>
+        <div class="card-meta">
+          <span class="meta-chip">🌳 Extérieur</span>
+          <span class="meta-chip">☀️ Plein soleil</span>
+        </div>
+        <div class="water-row">
+          <span class="water-label">💧</span>
+          <div class="water-track"><div class="water-fill critical" style="width:100%"></div></div>
+          <span style="font-size:10px;color:#ef4444;font-weight:700;">En retard !</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4 : sans photo (emoji fallback) — plante manuelle -->
+    <div class="plant-card">
+      <div class="card-img-wrap no-img">
+        <span class="fallback-emoji">🌵</span>
+        <span class="badge-health badge-healthy" style="top:8px;right:8px;">✅</span>
+      </div>
+      <div class="card-body">
+        <div class="card-name">Cactus (saisie manuelle)</div>
+        <div class="card-sci" style="color:rgba(26,60,46,.3);font-style:normal;font-size:10px;">— aucun nom scientifique</div>
+        <div class="card-meta">
+          <span class="meta-chip">🏠 Intérieur</span>
+        </div>
+        <div class="water-row">
+          <span class="water-label">💧</span>
+          <div class="water-track"><div class="water-fill" style="width:20%"></div></div>
+          <span style="font-size:10px;color:rgba(26,60,46,.5)">J+12</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 5 : plante catalogue, danger -->
+    <div class="plant-card">
+      <div class="card-img-wrap" style="background:#fce4ec;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Tomato_je.jpg/320px-Tomato_je.jpg" alt="Tomate" />
+        <span class="badge-catalog">📚 Catalogue</span>
+        <span class="badge-health badge-critical">🚨</span>
+      </div>
+      <div class="card-body">
+        <div class="card-name">Tomate cerise</div>
+        <div class="card-sci">Solanum lycopersicum</div>
+        <div class="card-meta">
+          <span class="meta-chip">🏡 Serre</span>
+          <span class="meta-chip">☀️ Plein soleil</span>
+        </div>
+        <div class="water-row">
+          <span class="water-label">💧</span>
+          <div class="water-track"><div class="water-fill critical" style="width:100%"></div></div>
+          <span style="font-size:10px;color:#ef4444;font-weight:700;">En retard !</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 6 : lavande -->
+    <div class="plant-card">
+      <div class="card-img-wrap">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Lavendelfeld.jpg/320px-Lavendelfeld.jpg" alt="Lavande" />
+        <span class="badge-catalog">📚 Catalogue</span>
+        <span class="badge-health badge-healthy">✅</span>
+      </div>
+      <div class="card-body">
+        <div class="card-name">Lavande</div>
+        <div class="card-sci">Lavandula angustifolia</div>
+        <div class="card-meta">
+          <span class="meta-chip">🌳 Extérieur</span>
+          <span class="meta-chip">☀️ Plein soleil</span>
+        </div>
+        <div class="water-row">
+          <span class="water-label">💧</span>
+          <div class="water-track"><div class="water-fill" style="width:30%"></div></div>
+          <span style="font-size:10px;color:rgba(26,60,46,.5)">J+6</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+
+  <!-- Annotation récapitulative -->
+  <div style="margin-top:32px; padding:16px; background:#fffbeb; border:1.5px dashed #f59e0b; border-radius:12px;">
+    <div class="section-label">Modifications dans PlantCard.tsx</div>
+    <ul style="font-size:12px;color:#78350f;line-height:1.8;padding-left:16px;">
+      <li><strong>Nouvelle zone image :</strong> <code>aspect-ratio: 4/3</code> avec <code>&lt;Image&gt;</code> Next.js (<code>plant.catalogPlant.imageUrl</code> ou <code>plant.photoUrl</code>)</li>
+      <li><strong>Fallback :</strong> emoji centré sur fond lime/10 si aucune image</li>
+      <li><strong>Badge "📚 Catalogue" :</strong> affiché si <code>plant.catalogPlantId != null</code></li>
+      <li><strong>Priorité :</strong> photoUrl (photo utilisateur) &gt; catalogPlant.imageUrl &gt; emoji</li>
+      <li><strong>Performances :</strong> <code>sizes="(max-width:640px) 100vw, 33vw"</code>, lazy loading</li>
+    </ul>
+  </div>
+
+</body>
+</html>

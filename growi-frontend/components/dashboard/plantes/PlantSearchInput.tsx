@@ -176,9 +176,7 @@ export function PlantSearchInput({
                   isActive ? 'bg-lime/10' : 'hover:bg-sand',
                 )}
               >
-                <span className="text-2xl leading-none mt-0.5" aria-hidden>
-                  {plant.emoji ?? '🌿'}
-                </span>
+                <PlantThumb plant={plant} size={64} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-poppins font-semibold text-sm text-forest truncate">
@@ -224,4 +222,32 @@ function formatDifficulty(d: string): string {
     DEMANDING: '🔴 Exigeant',
   }
   return map[d] ?? d
+}
+
+function PlantThumb({ plant, size }: { plant: PlantCatalog; size: number }) {
+  const [failed, setFailed] = useState(false)
+  const showImg = plant.imageUrl && !failed
+
+  return (
+    <div
+      className="shrink-0 overflow-hidden rounded-lg bg-lime/10 border border-lime/20 flex items-center justify-center"
+      style={{ width: size, height: size }}
+    >
+      {showImg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={plant.imageUrl!}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <span className="text-3xl leading-none" aria-hidden>
+          {plant.emoji ?? '🌿'}
+        </span>
+      )}
+    </div>
+  )
 }

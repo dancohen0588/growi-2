@@ -177,41 +177,88 @@ def _fetch_taxon_detail(taxon_id: int, locale: str) -> dict:
 
 # ─── Fonction principale ──────────────────────────────────────────────────────
 
+def _build_result(search: dict, detail: dict, locale: str) -> dict:
+    """Fusionne les données search + detail en un dict unifié."""
+    taxon_id = search["inaturalist_id"]
+    return {
+        "inaturalist_id":   taxon_id,
+        "common_name":      detail.get("common_name") or search.get("common_name", ""),
+        "description_short":detail.get("description_short", ""),
+        "description_long": detail.get("description_long",  ""),
+        "image_url":        search.get("image_url"),
+        "wikipedia_url":    detail.get("wikipedia_url") or search.get("wikipedia_url", ""),
+        "inaturalist_url":  f"https://www.inaturalist.org/taxa/{taxon_id}",
+        "source_locale":    locale,
+    }
+
+
+def _is_complete(result: dict) -> bool:
+    """Un résultat est complet s'il a description ET image."""
+    return bool(result.get("description_short")) and bool(result.get("image_url"))
+
+
+def _is_usable(result: dict) -> bool:
+    """Un résultat est utilisable s'il a au moins une image ou un nom commun."""
+    return bool(result.get("image_url")) or bool(result.get("common_name"))
+
+
 def fetch_inaturalist(scientific_name: str) -> dict:
     """
-    Enrichit une espèce via iNaturalist en 2 appels.
-    Essaie d'abord locale=fr, puis locale=en en fallback.
-    Retourne {} si rien de trouvé.
+    Enrichit une espèce via iNaturalist (2 appels : search + detail).
+
+    Stratégie de fallback en cascade :
+      1. Nom d'espèce complet en FR  (ex: "Quercus robur", locale=fr)
+      2. Nom d'espèce complet en EN  (ex: "Quercus robur", locale=en)
+      3. Nom de genre seul en FR     (ex: "Quercus", locale=fr)
+         → utilisé seulement si l'espèce n'a pas de description
+         → donne un résultat générique mais toujours utile (photo + description du genre)
+
+    Retourne {} si aucune stratégie ne donne un résultat utilisable.
     """
+    best: dict = {}
+
+    # ── Essais sur le nom d'espèce complet ──────────────────────────────────
     for locale in ("fr", "en"):
-        # Appel 1 : recherche (ID, photo, nom commun)
         search = _search_taxon(scientific_name, locale)
         if not search or not search.get("inaturalist_id"):
             continue
 
-        taxon_id = search["inaturalist_id"]
-        time.sleep(0.3)   # petit délai entre les 2 appels
+        time.sleep(0.3)
+        detail = _fetch_taxon_detail(search["inaturalist_id"], locale)
+        result = _build_result(search, detail, locale)
 
-        # Appel 2 : détail (wikipedia_summary)
-        detail = _fetch_taxon_detail(taxon_id, locale)
+        if _is_complete(result):
+            return result   # desc + image → parfait, on s'arrête
 
-        # Fusion : search fournit la photo, detail fournit la description
-        result = {
-            "inaturalist_id":   taxon_id,
-            "common_name":      detail.get("common_name") or search.get("common_name", ""),
-            "description_short":detail.get("description_short", ""),
-            "description_long": detail.get("description_long",  ""),
-            "image_url":        search.get("image_url"),
-            "wikipedia_url":    detail.get("wikipedia_url") or search.get("wikipedia_url", ""),
-            "inaturalist_url":  f"https://www.inaturalist.org/taxa/{taxon_id}",
-            "source_locale":    locale,
-        }
+        if _is_usable(result) and not best:
+            best = result   # image ou nom commun → garde en réserve
 
-        # On accepte le résultat si on a au moins un nom commun ou une image
-        if result["common_name"] or result["image_url"]:
-            return result
+    # ── Fallback genre (si pas de description après les 2 essais) ───────────
+    if not best or not best.get("description_short"):
+        genus = scientific_name.split()[0]   # "Quercus robur" → "Quercus"
 
-    return {}
+        if genus != scientific_name:   # évite boucle si c'est déjà un nom de genre
+            print(f"    ↳ Fallback genre : {genus}")
+            for locale in ("fr", "en"):
+                genus_search = _search_taxon(genus, locale)
+                if not genus_search or not genus_search.get("inaturalist_id"):
+                    continue
+
+                time.sleep(0.3)
+                genus_detail = _fetch_taxon_detail(genus_search["inaturalist_id"], locale)
+                genus_result = _build_result(genus_search, genus_detail, f"{locale}/genre")
+
+                if genus_result.get("description_short"):
+                    # On garde la photo de l'espèce si on en avait une, sinon celle du genre
+                    if best.get("image_url"):
+                        genus_result["image_url"]        = best["image_url"]
+                        genus_result["inaturalist_id"]   = best.get("inaturalist_id")
+                        genus_result["inaturalist_url"]  = best.get("inaturalist_url", "")
+                    if best.get("common_name"):
+                        genus_result["common_name"] = best["common_name"]
+                    return genus_result
+
+    return best   # retourne le meilleur résultat même incomplet (peut être {})
 
 
 def fetch_inaturalist_with_delay(scientific_name: str) -> dict:

@@ -518,32 +518,63 @@ export function PlantForm({
 // ── Preview card ──────────────────────────────────────────────────────────
 
 function CatalogPreviewCard({ plant }: { plant: PlantCatalog }) {
+  const [imgFailed, setImgFailed] = useState(false)
+  const showBanner = plant.imageUrl && !imgFailed
+
   return (
-    <div className="rounded-2xl border-2 border-lime/60 bg-lime/10 p-4">
-      <div className="flex items-start gap-4">
-        <span className="text-5xl leading-none" aria-hidden>
-          {plant.emoji ?? '🌿'}
-        </span>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-poppins font-bold text-base text-forest">{plant.commonName}</h3>
-          <p className="font-raleway text-xs italic text-forest/60 mb-2">
-            {plant.scientificName}
-          </p>
-          {plant.descriptionShort && (
-            <p className="font-raleway text-xs text-forest/70 leading-relaxed">
-              {plant.descriptionShort}
-            </p>
-          )}
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <MetaBadge>💧 Arrosage tous les {plant.wateringFreqDays}j</MetaBadge>
-            <MetaBadge>{sunLabel(plant.sunExposure)}</MetaBadge>
-            <MetaBadge>{difficultyLabel(plant.wateringDifficulty)}</MetaBadge>
+    <div className="overflow-hidden rounded-2xl border-2 border-lime/60 bg-lime/10">
+      <div className="relative aspect-[3/1] w-full bg-lime/10">
+        {showBanner ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={plant.imageUrl!}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              onError={() => setImgFailed(true)}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div
+              aria-hidden
+              className="absolute inset-0 bg-gradient-to-t from-white/85 via-white/0 to-transparent"
+            />
             {plant.toxic && (
-              <span className="inline-flex items-center rounded-md bg-red-50 border border-red-200 px-2 py-0.5 font-raleway text-[10px] font-semibold text-red-600">
+              <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-red-500/90 text-white px-2 py-0.5 font-raleway text-[10px] font-semibold shadow-sm">
                 ⚠️ Toxique
               </span>
             )}
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-6xl leading-none" aria-hidden>
+              {plant.emoji ?? '🌿'}
+            </span>
           </div>
+        )}
+      </div>
+
+      <div className="p-4">
+        <h3 className="font-poppins font-bold text-base text-forest">
+          {plant.emoji ?? '🌿'} {plant.commonName}
+        </h3>
+        <p className="font-raleway text-xs italic text-forest/60 mb-2">
+          {plant.scientificName}
+        </p>
+        {plant.descriptionShort && (
+          <p className="font-raleway text-xs text-forest/70 leading-relaxed">
+            {plant.descriptionShort}
+          </p>
+        )}
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <MetaBadge>💧 Arrosage tous les {plant.wateringFreqDays}j</MetaBadge>
+          <MetaBadge>{sunLabel(plant.sunExposure)}</MetaBadge>
+          <MetaBadge>{difficultyLabel(plant.wateringDifficulty)}</MetaBadge>
+          {plant.toxic && !showBanner && (
+            <span className="inline-flex items-center rounded-md bg-red-50 border border-red-200 px-2 py-0.5 font-raleway text-[10px] font-semibold text-red-600">
+              ⚠️ Toxique
+            </span>
+          )}
         </div>
       </div>
     </div>
