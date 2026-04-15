@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const CATEGORIES: Array<{ value: string; label: string }> = [
@@ -28,21 +27,19 @@ const SORTS: Array<{ value: string; label: string }> = [
   { value: 'watering_asc',   label: 'Arrosage le plus fréquent' },
 ]
 
-export function EncyclopedieFilters() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const category = searchParams.get('category') ?? 'all'
-  const sun      = searchParams.get('sun') ?? 'all'
-  const sort     = searchParams.get('sort') ?? 'name_asc'
+interface Props {
+  category: string
+  sun:      string
+  sort:     string
+  onCategoryChange: (v: string) => void
+  onSunChange:      (v: string) => void
+  onSortChange:     (v: string) => void
+}
 
-  function update(key: string, value: string) {
-    const params = new URLSearchParams(searchParams.toString())
-    if (value === 'all' || value === 'name_asc') params.delete(key)
-    else params.set(key, value)
-    params.delete('page')
-    router.replace(`/encyclopedie?${params.toString()}`, { scroll: false })
-  }
-
+export function EncyclopedieFilters({
+  category, sun, sort,
+  onCategoryChange, onSunChange, onSortChange,
+}: Props) {
   return (
     <div className="flex flex-col gap-4">
       {/* Category pills */}
@@ -55,7 +52,7 @@ export function EncyclopedieFilters() {
             <button
               key={c.value}
               type="button"
-              onClick={() => update('category', c.value)}
+              onClick={() => onCategoryChange(c.value)}
               className={cn(
                 'rounded-full px-3 py-1 font-raleway text-xs font-semibold transition-all border',
                 category === c.value
@@ -80,7 +77,7 @@ export function EncyclopedieFilters() {
               <button
                 key={s.value}
                 type="button"
-                onClick={() => update('sun', s.value)}
+                onClick={() => onSunChange(s.value)}
                 title={s.label}
                 aria-label={s.label}
                 className={cn(
@@ -107,7 +104,7 @@ export function EncyclopedieFilters() {
           <select
             id="sort"
             value={sort}
-            onChange={e => update('sort', e.target.value)}
+            onChange={e => onSortChange(e.target.value)}
             className="rounded-full border border-forest/15 bg-white px-4 py-1.5 font-raleway text-xs text-forest focus:outline-none focus:ring-2 focus:ring-lime"
           >
             {SORTS.map(s => (

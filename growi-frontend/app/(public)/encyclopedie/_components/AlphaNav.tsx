@@ -1,27 +1,17 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
-interface AlphaNavProps {
-  activeLetters: string[]
+interface Props {
+  currentLetter:  string
+  activeLetters:  string[]
+  onLetterChange: (letter: string) => void
 }
 
-export function AlphaNav({ activeLetters }: AlphaNavProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const current = searchParams.get('letter') ?? ''
+export function AlphaNav({ currentLetter, activeLetters, onLetterChange }: Props) {
   const active = new Set(activeLetters.map(l => l.toUpperCase()))
-
-  function setLetter(letter: string | null) {
-    const params = new URLSearchParams(searchParams.toString())
-    if (letter) params.set('letter', letter)
-    else params.delete('letter')
-    params.delete('page')
-    router.replace(`/encyclopedie?${params.toString()}`, { scroll: false })
-  }
 
   return (
     <nav
@@ -30,10 +20,11 @@ export function AlphaNav({ activeLetters }: AlphaNavProps) {
     >
       <div className="flex flex-wrap gap-1 items-center justify-center">
         <button
-          onClick={() => setLetter(null)}
+          type="button"
+          onClick={() => onLetterChange('')}
           className={cn(
             'rounded-md px-2 py-1 font-poppins text-[11px] font-semibold transition-colors',
-            !current
+            !currentLetter
               ? 'bg-forest text-white'
               : 'text-forest/50 hover:text-forest',
           )}
@@ -41,12 +32,13 @@ export function AlphaNav({ activeLetters }: AlphaNavProps) {
           Tous
         </button>
         {LETTERS.map(letter => {
-          const isActive = active.has(letter)
-          const isCurrent = current.toUpperCase() === letter
+          const isActive  = active.has(letter)
+          const isCurrent = currentLetter.toUpperCase() === letter
           return (
             <button
               key={letter}
-              onClick={() => isActive && setLetter(letter)}
+              type="button"
+              onClick={() => isActive && onLetterChange(letter)}
               disabled={!isActive}
               aria-current={isCurrent ? 'true' : undefined}
               className={cn(
