@@ -7,10 +7,16 @@ import { PlantWateringBar } from './PlantWateringBar'
 
 interface PlantCardProps {
   plant: Plant
+  priority?: boolean
 }
 
-export function PlantCard({ plant }: PlantCardProps) {
+export function PlantCard({ plant, priority = false }: PlantCardProps) {
   const locationInfo = locationConfig[plant.location]
+
+  // Resolve image source: user photo > catalog photo > emoji fallback
+  const catalogImageUrl = plant.catalogPlant?.imageUrl ?? null
+  const imageSrc = plant.photoUrl ?? catalogImageUrl
+  const isCatalogImage = !plant.photoUrl && catalogImageUrl != null
 
   return (
     <Link
@@ -21,20 +27,32 @@ export function PlantCard({ plant }: PlantCardProps) {
       )}
     >
       {/* Health badge — top right */}
-      <div className="absolute top-3 right-3">
+      <div className="absolute top-3 right-3 z-10">
         <PlantHealthBadge status={plant.healthStatus} />
       </div>
 
-      {/* Photo / emoji */}
-      <div className="aspect-square w-full rounded-xl overflow-hidden bg-lime/10 flex items-center justify-center">
-        {plant.photoUrl ? (
-          <Image
-            src={plant.photoUrl}
-            alt={plant.name}
-            width={200}
-            height={200}
-            className="w-full h-full object-cover"
-          />
+      {/* Photo / catalog image / emoji */}
+      <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-lime/10 flex items-center justify-center">
+        {imageSrc ? (
+          <>
+            <Image
+              src={imageSrc}
+              alt={plant.name}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-cover"
+              quality={75}
+              priority={priority}
+            />
+            {isCatalogImage && (
+              <span
+                aria-label="Photo issue du catalogue Growi"
+                className="absolute top-2 left-2 z-10 rounded-md bg-forest/70 px-1.5 py-0.5 font-raleway text-[10px] font-semibold text-white backdrop-blur-sm"
+              >
+                📚 Catalogue
+              </span>
+            )}
+          </>
         ) : (
           <span className="text-5xl" role="img" aria-label={plant.name}>
             {plant.emoji}

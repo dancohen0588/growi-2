@@ -128,9 +128,9 @@ export function PlantsListView() {
           animate="visible"
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
         >
-          {filtered.map(plant => (
+          {filtered.map((plant, i) => (
             <motion.div key={plant.id} variants={shouldReduceMotion ? undefined : fadeUp}>
-              <PlantCard plant={plant} />
+              <PlantCard plant={plant} priority={i < 3} />
             </motion.div>
           ))}
         </motion.div>

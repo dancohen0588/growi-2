@@ -73,5 +73,9 @@ export function toPlant(instance: PlantInstanceWithRelations): Plant {
     description:        cat?.descriptionShort ?? '',
     careTips:           { watering: '', light: '', soil: '' },
     notes:              instance.notes ?? undefined,
+    catalogPlantId:     instance.catalogPlantId,
+    catalogPlant:       cat
+      ? { imageUrl: cat.imageUrl, commonName: cat.commonName }
+      : null,
   }
 }

@@ -12,7 +12,11 @@ const nextConfig = {
   },
   images: {
     formats: ['image/avif', 'image/webp'],
-    remotePatterns: [],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'inaturalist-open-data.s3.amazonaws.com' },
+      { protocol: 'https', hostname: 'static.inaturalist.org' },
+      { protocol: 'https', hostname: 'upload.wikimedia.org' },
+    ],
   },
   webpack(config) {
     // Konva's Node.js bundle references 'canvas' — stub it out for browser builds

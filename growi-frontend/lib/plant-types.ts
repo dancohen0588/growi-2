@@ -36,6 +36,8 @@ export interface Plant {
   }
   funFact?: string
   notes?: string
+  catalogPlantId?: string | null
+  catalogPlant?: { imageUrl: string | null; commonName: string } | null
 }
 
 export const locationConfig: Record<PlantLocation, { label: string; icon: string }> = {
