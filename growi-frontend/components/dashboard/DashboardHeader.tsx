@@ -11,7 +11,7 @@ export async function DashboardHeader() {
     <header className="sticky top-0 z-40 bg-sand/80 backdrop-blur-md border-b border-forest/10">
       <div className="max-w-screen-xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link
-          href="/dashboard"
+          href="/"
           className="font-poppins font-bold text-lg text-forest hover:text-forest-light transition-colors"
         >
           Growi 🌱
