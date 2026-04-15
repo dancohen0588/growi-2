@@ -19,6 +19,10 @@ model User {
   password      String?
   firstName     String?
   lastName      String?
+  address       String?
+  gardenType    String?
+  avatarColor   String?
+  alertConfig   Json?
   plan          String    @default("FREE")
   timezone      String    @default("Europe/Paris")
   locationCity  String?

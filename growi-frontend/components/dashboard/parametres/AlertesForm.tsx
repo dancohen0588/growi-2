@@ -44,8 +44,8 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 interface AlertesFormProps {
   profile: UserProfile
   isLoading: boolean
-  updateAlerts: (updates: Partial<AlertConfig>) => void
-  resetAlerts: () => void
+  updateAlerts: (updates: Partial<AlertConfig>) => Promise<{ error?: string }>
+  resetAlerts: () => Promise<{ error?: string }>
 }
 
 export function AlertesForm({ profile, isLoading, updateAlerts, resetAlerts }: AlertesFormProps) {
@@ -56,15 +56,27 @@ export function AlertesForm({ profile, isLoading, updateAlerts, resetAlerts }: A
 
   async function handleSave() {
     setSaveState('saving')
-    await new Promise((r) => setTimeout(r, 600))
-    // TODO: Replace with PATCH /api/user/alerts
+    // Persist the entire current config in a single PATCH so the user's
+    // edits via the toggles are saved as a whole rather than relying on
+    // each toggle having round-tripped individually.
+    const result = await updateAlerts(ac)
+    if (result.error) {
+      setSaveState('error')
+      toast(result.error)
+      setTimeout(() => setSaveState('idle'), 2500)
+      return
+    }
     setSaveState('saved')
     toast('Tes préférences d\u2019alertes ont été sauvegardées 🔔')
     setTimeout(() => setSaveState('idle'), 2000)
   }
 
-  function handleReset() {
-    resetAlerts()
+  async function handleReset() {
+    const result = await resetAlerts()
+    if (result.error) {
+      toast(result.error)
+      return
+    }
     toast('Alertes réinitialisées aux paramètres par défaut.')
   }
 

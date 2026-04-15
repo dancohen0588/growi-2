@@ -34,15 +34,24 @@ export async function registerAction(
     ) {
       return { error: 'Un compte existe déjà avec cet email.' }
     }
+    console.error('[registerAction] prisma.user.create failed:', err)
     return { error: 'Erreur lors de la création du compte.' }
   }
 
-  // Auto sign-in after registration
-  await signIn('credentials', {
-    email: parsed.data.email,
-    password: parsed.data.password,
-    redirectTo: '/dashboard',
-  })
+  try {
+    await signIn('credentials', {
+      email: parsed.data.email,
+      password: parsed.data.password,
+      redirectTo: '/dashboard',
+    })
+  } catch (err) {
+    // NextAuth throws NEXT_REDIRECT on success — let it bubble up.
+    if (err && typeof err === 'object' && 'digest' in err && typeof (err as { digest?: string }).digest === 'string' && (err as { digest: string }).digest.startsWith('NEXT_REDIRECT')) {
+      throw err
+    }
+    console.error('[registerAction] signIn after register failed:', err)
+    return { error: 'Compte créé, mais connexion automatique échouée. Connecte-toi manuellement.' }
+  }
 
   return {}
 }

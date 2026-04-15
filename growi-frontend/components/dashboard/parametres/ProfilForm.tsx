@@ -59,7 +59,7 @@ const strengthColor = {
 interface ProfilFormProps {
   profile: UserProfile
   isLoading: boolean
-  updateProfile: (updates: Partial<UserProfile>) => void
+  updateProfile: (updates: Partial<UserProfile>) => Promise<{ error?: string }>
 }
 
 export function ProfilForm({ profile, isLoading, updateProfile }: ProfilFormProps) {
@@ -110,9 +110,13 @@ export function ProfilForm({ profile, isLoading, updateProfile }: ProfilFormProp
 
   async function onSubmit(data: ProfilInput) {
     setSaveState('saving')
-    await new Promise((r) => setTimeout(r, 600)) // simulate async
-    // TODO: Replace with PATCH /api/user/profile
-    updateProfile({ ...data, avatarColor })
+    const result = await updateProfile({ ...data, avatarColor })
+    if (result.error) {
+      setSaveState('error')
+      toast(result.error)
+      setTimeout(() => setSaveState('idle'), 2500)
+      return
+    }
     setSaveState('saved')
     toast('Tes informations ont bien été enregistrées 🌱')
     setTimeout(() => setSaveState('idle'), 2000)
@@ -131,17 +135,34 @@ export function ProfilForm({ profile, isLoading, updateProfile }: ProfilFormProp
   const newPasswordVal = watchPw('newPassword') ?? ''
   const strength = getPasswordStrength(newPasswordVal)
 
-  async function onPasswordSubmit(_data: ChangePasswordInput) { // eslint-disable-line @typescript-eslint/no-unused-vars
+  async function onPasswordSubmit(data: ChangePasswordInput) {
     setPwSaveState('saving')
-    await new Promise((r) => setTimeout(r, 600))
-    // TODO: Connect to PATCH /api/user/password
-    setPwSaveState('saved')
-    toast('Mot de passe mis à jour 🔐')
-    setTimeout(() => {
-      setPwSaveState('idle')
-      setPasswordOpen(false)
-      resetPw()
-    }, 1500)
+    try {
+      const res = await fetch('/api/user/password', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setPwSaveState('error')
+        toast(json?.error ?? 'Erreur lors du changement de mot de passe.')
+        setTimeout(() => setPwSaveState('idle'), 2500)
+        return
+      }
+      setPwSaveState('saved')
+      toast('Mot de passe mis à jour 🔐')
+      setTimeout(() => {
+        setPwSaveState('idle')
+        setPasswordOpen(false)
+        resetPw()
+      }, 1500)
+    } catch (err) {
+      console.error('[onPasswordSubmit]', err)
+      setPwSaveState('error')
+      toast('Erreur réseau, réessaie.')
+      setTimeout(() => setPwSaveState('idle'), 2500)
+    }
   }
 
   if (isLoading) {
