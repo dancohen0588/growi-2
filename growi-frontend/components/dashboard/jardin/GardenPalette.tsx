@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils'
 import { PALETTE_CATALOG } from '@/lib/garden/palette'
 import { GardenPaletteSection } from './GardenPaletteSection'
+import { GardenPalettePlants } from './GardenPalettePlants'
 
 interface GardenPaletteProps {
   embedded?: boolean
@@ -26,14 +27,33 @@ export function GardenPalette({ embedded = false }: GardenPaletteProps) {
           Glisse sur le canvas
         </p>
       </div>
-      {Object.entries(PALETTE_CATALOG).map(([title, items], i) => (
-        <GardenPaletteSection
-          key={title}
-          title={title}
-          items={items}
-          defaultOpen={i === 0}
-        />
-      ))}
+
+      {/* Static sections: Structures, Zones — injected order preserved */}
+      <GardenPaletteSection
+        title="Structures"
+        items={PALETTE_CATALOG['Structures']}
+        defaultOpen
+      />
+      <GardenPaletteSection
+        title="Zones"
+        items={PALETTE_CATALOG['Zones']}
+        defaultOpen={false}
+      />
+
+      {/* Dynamic catalog-backed Plants section (collapsed until first open → lazy load) */}
+      <GardenPalettePlants />
+
+      {/* Remaining static sections: Arbres, Eau & Équipements */}
+      <GardenPaletteSection
+        title="Arbres"
+        items={PALETTE_CATALOG['Arbres']}
+        defaultOpen={false}
+      />
+      <GardenPaletteSection
+        title="Eau & Équipements"
+        items={PALETTE_CATALOG['Eau & Équipements']}
+        defaultOpen={false}
+      />
     </aside>
   )
 }

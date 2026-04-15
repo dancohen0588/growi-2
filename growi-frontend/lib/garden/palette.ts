@@ -10,6 +10,18 @@ export interface PaletteItem {
   isCircular?: boolean
 }
 
+// Fallback list used when the dynamic catalog fetch fails
+export const FALLBACK_PLANT_ITEMS: PaletteItem[] = [
+  { type: 'plante', emoji: '🌹', label: 'Rosier',    defaultWidth: 60, defaultHeight: 60, isCircular: true },
+  { type: 'plante', emoji: '🌻', label: 'Tournesol', defaultWidth: 60, defaultHeight: 60, isCircular: true },
+  { type: 'plante', emoji: '🌿', label: 'Basilic',   defaultWidth: 50, defaultHeight: 50, isCircular: true },
+  { type: 'plante', emoji: '🍅', label: 'Tomate',    defaultWidth: 60, defaultHeight: 60, isCircular: true },
+  { type: 'plante', emoji: '🫐', label: 'Myrtille',  defaultWidth: 60, defaultHeight: 60, isCircular: true },
+  { type: 'plante', emoji: '🌾', label: 'Graminée',  defaultWidth: 50, defaultHeight: 60, isCircular: true },
+  { type: 'plante', emoji: '🌷', label: 'Tulipe',    defaultWidth: 50, defaultHeight: 50, isCircular: true },
+  { type: 'plante', emoji: '🎍', label: 'Bambou',    defaultWidth: 50, defaultHeight: 80, isCircular: false },
+]
+
 export const PALETTE_CATALOG: Record<string, PaletteItem[]> = {
   'Structures': [
     { type: 'mur',      emoji: '🧱', label: 'Mur',       defaultWidth: 120, defaultHeight: 36 },
@@ -26,16 +38,6 @@ export const PALETTE_CATALOG: Record<string, PaletteItem[]> = {
     { type: 'serre',    emoji: '🏡', label: 'Serre',     defaultWidth: 140, defaultHeight: 100 },
     { type: 'allee',    emoji: '🟫', label: 'Allée',     defaultWidth: 60,  defaultHeight: 160 },
     { type: 'rocaille', emoji: '🌵', label: 'Rocaille',  defaultWidth: 120, defaultHeight: 100 },
-  ],
-  'Plantes': [
-    { type: 'plante', emoji: '🌹', label: 'Rosier',    defaultWidth: 60, defaultHeight: 60, isCircular: true },
-    { type: 'plante', emoji: '🌻', label: 'Tournesol', defaultWidth: 60, defaultHeight: 60, isCircular: true },
-    { type: 'plante', emoji: '🌿', label: 'Basilic',   defaultWidth: 50, defaultHeight: 50, isCircular: true },
-    { type: 'plante', emoji: '🍅', label: 'Tomate',    defaultWidth: 60, defaultHeight: 60, isCircular: true },
-    { type: 'plante', emoji: '🫐', label: 'Myrtille',  defaultWidth: 60, defaultHeight: 60, isCircular: true },
-    { type: 'plante', emoji: '🌾', label: 'Graminée',  defaultWidth: 50, defaultHeight: 60, isCircular: true },
-    { type: 'plante', emoji: '🌷', label: 'Tulipe',    defaultWidth: 50, defaultHeight: 50, isCircular: true },
-    { type: 'plante', emoji: '🎍', label: 'Bambou',    defaultWidth: 50, defaultHeight: 80, isCircular: false },
   ],
   'Arbres': [
     { type: 'arbre', emoji: '🌳', label: 'Arbre',    defaultWidth: 80, defaultHeight: 80, isCircular: true },
