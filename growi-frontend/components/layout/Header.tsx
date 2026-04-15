@@ -14,6 +14,7 @@ import {
 
 const navLinks = [
   { href: '/fonctionnalites', label: 'Fonctionnalités' },
+  { href: '/encyclopedie',    label: 'Encyclopédie' },
   { href: '/tarifs',          label: 'Premium' },
   { href: '/blog',            label: 'Blog' },
   { href: '/pro',             label: 'Pro' },

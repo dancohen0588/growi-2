@@ -76,6 +76,7 @@ model GardenZone {
 
 model PlantCatalog {
   id                 String   @id @default(cuid())
+  slug               String?  @unique
   commonName         String
   scientificName     String   @unique
   family             String?
