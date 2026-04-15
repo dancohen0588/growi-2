@@ -1,10 +1,12 @@
 // growi-frontend/components/dashboard/jardin/GardenPropsTab.tsx
 'use client'
 
-import { useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Trash2, Search, Loader2, Sparkles, Plus } from 'lucide-react'
+import type { PlantCatalog } from '@prisma/client'
 import { cn } from '@/lib/utils'
-import type { GardenElement, ElementSun } from '@/lib/garden/types'
+import { searchCatalog } from '@/lib/actions/catalog.actions'
+import type { GardenElement, ElementSun, GardenElementType } from '@/lib/garden/types'
 import type { Plant } from '@/lib/plant-types'
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
@@ -22,14 +24,23 @@ const COLOR_OPTIONS = [
   { label: 'Violet', value: '#9B59B6' },
 ]
 
+const ZONE_TYPES: GardenElementType[] = ['potager', 'massif', 'pelouse', 'serre']
+
 interface GardenPropsTabProps {
   element: GardenElement
   onChange: (patch: Partial<GardenElement>) => void
   onDelete: () => void
   plants?: Plant[]
+  onAddPlant?: (catalogPlant: PlantCatalog, element: GardenElement) => Promise<void>
 }
 
-export function GardenPropsTab({ element, onChange, onDelete, plants = [] }: GardenPropsTabProps) {
+export function GardenPropsTab({
+  element,
+  onChange,
+  onDelete,
+  plants = [],
+  onAddPlant,
+}: GardenPropsTabProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const sunOptions: Array<{ value: ElementSun; emoji: string; label: string }> = [
@@ -37,6 +48,10 @@ export function GardenPropsTab({ element, onChange, onDelete, plants = [] }: Gar
     { value: 'half',  emoji: '⛅', label: 'Mi-ombre' },
     { value: 'shade', emoji: '🌿', label: 'Ombre' },
   ]
+
+  const isZone = ZONE_TYPES.includes(element.type)
+  const isPlantElement = element.type === 'plante' || element.type === 'arbre'
+  const showPlantsSection = (isZone || isPlantElement) && onAddPlant
 
   return (
     <div className="flex flex-col gap-4 p-3 overflow-y-auto h-full">
@@ -134,7 +149,6 @@ export function GardenPropsTab({ element, onChange, onDelete, plants = [] }: Gar
               style={{ backgroundColor: c.value }}
             />
           ))}
-          {/* Reset color */}
           {element.customColor && (
             <button
               onClick={() => onChange({ customColor: undefined })}
@@ -178,6 +192,15 @@ export function GardenPropsTab({ element, onChange, onDelete, plants = [] }: Gar
         </select>
       </div>
 
+      {/* Plants in this zone — only for zones / plant elements */}
+      {showPlantsSection && (
+        <PlantsZoneSection
+          element={element}
+          plants={plants}
+          onAddPlant={onAddPlant!}
+        />
+      )}
+
       {/* Delete */}
       <button
         onClick={() => setDeleteOpen(true)}
@@ -211,6 +234,185 @@ export function GardenPropsTab({ element, onChange, onDelete, plants = [] }: Gar
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+// ── Plants in zone section ────────────────────────────────────────────────
+
+interface PlantsZoneSectionProps {
+  element: GardenElement
+  plants: Plant[]
+  onAddPlant: (catalogPlant: PlantCatalog, element: GardenElement) => Promise<void>
+}
+
+// Must match category values written by the scraper (plant_scraper/2_enrich_plants.py):
+// INDOOR, VEGETABLE, FLOWERS, TREES_SHRUBS, HERBS, SUCCULENTS, AQUATIC, CLIMBING
+const CATEGORY_BY_ELEMENT: Partial<Record<GardenElementType, string>> = {
+  potager: 'VEGETABLE',
+  massif:  'FLOWERS',
+  serre:   'INDOOR',
+}
+
+function PlantsZoneSection({ element, plants, onAddPlant }: PlantsZoneSectionProps) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<PlantCatalog[]>([])
+  const [loading, setLoading] = useState(false)
+  const [suggestions, setSuggestions] = useState<PlantCatalog[]>([])
+  const [adding, setAdding] = useState<string | null>(null)
+
+  // Linked plants in this zone
+  const linkedPlants = plants.filter(
+    p => p.id === element.linkedPlantId || p.zone === element.label,
+  )
+
+  // Load suggestions when element changes
+  useEffect(() => {
+    const category = CATEGORY_BY_ELEMENT[element.type]
+    if (!category) {
+      setSuggestions([])
+      return
+    }
+    let cancelled = false
+    searchCatalog('', category).then(data => {
+      if (!cancelled) setSuggestions(data.slice(0, 3))
+    })
+    return () => { cancelled = true }
+  }, [element.type])
+
+  // Search on each keystroke, no debounce (compact quick-add)
+  useEffect(() => {
+    const trimmed = query.trim()
+    if (trimmed.length < 2) {
+      setResults([])
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    searchCatalog(trimmed)
+      .then(data => { if (!cancelled) setResults(data.slice(0, 5)) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [query])
+
+  async function handleAdd(plant: PlantCatalog) {
+    setAdding(plant.id)
+    try {
+      await onAddPlant(plant, element)
+      setQuery('')
+      setResults([])
+    } finally {
+      setAdding(null)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 pt-3 border-t border-forest/10">
+      <span className="font-raleway text-[11px] font-semibold text-forest/60">
+        🌱 Plantes de cette zone
+      </span>
+
+      {/* Linked plants */}
+      {linkedPlants.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {linkedPlants.map(p => (
+            <li
+              key={p.id}
+              className="flex items-center gap-2 rounded-lg bg-sand px-2 py-1.5"
+            >
+              <span className="text-base leading-none" aria-hidden>{p.emoji}</span>
+              <span className="flex-1 font-raleway text-[11px] font-medium text-forest truncate">
+                {p.name}
+              </span>
+              <span className="font-raleway text-[9px] text-forest/50">
+                💧 {p.wateringFrequencyDays}j
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Quick search */}
+      <div className="relative">
+        <Search
+          size={12}
+          className="absolute left-2 top-1/2 -translate-y-1/2 text-forest/40 pointer-events-none"
+          aria-hidden
+        />
+        <input
+          type="text"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Ajouter une plante…"
+          className="w-full rounded-lg border border-forest/15 bg-white pl-7 pr-7 py-1.5 font-raleway text-xs text-forest placeholder:text-forest/40 focus:outline-none focus:ring-1 focus:ring-lime"
+        />
+        {loading && (
+          <Loader2
+            size={12}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-forest/40 animate-spin"
+            aria-hidden
+          />
+        )}
+      </div>
+
+      {/* Results */}
+      {results.length > 0 && (
+        <ul className="flex flex-col gap-0.5 rounded-lg border border-forest/10 bg-white p-1 max-h-60 overflow-y-auto">
+          {results.map(p => (
+            <li key={p.id}>
+              <button
+                type="button"
+                disabled={adding !== null}
+                onClick={() => handleAdd(p)}
+                className={cn(
+                  'flex items-center gap-2 w-full rounded-md px-1.5 py-1 hover:bg-lime/10 transition-colors text-left',
+                  adding === p.id && 'opacity-60',
+                )}
+              >
+                <span className="text-sm leading-none" aria-hidden>{p.emoji ?? '🌿'}</span>
+                <span className="flex-1 font-raleway text-[11px] text-forest truncate">
+                  {p.commonName}
+                </span>
+                {adding === p.id
+                  ? <Loader2 size={10} className="text-forest/40 animate-spin" aria-hidden />
+                  : <Plus size={10} className="text-forest/40" aria-hidden />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Contextual suggestions */}
+      {query.trim().length < 2 && suggestions.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <span className="flex items-center gap-1 font-raleway text-[10px] text-forest/50">
+            <Sparkles size={10} aria-hidden />
+            Suggestions pour {element.type}
+          </span>
+          <div className="flex flex-col gap-0.5">
+            {suggestions.map(p => (
+              <button
+                key={p.id}
+                type="button"
+                disabled={adding !== null}
+                onClick={() => handleAdd(p)}
+                className={cn(
+                  'flex items-center gap-2 rounded-md border border-lime/30 bg-lime/5 px-1.5 py-1 hover:bg-lime/15 transition-colors text-left',
+                  adding === p.id && 'opacity-60',
+                )}
+              >
+                <span className="text-sm leading-none" aria-hidden>{p.emoji ?? '🌿'}</span>
+                <span className="flex-1 font-raleway text-[11px] text-forest truncate">
+                  {p.commonName}
+                </span>
+                {adding === p.id
+                  ? <Loader2 size={10} className="text-forest/40 animate-spin" aria-hidden />
+                  : <Plus size={10} className="text-lime-hover" aria-hidden />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

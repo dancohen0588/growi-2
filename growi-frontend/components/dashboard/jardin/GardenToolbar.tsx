@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Save, Camera, Trash2 } from 'lucide-react'
+import { Save, Camera, Trash2, Sprout } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
@@ -15,10 +15,11 @@ interface GardenToolbarProps {
   onSave: () => void
   onExport: () => void
   onClear: () => void
+  onAddPlant: () => void
   isSaving: boolean
 }
 
-export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, isSaving }: GardenToolbarProps) {
+export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, onAddPlant, isSaving }: GardenToolbarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const [clearOpen, setClearOpen] = useState(false)
@@ -73,34 +74,46 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, i
         {/* Right: actions */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
+            onClick={onAddPlant}
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-lg font-poppins font-semibold text-xs text-forest bg-lime hover:bg-lime-hover shadow-cta transition-all hover:-translate-y-0.5"
+            title="Ajouter une plante au jardin"
+            aria-label="Ajouter une plante au jardin"
+          >
+            <Sprout size={14} aria-hidden />
+            <span className="hidden sm:inline">Ajouter une plante</span>
+            <span className="sm:hidden">Plante</span>
+          </button>
+          <button
             onClick={() => setClearOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-raleway text-xs text-forest/60 hover:bg-sand hover:text-forest transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-raleway text-xs text-forest/60 hover:bg-sand hover:text-forest transition-colors"
             title="Effacer le canvas"
             aria-label="Effacer tous les éléments"
           >
             <Trash2 size={14} aria-hidden />
-            <span className="hidden sm:block">Effacer</span>
+            <span>Effacer</span>
           </button>
           <button
             onClick={onExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-raleway text-xs text-forest/60 hover:bg-sand hover:text-forest transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-raleway text-xs text-forest/60 hover:bg-sand hover:text-forest transition-colors"
             title="Exporter en PNG"
             aria-label="Exporter la carte en image PNG"
           >
             <Camera size={14} aria-hidden />
-            <span className="hidden sm:block">Exporter</span>
+            <span>Exporter</span>
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving}
             aria-busy={isSaving}
             className={cn(
-              'flex items-center gap-1.5 px-4 py-1.5 rounded-lg font-poppins font-semibold text-xs text-forest bg-lime hover:bg-lime-hover transition-colors',
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-raleway text-xs text-forest/70 border border-forest/15 bg-white hover:bg-sand hover:text-forest transition-colors',
               isSaving && 'opacity-70 cursor-not-allowed',
             )}
+            title="Sauvegarder"
+            aria-label="Sauvegarder"
           >
             <Save size={14} aria-hidden />
-            Sauvegarder
+            <span className="hidden md:inline">Sauvegarder</span>
           </button>
         </div>
       </div>

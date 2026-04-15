@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
+import type { PlantCatalog } from '@prisma/client'
 import { usePlants } from '@/lib/plants-context'
 import { useToast } from '@/components/ui/toast'
 import type { PlantFormValues } from '@/lib/plant-schemas'
@@ -13,8 +14,8 @@ export function AddPlantClient() {
   const { toast } = useToast()
   const router = useRouter()
 
-  async function handleSubmit(data: PlantFormValues) {
-    const newPlant = await addPlant(data)
+  async function handleSubmit(data: PlantFormValues, catalogPlant: PlantCatalog | null) {
+    const newPlant = await addPlant(data, catalogPlant?.id)
     toast(`🌿 ${data.name} a bien été ajoutée !`)
     if (newPlant) {
       router.push(`/dashboard/plantes/${newPlant.id}`)

@@ -11,7 +11,7 @@ import {
 
 interface PlantsContextValue {
   plants: Plant[]
-  addPlant:    (data: PlantFormValues) => Promise<Plant | undefined>
+  addPlant:    (data: PlantFormValues, catalogPlantId?: string) => Promise<Plant | undefined>
   updatePlant: (id: string, data: PlantFormValues) => Promise<void>
   deletePlant: (id: string) => Promise<void>
   isPending:   boolean
@@ -29,8 +29,12 @@ export function PlantsProvider({
   const [plants, setPlants] = useState<Plant[]>(initialPlants)
   const [isPending, startTransition] = useTransition()
 
-  async function addPlant(data: PlantFormValues): Promise<Plant | undefined> {
+  async function addPlant(
+    data: PlantFormValues,
+    catalogPlantId?: string,
+  ): Promise<Plant | undefined> {
     const result = await addPlantToMyGarden({
+      catalogPlantId,
       customName:       data.name,
       emoji:            data.emoji,
       location:         mapLocation(data.location),

@@ -1,7 +1,9 @@
 // growi-frontend/components/dashboard/jardin/GardenRightPanel.tsx
 'use client'
 
+import type { PlantCatalog } from '@prisma/client'
 import type { GardenElement, GardenConfig } from '@/lib/garden/types'
+import type { Plant } from '@/lib/plant-types'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { GardenPropsTab } from './GardenPropsTab'
 import { GardenConfigTab } from './GardenConfigTab'
@@ -12,6 +14,8 @@ interface GardenRightPanelProps {
   onDeleteElement: (id: string) => void
   config: GardenConfig
   onUpdateConfig: (patch: Partial<GardenConfig>) => void
+  plants?: Plant[]
+  onAddPlant?: (catalogPlant: PlantCatalog, element: GardenElement) => Promise<void>
 }
 
 export function GardenRightPanel({
@@ -20,6 +24,8 @@ export function GardenRightPanel({
   onDeleteElement,
   config,
   onUpdateConfig,
+  plants = [],
+  onAddPlant,
 }: GardenRightPanelProps) {
   return (
     <aside
@@ -38,6 +44,8 @@ export function GardenRightPanel({
               element={selectedElement}
               onChange={patch => onUpdateElement(selectedElement.id, patch)}
               onDelete={() => onDeleteElement(selectedElement.id)}
+              plants={plants}
+              onAddPlant={onAddPlant}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">

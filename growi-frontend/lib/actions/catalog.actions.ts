@@ -7,17 +7,15 @@ export async function searchCatalog(
   query: string,
   category?: string,
 ): Promise<PlantCatalog[]> {
-  // SQLite: `contains` maps to LIKE '%...%', case-insensitive for ASCII by default.
-  // mode: 'insensitive' is PostgreSQL-only and must be omitted for SQLite.
   return prisma.plantCatalog.findMany({
     where: {
       AND: [
         query
           ? {
               OR: [
-                { commonName:    { contains: query } },
-                { scientificName: { contains: query } },
-                { aliases:        { contains: query } },
+                { commonName:     { contains: query, mode: 'insensitive' } },
+                { scientificName: { contains: query, mode: 'insensitive' } },
+                { aliases:        { contains: query, mode: 'insensitive' } },
               ],
             }
           : {},

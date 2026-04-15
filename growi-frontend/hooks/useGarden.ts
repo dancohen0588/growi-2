@@ -21,7 +21,7 @@ export interface UseGardenReturn {
   selectElement: (id: string | null) => void
   selectedElement: GardenElement | null
 
-  addElement: (item: PaletteItem, x: number, y: number) => void
+  addElement: (item: PaletteItem, x: number, y: number) => string
   updateElement: (id: string, patch: Partial<GardenElement>) => void
   deleteElement: (id: string) => void
   clearCanvas: () => void
@@ -113,7 +113,7 @@ export function useGarden(): UseGardenReturn {
     [garden.elements, selectedId],
   )
 
-  const addElement = useCallback((item: PaletteItem, x: number, y: number) => {
+  const addElement = useCallback((item: PaletteItem, x: number, y: number): string => {
     const newEl: GardenElement = {
       id: crypto.randomUUID(),
       type: item.type,
@@ -128,6 +128,7 @@ export function useGarden(): UseGardenReturn {
     }
     updateGarden(prev => ({ ...prev, elements: [...prev.elements, newEl] }))
     setSelectedId(newEl.id)
+    return newEl.id
   }, [updateGarden])
 
   const updateElement = useCallback((id: string, patch: Partial<GardenElement>) => {

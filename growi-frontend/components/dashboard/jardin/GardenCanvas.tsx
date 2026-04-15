@@ -5,16 +5,21 @@ import { Stage, Layer, Group, Rect, Ellipse, Text, Transformer, Line } from 'rea
 import type Konva from 'konva'
 import { DndContext, useDroppable, useDndMonitor } from '@dnd-kit/core'
 import type { DragEndEvent, DragMoveEvent } from '@dnd-kit/core'
-import { Layers } from 'lucide-react'
+import { Layers, SlidersHorizontal } from 'lucide-react'
+import type { PlantCatalog } from '@prisma/client'
 
 import { useGarden } from '@/hooks/useGarden'
 import type { GardenElement } from '@/lib/garden/types'
 import type { PaletteItem } from '@/lib/garden/palette'
 import { getTypeColors, snapToGrid } from '@/lib/garden/compute-sun'
+import { addPlantToMyGarden } from '@/lib/actions/plant.actions'
 
 import { GardenToolbar } from './GardenToolbar'
 import { GardenPalette } from './GardenPalette'
 import { GardenRightPanel } from './GardenRightPanel'
+import { GardenPropsTab } from './GardenPropsTab'
+import { AddPlantToGardenSheet } from './AddPlantToGardenSheet'
+import { useToast } from '@/components/ui/toast'
 import { GardenCompass } from './GardenCompass'
 import { GardenEmptyState } from './GardenEmptyState'
 import { GardenStatsBar } from './GardenStatsBar'
@@ -178,6 +183,9 @@ export function GardenCanvas() {
   const stageRef = useRef<Konva.Stage>(null)
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
+  const [mobilePropsOpen, setMobilePropsOpen] = useState(false)
+  const [addPlantOpen, setAddPlantOpen] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     const container = containerRef.current
@@ -208,6 +216,63 @@ export function GardenCanvas() {
     link.click()
   }, [garden.garden.name])
 
+  const handleAddPlantToZone = useCallback(
+    async (catalogPlant: PlantCatalog, element: GardenElement) => {
+      const elementToLocation: Record<string, 'OUTDOOR' | 'INDOOR' | 'GREENHOUSE' | 'BALCONY'> = {
+        serre: 'GREENHOUSE',
+      }
+      await addPlantToMyGarden({
+        catalogPlantId: catalogPlant.id,
+        location:       elementToLocation[element.type] ?? 'OUTDOOR',
+        notes:          `Zone : ${element.label}`,
+      })
+    },
+    [],
+  )
+
+  const handleAddPlantFromCatalog = useCallback(
+    async (catalogPlant: PlantCatalog) => {
+      const result = await addPlantToMyGarden({
+        catalogPlantId: catalogPlant.id,
+        location:       'OUTDOOR',
+      })
+      if (!result.success) {
+        throw new Error(result.error ?? 'Impossible d\'ajouter la plante')
+      }
+
+      const label = catalogPlant.commonName
+      const emoji = catalogPlant.emoji ?? '🌿'
+      const width = 60
+      const height = 60
+      const centerX = stageSize.width / garden.zoom / 2 - width / 2
+      const centerY = stageSize.height / garden.zoom / 2 - height / 2
+      const jitter = () => Math.round((Math.random() - 0.5) * 80)
+
+      const paletteItem: PaletteItem = {
+        type: 'plante',
+        emoji,
+        label,
+        defaultWidth: width,
+        defaultHeight: height,
+        isCircular: true,
+      }
+
+      const newId = garden.addElement(
+        paletteItem,
+        Math.max(0, centerX + jitter()),
+        Math.max(0, centerY + jitter()),
+      )
+
+      if (result.plant?.id) {
+        garden.updateElement(newId, { linkedPlantId: result.plant.id })
+      }
+
+      garden.saveGarden()
+      toast(`🌿 ${label} a été ajoutée à ton jardin !`)
+    },
+    [stageSize.width, stageSize.height, garden, toast],
+  )
+
   return (
     <DndContext>
       <div className="flex flex-col h-full">
@@ -217,6 +282,7 @@ export function GardenCanvas() {
           onSave={garden.saveGarden}
           onExport={handleExport}
           onClear={garden.clearCanvas}
+          onAddPlant={() => setAddPlantOpen(true)}
           isSaving={garden.isSaving}
         />
 
@@ -272,7 +338,7 @@ export function GardenCanvas() {
             <GardenStatsBar elements={garden.garden.elements} />
             <GardenZoomControls zoom={garden.zoom} onZoom={garden.setZoom} />
 
-            {/* Mobile FAB — only visible on small screens */}
+            {/* Mobile FABs — only visible on small screens */}
             <button
               onClick={() => setMobileSheetOpen(true)}
               className="md:hidden absolute bottom-16 right-3 z-30 w-12 h-12 rounded-full bg-lime shadow-lg flex items-center justify-center hover:bg-lime-hover transition-colors"
@@ -281,6 +347,17 @@ export function GardenCanvas() {
             >
               <Layers size={20} className="text-forest" aria-hidden />
             </button>
+
+            {garden.selectedElement && (
+              <button
+                onClick={() => setMobilePropsOpen(true)}
+                className="md:hidden absolute bottom-32 right-3 z-30 w-12 h-12 rounded-full bg-white border-2 border-lime shadow-lg flex items-center justify-center hover:bg-lime/10 transition-colors"
+                aria-label="Propriétés de l'élément sélectionné"
+                title="Propriétés"
+              >
+                <SlidersHorizontal size={18} className="text-forest" aria-hidden />
+              </button>
+            )}
 
             <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
               <SheetContent side="bottom" className="h-[70vh] flex flex-col p-0">
@@ -292,6 +369,29 @@ export function GardenCanvas() {
                 </div>
               </SheetContent>
             </Sheet>
+
+            <Sheet open={mobilePropsOpen} onOpenChange={setMobilePropsOpen}>
+              <SheetContent side="bottom" className="h-[80vh] flex flex-col p-0">
+                <SheetHeader className="px-4 py-3 border-b border-forest/10">
+                  <SheetTitle className="font-poppins text-sm text-forest">
+                    Propriétés de l&apos;élément
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="flex-1 overflow-y-auto">
+                  {garden.selectedElement && (
+                    <GardenPropsTab
+                      element={garden.selectedElement}
+                      onChange={patch => garden.updateElement(garden.selectedElement!.id, patch)}
+                      onDelete={() => {
+                        garden.deleteElement(garden.selectedElement!.id)
+                        setMobilePropsOpen(false)
+                      }}
+                      onAddPlant={handleAddPlantToZone}
+                    />
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
           </CanvasDropZone>
 
           <GardenRightPanel
@@ -300,8 +400,15 @@ export function GardenCanvas() {
             onDeleteElement={id => garden.deleteElement(id)}
             config={garden.garden.config}
             onUpdateConfig={garden.updateConfig}
+            onAddPlant={handleAddPlantToZone}
           />
         </div>
+
+        <AddPlantToGardenSheet
+          open={addPlantOpen}
+          onOpenChange={setAddPlantOpen}
+          onPlantSelected={handleAddPlantFromCatalog}
+        />
       </div>
     </DndContext>
   )

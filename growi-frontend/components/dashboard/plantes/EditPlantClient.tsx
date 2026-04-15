@@ -66,6 +66,7 @@ export function EditPlantClient({ plant }: EditPlantClientProps) {
       <div className="rounded-2xl bg-white shadow-card p-6">
         <PlantForm
           defaultValues={plant}
+          mode="manual"
           onSubmit={handleSubmit}
           submitLabel="Enregistrer les modifications"
         />
