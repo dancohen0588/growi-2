@@ -79,7 +79,7 @@ export async function addPlantToMyGarden(
     include: { catalogPlant: true, zone: true },
   })
 
-  revalidatePath('/dashboard/plantes')
+  revalidatePath('/dashboard/plantes', 'layout')
   return { success: true, plant: toPlant(instance) }
 }
 

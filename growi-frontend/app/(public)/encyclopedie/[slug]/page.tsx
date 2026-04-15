@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
 import { cn } from '@/lib/utils'
+import { AddToGardenCta } from '../_components/AddToGardenCta'
 
 export const revalidate = 86400 // ISR: 24h
 export const dynamicParams = true
@@ -79,10 +80,6 @@ export default async function PlantDetailPage({
     orderBy: { commonName: 'asc' },
     take: 3,
   })
-
-  const addPlantHref = `/login?callbackUrl=${encodeURIComponent(
-    `/dashboard/plantes/nouveau?catalogId=${plant.id}`,
-  )}`
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -221,12 +218,7 @@ export default async function PlantDetailPage({
               <p className="font-raleway text-xs text-forest/60 mb-4">
                 Ajoute-la à ton jardin pour recevoir des rappels d&apos;arrosage personnalisés.
               </p>
-              <Link
-                href={addPlantHref}
-                className="block w-full rounded-xl bg-lime hover:bg-lime-hover text-forest font-poppins font-semibold text-sm text-center py-3 shadow-cta transition-all hover:-translate-y-0.5"
-              >
-                + Ajouter à mon jardin
-              </Link>
+              <AddToGardenCta catalogId={plant.id} />
             </div>
 
             {/* Quick facts */}
