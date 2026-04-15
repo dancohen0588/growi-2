@@ -6,12 +6,21 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Eye, EyeOff } from 'lucide-react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { loginSchema, type LoginInput } from '@/lib/auth-schemas'
 
+function safeCallbackUrl(raw: string | null): string {
+  if (!raw) return '/dashboard'
+  // Only allow same-origin relative paths starting with a single "/".
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/dashboard'
+  return raw
+}
+
 export function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = safeCallbackUrl(searchParams.get('callbackUrl'))
   const [showPassword, setShowPassword] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -33,7 +42,7 @@ export function LoginForm() {
       setServerError('Email ou mot de passe incorrect. Réessaie.')
       return
     }
-    router.push('/dashboard')
+    router.push(callbackUrl)
     router.refresh()
   }
 
