@@ -51,9 +51,12 @@ export async function getGardenAdvice(
     throw new Error('Jardin introuvable')
   }
 
-  // 3. Fetch plant instances
+  // 3. Fetch plant instances (include orphan plants with no gardenId)
   const instances = await prisma.plantInstance.findMany({
-    where: { gardenId },
+    where: {
+      userId,
+      OR: [{ gardenId }, { gardenId: null }],
+    },
     include: { catalogPlant: true, zone: true },
   })
 
@@ -111,20 +114,51 @@ export async function getPlantAdvice(
     },
   })
 
-  if (!instance || !instance.garden) {
+  if (!instance) {
     throw new Error('Plante introuvable')
   }
 
-  const lat = instance.garden.user.latitude
-  const lon = instance.garden.user.longitude
-  const weather =
-    lat != null && lon != null
+  // Resolve garden: use linked garden, or fall back to user's most recent garden
+  let garden = instance.garden
+  if (!garden) {
+    const fallback = await prisma.garden.findFirst({
+      where: { userId },
+      include: { user: { select: { latitude: true, longitude: true } } },
+      orderBy: { createdAt: 'desc' },
+    })
+    garden = fallback
+  }
+
+  let weather: WeatherForecast
+  if (garden) {
+    const lat = garden.user.latitude
+    const lon = garden.user.longitude
+    weather = lat != null && lon != null
       ? await fetchWeatherForecast(lat, lon)
       : neutralForecast()
+  } else {
+    weather = neutralForecast()
+  }
+
+  // Build a minimal garden object if none exists
+  const gardenForCtx = garden ?? {
+    id: 'no-garden',
+    userId,
+    name: '',
+    description: null,
+    type: 'OUTDOOR',
+    surfaceM2: null,
+    climateZone: null,
+    soilType: null,
+    orientation: null,
+    canvasData: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
 
   const ctx: PlantContext = {
     instance,
-    garden: instance.garden,
+    garden: gardenForCtx as any,
     weather,
     currentDate: new Date(),
   }

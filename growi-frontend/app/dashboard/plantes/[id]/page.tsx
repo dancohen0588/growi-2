@@ -1,6 +1,7 @@
 // app/dashboard/plantes/[id]/page.tsx
 'use client'
 
+import { useState, useEffect } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
@@ -8,6 +9,9 @@ import { usePlants } from '@/lib/plants-context'
 import { PlantDetailHero } from '@/components/dashboard/plantes/PlantDetailHero'
 import { PlantInfoGrid } from '@/components/dashboard/plantes/PlantInfoGrid'
 import { PlantCareTipsSection } from '@/components/dashboard/plantes/PlantCareTipsSection'
+import { PlantAdviceTimeline } from '@/components/dashboard/plantes/PlantAdviceTimeline'
+import { getPlantAdviceAction } from '@/app/actions/advice.actions'
+import type { PlantAdvice } from '@/lib/recommendation/types'
 
 interface PageProps {
   params: { id: string }
@@ -16,6 +20,14 @@ interface PageProps {
 export default function PlantDetailPage({ params }: PageProps) {
   const { plants } = usePlants()
   const plant = plants.find(p => p.id === params.id)
+  const [advice, setAdvice] = useState<PlantAdvice | null>(null)
+
+  useEffect(() => {
+    if (!plant) return
+    getPlantAdviceAction(plant.id)
+      .then(setAdvice)
+      .catch(() => setAdvice(null))
+  }, [plant])
 
   if (!plant) return notFound()
 
@@ -46,6 +58,9 @@ export default function PlantDetailPage({ params }: PageProps) {
         </h2>
         <PlantInfoGrid plant={plant} />
       </section>
+
+      {/* Advice timeline */}
+      <PlantAdviceTimeline advice={advice} />
 
       {/* Description */}
       <section className="rounded-2xl bg-white shadow-card p-6">

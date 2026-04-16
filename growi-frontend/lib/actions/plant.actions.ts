@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Plant } from '@/lib/plant-types'
 import { toPlant } from '@/lib/plant-mapper'
+import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 
 // ── Validation schemas ─────────────────────────────────────────────────────
 
@@ -51,6 +52,17 @@ export async function addPlantToMyGarden(
 
   const validated = addPlantSchema.parse(data)
 
+  // Resolve gardenId: use provided value, or fall back to user's most recent garden
+  let gardenId = validated.gardenId
+  if (!gardenId) {
+    const defaultGarden = await prisma.garden.findFirst({
+      where: { userId: session.user.id },
+      select: { id: true },
+      orderBy: { createdAt: 'desc' },
+    })
+    gardenId = defaultGarden?.id
+  }
+
   let defaults: { wateringFreqDays?: number; sunExposure?: string; emoji?: string } = {}
   if (validated.catalogPlantId) {
     const cat = await prisma.plantCatalog.findUnique({
@@ -69,6 +81,7 @@ export async function addPlantToMyGarden(
     data: {
       ...defaults,
       ...validated,
+      gardenId,
       userId:      session.user.id,
       datePlanted: validated.datePlanted ? new Date(validated.datePlanted) : undefined,
     },
@@ -90,6 +103,11 @@ export async function logWatering(
   const session = await auth()
   if (!session?.user?.id) throw new Error('Non authentifié')
 
+  const instance = await prisma.plantInstance.findFirst({
+    where: { id: plantInstanceId, userId: session.user.id },
+    select: { gardenId: true },
+  })
+
   await prisma.$transaction([
     prisma.wateringLog.create({ data: { plantInstanceId, note } }),
     prisma.plantInstance.update({
@@ -97,6 +115,10 @@ export async function logWatering(
       data:  { lastWateredAt: new Date() },
     }),
   ])
+
+  if (instance?.gardenId) {
+    await invalidateGardenAdviceCache(instance.gardenId)
+  }
 
   revalidatePath('/dashboard/plantes')
   return { success: true }
@@ -110,6 +132,11 @@ export async function updatePlantHealth(
   const session = await auth()
   if (!session?.user?.id) throw new Error('Non authentifié')
 
+  const instance = await prisma.plantInstance.findFirst({
+    where: { id: plantInstanceId, userId: session.user.id },
+    select: { gardenId: true },
+  })
+
   await prisma.$transaction([
     prisma.healthLog.create({ data: { plantInstanceId, status, note } }),
     prisma.plantInstance.update({
@@ -117,6 +144,10 @@ export async function updatePlantHealth(
       data:  { healthStatus: status, healthNote: note },
     }),
   ])
+
+  if (instance?.gardenId) {
+    await invalidateGardenAdviceCache(instance.gardenId)
+  }
 
   revalidatePath('/dashboard/plantes')
   return { success: true }
@@ -128,10 +159,20 @@ export async function deletePlantInstance(
   const session = await auth()
   if (!session?.user?.id) throw new Error('Non authentifié')
 
+  const instance = await prisma.plantInstance.findFirst({
+    where: { id: plantInstanceId, userId: session.user.id },
+    select: { gardenId: true },
+  })
+
   await prisma.plantInstance.delete({
     where: { id: plantInstanceId, userId: session.user.id },
   })
 
+  if (instance?.gardenId) {
+    await invalidateGardenAdviceCache(instance.gardenId)
+  }
+
   revalidatePath('/dashboard/plantes')
+  revalidatePath('/dashboard/calendrier')
   return { success: true }
 }
