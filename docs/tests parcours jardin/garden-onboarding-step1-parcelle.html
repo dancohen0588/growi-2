@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Growi — Étape 1 : Définir votre parcelle</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --green-900: #1a3a2a;
+      --green-800: #234d38;
+      --green-600: #2d7a4f;
+      --green-500: #3a9c63;
+      --green-400: #52c27f;
+      --green-300: #7ed6a0;
+      --green-100: #e8f7ef;
+      --green-50:  #f4fbf7;
+      --sand:      #f5f0e8;
+      --sand-dark: #e8dfc8;
+      --earth:     #8b6f47;
+      --gray-900:  #1a1a1a;
+      --gray-700:  #444;
+      --gray-400:  #aaa;
+      --gray-200:  #e5e5e5;
+      --white:     #fff;
+      --accent:    #ff7043;
+      --radius-lg: 20px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+      --shadow:    0 4px 20px rgba(0,0,0,.10);
+      --shadow-lg: 0 8px 40px rgba(0,0,0,.15);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f4f1;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 20px;
+      gap: 32px;
+    }
+
+    /* ─── FRAME MOBILE ─── */
+    .phone-frame {
+      width: 390px;
+      min-height: 844px;
+      background: var(--white);
+      border-radius: 40px;
+      box-shadow: 0 20px 80px rgba(0,0,0,.22), 0 0 0 8px #1a1a1a;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    /* ─── STATUS BAR ─── */
+    .status-bar {
+      background: var(--green-900);
+      padding: 14px 28px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status-bar .time { font-size: 15px; font-weight: 700; }
+    .status-icons { display: flex; gap: 6px; align-items: center; }
+
+    /* ─── HEADER ─── */
+    .header {
+      background: var(--green-900);
+      padding: 12px 20px 24px;
+      color: white;
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo span { color: var(--green-400); }
+
+    /* ─── STEPPER ─── */
+    .stepper {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 0 4px;
+    }
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+    }
+    .step-circle {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+      transition: all .3s;
+    }
+    .step.active .step-circle  { background: var(--green-400); color: var(--green-900); }
+    .step.done .step-circle    { background: var(--green-600); color: white; }
+    .step.pending .step-circle { background: rgba(255,255,255,.15); color: rgba(255,255,255,.5); }
+    .step-label {
+      font-size: 9px; font-weight: 600; margin-top: 4px;
+      text-transform: uppercase; letter-spacing: .5px;
+    }
+    .step.active .step-label  { color: var(--green-300); }
+    .step.done .step-label    { color: rgba(255,255,255,.7); }
+    .step.pending .step-label { color: rgba(255,255,255,.3); }
+    .step-connector {
+      height: 2px; flex: 1; margin-bottom: 20px;
+      background: rgba(255,255,255,.2);
+    }
+    .step-connector.done { background: var(--green-500); }
+
+    /* ─── CONTENT ─── */
+    .content {
+      flex: 1;
+      background: var(--green-50);
+      overflow-y: auto;
+      padding-bottom: 100px;
+    }
+
+    .section-title {
+      font-size: 18px; font-weight: 800; color: var(--green-900);
+      padding: 20px 20px 4px;
+    }
+    .section-sub {
+      font-size: 13px; color: var(--gray-400); padding: 0 20px 16px;
+    }
+
+    /* ─── CANVAS AREA ─── */
+    .canvas-wrapper {
+      margin: 0 16px;
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .canvas-toolbar {
+      background: var(--green-900);
+      padding: 10px 14px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .tool-btn {
+      background: rgba(255,255,255,.1);
+      border: none; border-radius: var(--radius-sm);
+      color: white; font-size: 14px;
+      width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background .2s;
+    }
+    .tool-btn.active { background: var(--green-500); }
+    .tool-btn:hover  { background: rgba(255,255,255,.2); }
+    .tool-sep { width: 1px; height: 24px; background: rgba(255,255,255,.2); margin: 0 2px; }
+
+    /* ─── GARDEN CANVAS ─── */
+    .garden-canvas {
+      position: relative;
+      height: 240px;
+      background:
+        repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(42,110,70,.12) 20px),
+        repeating-linear-gradient(90deg, transparent, transparent 19px, rgba(42,110,70,.12) 20px),
+        #f9fff9;
+      overflow: hidden;
+    }
+    .grid-origin {
+      position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Parcelle tracée SVG */
+    .garden-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+    /* Cotations */
+    .cote {
+      position: absolute;
+      font-size: 11px; font-weight: 700; color: var(--green-600);
+      background: white; border-radius: 4px;
+      padding: 2px 6px; border: 1.5px solid var(--green-400);
+      display: flex; align-items: center; gap: 4px;
+    }
+    .cote-edit { font-size: 10px; color: var(--green-500); cursor: pointer; }
+
+    /* Draggable corner handle */
+    .corner-handle {
+      position: absolute;
+      width: 14px; height: 14px;
+      background: white; border: 2.5px solid var(--green-500);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      cursor: move;
+      box-shadow: 0 2px 6px rgba(0,0,0,.2);
+    }
+
+    /* Canvas action hint */
+    .canvas-hint {
+      position: absolute; bottom: 10px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(26,58,42,.85);
+      color: white; font-size: 11px; font-weight: 600;
+      padding: 5px 12px; border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    /* ─── SHAPE PICKER ─── */
+    .shape-section {
+      padding: 16px 16px 0;
+    }
+    .shape-title { font-size: 12px; font-weight: 700; color: var(--gray-700); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .5px; }
+    .shape-grid {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+    }
+    .shape-card {
+      background: white; border-radius: var(--radius-md);
+      border: 2px solid var(--gray-200);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 8px 4px; gap: 4px; cursor: pointer;
+      transition: all .2s;
+    }
+    .shape-card:hover  { border-color: var(--green-400); background: var(--green-50); }
+    .shape-card.active { border-color: var(--green-500); background: var(--green-100); }
+    .shape-icon { font-size: 22px; }
+    .shape-name { font-size: 9px; color: var(--gray-700); font-weight: 600; text-align: center; }
+
+    /* ─── DIMENSIONS PANEL ─── */
+    .dims-panel {
+      margin: 12px 16px 0;
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+    .dims-title { font-size: 12px; font-weight: 700; color: var(--gray-700); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .5px; }
+    .dims-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .dim-field { display: flex; flex-direction: column; gap: 4px; }
+    .dim-label { font-size: 11px; color: var(--gray-400); font-weight: 600; }
+    .dim-input {
+      display: flex; align-items: center;
+      background: var(--green-50); border: 1.5px solid var(--green-200, #b2dfc0);
+      border-radius: var(--radius-sm); overflow: hidden;
+    }
+    .dim-input input {
+      flex: 1; border: none; background: transparent;
+      font-size: 16px; font-weight: 700; color: var(--green-900);
+      padding: 8px 10px; outline: none; width: 0;
+    }
+    .dim-unit {
+      background: var(--green-100); color: var(--green-700, #256640);
+      font-size: 11px; font-weight: 700; padding: 0 10px;
+      height: 100%; display: flex; align-items: center;
+    }
+
+    /* Surface calculée */
+    .surface-badge {
+      margin: 10px 16px 0;
+      background: linear-gradient(135deg, var(--green-600), var(--green-800));
+      color: white; border-radius: var(--radius-md);
+      padding: 12px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .surface-value { font-size: 22px; font-weight: 800; }
+    .surface-label { font-size: 11px; opacity: .8; margin-top: 2px; }
+    .surface-icon { font-size: 28px; opacity: .6; }
+
+    /* ─── TEXTURE PICKER ─── */
+    .texture-section {
+      padding: 12px 16px 0;
+    }
+    .texture-grid { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+    .texture-card {
+      flex-shrink: 0; width: 64px;
+      border-radius: var(--radius-sm); overflow: hidden;
+      border: 2.5px solid transparent; cursor: pointer;
+      transition: all .2s;
+    }
+    .texture-card.active { border-color: var(--green-500); }
+    .texture-preview {
+      width: 64px; height: 50px;
+      background-size: cover; background-repeat: repeat;
+    }
+    .texture-name {
+      font-size: 9px; font-weight: 600; color: var(--gray-700);
+      text-align: center; padding: 4px 2px;
+      background: white;
+    }
+    /* Texture patterns */
+    .tx-grass     { background-color: #5a9e44; background-image: repeating-linear-gradient(45deg, rgba(0,0,0,.05) 0px, rgba(0,0,0,.05) 2px, transparent 2px, transparent 8px); }
+    .tx-gravel    { background-color: #c8b89a; background-image: radial-gradient(circle, #a89070 1px, transparent 1px); background-size: 6px 6px; }
+    .tx-paving    { background-color: #d4c8b0; background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.15) 0px, transparent 1px, transparent 20px), repeating-linear-gradient(90deg, rgba(0,0,0,.15) 0px, transparent 1px, transparent 20px); }
+    .tx-deck      { background-color: #c8a06a; background-image: repeating-linear-gradient(90deg, rgba(0,0,0,.1) 0px, transparent 1px, transparent 12px); }
+    .tx-concrete  { background-color: #b8b8b8; background-image: repeating-linear-gradient(45deg, rgba(0,0,0,.04) 0, rgba(0,0,0,.04) 1px, transparent 1px, transparent 50%); }
+    .tx-soil      { background-color: #8b6347; background-image: radial-gradient(circle, rgba(0,0,0,.15) 1px, transparent 1px); background-size: 5px 5px; }
+
+    /* ─── BOTTOM NAV ─── */
+    .bottom-bar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: white;
+      padding: 12px 20px 28px;
+      display: flex; gap: 10px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,.08);
+    }
+    .btn-secondary {
+      flex: 0; padding: 14px 20px;
+      border-radius: var(--radius-md); border: 2px solid var(--gray-200);
+      background: transparent; color: var(--gray-700); font-size: 14px; font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-primary {
+      flex: 1; padding: 14px;
+      border-radius: var(--radius-md); border: none;
+      background: linear-gradient(135deg, var(--green-500), var(--green-600));
+      color: white; font-size: 15px; font-weight: 800;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+      box-shadow: 0 4px 14px rgba(58,156,99,.4);
+    }
+
+    /* ─── ANNOTATION PANEL ─── */
+    .annotation-section {
+      padding: 12px 16px 0;
+    }
+    .annotation-row {
+      background: white; border-radius: var(--radius-md);
+      padding: 10px 14px; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .annot-icon { font-size: 18px; }
+    .annot-content { flex: 1; }
+    .annot-label { font-size: 13px; font-weight: 700; color: var(--gray-900); }
+    .annot-value { font-size: 12px; color: var(--green-600); font-weight: 600; }
+    .annot-edit { font-size: 18px; color: var(--gray-400); }
+
+    /* ─── TIPS ─── */
+    .tip-card {
+      margin: 12px 16px 0;
+      background: linear-gradient(135deg, #fff8e1, #fffde7);
+      border-left: 3px solid #ffc107;
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+    }
+    .tip-header { font-size: 11px; font-weight: 800; color: #f57f17; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .5px; }
+    .tip-text { font-size: 12px; color: var(--gray-700); line-height: 1.5; }
+
+    /* ─── SIDEBAR (desktop hint) ─── */
+    .sidebar {
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-top: 20px;
+    }
+    .sidebar-card {
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+    .sidebar-title { font-size: 16px; font-weight: 800; color: var(--green-900); margin-bottom: 12px; }
+    .sidebar-body { font-size: 13px; color: var(--gray-700); line-height: 1.7; }
+    .feature-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      margin-bottom: 10px;
+    }
+    .feature-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--green-100); color: var(--green-600);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .feature-text strong { display: block; font-size: 13px; color: var(--gray-900); }
+    .feature-text span { font-size: 12px; color: var(--gray-400); }
+    .step-overview {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .step-ov {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px; border-radius: var(--radius-md);
+      border: 2px solid var(--gray-200);
+      transition: all .2s;
+    }
+    .step-ov.active { border-color: var(--green-500); background: var(--green-50); }
+    .step-ov.done   { border-color: var(--green-300); background: #f0fbf4; }
+    .step-ov-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800; flex-shrink: 0;
+    }
+    .step-ov.active .step-ov-num { background: var(--green-500); color: white; }
+    .step-ov.done   .step-ov-num { background: var(--green-200, #9ed4b4); color: var(--green-800); }
+    .step-ov.pending .step-ov-num { background: var(--gray-200); color: var(--gray-400); }
+    .step-ov-info strong { display: block; font-size: 13px; color: var(--gray-900); }
+    .step-ov-info span { font-size: 11px; color: var(--gray-400); }
+
+    @media(max-width:780px) { .sidebar { display: none; } }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════ PHONE FRAME ═══ -->
+<div class="phone-frame">
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="time">9:41</span>
+    <div class="status-icons">
+      <svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="2" width="3" height="10" fill="white" rx="1"/><rect x="4.5" y="1.5" width="3" height="10.5" fill="white" rx="1"/><rect x="9" y="0" width="3" height="12" fill="white" rx="1"/><rect x="13.5" y="4" width="2" height="8" fill="rgba(255,255,255,.4)" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 1L14.5 6.5 8 12 1.5 6.5z" fill="none" stroke="white" stroke-width="1.5"/><path d="M8 4L12 7.5 8 11 4 7.5z" fill="rgba(255,255,255,.5)"/></svg>
+      <span>🔋</span>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-top">
+      <div class="logo">Gr<span>owi</span></div>
+    </div>
+    <!-- Stepper -->
+    <div class="stepper">
+      <div class="step active">
+        <div class="step-circle">1</div>
+        <div class="step-label">Parcelle</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step pending">
+        <div class="step-circle">2</div>
+        <div class="step-label">Structures</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step pending">
+        <div class="step-circle">3</div>
+        <div class="step-label">Végétaux</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step pending">
+        <div class="step-circle">4</div>
+        <div class="step-label">Config.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    <div class="section-title">Dessinez votre parcelle</div>
+    <div class="section-sub">Définissez la forme et les dimensions de votre terrain</div>
+
+    <!-- Canvas -->
+    <div class="canvas-wrapper">
+      <div class="canvas-toolbar">
+        <button class="tool-btn active" title="Sélectionner">⬡</button>
+        <button class="tool-btn" title="Rectangle">▭</button>
+        <button class="tool-btn" title="Polygone">⬠</button>
+        <button class="tool-btn" title="Ellipse">◯</button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" title="Undo">↩</button>
+        <button class="tool-btn" title="Redo">↪</button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" title="Zoom +" style="margin-left:auto">+</button>
+        <button class="tool-btn" title="Zoom -">−</button>
+      </div>
+
+      <div class="garden-canvas">
+        <svg class="garden-svg" viewBox="0 0 358 240">
+          <!-- Parcelle remplie texture gazon -->
+          <defs>
+            <pattern id="grass" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+              <rect width="8" height="8" fill="#c8e6c9"/>
+              <line x1="0" y1="0" x2="8" y2="8" stroke="#a5d6a7" stroke-width=".5"/>
+            </pattern>
+          </defs>
+          <!-- Parcelle principale (polygone irrégulier) -->
+          <polygon points="60,30 290,25 310,190 240,215 70,210 45,120"
+            fill="url(#grass)" stroke="#2d7a4f" stroke-width="2.5" stroke-dasharray="none"/>
+
+          <!-- Cotation top -->
+          <line x1="60" y1="18" x2="290" y2="18" stroke="#2d7a4f" stroke-width="1" marker-start="url(#arrowL)" marker-end="url(#arrowR)"/>
+          <!-- Cotation left -->
+          <line x1="35" y1="30" x2="35" y2="210" stroke="#2d7a4f" stroke-width="1"/>
+
+          <!-- Handles aux coins -->
+          <circle cx="60" cy="30"  r="5" fill="white" stroke="#3a9c63" stroke-width="2.5"/>
+          <circle cx="290" cy="25" r="5" fill="white" stroke="#3a9c63" stroke-width="2.5"/>
+          <circle cx="310" cy="190" r="5" fill="white" stroke="#3a9c63" stroke-width="2.5"/>
+          <circle cx="240" cy="215" r="5" fill="white" stroke="#3a9c63" stroke-width="2.5"/>
+          <circle cx="70" cy="210" r="5" fill="white" stroke="#3a9c63" stroke-width="2.5"/>
+          <circle cx="45" cy="120" r="5" fill="white" stroke="#3a9c63" stroke-width="2.5"/>
+        </svg>
+
+        <!-- Cotations -->
+        <div class="cote" style="top:6px; left:50%; transform:translateX(-50%)">
+          12.5 m <span class="cote-edit">✏️</span>
+        </div>
+        <div class="cote" style="top:50%; left:2px; transform:translateY(-50%) rotate(-90deg)">
+          9.8 m <span class="cote-edit">✏️</span>
+        </div>
+
+        <div class="canvas-hint">✋ Glissez les points pour modifier la forme</div>
+      </div>
+    </div>
+
+    <!-- Surface calculée -->
+    <div class="surface-badge">
+      <div>
+        <div class="surface-value">98.4 m²</div>
+        <div class="surface-label">Surface calculée automatiquement</div>
+      </div>
+      <div class="surface-icon">📐</div>
+    </div>
+
+    <!-- Dimensions Panel -->
+    <div class="dims-panel">
+      <div class="dims-title">Dimensions</div>
+      <div class="dims-grid">
+        <div class="dim-field">
+          <div class="dim-label">Largeur max</div>
+          <div class="dim-input">
+            <input type="number" value="12.5">
+            <div class="dim-unit">m</div>
+          </div>
+        </div>
+        <div class="dim-field">
+          <div class="dim-label">Profondeur max</div>
+          <div class="dim-input">
+            <input type="number" value="9.8">
+            <div class="dim-unit">m</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shape Picker -->
+    <div class="shape-section">
+      <div class="shape-title">Forme de départ</div>
+      <div class="shape-grid">
+        <div class="shape-card active">
+          <div class="shape-icon">⬡</div>
+          <div class="shape-name">Libre</div>
+        </div>
+        <div class="shape-card">
+          <div class="shape-icon">▭</div>
+          <div class="shape-name">Rectangle</div>
+        </div>
+        <div class="shape-card">
+          <div class="shape-icon">◤</div>
+          <div class="shape-name">En L</div>
+        </div>
+        <div class="shape-card">
+          <div class="shape-icon">⬟</div>
+          <div class="shape-name">Trapèze</div>
+        </div>
+        <div class="shape-card">
+          <div class="shape-icon">◯</div>
+          <div class="shape-name">Arrondi</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Texture sol -->
+    <div class="texture-section">
+      <div class="shape-title">Texture du sol</div>
+      <div class="texture-grid">
+        <div class="texture-card active">
+          <div class="texture-preview tx-grass"></div>
+          <div class="texture-name">Gazon</div>
+        </div>
+        <div class="texture-card">
+          <div class="texture-preview tx-gravel"></div>
+          <div class="texture-name">Gravier</div>
+        </div>
+        <div class="texture-card">
+          <div class="texture-preview tx-paving"></div>
+          <div class="texture-name">Dallage</div>
+        </div>
+        <div class="texture-card">
+          <div class="texture-preview tx-deck"></div>
+          <div class="texture-name">Terrasse</div>
+        </div>
+        <div class="texture-card">
+          <div class="texture-preview tx-concrete"></div>
+          <div class="texture-name">Béton</div>
+        </div>
+        <div class="texture-card">
+          <div class="texture-preview tx-soil"></div>
+          <div class="texture-name">Terre</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tip -->
+    <div class="tip-card">
+      <div class="tip-header">💡 Conseil</div>
+      <div class="tip-text">Vous pourrez modifier la forme et ajouter des zones distinctes (pelouse, potager, allée) dans les étapes suivantes.</div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- Bottom Bar -->
+  <div class="bottom-bar">
+    <button class="btn-secondary">Passer</button>
+    <button class="btn-primary">Étape suivante →</button>
+  </div>
+
+</div><!-- /phone-frame -->
+
+
+<!-- ═══════════════════════════════════════════════ SIDEBAR ═══ -->
+<div class="sidebar">
+  <div class="sidebar-card">
+    <div class="sidebar-title">🗺️ Création du jardin</div>
+    <div class="step-overview">
+      <div class="step-ov active">
+        <div class="step-ov-num">1</div>
+        <div class="step-ov-info">
+          <strong>Définir la parcelle</strong>
+          <span>Forme, dimensions, texture du sol</span>
+        </div>
+      </div>
+      <div class="step-ov pending">
+        <div class="step-ov-num">2</div>
+        <div class="step-ov-info">
+          <strong>Structures & aménagements</strong>
+          <span>Murs, portail, piscine, allées…</span>
+        </div>
+      </div>
+      <div class="step-ov pending">
+        <div class="step-ov-num">3</div>
+        <div class="step-ov-info">
+          <strong>Végétaux</strong>
+          <span>Plantes, arbres, massifs, potager</span>
+        </div>
+      </div>
+      <div class="step-ov pending">
+        <div class="step-ov-num">4</div>
+        <div class="step-ov-info">
+          <strong>Configuration</strong>
+          <span>Orientation, météo, micro-climat</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-card">
+    <div class="sidebar-title">✨ Fonctionnalités</div>
+    <div class="feature-item">
+      <div class="feature-icon">📐</div>
+      <div class="feature-text">
+        <strong>Cotations automatiques</strong>
+        <span>Saisie ou glisser les poignées</span>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">🎨</div>
+      <div class="feature-text">
+        <strong>6 textures de sol</strong>
+        <span>Gazon, gravier, dallage, terrasse…</span>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">⬠</div>
+      <div class="feature-text">
+        <strong>Formes libres</strong>
+        <span>Rectangle, L, trapèze, polygone libre</span>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon">📏</div>
+      <div class="feature-text">
+        <strong>Surface calculée</strong>
+        <span>Mise à jour en temps réel</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

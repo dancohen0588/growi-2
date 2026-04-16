@@ -31,6 +31,8 @@ export interface UserProfile {
   avatarColor?: string
   gardenType?: 'potager' | 'ornement' | 'mixte' | 'interieur' | 'balcon'
   timezone?:   string
+  latitude?:   number | null
+  longitude?:  number | null
   alertConfig: AlertConfig
 }
 

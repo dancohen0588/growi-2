@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Growi — Étape 3 : Végétaux</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --green-900:#1a3a2a;--green-800:#234d38;--green-600:#2d7a4f;
+      --green-500:#3a9c63;--green-400:#52c27f;--green-300:#7ed6a0;
+      --green-100:#e8f7ef;--green-50:#f4fbf7;
+      --gray-900:#1a1a1a;--gray-700:#444;--gray-500:#888;--gray-400:#aaa;--gray-200:#e5e5e5;
+      --white:#fff;
+      --orange-400:#ff7043;--orange-100:#fff3e0;
+      --radius-lg:20px;--radius-md:12px;--radius-sm:8px;
+      --shadow:0 4px 20px rgba(0,0,0,.10);
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:#f0f4f1; display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:20px; gap:32px; }
+    .phone-frame { width:390px; min-height:844px; background:var(--white); border-radius:40px; box-shadow:0 20px 80px rgba(0,0,0,.22),0 0 0 8px #1a1a1a; overflow:hidden; display:flex; flex-direction:column; position:relative; flex-shrink:0; }
+    .status-bar { background:var(--green-900); padding:14px 28px 8px; display:flex; justify-content:space-between; align-items:center; color:white; font-size:12px; font-weight:600; }
+    .status-bar .time { font-size:15px; font-weight:700; }
+    .header { background:var(--green-900); padding:12px 20px 24px; color:white; }
+    .logo { font-size:22px; font-weight:800; letter-spacing:-0.5px; margin-bottom:16px; }
+    .logo span { color:var(--green-400); }
+    .stepper { display:flex; align-items:center; padding:0 4px; }
+    .step { display:flex; flex-direction:column; align-items:center; flex:1; }
+    .step-circle { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+    .step.active .step-circle  { background:var(--green-400); color:var(--green-900); }
+    .step.done .step-circle    { background:var(--green-600); color:white; }
+    .step.pending .step-circle { background:rgba(255,255,255,.15); color:rgba(255,255,255,.5); }
+    .step-label { font-size:9px; font-weight:600; margin-top:4px; text-transform:uppercase; letter-spacing:.5px; }
+    .step.active .step-label  { color:var(--green-300); }
+    .step.done .step-label    { color:rgba(255,255,255,.7); }
+    .step.pending .step-label { color:rgba(255,255,255,.3); }
+    .step-connector { height:2px; flex:1; margin-bottom:20px; background:rgba(255,255,255,.2); }
+    .step-connector.done { background:var(--green-500); }
+    .content { flex:1; background:var(--green-50); overflow-y:auto; padding-bottom:100px; }
+    .section-title { font-size:18px; font-weight:800; color:var(--green-900); padding:20px 20px 4px; }
+    .section-sub   { font-size:13px; color:var(--gray-400); padding:0 20px 12px; }
+
+    /* ─── SEARCH BAR ─── */
+    .search-bar {
+      margin:0 16px 12px;
+      display:flex; align-items:center; gap:8px;
+      background:white; border-radius:var(--radius-md);
+      border:2px solid var(--gray-200); padding:10px 14px;
+      box-shadow:var(--shadow);
+    }
+    .search-icon { font-size:16px; color:var(--gray-400); }
+    .search-input { flex:1; border:none; outline:none; font-size:14px; color:var(--gray-900); background:transparent; }
+    .search-input::placeholder { color:var(--gray-400); }
+    .filter-btn { background:var(--green-100); border:none; border-radius:var(--radius-sm); padding:5px 10px; font-size:12px; font-weight:700; color:var(--green-600); cursor:pointer; }
+
+    /* ─── CANVAS mini ─── */
+    .canvas-wrapper { margin:0 16px; background:var(--white); border-radius:var(--radius-lg); box-shadow:var(--shadow); overflow:hidden; }
+    .canvas-toolbar { background:var(--green-900); padding:8px 14px; display:flex; gap:6px; align-items:center; }
+    .tool-btn { background:rgba(255,255,255,.1); border:none; border-radius:var(--radius-sm); color:white; font-size:13px; padding:5px 10px; cursor:pointer; transition:background .2s; }
+    .tool-btn.active { background:var(--green-500); }
+    .tool-sep { width:1px; height:20px; background:rgba(255,255,255,.2); margin:0 2px; }
+    .garden-canvas {
+      position:relative; height:200px;
+      background: repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(42,110,70,.1) 20px), repeating-linear-gradient(90deg,transparent,transparent 19px,rgba(42,110,70,.1) 20px), #f4fbf7;
+    }
+    .garden-canvas svg { position:absolute; top:0; left:0; width:100%; height:100%; }
+    .plant-badge {
+      position:absolute; background:white; border:2px solid var(--green-500);
+      border-radius:20px; padding:2px 8px; font-size:10px; font-weight:700;
+      color:var(--green-700,#256640); white-space:nowrap; display:flex; align-items:center; gap:3px;
+    }
+    .drop-hint {
+      position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+      background:rgba(26,58,42,.85); color:white; font-size:11px; font-weight:600;
+      padding:5px 12px; border-radius:20px; white-space:nowrap;
+    }
+
+    /* ─── CATEGORY FILTER ─── */
+    .cat-scroll { display:flex; gap:6px; overflow-x:auto; padding:12px 16px 4px; }
+    .cat-pill { flex-shrink:0; padding:6px 12px; border-radius:20px; border:2px solid var(--gray-200); background:white; font-size:11px; font-weight:700; color:var(--gray-700); cursor:pointer; transition:all .2s; }
+    .cat-pill.active { border-color:var(--green-500); background:var(--green-100); color:var(--green-700,#256640); }
+
+    /* ─── PLANT CARDS ─── */
+    .plant-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:8px 16px; }
+    .plant-card {
+      background:white; border-radius:var(--radius-lg); border:2px solid var(--gray-200);
+      overflow:hidden; cursor:pointer; transition:all .2s; position:relative;
+    }
+    .plant-card:hover { border-color:var(--green-400); transform:translateY(-2px); box-shadow:var(--shadow); }
+    .plant-card.added { border-color:var(--green-500); }
+    .plant-card.added::after { content:'✓ Ajouté'; position:absolute; top:8px; right:8px; background:var(--green-500); color:white; font-size:9px; font-weight:800; padding:3px 7px; border-radius:12px; }
+
+    .plant-img { height:80px; display:flex; align-items:center; justify-content:center; font-size:40px; }
+    .plant-img.bg-rose    { background:linear-gradient(135deg,#fce4ec,#f48fb1); }
+    .plant-img.bg-tree    { background:linear-gradient(135deg,#e8f5e9,#a5d6a7); }
+    .plant-img.bg-herb    { background:linear-gradient(135deg,#f1f8e9,#c5e1a5); }
+    .plant-img.bg-shrub   { background:linear-gradient(135deg,#fff8e1,#ffe082); }
+    .plant-img.bg-fruit   { background:linear-gradient(135deg,#fbe9e7,#ffab91); }
+    .plant-img.bg-lavande { background:linear-gradient(135deg,#ede7f6,#b39ddb); }
+
+    .plant-info { padding:8px 10px; }
+    .plant-name { font-size:13px; font-weight:800; color:var(--gray-900); }
+    .plant-latin { font-size:10px; color:var(--gray-400); font-style:italic; margin-bottom:6px; }
+    .plant-tags { display:flex; gap:4px; flex-wrap:wrap; }
+    .plant-tag { font-size:9px; font-weight:700; padding:2px 6px; border-radius:8px; }
+    .tag-sun    { background:#fff9c4; color:#f57f17; }
+    .tag-water  { background:#e3f2fd; color:#1565c0; }
+    .tag-season { background:#f1f8e9; color:#33691e; }
+    .tag-type   { background:var(--green-100); color:var(--green-700,#256640); }
+
+    .plant-footer {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:6px 10px; border-top:1px solid var(--gray-200);
+    }
+    .plant-note  { font-size:11px; color:var(--green-600); font-weight:700; }
+    .plant-add-btn {
+      background:var(--green-500); color:white; border:none; border-radius:8px;
+      padding:5px 12px; font-size:11px; font-weight:800; cursor:pointer;
+    }
+    .plant-add-btn.added { background:var(--gray-200); color:var(--gray-500); }
+
+    /* ─── DETAIL BOTTOM SHEET (exemple) ─── */
+    .sheet-hint {
+      margin:0 16px; background:linear-gradient(135deg,var(--green-600),var(--green-800));
+      border-radius:var(--radius-lg); padding:14px 16px; color:white;
+      display:flex; align-items:center; gap:12px;
+    }
+    .sheet-icon { font-size:32px; }
+    .sheet-content {}
+    .sheet-title { font-size:14px; font-weight:800; margin-bottom:3px; }
+    .sheet-sub { font-size:12px; opacity:.8; }
+
+    /* ─── ADDED LIST ─── */
+    .added-list { padding:14px 16px 0; }
+    .added-title { font-size:12px; font-weight:700; color:var(--gray-700); text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+    .added-count { background:var(--green-500); color:white; font-size:11px; font-weight:800; padding:2px 8px; border-radius:12px; }
+    .added-item { display:flex; align-items:center; gap:10px; background:white; border-radius:var(--radius-md); padding:10px 12px; margin-bottom:6px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+    .added-icon { font-size:24px; }
+    .added-info { flex:1; }
+    .added-name  { font-size:13px; font-weight:700; color:var(--gray-900); }
+    .added-meta  { font-size:11px; color:var(--gray-400); }
+    .added-qty { font-size:13px; font-weight:800; color:var(--green-600); min-width:24px; text-align:center; }
+    .qty-controls { display:flex; align-items:center; gap:4px; }
+    .qty-btn { width:24px; height:24px; border:none; border-radius:6px; background:var(--green-100); color:var(--green-600); font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+
+    .bottom-bar { position:absolute; bottom:0; left:0; right:0; background:white; padding:12px 20px 28px; display:flex; gap:10px; box-shadow:0 -4px 20px rgba(0,0,0,.08); }
+    .btn-secondary { flex:0; padding:14px 20px; border-radius:var(--radius-md); border:2px solid var(--gray-200); background:transparent; color:var(--gray-700); font-size:14px; font-weight:700; cursor:pointer; }
+    .btn-primary   { flex:1; padding:14px; border-radius:var(--radius-md); border:none; background:linear-gradient(135deg,var(--green-500),var(--green-600)); color:white; font-size:15px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 14px rgba(58,156,99,.4); }
+
+    /* SIDEBAR */
+    .sidebar { width:320px; display:flex; flex-direction:column; gap:16px; padding-top:20px; }
+    .sidebar-card { background:white; border-radius:var(--radius-lg); padding:20px; box-shadow:var(--shadow); }
+    .sidebar-title { font-size:16px; font-weight:800; color:var(--green-900); margin-bottom:12px; }
+    .feature-item { display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; }
+    .feature-icon { width:32px; height:32px; border-radius:8px; background:var(--green-100); color:var(--green-600); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    .feature-text strong { display:block; font-size:13px; color:var(--gray-900); }
+    .feature-text span { font-size:12px; color:var(--gray-400); }
+    .step-ov { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:var(--radius-md); border:2px solid var(--gray-200); transition:all .2s; margin-bottom:6px; }
+    .step-ov.active { border-color:var(--green-500); background:var(--green-50); }
+    .step-ov.done   { border-color:var(--green-300); background:#f0fbf4; }
+    .step-ov-num { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0; }
+    .step-ov.active .step-ov-num { background:var(--green-500); color:white; }
+    .step-ov.done   .step-ov-num { background:#9ed4b4; color:var(--green-800); }
+    .step-ov.pending .step-ov-num { background:var(--gray-200); color:var(--gray-400); }
+    .step-ov-info strong { display:block; font-size:13px; color:var(--gray-900); }
+    .step-ov-info span { font-size:11px; color:var(--gray-400); }
+    @media(max-width:780px){ .sidebar{display:none;} }
+  </style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <div class="status-bar">
+    <span class="time">10:03</span>
+    <div style="display:flex;gap:6px;align-items:center;color:white"><span>📶</span><span>🔋</span></div>
+  </div>
+
+  <div class="header">
+    <div class="logo">Gr<span>owi</span></div>
+    <div class="stepper">
+      <div class="step done"><div class="step-circle">✓</div><div class="step-label">Parcelle</div></div>
+      <div class="step-connector done"></div>
+      <div class="step done"><div class="step-circle">✓</div><div class="step-label">Structures</div></div>
+      <div class="step-connector done"></div>
+      <div class="step active"><div class="step-circle">3</div><div class="step-label">Végétaux</div></div>
+      <div class="step-connector"></div>
+      <div class="step pending"><div class="step-circle">4</div><div class="step-label">Config.</div></div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="section-title">Ajoutez vos végétaux</div>
+    <div class="section-sub">Base de données de 2 000+ espèces adaptées à votre région</div>
+
+    <!-- Search -->
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" type="text" placeholder="Rechercher une plante, un arbre…">
+      <button class="filter-btn">Filtres</button>
+    </div>
+
+    <!-- Canvas mini -->
+    <div class="canvas-wrapper">
+      <div class="canvas-toolbar">
+        <button class="tool-btn active">🌿 Placer</button>
+        <button class="tool-btn">🖱 Sélect.</button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" style="margin-left:auto">↩</button>
+      </div>
+      <div class="garden-canvas">
+        <svg viewBox="0 0 358 200">
+          <defs>
+            <pattern id="g3" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+              <rect width="8" height="8" fill="#c8e6c9"/><line x1="0" y1="0" x2="8" y2="8" stroke="#a5d6a7" stroke-width=".4"/>
+            </pattern>
+            <pattern id="pool3" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+              <rect width="10" height="10" fill="#4fc3f7"/>
+            </pattern>
+            <pattern id="deck3" x="0" y="0" width="12" height="6" patternUnits="userSpaceOnUse">
+              <rect width="12" height="6" fill="#c8a06a"/>
+              <rect width="12" height="6" fill="none" stroke="#b8905a" stroke-width=".5"/>
+            </pattern>
+          </defs>
+          <polygon points="55,20 285,15 305,180 235,200 65,198 40,110" fill="url(#g3)" stroke="#2d7a4f" stroke-width="1.5"/>
+          <rect x="75" y="42" width="85" height="58" rx="7" fill="url(#pool3)" stroke="#0288d1" stroke-width="1.5"/>
+          <polygon points="155,135 235,135 244,192 225,196 152,194" fill="url(#deck3)" stroke="#a0856a" stroke-width="1"/>
+          <!-- Végétaux placés -->
+          <!-- Rosier -->
+          <circle cx="255" cy="50" r="12" fill="#e91e63" opacity=".8"/>
+          <circle cx="275" cy="55" r="10" fill="#e91e63" opacity=".7"/>
+          <circle cx="265" cy="38" r="9"  fill="#c2185b" opacity=".8"/>
+          <!-- Arbre -->
+          <circle cx="285" cy="140" r="18" fill="#2e7d32" opacity=".85"/>
+          <circle cx="275" cy="125" r="13" fill="#388e3c" opacity=".75"/>
+          <!-- Haie -->
+          <rect x="42" y="40" width="12" height="70" rx="4" fill="#388e3c" opacity=".9"/>
+          <!-- Lavande -->
+          <ellipse cx="134" cy="166" rx="10" ry="7" fill="#7b1fa2" opacity=".7"/>
+          <ellipse cx="148" cy="163" rx="8"  ry="6" fill="#9c27b0" opacity=".65"/>
+        </svg>
+        <div class="plant-badge" style="top:32px;left:240px">🌹 Rosiers ×3</div>
+        <div class="plant-badge" style="top:108px;left:252px">🌳 Bouleau ×1</div>
+        <div class="plant-badge" style="top:152px;left:94px">💜 Lavande ×2</div>
+        <div class="drop-hint">🌿 Glissez une plante sur le plan</div>
+      </div>
+    </div>
+
+    <!-- Catégories -->
+    <div class="cat-scroll">
+      <div class="cat-pill active">🌿 Tout</div>
+      <div class="cat-pill">🌹 Fleurs</div>
+      <div class="cat-pill">🌳 Arbres</div>
+      <div class="cat-pill">🫐 Fruitiers</div>
+      <div class="cat-pill">🌿 Vivaces</div>
+      <div class="cat-pill">🥬 Potager</div>
+      <div class="cat-pill">🌾 Graminées</div>
+      <div class="cat-pill">🍃 Haies</div>
+    </div>
+
+    <!-- Plantes -->
+    <div class="plant-grid">
+
+      <div class="plant-card added">
+        <div class="plant-img bg-rose">🌹</div>
+        <div class="plant-info">
+          <div class="plant-name">Rosier hybride</div>
+          <div class="plant-latin">Rosa × hybrida</div>
+          <div class="plant-tags">
+            <span class="plant-tag tag-sun">☀️ Plein soleil</span>
+            <span class="plant-tag tag-water">💧 Moyen</span>
+          </div>
+        </div>
+        <div class="plant-footer">
+          <div class="plant-note">⭐ Populaire</div>
+          <button class="plant-add-btn added">✓ Ajouté</button>
+        </div>
+      </div>
+
+      <div class="plant-card added">
+        <div class="plant-img bg-tree">🌳</div>
+        <div class="plant-info">
+          <div class="plant-name">Bouleau pleureur</div>
+          <div class="plant-latin">Betula pendula</div>
+          <div class="plant-tags">
+            <span class="plant-tag tag-sun">🌤 Mi-ombre</span>
+            <span class="plant-tag tag-water">💧 Faible</span>
+          </div>
+        </div>
+        <div class="plant-footer">
+          <div class="plant-note">🌱 Rustique</div>
+          <button class="plant-add-btn added">✓ Ajouté</button>
+        </div>
+      </div>
+
+      <div class="plant-card added">
+        <div class="plant-img bg-lavande">💜</div>
+        <div class="plant-info">
+          <div class="plant-name">Lavande</div>
+          <div class="plant-latin">Lavandula angustifolia</div>
+          <div class="plant-tags">
+            <span class="plant-tag tag-sun">☀️ Plein soleil</span>
+            <span class="plant-tag tag-water">💧 Faible</span>
+          </div>
+        </div>
+        <div class="plant-footer">
+          <div class="plant-note">🐝 Mellifère</div>
+          <button class="plant-add-btn added">✓ Ajouté</button>
+        </div>
+      </div>
+
+      <div class="plant-card">
+        <div class="plant-img bg-herb">🌿</div>
+        <div class="plant-info">
+          <div class="plant-name">Herbe ornementale</div>
+          <div class="plant-latin">Miscanthus sinensis</div>
+          <div class="plant-tags">
+            <span class="plant-tag tag-sun">☀️ Plein soleil</span>
+            <span class="plant-tag tag-season">🍂 Vivace</span>
+          </div>
+        </div>
+        <div class="plant-footer">
+          <div class="plant-note">💨 Mouvement</div>
+          <button class="plant-add-btn">+ Placer</button>
+        </div>
+      </div>
+
+      <div class="plant-card">
+        <div class="plant-img bg-fruit">🍎</div>
+        <div class="plant-info">
+          <div class="plant-name">Pommier nain</div>
+          <div class="plant-latin">Malus domestica</div>
+          <div class="plant-tags">
+            <span class="plant-tag tag-sun">☀️ Plein soleil</span>
+            <span class="plant-tag tag-type">🍎 Fruitier</span>
+          </div>
+        </div>
+        <div class="plant-footer">
+          <div class="plant-note">🏠 Compact</div>
+          <button class="plant-add-btn">+ Placer</button>
+        </div>
+      </div>
+
+      <div class="plant-card">
+        <div class="plant-img bg-shrub">🌿</div>
+        <div class="plant-info">
+          <div class="plant-name">Photinia red robin</div>
+          <div class="plant-latin">Photinia fraseri</div>
+          <div class="plant-tags">
+            <span class="plant-tag tag-sun">🌤 Mi-ombre</span>
+            <span class="plant-tag tag-type">🌿 Haie</span>
+          </div>
+        </div>
+        <div class="plant-footer">
+          <div class="plant-note">🔴 Persistant</div>
+          <button class="plant-add-btn">+ Placer</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Végétaux ajoutés -->
+    <div class="added-list">
+      <div class="added-title">
+        <span>Végétaux placés</span>
+        <span class="added-count">6 plantes</span>
+      </div>
+      <div class="added-item">
+        <div class="added-icon">🌹</div>
+        <div class="added-info"><div class="added-name">Rosier hybride</div><div class="added-meta">Zone B · Plein soleil · Entretien moyen</div></div>
+        <div class="qty-controls">
+          <button class="qty-btn">−</button>
+          <span class="added-qty">3</span>
+          <button class="qty-btn">+</button>
+        </div>
+      </div>
+      <div class="added-item">
+        <div class="added-icon">🌳</div>
+        <div class="added-info"><div class="added-name">Bouleau pleureur</div><div class="added-meta">Zone D · Mi-ombre · Entretien faible</div></div>
+        <div class="qty-controls">
+          <button class="qty-btn">−</button>
+          <span class="added-qty">1</span>
+          <button class="qty-btn">+</button>
+        </div>
+      </div>
+      <div class="added-item">
+        <div class="added-icon">💜</div>
+        <div class="added-info"><div class="added-name">Lavande</div><div class="added-meta">Terrasse · Plein soleil · Entretien faible</div></div>
+        <div class="qty-controls">
+          <button class="qty-btn">−</button>
+          <span class="added-qty">2</span>
+          <button class="qty-btn">+</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-secondary">← Retour</button>
+    <button class="btn-primary">Étape suivante →</button>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-card">
+    <div class="sidebar-title">🗺️ Progression</div>
+    <div class="step-ov done"><div class="step-ov-num">✓</div><div class="step-ov-info"><strong>Parcelle</strong><span>98m² · polygone</span></div></div>
+    <div class="step-ov done"><div class="step-ov-num">✓</div><div class="step-ov-info"><strong>Structures</strong><span>5 éléments</span></div></div>
+    <div class="step-ov active"><div class="step-ov-num">3</div><div class="step-ov-info"><strong>Végétaux</strong><span>6 plantes placées</span></div></div>
+    <div class="step-ov pending"><div class="step-ov-num">4</div><div class="step-ov-info"><strong>Configuration</strong><span>Orientation, météo…</span></div></div>
+  </div>
+  <div class="sidebar-card">
+    <div class="sidebar-title">🌿 Base végétaux</div>
+    <div class="feature-item"><div class="feature-icon">🔍</div><div class="feature-text"><strong>2 000+ espèces</strong><span>Filtrées par zone climatique</span></div></div>
+    <div class="feature-item"><div class="feature-icon">📅</div><div class="feature-text"><strong>Calendrier auto</strong><span>Rappels taillage, arrosage, engrais</span></div></div>
+    <div class="feature-item"><div class="feature-icon">🐛</div><div class="feature-text"><strong>IA maladies</strong><span>Diagnostic photo à la plantation</span></div></div>
+    <div class="feature-item"><div class="feature-icon">🌡</div><div class="feature-text"><strong>Compatibilité locale</strong><span>Plantes adaptées à votre météo</span></div></div>
+    <div class="feature-item"><div class="feature-icon">🛒</div><div class="feature-text"><strong>Store contextuel</strong><span>Commandez directement depuis la fiche</span></div></div>
+  </div>
+</div>
+
+</body>
+</html>

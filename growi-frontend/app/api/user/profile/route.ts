@@ -16,6 +16,8 @@ const patchSchema = z.object({
     .optional()
     .nullable(),
   avatarColor: z.string().optional().nullable(),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
 })
 
 function toProfile(user: {
@@ -27,6 +29,8 @@ function toProfile(user: {
   gardenType: string | null
   avatarColor: string | null
   alertConfig: Prisma.JsonValue | null
+  latitude: number | null
+  longitude: number | null
 }): UserProfile {
   return {
     firstName: user.firstName ?? user.name ?? '',
@@ -36,6 +40,8 @@ function toProfile(user: {
     avatarColor: user.avatarColor ?? undefined,
     gardenType: (user.gardenType ?? undefined) as UserProfile['gardenType'],
     alertConfig: (user.alertConfig as AlertConfig | null) ?? defaultAlertConfig,
+    latitude: user.latitude,
+    longitude: user.longitude,
   }
 }
 
@@ -56,6 +62,8 @@ export async function GET() {
       gardenType: true,
       avatarColor: true,
       alertConfig: true,
+      latitude: true,
+      longitude: true,
     },
   })
 
@@ -94,6 +102,8 @@ export async function PATCH(request: Request) {
         gardenType: true,
         avatarColor: true,
         alertConfig: true,
+        latitude: true,
+        longitude: true,
       },
     })
     return NextResponse.json(toProfile(updated))

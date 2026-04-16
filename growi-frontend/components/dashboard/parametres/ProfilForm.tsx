@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Eye, EyeOff, Check, AlertTriangle, Loader2 } from 'lucide-react'
 
 import { AvatarEditor } from './AvatarEditor'
+import { AddressAutocompleteField } from './AddressAutocompleteField'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -66,6 +67,10 @@ export function ProfilForm({ profile, isLoading, updateProfile }: ProfilFormProp
   const { toast } = useToast()
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [avatarColor, setAvatarColor] = useState(profile.avatarColor ?? '#B4DD7F')
+  const [addressCoords, setAddressCoords] = useState<{ lat: number | null; lon: number | null }>({
+    lat: profile.latitude ?? null,
+    lon: profile.longitude ?? null,
+  })
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
@@ -100,6 +105,10 @@ export function ProfilForm({ profile, isLoading, updateProfile }: ProfilFormProp
       gardenType: profile.gardenType,
     })
     setAvatarColor(profile.avatarColor ?? '#B4DD7F')
+    setAddressCoords({
+      lat: profile.latitude ?? null,
+      lon: profile.longitude ?? null,
+    })
   }, [profile, reset])
 
   const firstNameVal = watch('firstName') ?? ''
@@ -110,7 +119,12 @@ export function ProfilForm({ profile, isLoading, updateProfile }: ProfilFormProp
 
   async function onSubmit(data: ProfilInput) {
     setSaveState('saving')
-    const result = await updateProfile({ ...data, avatarColor })
+    const result = await updateProfile({
+      ...data,
+      avatarColor,
+      latitude: addressCoords.lat,
+      longitude: addressCoords.lon,
+    })
     if (result.error) {
       setSaveState('error')
       toast(result.error)
@@ -264,11 +278,14 @@ export function ProfilForm({ profile, isLoading, updateProfile }: ProfilFormProp
                   </TooltipContent>
                 </Tooltip>
               </div>
-              <Input
+              <AddressAutocompleteField
                 id="address"
-                placeholder="Ex : 14 rue des Lilas, Lyon"
-                autoComplete="street-address"
-                {...register('address')}
+                value={watch('address') ?? ''}
+                onChange={(label, lat, lon) => {
+                  setValue('address', label)
+                  setAddressCoords({ lat, lon })
+                }}
+                disabled={saveState === 'saving'}
               />
             </div>
 

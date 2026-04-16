@@ -16,12 +16,17 @@ export default async function MeteoPage() {
 
   const user = await prisma.user.findUnique({
     where:  { id: session.user.id },
-    select: { locationCity: true },
+    select: { address: true, latitude: true, longitude: true },
   })
 
   return (
     <WeatherPageClient
-      userAddress={user?.locationCity ?? null}
+      userAddress={user?.address ?? null}
+      userCoords={
+        user?.latitude != null && user?.longitude != null
+          ? { lat: user.latitude, lon: user.longitude }
+          : null
+      }
       userId={session.user.id}
     />
   )

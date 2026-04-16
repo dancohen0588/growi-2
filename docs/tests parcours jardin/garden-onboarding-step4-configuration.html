@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Growi — Étape 4 : Configuration</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --green-900:#1a3a2a;--green-800:#234d38;--green-600:#2d7a4f;
+      --green-500:#3a9c63;--green-400:#52c27f;--green-300:#7ed6a0;
+      --green-100:#e8f7ef;--green-50:#f4fbf7;
+      --gray-900:#1a1a1a;--gray-700:#444;--gray-400:#aaa;--gray-200:#e5e5e5;
+      --white:#fff;
+      --sun:#ff9800;--shadow-blue:#2196f3;
+      --radius-lg:20px;--radius-md:12px;--radius-sm:8px;
+      --shadow:0 4px 20px rgba(0,0,0,.10);
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:#f0f4f1; display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:20px; gap:32px; }
+    .phone-frame { width:390px; min-height:844px; background:var(--white); border-radius:40px; box-shadow:0 20px 80px rgba(0,0,0,.22),0 0 0 8px #1a1a1a; overflow:hidden; display:flex; flex-direction:column; position:relative; flex-shrink:0; }
+    .status-bar { background:var(--green-900); padding:14px 28px 8px; display:flex; justify-content:space-between; align-items:center; color:white; font-size:12px; font-weight:600; }
+    .status-bar .time { font-size:15px; font-weight:700; }
+    .header { background:var(--green-900); padding:12px 20px 24px; color:white; }
+    .logo { font-size:22px; font-weight:800; letter-spacing:-0.5px; margin-bottom:16px; }
+    .logo span { color:var(--green-400); }
+    .stepper { display:flex; align-items:center; padding:0 4px; }
+    .step { display:flex; flex-direction:column; align-items:center; flex:1; }
+    .step-circle { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+    .step.active .step-circle  { background:var(--green-400); color:var(--green-900); }
+    .step.done .step-circle    { background:var(--green-600); color:white; }
+    .step.pending .step-circle { background:rgba(255,255,255,.15); color:rgba(255,255,255,.5); }
+    .step-label { font-size:9px; font-weight:600; margin-top:4px; text-transform:uppercase; letter-spacing:.5px; }
+    .step.active .step-label { color:var(--green-300); }
+    .step.done   .step-label { color:rgba(255,255,255,.7); }
+    .step.pending .step-label { color:rgba(255,255,255,.3); }
+    .step-connector { height:2px; flex:1; margin-bottom:20px; background:rgba(255,255,255,.2); }
+    .step-connector.done { background:var(--green-500); }
+    .content { flex:1; background:var(--green-50); overflow-y:auto; padding-bottom:100px; }
+    .section-title { font-size:18px; font-weight:800; color:var(--green-900); padding:20px 20px 4px; }
+    .section-sub   { font-size:13px; color:var(--gray-400); padding:0 20px 16px; }
+
+    /* ─── JARDIN NAME ─── */
+    .name-field {
+      margin:0 16px 14px;
+      background:white; border-radius:var(--radius-lg); overflow:hidden;
+      box-shadow:var(--shadow);
+    }
+    .name-field label { display:block; font-size:11px; font-weight:700; color:var(--gray-400); text-transform:uppercase; letter-spacing:.5px; padding:10px 16px 2px; }
+    .name-field input { width:100%; border:none; outline:none; font-size:18px; font-weight:800; color:var(--green-900); padding:4px 16px 12px; background:transparent; }
+
+    /* ─── ORIENTATION COMPASS ─── */
+    .compass-section {
+      margin:0 16px 14px;
+      background:white; border-radius:var(--radius-lg);
+      box-shadow:var(--shadow); padding:16px;
+    }
+    .compass-title { font-size:13px; font-weight:800; color:var(--green-900); margin-bottom:12px; }
+    .compass-wrap { display:flex; align-items:center; gap:20px; }
+    .compass {
+      position:relative; width:120px; height:120px; flex-shrink:0;
+      border-radius:50%; background:linear-gradient(135deg,#f0f4f1,#e8f7ef);
+      border:3px solid var(--green-200,#b2dfc0);
+      display:flex; align-items:center; justify-content:center;
+    }
+    .compass-ring {
+      position:absolute; inset:6px; border-radius:50%;
+      border:2px solid var(--green-300);
+    }
+    .compass-dir {
+      position:absolute; font-size:12px; font-weight:800; color:var(--green-700,#256640);
+    }
+    .compass-dir.N { top:6px; left:50%; transform:translateX(-50%); color:#e53935; }
+    .compass-dir.S { bottom:6px; left:50%; transform:translateX(-50%); }
+    .compass-dir.E { right:6px; top:50%; transform:translateY(-50%); }
+    .compass-dir.O { left:6px; top:50%; transform:translateY(-50%); }
+    /* Aiguille */
+    .compass-needle {
+      position:absolute; width:4px; height:44px; left:50%; top:50%;
+      transform:translate(-50%,-80%) rotate(22deg);
+      background:linear-gradient(to bottom,#e53935 50%,#9e9e9e 50%);
+      border-radius:4px;
+    }
+    .compass-center { position:absolute; width:10px; height:10px; border-radius:50%; background:var(--green-900); z-index:2; }
+
+    .compass-info {}
+    .compass-label { font-size:13px; font-weight:800; color:var(--gray-900); margin-bottom:4px; }
+    .compass-desc  { font-size:12px; color:var(--gray-400); line-height:1.5; }
+    .direction-chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+    .dir-chip {
+      padding:5px 12px; border-radius:20px; font-size:11px; font-weight:700;
+      border:2px solid var(--gray-200); cursor:pointer; background:white; color:var(--gray-700);
+      transition:all .2s;
+    }
+    .dir-chip.active { border-color:var(--green-500); background:var(--green-100); color:var(--green-700,#256640); }
+
+    /* ─── SUN MAP ─── */
+    .sun-section {
+      margin:0 16px 14px; background:white; border-radius:var(--radius-lg); box-shadow:var(--shadow); overflow:hidden;
+    }
+    .sun-header { padding:12px 16px; font-size:13px; font-weight:800; color:var(--green-900); border-bottom:1px solid var(--gray-200); display:flex; justify-content:space-between; align-items:center; }
+    .sun-canvas { position:relative; height:160px; background:#f9fff9; }
+    .sun-canvas svg { position:absolute; top:0; left:0; width:100%; height:100%; }
+    .zone-legend { display:flex; gap:10px; padding:10px 16px; flex-wrap:wrap; }
+    .zone-chip { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--gray-700); }
+    .zone-dot { width:12px; height:12px; border-radius:50%; }
+
+    /* ─── METEO ─── */
+    .meteo-section { margin:0 16px 14px; background:white; border-radius:var(--radius-lg); box-shadow:var(--shadow); overflow:hidden; }
+    .meteo-header { padding:12px 16px; background:linear-gradient(135deg,#1565c0,#1976d2); color:white; }
+    .meteo-title  { font-size:13px; font-weight:800; margin-bottom:2px; }
+    .meteo-sub    { font-size:11px; opacity:.8; }
+    .meteo-grid   { display:grid; grid-template-columns:repeat(4,1fr); gap:0; }
+    .meteo-item   { padding:10px 8px; text-align:center; border-right:1px solid var(--gray-200); }
+    .meteo-item:last-child { border-right:none; }
+    .meteo-icon   { font-size:20px; margin-bottom:3px; }
+    .meteo-val    { font-size:14px; font-weight:800; color:var(--gray-900); }
+    .meteo-lbl    { font-size:9px; color:var(--gray-400); font-weight:600; text-transform:uppercase; }
+    .meteo-zone   { padding:10px 16px; background:#e3f2fd; display:flex; align-items:center; gap:8px; }
+    .meteo-zone-icon { font-size:18px; }
+    .meteo-zone-text { font-size:12px; color:#1565c0; font-weight:700; }
+
+    /* ─── MICRO CLIMA ─── */
+    .micro-section { margin:0 16px 14px; }
+    .micro-title { font-size:12px; font-weight:700; color:var(--gray-700); text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+    .micro-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .micro-card {
+      background:white; border-radius:var(--radius-md); padding:12px;
+      border:2px solid var(--gray-200); cursor:pointer; transition:all .2s;
+    }
+    .micro-card.active { border-color:var(--green-500); background:var(--green-50); }
+    .micro-icon  { font-size:22px; margin-bottom:4px; }
+    .micro-name  { font-size:12px; font-weight:800; color:var(--gray-900); }
+    .micro-desc  { font-size:10px; color:var(--gray-400); line-height:1.4; }
+
+    /* ─── RECAP ─── */
+    .recap-section { margin:0 16px 14px; background:linear-gradient(135deg,var(--green-700,#256640),var(--green-900)); border-radius:var(--radius-lg); padding:16px; color:white; }
+    .recap-title { font-size:14px; font-weight:800; margin-bottom:12px; }
+    .recap-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid rgba(255,255,255,.1); }
+    .recap-row:last-child { border-bottom:none; }
+    .recap-key { font-size:12px; opacity:.8; }
+    .recap-val { font-size:12px; font-weight:700; }
+    .recap-badge { background:var(--green-400); color:var(--green-900); font-size:11px; font-weight:800; padding:3px 10px; border-radius:12px; }
+
+    .bottom-bar { position:absolute; bottom:0; left:0; right:0; background:white; padding:12px 20px 28px; display:flex; gap:10px; box-shadow:0 -4px 20px rgba(0,0,0,.08); }
+    .btn-secondary { flex:0; padding:14px 20px; border-radius:var(--radius-md); border:2px solid var(--gray-200); background:transparent; color:var(--gray-700); font-size:14px; font-weight:700; cursor:pointer; }
+    .btn-primary   { flex:1; padding:14px; border-radius:var(--radius-md); border:none; background:linear-gradient(135deg,var(--green-500),var(--green-600)); color:white; font-size:15px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 14px rgba(58,156,99,.4); }
+    .btn-finish { background:linear-gradient(135deg,#ff7043,#f4511e); box-shadow:0 4px 14px rgba(244,81,30,.4); }
+
+    /* SIDEBAR */
+    .sidebar { width:320px; display:flex; flex-direction:column; gap:16px; padding-top:20px; }
+    .sidebar-card { background:white; border-radius:var(--radius-lg); padding:20px; box-shadow:var(--shadow); }
+    .sidebar-title { font-size:16px; font-weight:800; color:var(--green-900); margin-bottom:12px; }
+    .feature-item { display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; }
+    .feature-icon { width:32px; height:32px; border-radius:8px; background:var(--green-100); color:var(--green-600); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    .feature-text strong { display:block; font-size:13px; color:var(--gray-900); }
+    .feature-text span { font-size:12px; color:var(--gray-400); }
+    .step-ov { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:var(--radius-md); border:2px solid var(--gray-200); transition:all .2s; margin-bottom:6px; }
+    .step-ov.done   { border-color:var(--green-300); background:#f0fbf4; }
+    .step-ov.active { border-color:var(--green-500); background:var(--green-50); }
+    .step-ov-num { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0; }
+    .step-ov.done   .step-ov-num { background:#9ed4b4; color:var(--green-800); }
+    .step-ov.active .step-ov-num { background:var(--green-500); color:white; }
+    .step-ov-info strong { display:block; font-size:13px; color:var(--gray-900); }
+    .step-ov-info span   { font-size:11px; color:var(--gray-400); }
+    @media(max-width:780px){ .sidebar{display:none;} }
+  </style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <div class="status-bar">
+    <span class="time">10:15</span>
+    <div style="display:flex;gap:6px;align-items:center;color:white"><span>📶</span><span>🔋</span></div>
+  </div>
+
+  <div class="header">
+    <div class="logo">Gr<span>owi</span></div>
+    <div class="stepper">
+      <div class="step done"><div class="step-circle">✓</div><div class="step-label">Parcelle</div></div>
+      <div class="step-connector done"></div>
+      <div class="step done"><div class="step-circle">✓</div><div class="step-label">Structures</div></div>
+      <div class="step-connector done"></div>
+      <div class="step done"><div class="step-circle">✓</div><div class="step-label">Végétaux</div></div>
+      <div class="step-connector done"></div>
+      <div class="step active"><div class="step-circle">4</div><div class="step-label">Config.</div></div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="section-title">Configuration finale</div>
+    <div class="section-sub">Orientation, météo et micro-climats de votre jardin</div>
+
+    <!-- Nom du jardin -->
+    <div class="name-field">
+      <label>Nom de votre jardin</label>
+      <input type="text" value="Mon jardin parisien 🌿">
+    </div>
+
+    <!-- Boussole orientation -->
+    <div class="compass-section">
+      <div class="compass-title">☀️ Orientation principale</div>
+      <div class="compass-wrap">
+        <div class="compass">
+          <div class="compass-ring"></div>
+          <span class="compass-dir N">N</span>
+          <span class="compass-dir S">S</span>
+          <span class="compass-dir E">E</span>
+          <span class="compass-dir O">O</span>
+          <div class="compass-needle"></div>
+          <div class="compass-center"></div>
+        </div>
+        <div class="compass-info">
+          <div class="compass-label">Façade principale : Sud-Est</div>
+          <div class="compass-desc">Ensoleillement matinal, demi-ombre l'après-midi. Idéal pour rosiers et lavandes.</div>
+          <div class="direction-chips">
+            <div class="dir-chip">N</div>
+            <div class="dir-chip">NE</div>
+            <div class="dir-chip">E</div>
+            <div class="dir-chip">SE</div>
+            <div class="dir-chip active">S</div>
+            <div class="dir-chip">SO</div>
+            <div class="dir-chip">O</div>
+            <div class="dir-chip">NO</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Carte soleil/ombre -->
+    <div class="sun-section">
+      <div class="sun-header">
+        <span>🗺️ Carte ensoleillement</span>
+        <span style="font-size:11px;color:var(--gray-400);font-weight:600">Généré automatiquement</span>
+      </div>
+      <div class="sun-canvas">
+        <svg viewBox="0 0 358 160">
+          <defs>
+            <pattern id="gss" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+              <rect width="8" height="8" fill="#c8e6c9"/><line x1="0" y1="0" x2="8" y2="8" stroke="#a5d6a7" stroke-width=".4"/>
+            </pattern>
+          </defs>
+          <polygon points="55,15 285,10 305,145 235,160 65,158 40,85" fill="url(#gss)" stroke="#2d7a4f" stroke-width="1.5"/>
+          <!-- Zones soleil -->
+          <polygon points="160,10 285,10 305,90 255,100 175,80" fill="#fff9c4" opacity=".8"/>
+          <!-- Zone mi-ombre -->
+          <polygon points="55,15 160,10 175,80 130,100 60,90 40,50" fill="#fff3e0" opacity=".7"/>
+          <!-- Zone ombre -->
+          <polygon points="40,85 60,90 130,100 120,158 65,158" fill="#e8f5e9" opacity=".8"/>
+          <!-- Zone ombre portée maison -->
+          <polygon points="190,80 255,100 248,158 185,160 175,120" fill="#eceff1" opacity=".85"/>
+          <!-- Piscine -->
+          <rect x="75" y="38" width="72" height="48" rx="6" fill="rgba(79,195,247,.5)" stroke="#0288d1" stroke-width="1"/>
+          <!-- Soleil indicateur -->
+          <circle cx="290" cy="18" r="10" fill="#ffc107"/>
+          <line x1="290" y1="5" x2="290" y2="1" stroke="#ffc107" stroke-width="2"/>
+          <line x1="290" y1="31" x2="290" y2="35" stroke="#ffc107" stroke-width="2"/>
+          <line x1="277" y1="18" x2="273" y2="18" stroke="#ffc107" stroke-width="2"/>
+          <line x1="303" y1="18" x2="307" y2="18" stroke="#ffc107" stroke-width="2"/>
+        </svg>
+      </div>
+      <div class="zone-legend">
+        <div class="zone-chip"><div class="zone-dot" style="background:#ffd54f"></div>Plein soleil (+6h)</div>
+        <div class="zone-chip"><div class="zone-dot" style="background:#ffcc02aa"></div>Mi-ombre (3–6h)</div>
+        <div class="zone-chip"><div class="zone-dot" style="background:#a5d6a7"></div>Ombre (<3h)</div>
+        <div class="zone-chip"><div class="zone-dot" style="background:#cfd8dc"></div>Ombre portée</div>
+      </div>
+    </div>
+
+    <!-- Météo locale -->
+    <div class="meteo-section">
+      <div class="meteo-header">
+        <div class="meteo-title">🌦 Données météo locales · Paris 75010</div>
+        <div class="meteo-sub">Connecté à Open-Meteo · Mis à jour en temps réel</div>
+      </div>
+      <div class="meteo-grid">
+        <div class="meteo-item"><div class="meteo-icon">🌡</div><div class="meteo-val">17°C</div><div class="meteo-lbl">Aujourd'hui</div></div>
+        <div class="meteo-item"><div class="meteo-icon">💧</div><div class="meteo-val">62%</div><div class="meteo-lbl">Humidité</div></div>
+        <div class="meteo-item"><div class="meteo-icon">💨</div><div class="meteo-val">18km/h</div><div class="meteo-lbl">Vent</div></div>
+        <div class="meteo-item"><div class="meteo-icon">☀️</div><div class="meteo-val">8h32</div><div class="meteo-lbl">Ensoleil.</div></div>
+      </div>
+      <div class="meteo-zone">
+        <span class="meteo-zone-icon">🗺</span>
+        <span class="meteo-zone-text">Zone climatique H1a · USDA 8b · Gel possible de nov. à mars</span>
+      </div>
+    </div>
+
+    <!-- Micro-climat -->
+    <div class="micro-section">
+      <div class="micro-title">Micro-climat détecté</div>
+      <div class="micro-grid">
+        <div class="micro-card active">
+          <div class="micro-icon">🏙</div>
+          <div class="micro-name">Urbain tempéré</div>
+          <div class="micro-desc">Ilot de chaleur, sol compact, arrosage régulier</div>
+        </div>
+        <div class="micro-card">
+          <div class="micro-icon">💨</div>
+          <div class="micro-name">Exposé au vent</div>
+          <div class="micro-desc">Protéger les espèces fragiles, brise-vent conseillé</div>
+        </div>
+        <div class="micro-card">
+          <div class="micro-icon">🌊</div>
+          <div class="micro-name">Sol humide</div>
+          <div class="micro-desc">Drainage à prévoir, plantes hygrophiles possibles</div>
+        </div>
+        <div class="micro-card">
+          <div class="micro-icon">🔆</div>
+          <div class="micro-name">Très ensoleillé</div>
+          <div class="micro-desc">+8h/j en été, espèces méditerranéennes adaptées</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Récapitulatif -->
+    <div class="recap-section">
+      <div class="recap-title">📋 Récapitulatif de votre jardin</div>
+      <div class="recap-row"><span class="recap-key">Nom</span><span class="recap-val">Mon jardin parisien 🌿</span></div>
+      <div class="recap-row"><span class="recap-key">Surface</span><span class="recap-val">98.4 m²</span></div>
+      <div class="recap-row"><span class="recap-key">Orientation</span><span class="recap-val">Façade Sud</span></div>
+      <div class="recap-row"><span class="recap-key">Structures</span><span class="recap-val">5 éléments</span></div>
+      <div class="recap-row"><span class="recap-key">Végétaux</span><span class="recap-val">6 plantes · 3 espèces</span></div>
+      <div class="recap-row"><span class="recap-key">Zone climatique</span><span class="recap-val">H1a · USDA 8b</span></div>
+      <div class="recap-row"><span class="recap-key">Premier rappel</span><div class="recap-badge">Dans 3 jours 🌱</div></div>
+    </div>
+
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-secondary">← Retour</button>
+    <button class="btn-primary btn-finish">🌱 Créer mon jardin !</button>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-card">
+    <div class="sidebar-title">🗺️ Création terminée !</div>
+    <div class="step-ov done"><div class="step-ov-num">✓</div><div class="step-ov-info"><strong>Parcelle</strong><span>98m² · Gazon</span></div></div>
+    <div class="step-ov done"><div class="step-ov-num">✓</div><div class="step-ov-info"><strong>Structures</strong><span>5 éléments</span></div></div>
+    <div class="step-ov done"><div class="step-ov-num">✓</div><div class="step-ov-info"><strong>Végétaux</strong><span>6 plantes</span></div></div>
+    <div class="step-ov active"><div class="step-ov-num">4</div><div class="step-ov-info"><strong>Configuration</strong><span>Orientation, météo, micro-climat</span></div></div>
+  </div>
+  <div class="sidebar-card">
+    <div class="sidebar-title">🤖 Ce que Growi fera ensuite</div>
+    <div class="feature-item"><div class="feature-icon">📅</div><div class="feature-text"><strong>Calendrier personnalisé</strong><span>Tâches hebdo basées sur météo + plantes</span></div></div>
+    <div class="feature-item"><div class="feature-icon">🔔</div><div class="feature-text"><strong>Alertes intelligentes</strong><span>Gel, canicule, excès eau détectés</span></div></div>
+    <div class="feature-item"><div class="feature-icon">🛒</div><div class="feature-text"><strong>Recommandations produits</strong><span>Terreau, engrais, outils au bon moment</span></div></div>
+    <div class="feature-item"><div class="feature-icon">📸</div><div class="feature-text"><strong>Diagnostic photo</strong><span>Identifiez maladies en 5 sec avec l'IA</span></div></div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -25,12 +25,16 @@ const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_WEATHER === 'true'
 interface WeatherPageClientProps {
   userAddress: string | null
   userId: string
+  userCoords?: { lat: number; lon: number } | null
 }
 
 type GeoStatus = 'idle' | 'requesting' | 'granted' | 'denied'
 type Coords = { lat: number; lon: number }
 
-export function WeatherPageClient({ userAddress: initialAddress }: WeatherPageClientProps) {
+export function WeatherPageClient({
+  userAddress: initialAddress,
+  userCoords: initialCoords,
+}: WeatherPageClientProps) {
   const [mode, setMode] = useState<LocationMode>('account')
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null)
   const [gardenContext, setGardenContext] = useState<GardenContext | null>(null)
@@ -38,34 +42,48 @@ export function WeatherPageClient({ userAddress: initialAddress }: WeatherPageCl
   const [error, setError] = useState<string | null>(null)
   const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle')
   const [accountAddress, setAccountAddress] = useState<string | null>(initialAddress)
-  const [accountCoords, setAccountCoords] = useState<Coords | null>(null)
+  const [accountCoords, setAccountCoords] = useState<Coords | null>(initialCoords ?? null)
 
   // Plants are passed via props when available; default to empty array for weather context
   const plants = useMemo(() => [], [])
 
-  // ── Geocode account address whenever it changes ───────────────────────────
+  // ── Geocode account address only when stored coords are absent ────────────
   useEffect(() => {
+    if (accountCoords) {
+      // Stored coords available — skip geocoding
+      return
+    }
     if (!accountAddress) {
-      setAccountCoords(null)
       return
     }
     geocodeAddress(accountAddress)
       .then((results) => {
         if (results.length > 0) {
           setAccountCoords({ lat: results[0].latitude, lon: results[0].longitude })
-        } else {
-          setAccountCoords(null)
         }
       })
-      .catch(() => setAccountCoords(null))
-  }, [accountAddress])
+      .catch(() => { /* silent */ })
+  }, [accountAddress, accountCoords])
 
   // ── Listen for profile updates (address changed in /parametres) ───────────
   useEffect(() => {
     function handleProfileUpdate(e: Event) {
-      const detail = (e as CustomEvent<{ address?: string }>).detail
+      const detail = (e as CustomEvent<{
+        address?: string
+        latitude?: number | null
+        longitude?: number | null
+      }>).detail
       if (detail?.address !== undefined) {
         setAccountAddress(detail.address || null)
+      }
+      // Update coords from the saved profile; null explicitly clears them
+      if ('latitude' in detail && 'longitude' in detail) {
+        if (detail.latitude != null && detail.longitude != null) {
+          setAccountCoords({ lat: detail.latitude, lon: detail.longitude })
+        } else {
+          // Coords cleared — will fall back to geocoding via the effect above
+          setAccountCoords(null)
+        }
       }
     }
     window.addEventListener('growi:profile-updated', handleProfileUpdate)
@@ -155,10 +173,10 @@ export function WeatherPageClient({ userAddress: initialAddress }: WeatherPageCl
       <LocationModeSwitcher
         mode={mode}
         onChange={handleModeChange}
-        hasAccountAddress={!!accountAddress}
+        hasAccountAddress={!!accountAddress || !!accountCoords}
       />
 
-      {mode === 'account' && !accountAddress && (
+      {mode === 'account' && !accountAddress && !accountCoords && (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-forest/10 bg-white p-8 text-center">
           <MapPin size={32} aria-hidden className="text-forest/30" />
           <p className="font-poppins font-semibold text-forest">Aucune adresse configurée</p>
