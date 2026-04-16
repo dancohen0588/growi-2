@@ -3,6 +3,7 @@
 
 import type { PlantInstance, PlantCatalog, GardenZone } from '@prisma/client'
 import type { Plant, PlantLocation, SunExposure, HealthStatus, WateringDifficulty } from '@/lib/plant-types'
+import { parseJsonArray } from '@/lib/recommendation/utils'
 
 export type PlantInstanceWithRelations = PlantInstance & {
   catalogPlant: PlantCatalog | null
@@ -71,11 +72,25 @@ export function toPlant(instance: PlantInstanceWithRelations): Plant {
     healthStatus:       healthMap[instance.healthStatus] ?? 'healthy',
     healthNote:         instance.healthNote ?? undefined,
     description:        cat?.descriptionShort ?? '',
-    careTips:           { watering: '', light: '', soil: '' },
+    careTips: {
+      watering: cat?.careTipWatering ?? '',
+      light: cat?.careTipLight ?? '',
+      soil: cat?.careTipSoil ?? '',
+      pruning: cat?.careTipPruning ?? undefined,
+      diseases: cat?.careTipDiseases ?? undefined,
+      winter: cat?.careTipWinter ?? undefined,
+    },
+    funFact:            cat?.funFact ?? undefined,
     notes:              instance.notes ?? undefined,
     catalogPlantId:     instance.catalogPlantId,
     catalogPlant:       cat
       ? { imageUrl: cat.imageUrl, commonName: cat.commonName }
       : null,
+    growthStage:        instance.growthStage ?? undefined,
+    containerSizeLiters: instance.containerSizeLiters ?? undefined,
+    pruningMonths:      parseJsonArray(cat?.pruningMonths ?? null),
+    harvestMonthsStart: cat?.harvestMonthsStart ?? undefined,
+    harvestMonthsEnd:   cat?.harvestMonthsEnd ?? undefined,
+    frostSensitivity:   cat?.frostSensitivity ?? undefined,
   }
 }
