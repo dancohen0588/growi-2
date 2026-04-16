@@ -1,6 +1,7 @@
 // growi-frontend/app/(auth)/login/page.tsx
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { LoginForm } from '@/components/auth/LoginForm'
 
 export const metadata: Metadata = {
@@ -28,7 +29,9 @@ export default function LoginPage() {
         </h1>
       </div>
 
-      <LoginForm />
+      <Suspense fallback={null}>
+        <LoginForm />
+      </Suspense>
 
       {/* Register link */}
       <p className="text-center font-raleway text-sm text-forest/60">
