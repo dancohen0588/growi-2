@@ -193,12 +193,13 @@ export function GardenPalettePlants({ defaultOpen = false }: { defaultOpen?: boo
 
 function DraggablePlantRow({ plant }: { plant: CatalogPaletteItem }) {
   const paletteItem: PaletteItem = {
-    type:          'plante',
-    emoji:         plant.emoji ?? '🌿',
-    label:         plant.commonName,
-    defaultWidth:  60,
-    defaultHeight: 60,
-    isCircular:    true,
+    type:           'plante',
+    emoji:          plant.emoji ?? '🌿',
+    label:          plant.commonName,
+    defaultWidth:   60,
+    defaultHeight:  60,
+    isCircular:     true,
+    catalogPlantId: plant.id,
   }
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({

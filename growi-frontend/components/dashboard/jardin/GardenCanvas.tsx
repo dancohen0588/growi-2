@@ -273,6 +273,34 @@ export function GardenCanvas() {
     [stageSize.width, stageSize.height, garden, toast],
   )
 
+  // Handle drag-and-drop from palette — create PlantInstance for catalog plants
+  const handlePaletteDrop = useCallback(
+    async (item: PaletteItem, x: number, y: number) => {
+      if (item.catalogPlantId) {
+        // Plant from catalog: create a real PlantInstance in DB
+        const result = await addPlantToMyGarden({
+          catalogPlantId: item.catalogPlantId,
+          location: 'OUTDOOR',
+        })
+
+        const newId = garden.addElement(item, x, y)
+
+        if (result.success && result.plant?.id) {
+          garden.updateElement(newId, { linkedPlantId: result.plant.id })
+        }
+
+        garden.saveGarden()
+        toast(`🌿 ${item.label} a été ajoutée à ton jardin !`)
+      } else {
+        // Non-plant item (zone, structure, etc.): just add to canvas
+        garden.addElement(item, x, y)
+      }
+
+      return ''
+    },
+    [garden, toast],
+  )
+
   return (
     <DndContext>
       <div className="flex flex-col h-full">
@@ -289,7 +317,7 @@ export function GardenCanvas() {
         <div className="flex flex-1 overflow-hidden">
           <GardenPalette />
 
-          <CanvasDropZone onDrop={garden.addElement}>
+          <CanvasDropZone onDrop={handlePaletteDrop}>
             <div ref={containerRef} className="w-full h-full" role="region" aria-label="Carte de ton jardin">
               {/* Accessible table for screen readers */}
               <table className="sr-only" aria-label="Éléments dans ton jardin">

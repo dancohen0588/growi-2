@@ -8,6 +8,7 @@ export interface PaletteItem {
   defaultWidth: number
   defaultHeight: number
   isCircular?: boolean
+  catalogPlantId?: string
 }
 
 // Fallback list used when the dynamic catalog fetch fails
