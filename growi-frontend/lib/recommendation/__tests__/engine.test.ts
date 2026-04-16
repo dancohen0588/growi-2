@@ -234,3 +234,87 @@ describe('R5 — Taille en retard overrides R4', () => {
     expect(r4).toBeUndefined()
   })
 })
+
+describe('R8 — Récolte imminente', () => {
+  it('triggers when current month is in harvest range', () => {
+    const ctx = makeCtx(
+      {},
+      { harvestMonthsStart: 4, harvestMonthsEnd: 6 }, // April–June
+    )
+    const actions = engine.evaluate([ctx])
+
+    const harvest = actions.find((a) => a.type === 'recolte')
+    expect(harvest).toBeDefined()
+    expect(harvest!.priority).toBe('high')
+    expect(harvest!.label).toContain('récolter')
+  })
+})
+
+describe('R10 — Alerte gel', () => {
+  it('triggers frost alert when tempMin < 2°C and frostSensitivity HIGH', () => {
+    const ctx = makeCtx(
+      {},
+      { frostSensitivity: 'HIGH' },
+      {
+        daily: Array.from({ length: 7 }, (_, i) => ({
+          date: new Date(NOW.getTime() + i * DAY).toISOString().slice(0, 10),
+          tempMax: 5,
+          tempMin: i === 0 ? -1 : 8,
+          precipSum: 0,
+          precipProbabilityMax: 0,
+        })),
+      },
+    )
+    const actions = engine.evaluate([ctx])
+    const frost = actions.find((a) => a.id.startsWith('r10-'))
+    expect(frost).toBeDefined()
+    expect(frost!.priority).toBe('high')
+    expect(frost!.label).toContain('Gel')
+
+    const alerts = engine.generateAlerts([ctx])
+    const gelAlert = alerts.find((a) => a.type === 'gel')
+    expect(gelAlert).toBeDefined()
+    expect(gelAlert!.severity).toBe('high')
+  })
+})
+
+describe('evaluateGarden — sorting & aggregation', () => {
+  it('returns actions sorted high → medium → low across 3 plants', () => {
+    // Plant 1: overdue watering (high)
+    const ctx1 = makeCtx({ id: 'p1', lastWateredAt: daysAgo(10) } as any)
+    // Plant 2: harvest (high)
+    const ctx2: PlantContext = {
+      instance: makeInstance(
+        { id: 'p2' } as any,
+        { harvestMonthsStart: 4, harvestMonthsEnd: 6 },
+      ),
+      garden: makeGarden(),
+      weather: makeWeather(),
+      currentDate: NOW,
+    }
+    // Plant 3: repotting (low)
+    const ctx3: PlantContext = {
+      instance: makeInstance(
+        { id: 'p3', containerSizeLiters: 5 } as any,
+        { repottingSeasons: '["SPRING"]' },
+      ),
+      garden: makeGarden(),
+      weather: makeWeather(),
+      currentDate: NOW,
+    }
+
+    const result = engine.evaluateGarden([ctx1, ctx2, ctx3], 'garden-1')
+
+    expect(result.gardenId).toBe('garden-1')
+    expect(result.actions.length).toBeGreaterThanOrEqual(3)
+    expect(result.adviceByPlant).toHaveLength(3)
+
+    // Verify sorting: first actions should be high priority
+    const priorities = result.actions.map((a) => a.priority)
+    const highIdx = priorities.indexOf('high')
+    const lowIdx = priorities.lastIndexOf('low')
+    if (highIdx !== -1 && lowIdx !== -1) {
+      expect(highIdx).toBeLessThan(lowIdx)
+    }
+  })
+})

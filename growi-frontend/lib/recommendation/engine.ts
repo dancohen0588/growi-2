@@ -1,9 +1,16 @@
-import type { AdviceRule, PlantContext, GardenAction, PlantAdvice } from './types'
+import type { AdviceRule, PlantContext, GardenAction, PlantAdvice, PlantAlert, GardenAdviceResult } from './types'
 import { r1WateringStandard } from './rules/r1-watering-standard'
 import { r2WateringHeat } from './rules/r2-watering-heat'
 import { r3WateringRain } from './rules/r3-watering-rain'
 import { r4PruningSeasonal } from './rules/r4-pruning-seasonal'
 import { r5PruningOverdue } from './rules/r5-pruning-overdue'
+import { r6SowingIndoor } from './rules/r6-sowing-indoor'
+import { r7SowingOutdoor } from './rules/r7-sowing-outdoor'
+import { r8Harvest } from './rules/r8-harvest'
+import { r9Fertilizing } from './rules/r9-fertilizing'
+import { r10FrostAlert } from './rules/r10-frost-alert'
+import { r11Repotting } from './rules/r11-repotting'
+import { r12PreventiveTreatment } from './rules/r12-preventive-treatment'
 
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
 const MAX_ACTIONS_PER_PLANT = 5
@@ -15,6 +22,13 @@ export class RecommendationEngine {
     r3WateringRain,
     r4PruningSeasonal,
     r5PruningOverdue,
+    r6SowingIndoor,
+    r7SowingOutdoor,
+    r8Harvest,
+    r9Fertilizing,
+    r10FrostAlert,
+    r11Repotting,
+    r12PreventiveTreatment,
   ]
 
   evaluate(contexts: PlantContext[]): GardenAction[] {
@@ -62,8 +76,21 @@ export class RecommendationEngine {
     return allActions
   }
 
+  generateAlerts(contexts: PlantContext[]): PlantAlert[] {
+    const alerts: PlantAlert[] = []
+    for (const ctx of contexts) {
+      for (const rule of this.rules) {
+        if (rule.generateAlerts) {
+          alerts.push(...rule.generateAlerts(ctx))
+        }
+      }
+    }
+    return alerts
+  }
+
   evaluateForPlant(ctx: PlantContext): PlantAdvice {
     const tasks = this.evaluate([ctx])
+    const alerts = this.generateAlerts([ctx])
     const catalog = ctx.instance.catalogPlant
 
     return {
@@ -71,7 +98,7 @@ export class RecommendationEngine {
       plantName: ctx.instance.customName ?? catalog?.commonName ?? 'Plante',
       plantEmoji: ctx.instance.emoji ?? catalog?.emoji ?? '',
       tasks,
-      alerts: [],
+      alerts,
       careTips: {
         watering: catalog?.careTipWatering ?? '',
         light: catalog?.careTipLight ?? '',
@@ -81,6 +108,25 @@ export class RecommendationEngine {
         winter: catalog?.careTipWinter ?? undefined,
       },
       generatedAt: ctx.currentDate,
+    }
+  }
+
+  evaluateGarden(contexts: PlantContext[], gardenId: string): GardenAdviceResult {
+    const now = contexts[0]?.currentDate ?? new Date()
+    const actions = this.evaluate(contexts)
+    const alerts = this.generateAlerts(contexts)
+    const adviceByPlant = contexts.map((ctx) => this.evaluateForPlant(ctx))
+
+    const expiresAt = new Date(now)
+    expiresAt.setHours(expiresAt.getHours() + 6)
+
+    return {
+      gardenId,
+      generatedAt: now,
+      expiresAt,
+      actions,
+      adviceByPlant,
+      alerts,
     }
   }
 }

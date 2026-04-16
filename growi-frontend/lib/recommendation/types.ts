@@ -94,6 +94,7 @@ export interface AdviceRule {
   id: string
   name: string
   evaluate(ctx: PlantContext): GardenAction[]
+  generateAlerts?(ctx: PlantContext): PlantAlert[]
 }
 
 // ─── Full garden result ────────────────────────────────────────────────────
