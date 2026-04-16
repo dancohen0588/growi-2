@@ -38,6 +38,14 @@ export interface Plant {
   notes?: string
   catalogPlantId?: string | null
   catalogPlant?: { imageUrl: string | null; commonName: string } | null
+  growthStage?: string
+  harvestWindow?: { start: string; end: string }
+  nextPruningDate?: string
+  containerSizeLiters?: number
+  pruningMonths?: number[]
+  harvestMonthsStart?: number
+  harvestMonthsEnd?: number
+  frostSensitivity?: string
 }
 
 export const locationConfig: Record<PlantLocation, { label: string; icon: string }> = {
