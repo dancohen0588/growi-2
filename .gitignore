@@ -1,1 +1,30 @@
+# OS
 .DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+
+# Node
+node_modules/
+
+# Next.js (au cas où des artefacts remontent au niveau racine)
+.next/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Env
+.env
+.env.local
+*.local
+
+# Claude Code local state
+.claude/worktrees/
+
+# iCloud sync artefacts
+*\ 2.*
+*\ 2/
