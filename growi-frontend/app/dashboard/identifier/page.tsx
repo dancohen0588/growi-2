@@ -25,7 +25,9 @@ import type {
 
 type Step = 'upload' | 'loading' | 'result' | 'error'
 
-const MAX_FILE_BYTES = 4 * 1024 * 1024
+// Raw file size limit before compression — iPhone HEIC/JPEG photos can be
+// 5-10 MB; we downscale them in the browser before sending to the API.
+const MAX_FILE_BYTES = 15 * 1024 * 1024
 
 const LOADING_MESSAGES = [
   'Analyse de la photo en cours…',
@@ -70,6 +72,39 @@ function readFileAsDataURL(file: File): Promise<string> {
   })
 }
 
+// Downscale + recompress the photo on the client before sending to the API.
+// Vercel serverless functions cap request bodies at 4.5 MB and iPhone photos
+// routinely exceed that once base64-encoded — compressing keeps payloads tiny
+// (typically <500 KB) and uploads fast.
+const MAX_DIMENSION = 1920
+const JPEG_QUALITY = 0.85
+
+async function compressImage(file: File): Promise<string> {
+  const sourceUrl = await readFileAsDataURL(file)
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new window.Image()
+    i.onload = () => resolve(i)
+    i.onerror = () => reject(new Error('image load error'))
+    i.src = sourceUrl
+  })
+
+  let { width, height } = img
+  if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+    const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height)
+    width = Math.round(width * ratio)
+    height = Math.round(height * ratio)
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return sourceUrl
+  ctx.drawImage(img, 0, 0, width, height)
+  return canvas.toDataURL('image/jpeg', JPEG_QUALITY)
+}
+
 export default function IdentifierPage() {
   const [step, setStep] = useState<Step>('upload')
   const [preview, setPreview] = useState<string | null>(null)
@@ -104,12 +139,12 @@ export default function IdentifierPage() {
       return
     }
     if (file.size > MAX_FILE_BYTES) {
-      setErrorMsg('Image trop volumineuse (maximum 4 Mo).')
+      setErrorMsg('Image trop volumineuse (maximum 15 Mo).')
       return
     }
     setErrorMsg(null)
     try {
-      const dataUrl = await readFileAsDataURL(file)
+      const dataUrl = await compressImage(file)
       setPreview(dataUrl)
     } catch {
       setErrorMsg('Impossible de lire l\'image.')
