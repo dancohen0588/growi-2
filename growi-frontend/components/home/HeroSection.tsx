@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ScanSearch } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AppMockup } from '@/components/ui/app-mockup'
 
@@ -36,6 +37,27 @@ export function HeroSection() {
                 <Link href="/fonctionnalites">Voir les fonctionnalités</Link>
               </Button>
             </div>
+
+            {/* Identifier teaser CTA */}
+            <Link
+              href="/dashboard/identifier"
+              className="group inline-flex items-center gap-3 rounded-2xl border border-forest/15 bg-white/80 backdrop-blur-sm p-3 pr-4 max-w-md hover:bg-white hover:border-forest/30 transition-colors shadow-card"
+            >
+              <span className="shrink-0 w-10 h-10 rounded-xl bg-forest text-white flex items-center justify-center">
+                <ScanSearch size={20} aria-hidden />
+              </span>
+              <span className="flex flex-col">
+                <span className="font-poppins font-semibold text-sm text-forest">
+                  Identifie ta plante en photo
+                </span>
+                <span className="font-raleway text-xs text-forest/60">
+                  Gratuit · L&apos;IA reconnaît {'>'}10 000 espèces en 2 secondes
+                </span>
+              </span>
+              <span className="ml-auto shrink-0 text-forest/40 group-hover:text-forest transition-colors text-lg">
+                →
+              </span>
+            </Link>
 
             {/* Feature badges */}
             <div className="flex flex-wrap gap-3">

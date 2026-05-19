@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { motion, type Variants } from 'framer-motion'
-import { Plus, Droplets } from 'lucide-react'
+import { Plus, Droplets, ScanSearch } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePlants } from '@/lib/plants-context'
 import { getDaysUntilWatering } from '@/lib/plant-types'
@@ -68,12 +68,20 @@ export default function PlantesPage() {
               : `Tu as ${count} plante${s} dans ton jardin.`}
           </p>
         </div>
-        <Button variant="primary" asChild>
-          <Link href="/dashboard/plantes/nouveau">
-            <Plus size={18} aria-hidden />
-            Ajouter une plante
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="primary" asChild>
+            <Link href="/dashboard/plantes/nouveau">
+              <Plus size={18} aria-hidden />
+              Ajouter une plante
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/identifier">
+              <ScanSearch size={18} aria-hidden />
+              Identifier une plante
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Watering urgent banner */}

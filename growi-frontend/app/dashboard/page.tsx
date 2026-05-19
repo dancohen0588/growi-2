@@ -1,7 +1,9 @@
 // growi-frontend/app/dashboard/page.tsx
 import type { Metadata } from 'next'
 import { auth } from '@/auth'
+import Link from 'next/link'
 import {
+  ArrowRight,
   Leaf,
   CalendarDays,
   Stethoscope,
@@ -10,6 +12,7 @@ import {
   UserCircle,
   TrendingUp,
   Map,
+  ScanSearch,
 } from 'lucide-react'
 import { FeatureCard } from '@/components/dashboard/FeatureCard'
 
@@ -18,6 +21,14 @@ export const metadata: Metadata = {
 }
 
 const featureCards = [
+  {
+    href: '/dashboard/identifier',
+    title: 'Identifier une plante',
+    description:
+      'Photographiez n\'importe quelle plante pour obtenir sa fiche complète instantanément.',
+    icon: ScanSearch,
+    badge: 'IA',
+  },
   {
     href: '/dashboard/jardin',
     title: 'Mon Jardin',
@@ -97,6 +108,29 @@ export default async function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Identifier hero CTA */}
+      <Link
+        href="/dashboard/identifier"
+        className="rounded-2xl border border-lime/30 bg-lime/10 p-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center hover:bg-lime/20 transition-colors group"
+      >
+        <div className="shrink-0 w-14 h-14 rounded-full bg-forest text-white flex items-center justify-center">
+          <ScanSearch size={28} aria-hidden />
+        </div>
+        <div className="flex-1 flex flex-col gap-1">
+          <h2 className="font-poppins font-bold text-lg text-forest">
+            Identifier une plante en photo
+          </h2>
+          <p className="font-raleway text-sm text-forest/70">
+            Pointez votre caméra vers n&apos;importe quelle plante. L&apos;IA
+            l&apos;identifie et vous donne tous les conseils d&apos;entretien.
+          </p>
+        </div>
+        <span className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-forest text-white font-poppins font-semibold text-sm px-4 py-2.5 group-hover:bg-forest/90 transition-colors">
+          Identifier maintenant
+          <ArrowRight size={16} aria-hidden />
+        </span>
+      </Link>
 
       {/* Feature grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

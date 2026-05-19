@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useRef, useState } from 'react'
-import { Save, Camera, Trash2, Sprout } from 'lucide-react'
+import { Save, Camera, Trash2, Sprout, ScanSearch } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
@@ -83,6 +84,16 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, o
             <span className="hidden sm:inline">Ajouter une plante</span>
             <span className="sm:hidden">Plante</span>
           </button>
+          <Link
+            href="/dashboard/identifier"
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-lg font-poppins font-semibold text-xs text-white bg-forest hover:bg-forest/90 transition-all hover:-translate-y-0.5"
+            title="Identifier une plante en photo"
+            aria-label="Identifier une plante en photo"
+          >
+            <ScanSearch size={14} aria-hidden />
+            <span className="hidden sm:inline">Identifier une plante</span>
+            <span className="sm:hidden">Identifier</span>
+          </Link>
           <button
             onClick={() => setClearOpen(true)}
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-raleway text-xs text-forest/60 hover:bg-sand hover:text-forest transition-colors"

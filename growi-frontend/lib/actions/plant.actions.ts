@@ -96,6 +96,59 @@ export async function addPlantToMyGarden(
   return { success: true, plant: toPlant(instance) }
 }
 
+// Add a plant identified by the AI vision flow to the user's plants.
+// If the identified plant matches a PlantCatalog entry (via slug), link via
+// catalogPlantId and inherit its defaults. Otherwise, create a custom plant
+// instance using the AI-supplied commonName/emoji so nothing is lost.
+const addIdentifiedPlantSchema = z.object({
+  commonName:       z.string().min(1).max(100),
+  scientificName:   z.string().max(120).optional(),
+  emoji:            z.string().max(8).optional(),
+  encyclopediaSlug: z.string().max(120).nullable().optional(),
+})
+
+export async function addIdentifiedPlantToMyPlants(
+  input: z.infer<typeof addIdentifiedPlantSchema>,
+): Promise<{ success: boolean; plantId?: string; error?: string }> {
+  const session = await auth()
+  if (!session?.user?.id) return { success: false, error: 'Non authentifié' }
+
+  const validated = addIdentifiedPlantSchema.parse(input)
+
+  const catalogPlant = validated.encyclopediaSlug
+    ? await prisma.plantCatalog.findUnique({
+        where: { slug: validated.encyclopediaSlug },
+      })
+    : null
+
+  const defaultGarden = await prisma.garden.findFirst({
+    where: { userId: session.user.id },
+    select: { id: true },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  const location =
+    catalogPlant && catalogPlant.indoor && !catalogPlant.outdoor
+      ? 'INDOOR'
+      : 'OUTDOOR'
+
+  const created = await prisma.plantInstance.create({
+    data: {
+      userId:           session.user.id,
+      gardenId:         defaultGarden?.id,
+      catalogPlantId:   catalogPlant?.id,
+      customName:       catalogPlant ? null : validated.commonName,
+      emoji:            catalogPlant?.emoji ?? validated.emoji ?? null,
+      wateringFreqDays: catalogPlant?.wateringFreqDays,
+      sunExposure:      catalogPlant?.sunExposure,
+      location,
+    },
+  })
+
+  revalidatePath('/dashboard/plantes', 'layout')
+  return { success: true, plantId: created.id }
+}
+
 export async function logWatering(
   plantInstanceId: string,
   note?: string,
