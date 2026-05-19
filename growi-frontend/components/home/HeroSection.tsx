@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { ScanSearch } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,10 +13,27 @@ const featureBadges = [
 export function HeroSection() {
   return (
     <section
-      className="bg-gradient-to-br from-sand via-sand to-lime/30 py-20 md:py-28"
+      className="relative isolate bg-sand py-20 md:py-28 overflow-hidden"
       aria-label="Hero"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Background image */}
+      <Image
+        src="/images/homepage-hero.png"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        quality={85}
+        className="object-cover object-center -z-10 -scale-x-100"
+      />
+
+      {/* Readability overlay: opaque white from the left, fading to transparent around 1/3 of the width */}
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-10 bg-gradient-to-r from-white from-0% via-white via-15% to-transparent to-33%"
+      />
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
 
           {/* Left column: text */}
