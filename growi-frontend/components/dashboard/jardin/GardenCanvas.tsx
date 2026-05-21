@@ -1,7 +1,7 @@
 'use client'
 
-import { useRef, useEffect, useState, useCallback } from 'react'
-import { Stage, Layer, Group, Rect, Ellipse, Text, Transformer, Line } from 'react-konva'
+import { useRef, useEffect, useState, useCallback, useMemo, useReducer } from 'react'
+import { Stage, Layer, Group, Rect, Ellipse, Text, Transformer, Line, Image as KonvaImage } from 'react-konva'
 import type Konva from 'konva'
 import { DndContext, useDroppable, useDndMonitor } from '@dnd-kit/core'
 import type { DragEndEvent, DragMoveEvent } from '@dnd-kit/core'
@@ -12,6 +12,7 @@ import { useGarden } from '@/hooks/useGarden'
 import type { GardenElement } from '@/lib/garden/types'
 import type { PaletteItem } from '@/lib/garden/palette'
 import { getTypeColors, snapToGrid } from '@/lib/garden/compute-sun'
+import { resolveDrawKind, getSpriteUrl, getSpriteImage } from '@/lib/garden/illustration'
 import { addPlantToMyGarden } from '@/lib/actions/plant.actions'
 
 import { GardenToolbar } from './GardenToolbar'
@@ -36,11 +37,34 @@ interface KonvaElementProps {
   onResize: (w: number, h: number, x: number, y: number, rotation: number) => void
 }
 
+/** Charge (et garde en cache) le sprite SVG rasterisé d'un élément. */
+function useSpriteImage(url: string): HTMLImageElement | null {
+  const [, force] = useReducer((x: number) => x + 1, 0)
+  const img = useMemo(() => (url ? getSpriteImage(url) : null), [url])
+  useEffect(() => {
+    if (!img || img.complete) return
+    const onLoad = () => force()
+    img.addEventListener('load', onLoad)
+    return () => img.removeEventListener('load', onLoad)
+  }, [img])
+  return img && img.complete && img.naturalWidth > 0 ? img : null
+}
+
 function KonvaElement({ element, isSelected, onSelect, onMove, onResize }: KonvaElementProps) {
   const groupRef = useRef<Konva.Group>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const { fill, stroke } = getTypeColors(element.type)
   const isCircular = ['plante', 'arbre', 'fontaine', 'mare'].includes(element.type)
+
+  // Rendu v2 illustré : chaque élément est dessiné en sprite SVG.
+  // Si l'utilisateur a forcé une couleur custom, on conserve le rendu legacy.
+  const useIllustration = !element.customColor
+  const drawKind = element.drawKind ?? resolveDrawKind({ type: element.type, emoji: element.emoji })
+  const spriteUrl = useMemo(
+    () => (useIllustration ? getSpriteUrl(drawKind, element.width, element.height, element.id) : ''),
+    [useIllustration, drawKind, element.width, element.height, element.id],
+  )
+  const sprite = useSpriteImage(spriteUrl)
 
   useEffect(() => {
     if (isSelected && transformerRef.current && groupRef.current) {
@@ -98,7 +122,17 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize }: Konva
         onDragEnd={handleDragEnd}
         onTransformEnd={handleTransformEnd}
       >
-        {isCircular ? (
+        {useIllustration ? (
+          sprite ? (
+            <KonvaImage image={sprite} width={element.width} height={element.height} />
+          ) : (
+            <Rect
+              width={element.width} height={element.height}
+              fill="rgba(180,221,127,0.14)"
+              cornerRadius={cornerRadius}
+            />
+          )
+        ) : isCircular ? (
           <Ellipse
             x={cx} y={cy}
             radiusX={cx} radiusY={cy}
@@ -111,7 +145,9 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize }: Konva
             cornerRadius={cornerRadius}
           />
         )}
-        <Text text={element.emoji} fontSize={emojiSize} x={cx - emojiSize / 2} y={cy - emojiSize / 2} listening={false} />
+        {!useIllustration && (
+          <Text text={element.emoji} fontSize={emojiSize} x={cx - emojiSize / 2} y={cy - emojiSize / 2} listening={false} />
+        )}
         <Rect x={cx - 30} y={element.height - 16} width={60} height={14} fill="rgba(255,255,255,0.85)" cornerRadius={3} listening={false} />
         <Text text={element.label} fontSize={10} fill="#1E5631" fontFamily="Raleway, sans-serif" x={cx - 30} y={element.height - 15} width={60} align="center" listening={false} />
         <Text text={sunBadge} fontSize={12} x={2} y={2} listening={false} />
@@ -263,9 +299,18 @@ export function GardenCanvas() {
         Math.max(0, centerY + jitter()),
       )
 
-      if (result.plant?.id) {
-        garden.updateElement(newId, { linkedPlantId: result.plant.id })
-      }
+      // P1-c : résout le dessin v2 depuis la fiche catalogue (catégorie + nom).
+      const drawKind = resolveDrawKind({
+        type:     'plante',
+        emoji,
+        category: catalogPlant.category,
+        slug:     catalogPlant.slug,
+        name:     catalogPlant.commonName,
+      })
+      garden.updateElement(newId, {
+        drawKind,
+        ...(result.plant?.id ? { linkedPlantId: result.plant.id } : {}),
+      })
 
       garden.saveGarden()
       toast(`🌿 ${label} a été ajoutée à ton jardin !`)
@@ -285,9 +330,17 @@ export function GardenCanvas() {
 
         const newId = garden.addElement(item, x, y)
 
-        if (result.success && result.plant?.id) {
-          garden.updateElement(newId, { linkedPlantId: result.plant.id })
-        }
+        // P1-c : résout le dessin v2 depuis la catégorie catalogue.
+        const drawKind = resolveDrawKind({
+          type:     'plante',
+          emoji:    item.emoji,
+          category: item.catalogCategory,
+          name:     item.label,
+        })
+        garden.updateElement(newId, {
+          drawKind,
+          ...(result.success && result.plant?.id ? { linkedPlantId: result.plant.id } : {}),
+        })
 
         garden.saveGarden()
         toast(`🌿 ${item.label} a été ajoutée à ton jardin !`)

@@ -9,6 +9,8 @@ export interface PaletteItem {
   defaultHeight: number
   isCircular?: boolean
   catalogPlantId?: string
+  /** Catégorie de la fiche catalogue (pour résoudre le dessin v2 — plantes). */
+  catalogCategory?: string
 }
 
 // Fallback list used when the dynamic catalog fetch fails

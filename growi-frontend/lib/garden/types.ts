@@ -37,6 +37,8 @@ export interface GardenElement {
   customBorder?: string
   notes?: string
   linkedPlantId?: string
+  /** Dessin v2 résolu (famille/catégorie). Résolu depuis le catalogue à la création. */
+  drawKind?: string
 }
 
 export interface GardenConfig {
