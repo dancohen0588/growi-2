@@ -46,6 +46,7 @@ export function GardenRightPanel({
               onDelete={() => onDeleteElement(selectedElement.id)}
               plants={plants}
               onAddPlant={onAddPlant}
+              pxPerMeter={config.pxPerMeter}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">

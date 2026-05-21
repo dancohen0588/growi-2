@@ -6,6 +6,8 @@ import { Trash2, Search, Loader2, Sparkles, Plus } from 'lucide-react'
 import type { PlantCatalog } from '@prisma/client'
 import { cn } from '@/lib/utils'
 import { searchCatalog } from '@/lib/actions/catalog.actions'
+import { pxToM, mToPx, parseCote } from '@/lib/garden/scale'
+import { snapToGrid } from '@/lib/garden/compute-sun'
 import type { GardenElement, ElementSun, GardenElementType } from '@/lib/garden/types'
 import type { Plant } from '@/lib/plant-types'
 import {
@@ -32,6 +34,7 @@ interface GardenPropsTabProps {
   onDelete: () => void
   plants?: Plant[]
   onAddPlant?: (catalogPlant: PlantCatalog, element: GardenElement) => Promise<void>
+  pxPerMeter?: number
 }
 
 export function GardenPropsTab({
@@ -40,6 +43,7 @@ export function GardenPropsTab({
   onDelete,
   plants = [],
   onAddPlant,
+  pxPerMeter,
 }: GardenPropsTabProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -75,33 +79,42 @@ export function GardenPropsTab({
         />
       </div>
 
-      {/* Dimensions */}
+      {/* Dimensions (en mètres — cotation P2) */}
       <div className="flex flex-col gap-1">
-        <span className="font-raleway text-[11px] font-semibold text-forest/60">Dimensions (px)</span>
+        <span className="font-raleway text-[11px] font-semibold text-forest/60">Dimensions (m)</span>
         <div className="flex gap-2">
           <div className="flex flex-col gap-0.5 flex-1">
             <label htmlFor="el-w" className="font-raleway text-[10px] text-forest/40">Largeur</label>
-            <input
+            <MeterInput
               id="el-w"
-              type="number"
-              min={40} max={600} step={20}
-              value={element.width}
-              onChange={e => onChange({ width: Number(e.target.value) })}
-              className="border border-border rounded-lg px-2 py-1 font-raleway text-xs text-forest focus:outline-none focus:ring-1 focus:ring-lime w-full"
+              valuePx={element.width}
+              pxPerMeter={pxPerMeter}
+              onCommitPx={px => onChange({ width: px })}
             />
           </div>
           <div className="flex flex-col gap-0.5 flex-1">
             <label htmlFor="el-h" className="font-raleway text-[10px] text-forest/40">Hauteur</label>
-            <input
+            <MeterInput
               id="el-h"
-              type="number"
-              min={40} max={600} step={20}
-              value={element.height}
-              onChange={e => onChange({ height: Number(e.target.value) })}
-              className="border border-border rounded-lg px-2 py-1 font-raleway text-xs text-forest focus:outline-none focus:ring-1 focus:ring-lime w-full"
+              valuePx={element.height}
+              pxPerMeter={pxPerMeter}
+              onCommitPx={px => onChange({ height: px })}
             />
           </div>
         </div>
+      </div>
+
+      {/* Rotation */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="el-rot" className="font-raleway text-[11px] font-semibold text-forest/60">Rotation (°)</label>
+        <input
+          id="el-rot"
+          type="number"
+          min={0} max={360} step={15}
+          value={Math.round(element.rotation)}
+          onChange={e => onChange({ rotation: Number(e.target.value) })}
+          className="border border-border rounded-lg px-2.5 py-1.5 font-raleway text-xs text-forest focus:outline-none focus:ring-1 focus:ring-lime"
+        />
       </div>
 
       {/* Sun exposure */}
@@ -235,6 +248,46 @@ export function GardenPropsTab({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+// ── Champ de saisie en mètres (cotation P2) ───────────────────────────────
+
+function meterClampPx(px: number): number {
+  return Math.max(40, Math.min(600, snapToGrid(px)))
+}
+
+function MeterInput({
+  id, valuePx, pxPerMeter, onCommitPx,
+}: {
+  id: string
+  valuePx: number
+  pxPerMeter?: number
+  onCommitPx: (px: number) => void
+}) {
+  // `draft` n'existe que pendant la saisie → frappe libre, validation à la sortie.
+  const [draft, setDraft] = useState<string | null>(null)
+  const formatted = pxToM(valuePx, pxPerMeter).toFixed(2).replace('.', ',')
+
+  function commit() {
+    if (draft == null) return
+    const m = parseCote(draft)
+    setDraft(null)
+    if (m != null) onCommitPx(meterClampPx(mToPx(m, pxPerMeter)))
+  }
+
+  return (
+    <input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      value={draft ?? formatted}
+      onFocus={() => setDraft(formatted)}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+      className="border border-border rounded-lg px-2 py-1 font-raleway text-xs text-forest focus:outline-none focus:ring-1 focus:ring-lime w-full"
+    />
   )
 }
 

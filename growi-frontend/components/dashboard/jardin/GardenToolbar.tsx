@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRef, useState } from 'react'
-import { Save, Camera, Trash2, Sprout, ScanSearch, Undo2, Redo2 } from 'lucide-react'
+import { Save, Camera, Trash2, Sprout, ScanSearch, Undo2, Redo2, Ruler } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
@@ -21,10 +21,12 @@ interface GardenToolbarProps {
   onRedo: () => void
   canUndo: boolean
   canRedo: boolean
+  cotesOn: boolean
+  onToggleCotes: () => void
   isSaving: boolean
 }
 
-export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, onAddPlant, onUndo, onRedo, canUndo, canRedo, isSaving }: GardenToolbarProps) {
+export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, onAddPlant, onUndo, onRedo, canUndo, canRedo, cotesOn, onToggleCotes, isSaving }: GardenToolbarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const [clearOpen, setClearOpen] = useState(false)
@@ -126,6 +128,19 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, o
             <span className="hidden sm:inline">Identifier une plante</span>
             <span className="sm:hidden">Identifier</span>
           </Link>
+          <button
+            onClick={onToggleCotes}
+            aria-pressed={cotesOn}
+            className={cn(
+              'hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-raleway text-xs transition-colors',
+              cotesOn ? 'bg-lime/30 text-forest font-semibold' : 'text-forest/60 hover:bg-sand hover:text-forest',
+            )}
+            title="Afficher les cotes de tous les éléments"
+            aria-label="Afficher les cotes de tous les éléments"
+          >
+            <Ruler size={14} aria-hidden />
+            <span>Cotes</span>
+          </button>
           <button
             onClick={() => setClearOpen(true)}
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-raleway text-xs text-forest/60 hover:bg-sand hover:text-forest transition-colors"

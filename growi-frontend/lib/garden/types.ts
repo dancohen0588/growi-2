@@ -51,6 +51,8 @@ export interface GardenConfig {
   widthMeters: number
   heightMeters: number
   climateZone: ClimateZone
+  /** Échelle du plan : pixels du canevas par mètre réel (P2 — cotation). */
+  pxPerMeter?: number
 }
 
 export interface Garden {

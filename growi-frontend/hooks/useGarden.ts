@@ -25,6 +25,7 @@ export interface UseGardenReturn {
   selectedElement: GardenElement | null
 
   addElement: (item: PaletteItem, x: number, y: number, extra?: Partial<GardenElement>) => string
+  duplicateElement: (source: GardenElement) => string
   updateElement: (id: string, patch: Partial<GardenElement>) => void
   deleteElement: (id: string) => void
   clearCanvas: () => void
@@ -157,6 +158,21 @@ export function useGarden(): UseGardenReturn {
     return newEl.id
   }, [updateGarden])
 
+  // Duplique un élément (copier/coller) : clone décalé d'une case de grille,
+  // nouvel id, lien catalogue retiré (copie purement visuelle).
+  const duplicateElement = useCallback((source: GardenElement): string => {
+    const clone: GardenElement = {
+      ...source,
+      id: crypto.randomUUID(),
+      x: snapToGrid(source.x + 20),
+      y: snapToGrid(source.y + 20),
+      linkedPlantId: undefined,
+    }
+    updateGarden(prev => ({ ...prev, elements: [...prev.elements, clone] }))
+    setSelectedId(clone.id)
+    return clone.id
+  }, [updateGarden])
+
   const updateElement = useCallback((id: string, patch: Partial<GardenElement>) => {
     updateGarden(prev => ({
       ...prev,
@@ -235,6 +251,7 @@ export function useGarden(): UseGardenReturn {
     selectElement,
     selectedElement,
     addElement,
+    duplicateElement,
     updateElement,
     deleteElement,
     clearCanvas,

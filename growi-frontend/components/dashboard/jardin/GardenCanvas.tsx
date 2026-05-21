@@ -25,6 +25,8 @@ import { GardenCompass } from './GardenCompass'
 import { GardenEmptyState } from './GardenEmptyState'
 import { GardenStatsBar } from './GardenStatsBar'
 import { GardenZoomControls } from './GardenZoomControls'
+import { GardenDimensions, type DimBox } from './GardenDimensions'
+import { DimensionEditor } from './DimensionEditor'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 // ─── Single Konva element ─────────────────────────────────────────────────────
@@ -35,6 +37,7 @@ interface KonvaElementProps {
   onSelect: () => void
   onMove: (x: number, y: number) => void
   onResize: (w: number, h: number, x: number, y: number, rotation: number) => void
+  onLiveChange?: (id: string, box: DimBox | null) => void
 }
 
 /** Charge (et garde en cache) le sprite SVG rasterisé d'un élément. */
@@ -50,7 +53,7 @@ function useSpriteImage(url: string): HTMLImageElement | null {
   return img && img.complete && img.naturalWidth > 0 ? img : null
 }
 
-function KonvaElement({ element, isSelected, onSelect, onMove, onResize }: KonvaElementProps) {
+function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveChange }: KonvaElementProps) {
   const groupRef = useRef<Konva.Group>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const { fill, stroke } = getTypeColors(element.type)
@@ -77,12 +80,23 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize }: Konva
   const cx = element.width / 2
   const cy = element.height / 2
 
+  function reportLive() {
+    const n = groupRef.current
+    if (n) onLiveChange?.(element.id, {
+      x: n.x(),
+      y: n.y(),
+      width: Math.max(40, n.width() * n.scaleX()),
+      height: Math.max(40, n.height() * n.scaleY()),
+    })
+  }
+
   function handleDragEnd(e: Konva.KonvaEventObject<DragEvent>) {
     const snappedX = snapToGrid(e.target.x())
     const snappedY = snapToGrid(e.target.y())
     e.target.x(snappedX)
     e.target.y(snappedY)
     onMove(snappedX, snappedY)
+    onLiveChange?.(element.id, null)
   }
 
   function handleTransformEnd() {
@@ -98,6 +112,7 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize }: Konva
     node.scaleX(1)
     node.scaleY(1)
     onResize(newW, newH, newX, newY, rotation)
+    onLiveChange?.(element.id, null)
   }
 
   const sunBadge = element.sun === 'full' ? '☀️' : element.sun === 'half' ? '⛅' : '🌿'
@@ -119,6 +134,8 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize }: Konva
         draggable
         onClick={onSelect}
         onTap={onSelect}
+        onDragMove={reportLive}
+        onTransform={reportLive}
         onDragEnd={handleDragEnd}
         onTransformEnd={handleTransformEnd}
       >
@@ -231,6 +248,10 @@ export function GardenCanvas() {
   const stageRef = useRef<Konva.Stage>(null)
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
+  const [showAllCotes, setShowAllCotes] = useState(false)
+  const [liveBox, setLiveBox] = useState<{ id: string; box: DimBox } | null>(null)
+  const [dimEdit, setDimEdit] = useState<{ axis: 'w' | 'h'; x: number; y: number; valuePx: number } | null>(null)
+  const clipboardRef = useRef<GardenElement | null>(null)
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false)
   const [addPlantOpen, setAddPlantOpen] = useState(false)
@@ -255,24 +276,43 @@ export function GardenCanvas() {
     return () => observer.disconnect()
   }, [])
 
-  // Ctrl/Cmd + Z : annuler · Ctrl/Cmd + Maj + Z (ou Ctrl + Y) : rétablir.
+  // Raccourcis clavier : annuler / rétablir / copier / coller.
+  const selectedElementRef = useRef(garden.selectedElement)
+  selectedElementRef.current = garden.selectedElement
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return
-      const k = e.key.toLowerCase()
-      const isRedo = (k === 'z' && e.shiftKey) || (k === 'y' && !e.shiftKey)
-      const isUndo = k === 'z' && !e.shiftKey
-      if (!isUndo && !isRedo) return
-      // Laisse l'annulation native agir dans les champs de saisie.
+      // Laisse les raccourcis natifs agir dans les champs de saisie.
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
-      e.preventDefault()
-      if (isRedo) garden.redo()
-      else garden.undo()
+      const k = e.key.toLowerCase()
+      if (k === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        garden.undo()
+      } else if ((k === 'z' && e.shiftKey) || (k === 'y' && !e.shiftKey)) {
+        e.preventDefault()
+        garden.redo()
+      } else if (k === 'c' && !e.shiftKey) {
+        // Copier l'élément sélectionné dans le presse-papiers.
+        const el = selectedElementRef.current
+        if (el) {
+          clipboardRef.current = { ...el }
+          e.preventDefault()
+          toast('📋 Élément copié — Ctrl/Cmd + V pour coller')
+        }
+      } else if (k === 'v' && !e.shiftKey) {
+        // Coller : duplique le composant copié, en cascade si on recolle.
+        const clip = clipboardRef.current
+        if (clip) {
+          e.preventDefault()
+          garden.duplicateElement(clip)
+          clipboardRef.current = { ...clip, x: clip.x + 20, y: clip.y + 20 }
+        }
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [garden.undo, garden.redo])
+  }, [garden.undo, garden.redo, garden.duplicateElement, toast])
 
   const handleExport = useCallback(() => {
     const stage = stageRef.current
@@ -386,6 +426,27 @@ export function GardenCanvas() {
     [garden, toast],
   )
 
+  // ── Cotation (P2) ───────────────────────────────────────────────────────
+  const pxPerMeter = garden.garden.config.pxPerMeter
+
+  const handleLive = useCallback((id: string, box: DimBox | null) => {
+    setLiveBox(box ? { id, box } : null)
+  }, [])
+
+  const handleEditCote = useCallback(
+    (axis: 'w' | 'h', worldX: number, worldY: number) => {
+      const el = garden.selectedElement
+      if (!el) return
+      setDimEdit({
+        axis,
+        x: worldX * garden.zoom + stagePos.x,
+        y: worldY * garden.zoom + stagePos.y,
+        valuePx: axis === 'w' ? el.width : el.height,
+      })
+    },
+    [garden.selectedElement, garden.zoom, stagePos.x, stagePos.y],
+  )
+
   return (
     <DndContext>
       <div className="flex flex-col h-full">
@@ -400,6 +461,8 @@ export function GardenCanvas() {
           onRedo={garden.redo}
           canUndo={garden.canUndo}
           canRedo={garden.canRedo}
+          cotesOn={showAllCotes}
+          onToggleCotes={() => setShowAllCotes(v => !v)}
           isSaving={garden.isSaving}
         />
 
@@ -407,7 +470,7 @@ export function GardenCanvas() {
           <GardenPalette />
 
           <CanvasDropZone onDrop={handlePaletteDrop} zoom={garden.zoom} pan={stagePos}>
-            <div ref={containerRef} className="w-full h-full bg-sand cursor-grab active:cursor-grabbing" role="region" aria-label="Carte de ton jardin">
+            <div ref={containerRef} className="relative w-full h-full bg-sand cursor-grab active:cursor-grabbing" role="region" aria-label="Carte de ton jardin">
               {/* Accessible table for screen readers */}
               <table className="sr-only" aria-label="Éléments dans ton jardin">
                 <caption>Éléments de ton jardin</caption>
@@ -469,10 +532,45 @@ export function GardenCanvas() {
                       onSelect={() => garden.selectElement(el.id)}
                       onMove={(x, y) => garden.updateElement(el.id, { x, y })}
                       onResize={(w, h, x, y, rotation) => garden.updateElement(el.id, { width: w, height: h, x, y, rotation })}
+                      onLiveChange={handleLive}
                     />
                   ))}
                 </Layer>
+                {/* Calque de cotation (P2) */}
+                <Layer>
+                  {garden.garden.elements.map(el => {
+                    const isSel = el.id === garden.selectedId
+                    if (!showAllCotes && !isSel) return null
+                    const box: DimBox = liveBox && liveBox.id === el.id
+                      ? liveBox.box
+                      : { x: el.x, y: el.y, width: el.width, height: el.height }
+                    return (
+                      <GardenDimensions
+                        key={el.id}
+                        box={box}
+                        pxPerMeter={pxPerMeter}
+                        editable={isSel}
+                        onEditCote={isSel ? handleEditCote : undefined}
+                      />
+                    )
+                  })}
+                </Layer>
               </Stage>
+
+              {dimEdit && garden.selectedId && (
+                <DimensionEditor
+                  x={dimEdit.x}
+                  y={dimEdit.y}
+                  axis={dimEdit.axis}
+                  valuePx={dimEdit.valuePx}
+                  pxPerMeter={pxPerMeter}
+                  onCommit={px => {
+                    garden.updateElement(garden.selectedId!, dimEdit.axis === 'w' ? { width: px } : { height: px })
+                    setDimEdit(null)
+                  }}
+                  onClose={() => setDimEdit(null)}
+                />
+              )}
             </div>
 
             <GardenCompass
@@ -531,6 +629,7 @@ export function GardenCanvas() {
                         setMobilePropsOpen(false)
                       }}
                       onAddPlant={handleAddPlantToZone}
+                      pxPerMeter={garden.garden.config.pxPerMeter}
                     />
                   )}
                 </div>
