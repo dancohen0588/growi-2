@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { Garden, GardenElement, GardenConfig } from '@/lib/garden/types'
+import { isSurfaceType, rectPoints } from '@/lib/garden/types'
 import type { PaletteItem } from '@/lib/garden/palette'
 import { createDefaultGarden } from '@/lib/garden/defaults'
 import { getOrCreateDefaultGarden } from '@/lib/actions/garden.actions'
@@ -151,6 +152,10 @@ export function useGarden(): UseGardenReturn {
       height: item.defaultHeight,
       rotation: 0,
       sun: 'full',
+      // Les zones & structures sont des polygones dès la création (rectangle modifiable).
+      ...(isSurfaceType(item.type)
+        ? { points: rectPoints(item.defaultWidth, item.defaultHeight) }
+        : {}),
       ...extra,
     }
     updateGarden(prev => ({ ...prev, elements: [...prev.elements, newEl] }))
@@ -167,6 +172,7 @@ export function useGarden(): UseGardenReturn {
       x: snapToGrid(source.x + 20),
       y: snapToGrid(source.y + 20),
       linkedPlantId: undefined,
+      points: source.points ? source.points.map(p => ({ ...p })) : undefined,
     }
     updateGarden(prev => ({ ...prev, elements: [...prev.elements, clone] }))
     setSelectedId(clone.id)

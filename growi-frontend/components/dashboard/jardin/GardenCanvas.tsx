@@ -9,7 +9,8 @@ import { Layers, SlidersHorizontal } from 'lucide-react'
 import type { PlantCatalog } from '@prisma/client'
 
 import { useGarden } from '@/hooks/useGarden'
-import type { GardenElement } from '@/lib/garden/types'
+import type { GardenElement, GardenPoint } from '@/lib/garden/types'
+import { effectivePoints, isSurfaceType } from '@/lib/garden/types'
 import type { PaletteItem } from '@/lib/garden/palette'
 import { getTypeColors, snapToGrid } from '@/lib/garden/compute-sun'
 import { resolveDrawKind, getSpriteUrl, getSpriteImage } from '@/lib/garden/illustration'
@@ -26,6 +27,7 @@ import { GardenEmptyState } from './GardenEmptyState'
 import { GardenStatsBar } from './GardenStatsBar'
 import { GardenZoomControls } from './GardenZoomControls'
 import { GardenDimensions, type DimBox } from './GardenDimensions'
+import { GardenShapeEditor } from './GardenShapeEditor'
 import { DimensionEditor } from './DimensionEditor'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
@@ -36,7 +38,7 @@ interface KonvaElementProps {
   isSelected: boolean
   onSelect: () => void
   onMove: (x: number, y: number) => void
-  onResize: (w: number, h: number, x: number, y: number, rotation: number) => void
+  onResize: (w: number, h: number, x: number, y: number, rotation: number, points?: GardenPoint[]) => void
   onLiveChange?: (id: string, box: DimBox | null) => void
 }
 
@@ -68,6 +70,19 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveC
     [useIllustration, drawKind, element.width, element.height, element.id],
   )
   const sprite = useSpriteImage(spriteUrl)
+
+  // Polygone à n côtés : zones & structures (rectangle implicite par défaut).
+  const poly = effectivePoints(element)
+  const hasPolygon = !!poly && poly.length >= 3
+  const flatLocal = hasPolygon ? poly!.flatMap(p => [p.x, p.y]) : []
+  const polyClip = hasPolygon
+    ? (ctx: Konva.Context) => {
+        ctx.beginPath()
+        ctx.moveTo(poly![0].x, poly![0].y)
+        for (let i = 1; i < poly!.length; i++) ctx.lineTo(poly![i].x, poly![i].y)
+        ctx.closePath()
+      }
+    : undefined
 
   useEffect(() => {
     if (isSelected && transformerRef.current && groupRef.current) {
@@ -111,7 +126,14 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveC
     const newY = snapToGrid(node.y())
     node.scaleX(1)
     node.scaleY(1)
-    onResize(newW, newH, newX, newY, rotation)
+    // Le polygone se met à l'échelle proportionnellement à la boîte.
+    let scaledPoints: GardenPoint[] | undefined
+    if (element.points && element.points.length >= 3) {
+      const sx = element.width ? newW / element.width : 1
+      const sy = element.height ? newH / element.height : 1
+      scaledPoints = element.points.map(p => ({ x: p.x * sx, y: p.y * sy }))
+    }
+    onResize(newW, newH, newX, newY, rotation, scaledPoints)
     onLiveChange?.(element.id, null)
   }
 
@@ -139,7 +161,22 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveC
         onDragEnd={handleDragEnd}
         onTransformEnd={handleTransformEnd}
       >
-        {useIllustration ? (
+        {hasPolygon ? (
+          <>
+            <Line
+              points={flatLocal}
+              closed
+              fill={element.customColor ?? fill}
+              stroke={borderFill}
+              strokeWidth={2}
+            />
+            {useIllustration && sprite && (
+              <Group clipFunc={polyClip} listening={false}>
+                <KonvaImage image={sprite} width={element.width} height={element.height} listening={false} />
+              </Group>
+            )}
+          </>
+        ) : useIllustration ? (
           sprite ? (
             <KonvaImage image={sprite} width={element.width} height={element.height} />
           ) : (
@@ -162,7 +199,7 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveC
             cornerRadius={cornerRadius}
           />
         )}
-        {!useIllustration && (
+        {!useIllustration && !hasPolygon && (
           <Text text={element.emoji} fontSize={emojiSize} x={cx - emojiSize / 2} y={cy - emojiSize / 2} listening={false} />
         )}
         <Rect x={cx - 30} y={element.height - 16} width={60} height={14} fill="rgba(255,255,255,0.85)" cornerRadius={3} listening={false} />
@@ -170,7 +207,7 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveC
         <Text text={sunBadge} fontSize={12} x={2} y={2} listening={false} />
       </Group>
 
-      {isSelected && (
+      {isSelected && !hasPolygon && (
         <Transformer
           ref={transformerRef}
           boundBoxFunc={(_, newBox) => ({
@@ -531,7 +568,7 @@ export function GardenCanvas() {
                       isSelected={garden.selectedId === el.id}
                       onSelect={() => garden.selectElement(el.id)}
                       onMove={(x, y) => garden.updateElement(el.id, { x, y })}
-                      onResize={(w, h, x, y, rotation) => garden.updateElement(el.id, { width: w, height: h, x, y, rotation })}
+                      onResize={(w, h, x, y, rotation, points) => garden.updateElement(el.id, { width: w, height: h, x, y, rotation, ...(points ? { points } : {}) })}
                       onLiveChange={handleLive}
                     />
                   ))}
@@ -555,6 +592,17 @@ export function GardenCanvas() {
                     )
                   })}
                 </Layer>
+                {/* Calque d'édition de forme — toujours actif pour zones & structures */}
+                {garden.selectedElement && isSurfaceType(garden.selectedElement.type) && (
+                  <Layer>
+                    <GardenShapeEditor
+                      element={garden.selectedElement}
+                      originX={liveBox?.id === garden.selectedElement.id ? liveBox.box.x : garden.selectedElement.x}
+                      originY={liveBox?.id === garden.selectedElement.id ? liveBox.box.y : garden.selectedElement.y}
+                      onChange={patch => garden.updateElement(garden.selectedElement!.id, patch)}
+                    />
+                  </Layer>
+                )}
               </Stage>
 
               {dimEdit && garden.selectedId && (
