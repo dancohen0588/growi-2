@@ -12,6 +12,9 @@ import {
 } from '@/lib/garden/storage'
 import { snapToGrid } from '@/lib/garden/compute-sun'
 
+// Profondeur de la pile d'annulation (Ctrl/Cmd + Z).
+const HISTORY_LIMIT = 50
+
 export interface UseGardenReturn {
   garden: Garden
   selectedId: string | null
@@ -21,10 +24,14 @@ export interface UseGardenReturn {
   selectElement: (id: string | null) => void
   selectedElement: GardenElement | null
 
-  addElement: (item: PaletteItem, x: number, y: number) => string
+  addElement: (item: PaletteItem, x: number, y: number, extra?: Partial<GardenElement>) => string
   updateElement: (id: string, patch: Partial<GardenElement>) => void
   deleteElement: (id: string) => void
   clearCanvas: () => void
+  undo: () => void
+  redo: () => void
+  canUndo: boolean
+  canRedo: boolean
 
   setZoom: (zoom: number) => void
   updateConfig: (patch: Partial<GardenConfig>) => void
@@ -42,6 +49,12 @@ export function useGarden(): UseGardenReturn {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const gardenDbIdRef = useRef<string | null>(null)
+
+  // Miroir de l'état courant + pile d'annulation (snapshots avant mutation).
+  const gardenRef = useRef(garden)
+  gardenRef.current = garden
+  const historyRef = useRef<Garden[]>([])
+  const redoRef = useRef<Garden[]>([])
 
   // Load from DB on mount (with one-time localStorage migration fallback)
   useEffect(() => {
@@ -96,13 +109,25 @@ export function useGarden(): UseGardenReturn {
     }, 1500)
   }, [])
 
+  // Empile l'état courant avant toute mutation (pour l'annulation).
+  // Plusieurs mutations synchrones d'une même action partagent le même snapshot
+  // (référence identique tant qu'aucun rendu n'a eu lieu) → une seule annulation.
+  const pushHistory = useCallback(() => {
+    redoRef.current = [] // une nouvelle action invalide le rétablissement
+    const h = historyRef.current
+    if (h[h.length - 1] === gardenRef.current) return
+    h.push(gardenRef.current)
+    if (h.length > HISTORY_LIMIT) h.shift()
+  }, [])
+
   const updateGarden = useCallback((updater: (prev: Garden) => Garden) => {
+    pushHistory()
     setGarden(prev => {
       const next = updater({ ...prev, updatedAt: new Date().toISOString() })
       scheduleAutoSave(next)
       return next
     })
-  }, [scheduleAutoSave])
+  }, [scheduleAutoSave, pushHistory])
 
   const selectElement = useCallback((id: string | null) => {
     setSelectedId(id)
@@ -113,7 +138,7 @@ export function useGarden(): UseGardenReturn {
     [garden.elements, selectedId],
   )
 
-  const addElement = useCallback((item: PaletteItem, x: number, y: number): string => {
+  const addElement = useCallback((item: PaletteItem, x: number, y: number, extra?: Partial<GardenElement>): string => {
     const newEl: GardenElement = {
       id: crypto.randomUUID(),
       type: item.type,
@@ -125,6 +150,7 @@ export function useGarden(): UseGardenReturn {
       height: item.defaultHeight,
       rotation: 0,
       sun: 'full',
+      ...extra,
     }
     updateGarden(prev => ({ ...prev, elements: [...prev.elements, newEl] }))
     setSelectedId(newEl.id)
@@ -150,6 +176,28 @@ export function useGarden(): UseGardenReturn {
     setSelectedId(null)
     updateGarden(prev => ({ ...prev, elements: [] }))
   }, [updateGarden])
+
+  // Annule la dernière action (Ctrl/Cmd + Z) : restaure le snapshot précédent.
+  const undo = useCallback(() => {
+    const prev = historyRef.current.pop()
+    if (!prev) return
+    redoRef.current.push(gardenRef.current)
+    if (redoRef.current.length > HISTORY_LIMIT) redoRef.current.shift()
+    setSelectedId(null)
+    setGarden(prev)
+    scheduleAutoSave(prev)
+  }, [scheduleAutoSave])
+
+  // Rétablit la dernière action annulée (Ctrl/Cmd + Maj + Z).
+  const redo = useCallback(() => {
+    const next = redoRef.current.pop()
+    if (!next) return
+    historyRef.current.push(gardenRef.current)
+    if (historyRef.current.length > HISTORY_LIMIT) historyRef.current.shift()
+    setSelectedId(null)
+    setGarden(next)
+    scheduleAutoSave(next)
+  }, [scheduleAutoSave])
 
   const updateConfig = useCallback((patch: Partial<GardenConfig>) => {
     updateGarden(prev => ({ ...prev, config: { ...prev.config, ...patch } }))
@@ -190,6 +238,10 @@ export function useGarden(): UseGardenReturn {
     updateElement,
     deleteElement,
     clearCanvas,
+    undo,
+    redo,
+    canUndo: historyRef.current.length > 0,
+    canRedo: redoRef.current.length > 0,
     setZoom,
     updateConfig,
     updateName,

@@ -169,13 +169,19 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize }: Konva
 
 // ─── Grid ─────────────────────────────────────────────────────────────────────
 
-function GridLayer({ width, height }: { width: number; height: number }) {
+// Bornes du « monde » : assez grandes pour que le déplacement (pan) reste
+// toujours au-dessus de la grille et du fond.
+const WORLD_MIN = -2000
+const WORLD_MAX = 4000
+const WORLD_SPAN = WORLD_MAX - WORLD_MIN
+
+function GridLayer() {
   const lines: React.ReactNode[] = []
   const G = 40
-  for (let x = 0; x <= width; x += G)
-    lines.push(<Line key={`v${x}`} points={[x, 0, x, height]} stroke="rgba(180,221,127,0.2)" strokeWidth={1} listening={false} />)
-  for (let y = 0; y <= height; y += G)
-    lines.push(<Line key={`h${y}`} points={[0, y, width, y]} stroke="rgba(180,221,127,0.2)" strokeWidth={1} listening={false} />)
+  for (let x = WORLD_MIN; x <= WORLD_MAX; x += G)
+    lines.push(<Line key={`v${x}`} points={[x, WORLD_MIN, x, WORLD_MAX]} stroke="rgba(180,221,127,0.2)" strokeWidth={1} listening={false} />)
+  for (let y = WORLD_MIN; y <= WORLD_MAX; y += G)
+    lines.push(<Line key={`h${y}`} points={[WORLD_MIN, y, WORLD_MAX, y]} stroke="rgba(180,221,127,0.2)" strokeWidth={1} listening={false} />)
   return <>{lines}</>
 }
 
@@ -183,7 +189,12 @@ function GridLayer({ width, height }: { width: number; height: number }) {
 
 const CANVAS_ID = 'garden-canvas-droppable'
 
-function CanvasDropZone({ children, onDrop }: { children: React.ReactNode; onDrop: (item: PaletteItem, x: number, y: number) => void }) {
+function CanvasDropZone({ children, onDrop, zoom, pan }: {
+  children: React.ReactNode
+  onDrop: (item: PaletteItem, x: number, y: number) => void
+  zoom: number
+  pan: { x: number; y: number }
+}) {
   const { setNodeRef } = useDroppable({ id: CANVAS_ID })
   const dragPosRef = useRef({ x: 0, y: 0 })
 
@@ -198,9 +209,10 @@ function CanvasDropZone({ children, onDrop }: { children: React.ReactNode; onDro
       const el = document.getElementById(CANVAS_ID)
       if (!el) return
       const rect = el.getBoundingClientRect()
-      const relX = dragPosRef.current.x - rect.left - item.defaultWidth / 2
-      const relY = dragPosRef.current.y - rect.top - item.defaultHeight / 2
-      onDrop(item, Math.max(0, relX), Math.max(0, relY))
+      // Écran → coordonnées « monde » : tient compte du zoom et du pan.
+      const worldX = (dragPosRef.current.x - rect.left - pan.x) / zoom
+      const worldY = (dragPosRef.current.y - rect.top - pan.y) / zoom
+      onDrop(item, worldX - item.defaultWidth / 2, worldY - item.defaultHeight / 2)
     },
   })
 
@@ -218,6 +230,7 @@ export function GardenCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
+  const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false)
   const [addPlantOpen, setAddPlantOpen] = useState(false)
@@ -241,6 +254,25 @@ export function GardenCanvas() {
 
     return () => observer.disconnect()
   }, [])
+
+  // Ctrl/Cmd + Z : annuler · Ctrl/Cmd + Maj + Z (ou Ctrl + Y) : rétablir.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+      const k = e.key.toLowerCase()
+      const isRedo = (k === 'z' && e.shiftKey) || (k === 'y' && !e.shiftKey)
+      const isUndo = k === 'z' && !e.shiftKey
+      if (!isUndo && !isRedo) return
+      // Laisse l'annulation native agir dans les champs de saisie.
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      e.preventDefault()
+      if (isRedo) garden.redo()
+      else garden.undo()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [garden.undo, garden.redo])
 
   const handleExport = useCallback(() => {
     const stage = stageRef.current
@@ -280,8 +312,9 @@ export function GardenCanvas() {
       const emoji = catalogPlant.emoji ?? '🌿'
       const width = 60
       const height = 60
-      const centerX = stageSize.width / garden.zoom / 2 - width / 2
-      const centerY = stageSize.height / garden.zoom / 2 - height / 2
+      // Centre de la vue en coordonnées « monde » (tient compte du zoom + pan).
+      const centerX = (stageSize.width / 2 - stagePos.x) / garden.zoom - width / 2
+      const centerY = (stageSize.height / 2 - stagePos.y) / garden.zoom - height / 2
       const jitter = () => Math.round((Math.random() - 0.5) * 80)
 
       const paletteItem: PaletteItem = {
@@ -293,12 +326,6 @@ export function GardenCanvas() {
         isCircular: true,
       }
 
-      const newId = garden.addElement(
-        paletteItem,
-        Math.max(0, centerX + jitter()),
-        Math.max(0, centerY + jitter()),
-      )
-
       // P1-c : résout le dessin v2 depuis la fiche catalogue (catégorie + nom).
       const drawKind = resolveDrawKind({
         type:     'plante',
@@ -307,15 +334,21 @@ export function GardenCanvas() {
         slug:     catalogPlant.slug,
         name:     catalogPlant.commonName,
       })
-      garden.updateElement(newId, {
-        drawKind,
-        ...(result.plant?.id ? { linkedPlantId: result.plant.id } : {}),
-      })
+      // Ajout + dessin + lien en une seule mutation → une seule annulation.
+      garden.addElement(
+        paletteItem,
+        Math.max(0, centerX + jitter()),
+        Math.max(0, centerY + jitter()),
+        {
+          drawKind,
+          ...(result.plant?.id ? { linkedPlantId: result.plant.id } : {}),
+        },
+      )
 
       garden.saveGarden()
       toast(`🌿 ${label} a été ajoutée à ton jardin !`)
     },
-    [stageSize.width, stageSize.height, garden, toast],
+    [stageSize.width, stageSize.height, stagePos.x, stagePos.y, garden, toast],
   )
 
   // Handle drag-and-drop from palette — create PlantInstance for catalog plants
@@ -328,8 +361,6 @@ export function GardenCanvas() {
           location: 'OUTDOOR',
         })
 
-        const newId = garden.addElement(item, x, y)
-
         // P1-c : résout le dessin v2 depuis la catégorie catalogue.
         const drawKind = resolveDrawKind({
           type:     'plante',
@@ -337,7 +368,8 @@ export function GardenCanvas() {
           category: item.catalogCategory,
           name:     item.label,
         })
-        garden.updateElement(newId, {
+        // Ajout + dessin + lien en une seule mutation → une seule annulation.
+        garden.addElement(item, x, y, {
           drawKind,
           ...(result.success && result.plant?.id ? { linkedPlantId: result.plant.id } : {}),
         })
@@ -364,14 +396,18 @@ export function GardenCanvas() {
           onExport={handleExport}
           onClear={garden.clearCanvas}
           onAddPlant={() => setAddPlantOpen(true)}
+          onUndo={garden.undo}
+          onRedo={garden.redo}
+          canUndo={garden.canUndo}
+          canRedo={garden.canRedo}
           isSaving={garden.isSaving}
         />
 
         <div className="flex flex-1 overflow-hidden">
           <GardenPalette />
 
-          <CanvasDropZone onDrop={handlePaletteDrop}>
-            <div ref={containerRef} className="w-full h-full" role="region" aria-label="Carte de ton jardin">
+          <CanvasDropZone onDrop={handlePaletteDrop} zoom={garden.zoom} pan={stagePos}>
+            <div ref={containerRef} className="w-full h-full bg-sand cursor-grab active:cursor-grabbing" role="region" aria-label="Carte de ton jardin">
               {/* Accessible table for screen readers */}
               <table className="sr-only" aria-label="Éléments dans ton jardin">
                 <caption>Éléments de ton jardin</caption>
@@ -391,11 +427,38 @@ export function GardenCanvas() {
                 height={stageSize.height}
                 scaleX={garden.zoom}
                 scaleY={garden.zoom}
+                x={stagePos.x}
+                y={stagePos.y}
+                draggable
+                onDragEnd={e => {
+                  // Ne capture que le déplacement de la carte (pas celui d'un élément).
+                  if (e.target === e.target.getStage()) setStagePos({ x: e.target.x(), y: e.target.y() })
+                }}
+                onWheel={e => {
+                  // Pincement du trackpad (ou Ctrl + molette) → zoom vers le curseur.
+                  if (!e.evt.ctrlKey) return
+                  e.evt.preventDefault()
+                  const stage = e.target.getStage()
+                  const pointer = stage?.getPointerPosition()
+                  if (!stage || !pointer) return
+                  const oldScale = stage.scaleX()
+                  const worldX = (pointer.x - stage.x()) / oldScale
+                  const worldY = (pointer.y - stage.y()) / oldScale
+                  const dy = Math.max(-60, Math.min(60, e.evt.deltaY))
+                  const next = Math.min(2, Math.max(0.4, oldScale * Math.exp(-dy * 0.01)))
+                  const nx = pointer.x - worldX * next
+                  const ny = pointer.y - worldY * next
+                  stage.scale({ x: next, y: next })
+                  stage.position({ x: nx, y: ny })
+                  stage.batchDraw()
+                  garden.setZoom(next)
+                  setStagePos({ x: nx, y: ny })
+                }}
                 onClick={e => { if (e.target === e.target.getStage()) garden.selectElement(null) }}
               >
                 <Layer>
-                  <Rect width={stageSize.width} height={stageSize.height} fill="#F9F7E8" listening={false} />
-                  <GridLayer width={stageSize.width} height={stageSize.height} />
+                  <Rect x={WORLD_MIN} y={WORLD_MIN} width={WORLD_SPAN} height={WORLD_SPAN} fill="#F9F7E8" listening={false} />
+                  <GridLayer />
                 </Layer>
                 <Layer>
                   {garden.garden.elements.map(el => (

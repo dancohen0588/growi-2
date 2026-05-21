@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRef, useState } from 'react'
-import { Save, Camera, Trash2, Sprout, ScanSearch } from 'lucide-react'
+import { Save, Camera, Trash2, Sprout, ScanSearch, Undo2, Redo2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
@@ -17,10 +17,14 @@ interface GardenToolbarProps {
   onExport: () => void
   onClear: () => void
   onAddPlant: () => void
+  onUndo: () => void
+  onRedo: () => void
+  canUndo: boolean
+  canRedo: boolean
   isSaving: boolean
 }
 
-export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, onAddPlant, isSaving }: GardenToolbarProps) {
+export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, onAddPlant, onUndo, onRedo, canUndo, canRedo, isSaving }: GardenToolbarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const [clearOpen, setClearOpen] = useState(false)
@@ -70,6 +74,34 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, o
               {name}
             </button>
           )}
+
+          {/* Annuler / Rétablir */}
+          <div className="flex items-center gap-0.5 pl-2 ml-0.5 border-l border-forest/10 shrink-0">
+            <button
+              onClick={onUndo}
+              disabled={!canUndo}
+              title="Annuler — Ctrl/Cmd + Z"
+              aria-label="Annuler la dernière action"
+              className={cn(
+                'p-1.5 rounded-lg text-forest/60 transition-colors',
+                canUndo ? 'hover:bg-sand hover:text-forest' : 'opacity-30 cursor-not-allowed',
+              )}
+            >
+              <Undo2 size={15} aria-hidden />
+            </button>
+            <button
+              onClick={onRedo}
+              disabled={!canRedo}
+              title="Rétablir — Ctrl/Cmd + Maj + Z"
+              aria-label="Rétablir l'action annulée"
+              className={cn(
+                'p-1.5 rounded-lg text-forest/60 transition-colors',
+                canRedo ? 'hover:bg-sand hover:text-forest' : 'opacity-30 cursor-not-allowed',
+              )}
+            >
+              <Redo2 size={15} aria-hidden />
+            </button>
+          </div>
         </div>
 
         {/* Right: actions */}
