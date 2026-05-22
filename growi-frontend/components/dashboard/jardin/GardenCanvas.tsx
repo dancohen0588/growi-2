@@ -6,7 +6,7 @@ import { Stage, Layer, Group, Rect, Ellipse, Text, Transformer, Line, Image as K
 import type Konva from 'konva'
 import { DndContext, useDroppable, useDndMonitor } from '@dnd-kit/core'
 import type { DragEndEvent, DragMoveEvent } from '@dnd-kit/core'
-import { Layers, SlidersHorizontal, Sprout, ScanSearch } from 'lucide-react'
+import { Layers, SlidersHorizontal, Sprout, ScanSearch, Wand2 } from 'lucide-react'
 import type { PlantCatalog } from '@prisma/client'
 
 import { useGarden } from '@/hooks/useGarden'
@@ -30,6 +30,7 @@ import { GardenZoomControls } from './GardenZoomControls'
 import { GardenDimensions, type DimBox } from './GardenDimensions'
 import { GardenShapeEditor } from './GardenShapeEditor'
 import { GardenAnnotationLayer } from './GardenAnnotationLayer'
+import { GardenOnboarding } from './GardenOnboarding'
 import { DimensionEditor } from './DimensionEditor'
 import { AnnotationEditor } from './AnnotationEditor'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -296,6 +297,9 @@ export function GardenCanvas() {
   const clipboardRef = useRef<GardenElement | null>(null)
   const [commentMode, setCommentMode] = useState(false)
   const [commentsVisible, setCommentsVisible] = useState(true)
+  const [onboardingActive, setOnboardingActive] = useState(false)
+  const [onboardingStep, setOnboardingStep] = useState(1)
+  const autoOpenedRef = useRef(false)
   const [annotationEdit, setAnnotationEdit] = useState<
     { id: string | null; x: number; y: number; screenX: number; screenY: number; text: string } | null
   >(null)
@@ -329,10 +333,19 @@ export function GardenCanvas() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') { setCommentMode(false); setAnnotationEdit(null); return }
-      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
       // Laisse les raccourcis natifs agir dans les champs de saisie.
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      // Suppr / Retour arrière : supprime l'élément sélectionné.
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const el = selectedElementRef.current
+        if (el) {
+          e.preventDefault()
+          garden.deleteElement(el.id)
+        }
+        return
+      }
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
       const k = e.key.toLowerCase()
       if (k === 'z' && !e.shiftKey) {
         e.preventDefault()
@@ -360,7 +373,17 @@ export function GardenCanvas() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [garden.undo, garden.redo, garden.duplicateElement, toast])
+  }, [garden.undo, garden.redo, garden.duplicateElement, garden.deleteElement, toast])
+
+  // Ouvre l'assistant de création pour un jardin neuf et vide (P4).
+  useEffect(() => {
+    if (!garden.isLoaded || autoOpenedRef.current) return
+    autoOpenedRef.current = true
+    if (garden.garden.elements.length === 0 && !garden.garden.onboarding?.completed) {
+      setOnboardingActive(true)
+      setOnboardingStep(1)
+    }
+  }, [garden.isLoaded])
 
   const handleExport = useCallback(() => {
     const stage = stageRef.current
@@ -552,7 +575,7 @@ export function GardenCanvas() {
                 </tbody>
               </table>
 
-              {garden.garden.elements.length === 0 && <GardenEmptyState />}
+              {garden.garden.elements.length === 0 && !onboardingActive && <GardenEmptyState />}
 
               <Stage
                 ref={stageRef}
@@ -735,6 +758,35 @@ export function GardenCanvas() {
             />
             <GardenStatsBar elements={garden.garden.elements} />
             <GardenZoomControls zoom={garden.zoom} onZoom={garden.setZoom} />
+
+            {/* Assistant de création (P4) */}
+            {onboardingActive ? (
+              <GardenOnboarding
+                step={onboardingStep}
+                onStepChange={s => {
+                  if (s > onboardingStep) toast('🌱 Étape validée !')
+                  setOnboardingStep(Math.max(1, Math.min(4, s)))
+                }}
+                config={garden.garden.config}
+                onConfigChange={garden.updateConfig}
+                onActivateComments={() => setCommentMode(true)}
+                onClose={() => setOnboardingActive(false)}
+                onComplete={() => {
+                  garden.completeOnboarding()
+                  setOnboardingActive(false)
+                  toast('🎉 Ton jardin est prêt !')
+                }}
+              />
+            ) : (
+              <button
+                onClick={() => { setOnboardingActive(true); setOnboardingStep(1) }}
+                className="absolute bottom-3 left-3 z-30 flex items-center gap-1.5 rounded-full bg-white border border-forest/15 shadow-card px-3 py-2 font-poppins font-semibold text-xs text-forest hover:bg-lime/20 transition-colors"
+                title="Ouvrir l'assistant de création"
+                aria-label="Ouvrir l'assistant de création"
+              >
+                <Wand2 size={14} aria-hidden /> Assistant
+              </button>
+            )}
 
             {/* Mobile FABs — only visible on small screens */}
             <button

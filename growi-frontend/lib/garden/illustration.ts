@@ -691,6 +691,16 @@ function sPergola(w: number, h: number): string {
   return g
 }
 
+function sVeranda(w: number, h: number): string {
+  let g = `<rect width="${w}" height="${h}" rx="10" fill="rgba(216,230,232,.62)"/>`
+  // poutres de toiture (parallèles) + poutre maîtresse
+  for (let x = 18; x < w - 8; x += 24) g += `<rect x="${x}" y="3" width="5" height="${h - 6}" rx="2" fill="#b9c9c4"/>`
+  g += `<rect x="3" y="${(h / 2 - 3).toFixed(1)}" width="${w - 6}" height="6" rx="3" fill="#a7bab4"/>`
+  // reflet vitré
+  g += `<polygon points="12,8 ${Math.min(w * 0.42, 64).toFixed(1)},8 26,${h - 8} 12,${h - 8}" fill="#ffffff" opacity=".28"/>`
+  return g + `<rect width="${w}" height="${h}" rx="10" fill="none" stroke="#7f9a96" stroke-width="5"/>`
+}
+
 /* ════════ dispatch ════════ */
 
 const MOTIFS: Record<string, (r: Rng) => string> = {
@@ -704,6 +714,7 @@ const MOTIFS: Record<string, (r: Rng) => string> = {
 const SURFACES: Record<string, (w: number, h: number, r: Rng) => string> = {
   pelouse: sPelouse, massif: sMassif, potager: sPotager,
   serre: (w, h) => sSerre(w, h), allee: sAllee, rocaille: sRocaille, terrasse: sTerrasse,
+  veranda: (w, h) => sVeranda(w, h),
   mur: (w, h) => sMur(w, h), portail: (w, h) => sPortail(w, h), bordure: (w, h) => sBordure(w, h),
   cloture: (w, h) => sCloture(w, h), abri: (w, h) => sAbri(w, h), pergola: (w, h) => sPergola(w, h),
 }

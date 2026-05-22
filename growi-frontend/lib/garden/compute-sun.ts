@@ -7,6 +7,7 @@ export const TYPE_COLORS: Record<string, { fill: string; stroke: string }> = {
   bordure:        { fill: 'rgba(30,86,49,.10)',    stroke: '#2d7a47' },
   cloture:        { fill: 'rgba(180,221,127,.22)', stroke: '#5a8a4a' },
   terrasse:       { fill: 'rgba(222,184,135,.30)', stroke: '#b8925a' },
+  veranda:        { fill: 'rgba(214,230,232,.40)', stroke: '#7f9a96' },
   abri:           { fill: 'rgba(246,196,69,.22)',  stroke: '#c49a10' },
   massif:         { fill: 'rgba(180,221,127,.18)', stroke: '#8aaa7b' },
   pelouse:        { fill: 'rgba(144,238,144,.28)', stroke: '#5a8a4a' },

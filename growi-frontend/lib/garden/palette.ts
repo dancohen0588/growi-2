@@ -32,6 +32,7 @@ export const PALETTE_CATALOG: Record<string, PaletteItem[]> = {
     { type: 'bordure',  emoji: '〰️', label: 'Bordure',   defaultWidth: 120, defaultHeight: 28 },
     { type: 'cloture',  emoji: '🪵', label: 'Clôture',   defaultWidth: 120, defaultHeight: 36 },
     { type: 'terrasse', emoji: '🪨', label: 'Terrasse',  defaultWidth: 160, defaultHeight: 120 },
+    { type: 'veranda',  emoji: '🪟', label: 'Véranda',   defaultWidth: 140, defaultHeight: 100 },
     { type: 'abri',     emoji: '🏠', label: 'Abri',      defaultWidth: 100, defaultHeight: 100 },
   ],
   'Zones': [

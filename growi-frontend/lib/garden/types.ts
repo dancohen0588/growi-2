@@ -1,7 +1,7 @@
 // growi-frontend/lib/garden/types.ts
 
 export type GardenElementType =
-  | 'mur' | 'portail' | 'bordure' | 'cloture' | 'abri' | 'terrasse'
+  | 'mur' | 'portail' | 'bordure' | 'cloture' | 'abri' | 'terrasse' | 'veranda'
   | 'massif' | 'pelouse' | 'potager' | 'serre' | 'allee' | 'rocaille'
   | 'plante' | 'arbre'
   | 'eau' | 'fontaine' | 'mare'
@@ -30,7 +30,7 @@ export interface GardenPoint {
 
 /** Types « surface » (structures + zones) — éditables en polygone à n côtés. */
 export const SURFACE_TYPES: GardenElementType[] = [
-  'mur', 'portail', 'bordure', 'cloture', 'abri', 'terrasse', 'pergola',
+  'mur', 'portail', 'bordure', 'cloture', 'abri', 'terrasse', 'veranda', 'pergola',
   'massif', 'pelouse', 'potager', 'serre', 'allee', 'rocaille',
 ]
 
@@ -103,6 +103,8 @@ export interface Garden {
   updatedAt: string
   /** Commentaires sur le plan (P3). */
   annotations?: GardenAnnotation[]
+  /** Assistant de création (P4). */
+  onboarding?: { completed: boolean }
 }
 
 /** Rectangle à 4 coins, en coordonnées locales. */

@@ -21,6 +21,8 @@ export interface UseGardenReturn {
   selectedId: string | null
   zoom: number
   isSaving: boolean
+  isLoaded: boolean
+  completeOnboarding: () => void
 
   selectElement: (id: string | null) => void
   selectedElement: GardenElement | null
@@ -52,6 +54,7 @@ export function useGarden(): UseGardenReturn {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const gardenDbIdRef = useRef<string | null>(null)
@@ -94,7 +97,7 @@ export function useGarden(): UseGardenReturn {
         await saveGardenToDB(dbGarden.id, local)
       }
     }
-    init()
+    init().finally(() => setIsLoaded(true))
   }, [])
 
   // Cleanup debounce timer on unmount
@@ -288,6 +291,11 @@ export function useGarden(): UseGardenReturn {
     updateGarden(prev => ({ ...prev, name }))
   }, [updateGarden])
 
+  // Marque l'assistant de création comme terminé (P4).
+  const completeOnboarding = useCallback(() => {
+    updateGarden(prev => ({ ...prev, onboarding: { completed: true } }))
+  }, [updateGarden])
+
   const saveGarden = useCallback(() => {
     if (!gardenDbIdRef.current) return
     setIsSaving(true)
@@ -313,6 +321,8 @@ export function useGarden(): UseGardenReturn {
     selectedId,
     zoom,
     isSaving,
+    isLoaded,
+    completeOnboarding,
     selectElement,
     selectedElement,
     addElement,
