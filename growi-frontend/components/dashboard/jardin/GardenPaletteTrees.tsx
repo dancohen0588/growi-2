@@ -4,47 +4,31 @@ import { useEffect, useState } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { ChevronDown, Search, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import {
-  getCatalogByCategory,
-  type CatalogPaletteItem,
-} from '@/lib/actions/catalog.actions'
+import { getTreeCatalog, type CatalogTreeItem } from '@/lib/actions/catalog.actions'
 import type { PaletteItem } from '@/lib/garden/palette'
-import { FALLBACK_PLANT_ITEMS } from '@/lib/garden/palette'
-
-// ── Category dropdown values (DB values + "all") ──────────────────────────
-
-// Les arbres & arbustes ont leur propre section (GardenPaletteTrees) :
-// ils sont donc absents de ce filtre.
-const CATEGORIES: Array<{ value: string; label: string }> = [
-  { value: 'all',        label: 'Toutes' },
-  { value: 'INDOOR',     label: 'Intérieur' },
-  { value: 'VEGETABLE',  label: 'Potager' },
-  { value: 'FLOWERS',    label: 'Fleurs' },
-  { value: 'HERBS',      label: 'Aromatiques' },
-  { value: 'SUCCULENTS', label: 'Succulentes' },
-  { value: 'AQUATIC',    label: 'Aquatiques' },
-  { value: 'CLIMBING',   label: 'Grimpantes' },
-]
+import { FALLBACK_TREE_ITEMS, TREE_TYPES, TREE_TYPE_LABELS } from '@/lib/garden/palette'
 
 const PAGE_SIZE = 10
 
-const SUN_ICON: Record<string, string> = {
-  FULL_SUN: '☀️',
-  PARTIAL:  '⛅',
-  SHADE:    '🌥️',
+/** Emoji de repli selon le sous-type, quand la fiche catalogue n'en a pas. */
+const TYPE_EMOJI: Record<string, string> = {
+  CONIFER: '🌲',
+  FRUIT: '🍎',
+  SHRUB: '🌿',
+  DECIDUOUS: '🌳',
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export function GardenPalettePlants({ defaultOpen = false }: { defaultOpen?: boolean }) {
-  const [open, setOpen]         = useState(defaultOpen)
-  const [category, setCategory] = useState<string>('all')
-  const [query, setQuery]       = useState('')
+export function GardenPaletteTrees({ defaultOpen = false }: { defaultOpen?: boolean }) {
+  const [open, setOpen]             = useState(defaultOpen)
+  const [treeType, setTreeType]     = useState<string>('all')
+  const [query, setQuery]           = useState('')
   const [debouncedQ, setDebouncedQ] = useState('')
-  const [items, setItems]       = useState<CatalogPaletteItem[]>([])
-  const [loading, setLoading]   = useState(false)
-  const [hasMore, setHasMore]   = useState(false)
-  const [failed, setFailed]     = useState(false)
+  const [items, setItems]           = useState<CatalogTreeItem[]>([])
+  const [loading, setLoading]       = useState(false)
+  const [hasMore, setHasMore]       = useState(false)
+  const [failed, setFailed]         = useState(false)
   const [loadedOnce, setLoadedOnce] = useState(false)
 
   // Debounce search input
@@ -59,7 +43,7 @@ export function GardenPalettePlants({ defaultOpen = false }: { defaultOpen?: boo
     let cancelled = false
     setLoading(true)
     setFailed(false)
-    getCatalogByCategory(category, debouncedQ, PAGE_SIZE, 0)
+    getTreeCatalog(treeType, debouncedQ, PAGE_SIZE, 0)
       .then(data => {
         if (cancelled) return
         setItems(data)
@@ -74,13 +58,13 @@ export function GardenPalettePlants({ defaultOpen = false }: { defaultOpen?: boo
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [open, category, debouncedQ])
+  }, [open, treeType, debouncedQ])
 
   async function loadMore() {
     if (loading) return
     setLoading(true)
     try {
-      const next = await getCatalogByCategory(category, debouncedQ, PAGE_SIZE, items.length)
+      const next = await getTreeCatalog(treeType, debouncedQ, PAGE_SIZE, items.length)
       setItems(prev => [...prev, ...next])
       setHasMore(next.length === PAGE_SIZE)
     } catch {
@@ -98,7 +82,7 @@ export function GardenPalettePlants({ defaultOpen = false }: { defaultOpen?: boo
         aria-expanded={open}
       >
         <span className="font-poppins font-semibold text-[11px] text-forest uppercase tracking-wide">
-          Plantes
+          Arbres & arbustes
         </span>
         <ChevronDown
           size={14}
@@ -109,15 +93,15 @@ export function GardenPalettePlants({ defaultOpen = false }: { defaultOpen?: boo
 
       {open && (
         <div className="flex flex-col gap-2 p-2">
-          {/* Category dropdown */}
+          {/* Tree type dropdown */}
           <select
-            value={category}
-            onChange={e => setCategory(e.target.value)}
-            aria-label="Filtrer par catégorie"
+            value={treeType}
+            onChange={e => setTreeType(e.target.value)}
+            aria-label="Filtrer par type d'arbre"
             className="w-full rounded-md border border-forest/15 bg-white px-2 py-1 font-raleway text-[11px] text-forest focus:outline-none focus:ring-1 focus:ring-lime"
           >
-            {CATEGORIES.map(c => (
-              <option key={c.value} value={c.value}>{c.label}</option>
+            {TREE_TYPES.map(t => (
+              <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
 
@@ -133,7 +117,7 @@ export function GardenPalettePlants({ defaultOpen = false }: { defaultOpen?: boo
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Rechercher…"
-              aria-label="Rechercher une plante"
+              aria-label="Rechercher un arbre ou un arbuste"
               className="w-full rounded-md border border-forest/15 bg-white pl-6 pr-6 py-1 font-raleway text-[11px] text-forest placeholder:text-forest/40 focus:outline-none focus:ring-1 focus:ring-lime"
             />
             {loading && (
@@ -152,24 +136,25 @@ export function GardenPalettePlants({ defaultOpen = false }: { defaultOpen?: boo
                 Catalogue indisponible — suggestions par défaut
               </p>
               <div className="flex flex-col gap-1">
-                {FALLBACK_PLANT_ITEMS.map(item => (
+                {FALLBACK_TREE_ITEMS.map(item => (
                   <FallbackRow key={item.label} item={item} />
                 ))}
               </div>
             </>
           )}
 
-          {/* Dynamic list */}
+          {/* Empty state */}
           {!failed && loadedOnce && items.length === 0 && !loading && (
             <p className="font-raleway text-[10px] text-forest/40 px-1 py-2 text-center">
               Aucun résultat
             </p>
           )}
 
+          {/* Dynamic list */}
           {items.length > 0 && (
             <ul className="flex flex-col gap-1">
-              {items.map(plant => (
-                <DraggablePlantRow key={plant.id} plant={plant} />
+              {items.map(tree => (
+                <DraggableTreeRow key={tree.id} tree={tree} />
               ))}
             </ul>
           )}
@@ -192,33 +177,37 @@ export function GardenPalettePlants({ defaultOpen = false }: { defaultOpen?: boo
 
 // ── Draggable row ─────────────────────────────────────────────────────────
 
-function DraggablePlantRow({ plant }: { plant: CatalogPaletteItem }) {
+function DraggableTreeRow({ tree }: { tree: CatalogTreeItem }) {
+  const emoji = tree.emoji ?? TYPE_EMOJI[tree.treeType ?? 'DECIDUOUS'] ?? '🌳'
+  const isShrub = tree.treeType === 'SHRUB'
+
   const paletteItem: PaletteItem = {
-    type:            'plante',
-    emoji:           plant.emoji ?? '🌿',
-    label:           plant.commonName,
-    defaultWidth:    60,
-    defaultHeight:   60,
+    type:            'arbre',
+    emoji,
+    label:           tree.commonName,
+    defaultWidth:    isShrub ? 60 : 80,
+    defaultHeight:   isShrub ? 60 : 80,
     isCircular:      true,
-    catalogPlantId:  plant.id,
-    catalogCategory: plant.category,
+    catalogPlantId:  tree.id,
+    catalogCategory: 'TREES_SHRUBS',
+    catalogTreeType: tree.treeType ?? undefined,
   }
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id:   `catalog-${plant.id}`,
+    id:   `catalog-tree-${tree.id}`,
     data: paletteItem,
   })
 
   const [imgFailed, setImgFailed] = useState(false)
-  const showImg = plant.imageUrl && !imgFailed
+  const showImg = tree.imageUrl && !imgFailed
 
   return (
     <li
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      aria-label={`Glisser ${plant.commonName} sur le canvas`}
-      title={plant.commonName}
+      aria-label={`Glisser ${tree.commonName} sur le canvas`}
+      title={tree.commonName}
       className={cn(
         'flex items-center gap-2 rounded-lg border border-border bg-sand px-2 py-1.5 cursor-grab select-none',
         'hover:border-lime hover:bg-[#f0fae0] transition-all duration-150',
@@ -229,7 +218,7 @@ function DraggablePlantRow({ plant }: { plant: CatalogPaletteItem }) {
         {showImg ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={plant.imageUrl!}
+            src={tree.imageUrl!}
             alt=""
             loading="lazy"
             decoding="async"
@@ -237,18 +226,17 @@ function DraggablePlantRow({ plant }: { plant: CatalogPaletteItem }) {
             className="h-full w-full object-cover"
           />
         ) : (
-          <span className="text-lg leading-none" aria-hidden>
-            {plant.emoji ?? '🌿'}
-          </span>
+          <span className="text-lg leading-none" aria-hidden>{emoji}</span>
         )}
       </div>
 
       <div className="flex-1 min-w-0">
         <p className="font-poppins font-semibold text-[11px] text-forest truncate">
-          {plant.commonName}
+          {tree.commonName}
         </p>
         <p className="font-raleway text-[9px] text-forest/50 truncate">
-          💧 {plant.wateringFreqDays}j · {SUN_ICON[plant.sunExposure] ?? '☀️'}
+          {TREE_TYPE_LABELS[tree.treeType ?? ''] ?? 'Arbre'}
+          {tree.family ? ` · ${tree.family}` : ''}
         </p>
       </div>
 
@@ -261,7 +249,7 @@ function DraggablePlantRow({ plant }: { plant: CatalogPaletteItem }) {
 
 function FallbackRow({ item }: { item: PaletteItem }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id:   `fallback-${item.label}`,
+    id:   `fallback-tree-${item.label}`,
     data: item,
   })
 

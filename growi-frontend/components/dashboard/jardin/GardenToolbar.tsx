@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Save, Camera, Trash2, Undo2, Redo2, Ruler, MessageSquarePlus, Eye, EyeOff } from 'lucide-react'
+import { Save, Camera, Trash2, Undo2, Redo2, Ruler, MessageSquarePlus, Eye, EyeOff, Tag } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
@@ -21,6 +21,8 @@ interface GardenToolbarProps {
   canRedo: boolean
   cotesOn: boolean
   onToggleCotes: () => void
+  labelsOn: boolean
+  onToggleLabels: () => void
   commentMode: boolean
   onToggleComment: () => void
   commentsVisible: boolean
@@ -29,7 +31,7 @@ interface GardenToolbarProps {
   isSaving: boolean
 }
 
-export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, onUndo, onRedo, canUndo, canRedo, cotesOn, onToggleCotes, commentMode, onToggleComment, commentsVisible, onToggleCommentsVisible, hasComments, isSaving }: GardenToolbarProps) {
+export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, onUndo, onRedo, canUndo, canRedo, cotesOn, onToggleCotes, labelsOn, onToggleLabels, commentMode, onToggleComment, commentsVisible, onToggleCommentsVisible, hasComments, isSaving }: GardenToolbarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const [clearOpen, setClearOpen] = useState(false)
@@ -123,6 +125,19 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, o
           >
             <Ruler size={14} aria-hidden />
             <span>Cotes</span>
+          </button>
+          <button
+            onClick={onToggleLabels}
+            aria-pressed={!labelsOn}
+            className={cn(
+              'hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-raleway text-xs transition-colors',
+              !labelsOn ? 'bg-lime/30 text-forest font-semibold' : 'text-forest/60 hover:bg-sand hover:text-forest',
+            )}
+            title={labelsOn ? 'Masquer les noms des éléments' : 'Afficher les noms des éléments'}
+            aria-label={labelsOn ? 'Masquer les noms des éléments' : 'Afficher les noms des éléments'}
+          >
+            {labelsOn ? <Tag size={14} aria-hidden /> : <EyeOff size={14} aria-hidden />}
+            <span>Noms</span>
           </button>
           <button
             onClick={onToggleComment}

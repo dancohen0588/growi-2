@@ -729,12 +729,20 @@ export interface ResolveInput {
   category?: string | null
   name?: string | null
   slug?: string | null
+  /** Sous-type d'arbre catalogue : CONIFER | DECIDUOUS | FRUIT | SHRUB. */
+  treeType?: string | null
 }
 
 /** Calcule le drawKind d'un élément à partir de son type et, si plante, de sa fiche catalogue. */
 export function resolveDrawKind(o: ResolveInput): string {
   const t = o.type
   if (t === 'arbre') {
+    // Priorité au sous-type catalogue (fiable), sinon repli sur l'emoji.
+    const tt = (o.treeType || '').toUpperCase()
+    if (tt === 'CONIFER') return 'conifere'
+    if (tt === 'FRUIT')   return 'fruitier'
+    if (tt === 'SHRUB')   return 'arbuste'
+    if (tt === 'DECIDUOUS') return 'feuillu'
     const e = o.emoji || ''
     if (e === '🌲' || e === '🎄') return 'conifere'
     if (e === '🌴') return 'palmier'

@@ -45,6 +45,8 @@ interface KonvaElementProps {
   onResize: (w: number, h: number, x: number, y: number, rotation: number, points?: GardenPoint[]) => void
   onLiveChange?: (id: string, box: DimBox | null) => void
   commentMode?: boolean
+  /** Affiche le nom sous chaque élément. Si false, le nom n'apparaît qu'au survol. */
+  showLabels?: boolean
 }
 
 /** Charge (et garde en cache) le sprite SVG rasterisé d'un élément. */
@@ -60,9 +62,10 @@ function useSpriteImage(url: string): HTMLImageElement | null {
   return img && img.complete && img.naturalWidth > 0 ? img : null
 }
 
-function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveChange, commentMode }: KonvaElementProps) {
+function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveChange, commentMode, showLabels = true }: KonvaElementProps) {
   const groupRef = useRef<Konva.Group>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
+  const [hovered, setHovered] = useState(false)
   const { fill, stroke } = getTypeColors(element.type)
   const isCircular = ['plante', 'arbre', 'fontaine', 'mare'].includes(element.type)
 
@@ -143,6 +146,8 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveC
   }
 
   const sunBadge = element.sun === 'full' ? '☀️' : element.sun === 'half' ? '⛅' : '🌿'
+  // Largeur de l'infobulle de survol, estimée d'après la longueur du nom.
+  const tipWidth = Math.min(180, Math.max(48, element.label.length * 5.6 + 16))
   const bgFill = element.customColor ?? fill
   const borderFill = element.customBorder ?? stroke
   const cornerRadius = isCircular ? 999
@@ -164,8 +169,10 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveC
         onTap={onSelect}
         onDragMove={reportLive}
         onTransform={reportLive}
-        onDragEnd={handleDragEnd}
+        onDragEnd={e => { setHovered(false); handleDragEnd(e) }}
         onTransformEnd={handleTransformEnd}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
       >
         {hasPolygon ? (
           <>
@@ -208,8 +215,29 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveC
         {!useIllustration && !hasPolygon && (
           <Text text={element.emoji} fontSize={emojiSize} x={cx - emojiSize / 2} y={cy - emojiSize / 2} listening={false} />
         )}
-        <Rect x={cx - 30} y={element.height - 16} width={60} height={14} fill="rgba(255,255,255,0.85)" cornerRadius={3} listening={false} />
-        <Text text={element.label} fontSize={10} fill="#1E5631" fontFamily="Raleway, sans-serif" x={cx - 30} y={element.height - 15} width={60} align="center" listening={false} />
+        {/* Nom permanent sous l'élément (masquable depuis la barre d'outils). */}
+        {showLabels && (
+          <>
+            <Rect x={cx - 30} y={element.height - 16} width={60} height={14} fill="rgba(255,255,255,0.85)" cornerRadius={3} listening={false} />
+            <Text text={element.label} fontSize={10} fill="#1E5631" fontFamily="Raleway, sans-serif" x={cx - 30} y={element.height - 15} width={60} align="center" listening={false} />
+          </>
+        )}
+        {/* Noms masqués : infobulle révélée au survol. */}
+        {!showLabels && hovered && (
+          <>
+            <Rect
+              x={cx - tipWidth / 2} y={-22}
+              width={tipWidth} height={16} cornerRadius={4}
+              fill="#1E5631" opacity={0.92} listening={false}
+            />
+            <Text
+              text={element.label} fontSize={10} fill="#FFFFFF"
+              fontFamily="Raleway, sans-serif" fontStyle="bold"
+              x={cx - tipWidth / 2} y={-18.5} width={tipWidth} align="center"
+              wrap="none" ellipsis listening={false}
+            />
+          </>
+        )}
         <Text text={sunBadge} fontSize={12} x={2} y={2} listening={false} />
       </Group>
 
@@ -292,6 +320,7 @@ export function GardenCanvas() {
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
   const [showAllCotes, setShowAllCotes] = useState(false)
+  const [showLabels, setShowLabels] = useState(true)
   const [liveBox, setLiveBox] = useState<{ id: string; box: DimBox } | null>(null)
   const [dimEdit, setDimEdit] = useState<{ axis: 'w' | 'h'; x: number; y: number; valuePx: number } | null>(null)
   const clipboardRef = useRef<GardenElement | null>(null)
@@ -421,15 +450,17 @@ export function GardenCanvas() {
 
       const label = catalogPlant.commonName
       const emoji = catalogPlant.emoji ?? '🌿'
-      const width = 60
-      const height = 60
+      // Les arbres & arbustes sont des éléments « arbre » sur le canvas.
+      const isTree = catalogPlant.category === 'TREES_SHRUBS'
+      const width = isTree ? 80 : 60
+      const height = isTree ? 80 : 60
       // Centre de la vue en coordonnées « monde » (tient compte du zoom + pan).
       const centerX = (stageSize.width / 2 - stagePos.x) / garden.zoom - width / 2
       const centerY = (stageSize.height / 2 - stagePos.y) / garden.zoom - height / 2
       const jitter = () => Math.round((Math.random() - 0.5) * 80)
 
       const paletteItem: PaletteItem = {
-        type: 'plante',
+        type: isTree ? 'arbre' : 'plante',
         emoji,
         label,
         defaultWidth: width,
@@ -439,9 +470,10 @@ export function GardenCanvas() {
 
       // P1-c : résout le dessin v2 depuis la fiche catalogue (catégorie + nom).
       const drawKind = resolveDrawKind({
-        type:     'plante',
+        type:     isTree ? 'arbre' : 'plante',
         emoji,
         category: catalogPlant.category,
+        treeType: catalogPlant.treeType,
         slug:     catalogPlant.slug,
         name:     catalogPlant.commonName,
       })
@@ -474,9 +506,10 @@ export function GardenCanvas() {
 
         // P1-c : résout le dessin v2 depuis la catégorie catalogue.
         const drawKind = resolveDrawKind({
-          type:     'plante',
+          type:     item.type,
           emoji:    item.emoji,
           category: item.catalogCategory,
+          treeType: item.catalogTreeType,
           name:     item.label,
         })
         // Ajout + dessin + lien en une seule mutation → une seule annulation.
@@ -551,6 +584,8 @@ export function GardenCanvas() {
           canRedo={garden.canRedo}
           cotesOn={showAllCotes}
           onToggleCotes={() => setShowAllCotes(v => !v)}
+          labelsOn={showLabels}
+          onToggleLabels={() => setShowLabels(v => !v)}
           commentMode={commentMode}
           onToggleComment={() => { setCommentMode(v => !v); setAnnotationEdit(null); setCommentsVisible(true) }}
           commentsVisible={commentsVisible}
@@ -645,6 +680,7 @@ export function GardenCanvas() {
                       onResize={(w, h, x, y, rotation, points) => garden.updateElement(el.id, { width: w, height: h, x, y, rotation, ...(points ? { points } : {}) })}
                       onLiveChange={handleLive}
                       commentMode={commentMode}
+                      showLabels={showLabels}
                     />
                   ))}
                 </Layer>

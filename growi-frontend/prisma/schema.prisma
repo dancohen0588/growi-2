@@ -84,6 +84,8 @@ model PlantCatalog {
   family             String?
   emoji              String?
   category           String
+  /** Sous-type pour la catégorie TREES_SHRUBS : CONIFER | DECIDUOUS | FRUIT | SHRUB */
+  treeType           String?
   imageUrl           String?
   descriptionShort   String?
   descriptionLong    String?

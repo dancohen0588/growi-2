@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { PALETTE_CATALOG } from '@/lib/garden/palette'
 import { GardenPaletteSection } from './GardenPaletteSection'
 import { GardenPalettePlants } from './GardenPalettePlants'
+import { GardenPaletteTrees } from './GardenPaletteTrees'
 
 interface GardenPaletteProps {
   embedded?: boolean
@@ -43,12 +44,10 @@ export function GardenPalette({ embedded = false }: GardenPaletteProps) {
       {/* Dynamic catalog-backed Plants section (collapsed until first open → lazy load) */}
       <GardenPalettePlants />
 
-      {/* Remaining static sections: Arbres, Eau & Équipements */}
-      <GardenPaletteSection
-        title="Arbres"
-        items={PALETTE_CATALOG['Arbres']}
-        defaultOpen={false}
-      />
+      {/* Dynamic catalog-backed Trees & shrubs section (lazy load on first open) */}
+      <GardenPaletteTrees />
+
+      {/* Remaining static section: Eau & Équipements */}
       <GardenPaletteSection
         title="Eau & Équipements"
         items={PALETTE_CATALOG['Eau & Équipements']}
