@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import type { Garden, GardenElement, GardenConfig } from '@/lib/garden/types'
-import { isSurfaceType, rectPoints } from '@/lib/garden/types'
+import type { Garden, GardenElement, GardenConfig, GardenAnnotation, LayerOrder } from '@/lib/garden/types'
+import { isSurfaceType, isZoneType, rectPoints } from '@/lib/garden/types'
 import type { PaletteItem } from '@/lib/garden/palette'
 import { createDefaultGarden } from '@/lib/garden/defaults'
 import { getOrCreateDefaultGarden } from '@/lib/actions/garden.actions'
@@ -29,7 +29,11 @@ export interface UseGardenReturn {
   duplicateElement: (source: GardenElement) => string
   updateElement: (id: string, patch: Partial<GardenElement>) => void
   deleteElement: (id: string) => void
+  reorderElement: (id: string, mode: LayerOrder) => void
   clearCanvas: () => void
+  addAnnotation: (x: number, y: number, text: string) => string
+  updateAnnotation: (id: string, patch: Partial<GardenAnnotation>) => void
+  deleteAnnotation: (id: string) => void
   undo: () => void
   redo: () => void
   canUndo: boolean
@@ -158,7 +162,13 @@ export function useGarden(): UseGardenReturn {
         : {}),
       ...extra,
     }
-    updateGarden(prev => ({ ...prev, elements: [...prev.elements, newEl] }))
+    // RG : une zone est posée sur le calque le plus en arrière.
+    updateGarden(prev => ({
+      ...prev,
+      elements: isZoneType(newEl.type)
+        ? [newEl, ...prev.elements]
+        : [...prev.elements, newEl],
+    }))
     setSelectedId(newEl.id)
     return newEl.id
   }, [updateGarden])
@@ -174,7 +184,12 @@ export function useGarden(): UseGardenReturn {
       linkedPlantId: undefined,
       points: source.points ? source.points.map(p => ({ ...p })) : undefined,
     }
-    updateGarden(prev => ({ ...prev, elements: [...prev.elements, clone] }))
+    updateGarden(prev => ({
+      ...prev,
+      elements: isZoneType(clone.type)
+        ? [clone, ...prev.elements]
+        : [...prev.elements, clone],
+    }))
     setSelectedId(clone.id)
     return clone.id
   }, [updateGarden])
@@ -197,6 +212,50 @@ export function useGarden(): UseGardenReturn {
   const clearCanvas = useCallback(() => {
     setSelectedId(null)
     updateGarden(prev => ({ ...prev, elements: [] }))
+  }, [updateGarden])
+
+  // Réordonne un élément (ordre du tableau = ordre des calques).
+  const reorderElement = useCallback((id: string, mode: LayerOrder) => {
+    updateGarden(prev => {
+      const i = prev.elements.findIndex(e => e.id === id)
+      if (i < 0) return prev
+      const next = prev.elements.slice()
+      const [el] = next.splice(i, 1)
+      const j =
+        mode === 'front'   ? next.length
+        : mode === 'back'  ? 0
+        : mode === 'forward' ? Math.min(next.length, i + 1)
+        : Math.max(0, i - 1)
+      next.splice(j, 0, el)
+      return { ...prev, elements: next }
+    })
+  }, [updateGarden])
+
+  // ── Commentaires (P3) ────────────────────────────────────────────────
+  const addAnnotation = useCallback((x: number, y: number, text: string): string => {
+    const ann: GardenAnnotation = {
+      id: crypto.randomUUID(),
+      x: Math.round(x),
+      y: Math.round(y),
+      text,
+      createdAt: new Date().toISOString(),
+    }
+    updateGarden(prev => ({ ...prev, annotations: [...(prev.annotations ?? []), ann] }))
+    return ann.id
+  }, [updateGarden])
+
+  const updateAnnotation = useCallback((id: string, patch: Partial<GardenAnnotation>) => {
+    updateGarden(prev => ({
+      ...prev,
+      annotations: (prev.annotations ?? []).map(a => a.id === id ? { ...a, ...patch } : a),
+    }))
+  }, [updateGarden])
+
+  const deleteAnnotation = useCallback((id: string) => {
+    updateGarden(prev => ({
+      ...prev,
+      annotations: (prev.annotations ?? []).filter(a => a.id !== id),
+    }))
   }, [updateGarden])
 
   // Annule la dernière action (Ctrl/Cmd + Z) : restaure le snapshot précédent.
@@ -260,7 +319,11 @@ export function useGarden(): UseGardenReturn {
     duplicateElement,
     updateElement,
     deleteElement,
+    reorderElement,
     clearCanvas,
+    addAnnotation,
+    updateAnnotation,
+    deleteAnnotation,
     undo,
     redo,
     canUndo: historyRef.current.length > 0,

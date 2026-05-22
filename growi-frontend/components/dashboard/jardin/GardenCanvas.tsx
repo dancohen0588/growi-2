@@ -1,11 +1,12 @@
 'use client'
 
 import { useRef, useEffect, useState, useCallback, useMemo, useReducer } from 'react'
+import Link from 'next/link'
 import { Stage, Layer, Group, Rect, Ellipse, Text, Transformer, Line, Image as KonvaImage } from 'react-konva'
 import type Konva from 'konva'
 import { DndContext, useDroppable, useDndMonitor } from '@dnd-kit/core'
 import type { DragEndEvent, DragMoveEvent } from '@dnd-kit/core'
-import { Layers, SlidersHorizontal } from 'lucide-react'
+import { Layers, SlidersHorizontal, Sprout, ScanSearch } from 'lucide-react'
 import type { PlantCatalog } from '@prisma/client'
 
 import { useGarden } from '@/hooks/useGarden'
@@ -28,7 +29,9 @@ import { GardenStatsBar } from './GardenStatsBar'
 import { GardenZoomControls } from './GardenZoomControls'
 import { GardenDimensions, type DimBox } from './GardenDimensions'
 import { GardenShapeEditor } from './GardenShapeEditor'
+import { GardenAnnotationLayer } from './GardenAnnotationLayer'
 import { DimensionEditor } from './DimensionEditor'
+import { AnnotationEditor } from './AnnotationEditor'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 // ─── Single Konva element ─────────────────────────────────────────────────────
@@ -40,6 +43,7 @@ interface KonvaElementProps {
   onMove: (x: number, y: number) => void
   onResize: (w: number, h: number, x: number, y: number, rotation: number, points?: GardenPoint[]) => void
   onLiveChange?: (id: string, box: DimBox | null) => void
+  commentMode?: boolean
 }
 
 /** Charge (et garde en cache) le sprite SVG rasterisé d'un élément. */
@@ -55,7 +59,7 @@ function useSpriteImage(url: string): HTMLImageElement | null {
   return img && img.complete && img.naturalWidth > 0 ? img : null
 }
 
-function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveChange }: KonvaElementProps) {
+function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveChange, commentMode }: KonvaElementProps) {
   const groupRef = useRef<Konva.Group>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const { fill, stroke } = getTypeColors(element.type)
@@ -153,6 +157,7 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveC
         width={element.width}
         height={element.height}
         rotation={element.rotation}
+        listening={!commentMode}
         draggable
         onClick={onSelect}
         onTap={onSelect}
@@ -207,7 +212,7 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveC
         <Text text={sunBadge} fontSize={12} x={2} y={2} listening={false} />
       </Group>
 
-      {isSelected && !hasPolygon && (
+      {isSelected && !hasPolygon && !commentMode && (
         <Transformer
           ref={transformerRef}
           boundBoxFunc={(_, newBox) => ({
@@ -289,6 +294,11 @@ export function GardenCanvas() {
   const [liveBox, setLiveBox] = useState<{ id: string; box: DimBox } | null>(null)
   const [dimEdit, setDimEdit] = useState<{ axis: 'w' | 'h'; x: number; y: number; valuePx: number } | null>(null)
   const clipboardRef = useRef<GardenElement | null>(null)
+  const [commentMode, setCommentMode] = useState(false)
+  const [commentsVisible, setCommentsVisible] = useState(true)
+  const [annotationEdit, setAnnotationEdit] = useState<
+    { id: string | null; x: number; y: number; screenX: number; screenY: number; text: string } | null
+  >(null)
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false)
   const [addPlantOpen, setAddPlantOpen] = useState(false)
@@ -318,6 +328,7 @@ export function GardenCanvas() {
   selectedElementRef.current = garden.selectedElement
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') { setCommentMode(false); setAnnotationEdit(null); return }
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return
       // Laisse les raccourcis natifs agir dans les champs de saisie.
       const t = e.target as HTMLElement | null
@@ -465,6 +476,7 @@ export function GardenCanvas() {
 
   // ── Cotation (P2) ───────────────────────────────────────────────────────
   const pxPerMeter = garden.garden.config.pxPerMeter
+  const annotations = garden.garden.annotations ?? []
 
   const handleLive = useCallback((id: string, box: DimBox | null) => {
     setLiveBox(box ? { id, box } : null)
@@ -484,6 +496,23 @@ export function GardenCanvas() {
     [garden.selectedElement, garden.zoom, stagePos.x, stagePos.y],
   )
 
+  // ── Commentaires (P3) ───────────────────────────────────────────────────
+  const handleEditAnnotation = useCallback(
+    (id: string) => {
+      const a = (garden.garden.annotations ?? []).find(x => x.id === id)
+      if (!a) return
+      setAnnotationEdit({
+        id: a.id,
+        x: a.x,
+        y: a.y,
+        screenX: a.x * garden.zoom + stagePos.x,
+        screenY: a.y * garden.zoom + stagePos.y,
+        text: a.text,
+      })
+    },
+    [garden.garden.annotations, garden.zoom, stagePos.x, stagePos.y],
+  )
+
   return (
     <DndContext>
       <div className="flex flex-col h-full">
@@ -493,13 +522,17 @@ export function GardenCanvas() {
           onSave={garden.saveGarden}
           onExport={handleExport}
           onClear={garden.clearCanvas}
-          onAddPlant={() => setAddPlantOpen(true)}
           onUndo={garden.undo}
           onRedo={garden.redo}
           canUndo={garden.canUndo}
           canRedo={garden.canRedo}
           cotesOn={showAllCotes}
           onToggleCotes={() => setShowAllCotes(v => !v)}
+          commentMode={commentMode}
+          onToggleComment={() => { setCommentMode(v => !v); setAnnotationEdit(null); setCommentsVisible(true) }}
+          commentsVisible={commentsVisible}
+          onToggleCommentsVisible={() => setCommentsVisible(v => !v)}
+          hasComments={annotations.length > 0}
           isSaving={garden.isSaving}
         />
 
@@ -507,7 +540,7 @@ export function GardenCanvas() {
           <GardenPalette />
 
           <CanvasDropZone onDrop={handlePaletteDrop} zoom={garden.zoom} pan={stagePos}>
-            <div ref={containerRef} className="relative w-full h-full bg-sand cursor-grab active:cursor-grabbing" role="region" aria-label="Carte de ton jardin">
+            <div ref={containerRef} className={`relative w-full h-full bg-sand ${commentMode ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`} role="region" aria-label="Carte de ton jardin">
               {/* Accessible table for screen readers */}
               <table className="sr-only" aria-label="Éléments dans ton jardin">
                 <caption>Éléments de ton jardin</caption>
@@ -554,7 +587,25 @@ export function GardenCanvas() {
                   garden.setZoom(next)
                   setStagePos({ x: nx, y: ny })
                 }}
-                onClick={e => { if (e.target === e.target.getStage()) garden.selectElement(null) }}
+                onClick={e => {
+                  const stage = e.target.getStage()
+                  // Mode commentaire : un clic dépose un nouveau commentaire.
+                  if (commentMode && !annotationEdit && stage) {
+                    const p = stage.getPointerPosition()
+                    if (p) {
+                      setAnnotationEdit({
+                        id: null,
+                        x: (p.x - stagePos.x) / garden.zoom,
+                        y: (p.y - stagePos.y) / garden.zoom,
+                        screenX: p.x,
+                        screenY: p.y,
+                        text: '',
+                      })
+                    }
+                    return
+                  }
+                  if (e.target === stage) garden.selectElement(null)
+                }}
               >
                 <Layer>
                   <Rect x={WORLD_MIN} y={WORLD_MIN} width={WORLD_SPAN} height={WORLD_SPAN} fill="#F9F7E8" listening={false} />
@@ -570,6 +621,7 @@ export function GardenCanvas() {
                       onMove={(x, y) => garden.updateElement(el.id, { x, y })}
                       onResize={(w, h, x, y, rotation, points) => garden.updateElement(el.id, { width: w, height: h, x, y, rotation, ...(points ? { points } : {}) })}
                       onLiveChange={handleLive}
+                      commentMode={commentMode}
                     />
                   ))}
                 </Layer>
@@ -593,13 +645,23 @@ export function GardenCanvas() {
                   })}
                 </Layer>
                 {/* Calque d'édition de forme — toujours actif pour zones & structures */}
-                {garden.selectedElement && isSurfaceType(garden.selectedElement.type) && (
+                {!commentMode && garden.selectedElement && isSurfaceType(garden.selectedElement.type) && (
                   <Layer>
                     <GardenShapeEditor
                       element={garden.selectedElement}
                       originX={liveBox?.id === garden.selectedElement.id ? liveBox.box.x : garden.selectedElement.x}
                       originY={liveBox?.id === garden.selectedElement.id ? liveBox.box.y : garden.selectedElement.y}
                       onChange={patch => garden.updateElement(garden.selectedElement!.id, patch)}
+                    />
+                  </Layer>
+                )}
+                {/* Calque des commentaires (P3) — masquable */}
+                {(commentsVisible || commentMode) && annotations.length > 0 && (
+                  <Layer>
+                    <GardenAnnotationLayer
+                      annotations={annotations}
+                      onEdit={handleEditAnnotation}
+                      onDragEnd={(id, x, y) => garden.updateAnnotation(id, { x: Math.round(x), y: Math.round(y) })}
                     />
                   </Layer>
                 )}
@@ -619,6 +681,52 @@ export function GardenCanvas() {
                   onClose={() => setDimEdit(null)}
                 />
               )}
+
+              {annotationEdit && (
+                <AnnotationEditor
+                  x={annotationEdit.screenX}
+                  y={annotationEdit.screenY}
+                  text={annotationEdit.text}
+                  isExisting={annotationEdit.id != null}
+                  onCommit={text => {
+                    const t = text.trim()
+                    if (annotationEdit.id) {
+                      if (t) garden.updateAnnotation(annotationEdit.id, { text: t })
+                      else garden.deleteAnnotation(annotationEdit.id)
+                    } else if (t) {
+                      garden.addAnnotation(annotationEdit.x, annotationEdit.y, t)
+                    }
+                    setAnnotationEdit(null)
+                  }}
+                  onDelete={() => {
+                    if (annotationEdit.id) garden.deleteAnnotation(annotationEdit.id)
+                    setAnnotationEdit(null)
+                  }}
+                  onClose={() => setAnnotationEdit(null)}
+                />
+              )}
+            </div>
+
+            {/* Actions principales flottantes (sorties de la toolbar) */}
+            <div className="absolute top-3 right-3 z-30 flex flex-col gap-2 items-end">
+              <button
+                onClick={() => setAddPlantOpen(true)}
+                className="flex items-center gap-1.5 rounded-full bg-lime hover:bg-lime-hover pl-3 pr-3.5 py-2 font-poppins font-semibold text-xs text-forest shadow-card-hover transition-all hover:-translate-y-0.5"
+                title="Ajouter une plante au jardin"
+                aria-label="Ajouter une plante au jardin"
+              >
+                <Sprout size={15} aria-hidden />
+                <span className="hidden sm:inline">Ajouter une plante</span>
+              </button>
+              <Link
+                href="/dashboard/identifier"
+                className="flex items-center gap-1.5 rounded-full bg-forest hover:bg-forest/90 pl-3 pr-3.5 py-2 font-poppins font-semibold text-xs text-white shadow-card-hover transition-all hover:-translate-y-0.5"
+                title="Identifier une plante en photo"
+                aria-label="Identifier une plante en photo"
+              >
+                <ScanSearch size={15} aria-hidden />
+                <span className="hidden sm:inline">Identifier</span>
+              </Link>
             </div>
 
             <GardenCompass
@@ -678,6 +786,7 @@ export function GardenCanvas() {
                       }}
                       onAddPlant={handleAddPlantToZone}
                       pxPerMeter={garden.garden.config.pxPerMeter}
+                      onReorder={mode => garden.reorderElement(garden.selectedElement!.id, mode)}
                     />
                   )}
                 </div>
@@ -692,6 +801,7 @@ export function GardenCanvas() {
             config={garden.garden.config}
             onUpdateConfig={garden.updateConfig}
             onAddPlant={handleAddPlantToZone}
+            onReorder={garden.reorderElement}
           />
         </div>
 

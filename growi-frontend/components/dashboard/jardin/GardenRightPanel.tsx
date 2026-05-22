@@ -2,7 +2,7 @@
 'use client'
 
 import type { PlantCatalog } from '@prisma/client'
-import type { GardenElement, GardenConfig } from '@/lib/garden/types'
+import type { GardenElement, GardenConfig, LayerOrder } from '@/lib/garden/types'
 import type { Plant } from '@/lib/plant-types'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { GardenPropsTab } from './GardenPropsTab'
@@ -16,6 +16,7 @@ interface GardenRightPanelProps {
   onUpdateConfig: (patch: Partial<GardenConfig>) => void
   plants?: Plant[]
   onAddPlant?: (catalogPlant: PlantCatalog, element: GardenElement) => Promise<void>
+  onReorder?: (id: string, mode: LayerOrder) => void
 }
 
 export function GardenRightPanel({
@@ -26,6 +27,7 @@ export function GardenRightPanel({
   onUpdateConfig,
   plants = [],
   onAddPlant,
+  onReorder,
 }: GardenRightPanelProps) {
   return (
     <aside
@@ -47,6 +49,7 @@ export function GardenRightPanel({
               plants={plants}
               onAddPlant={onAddPlant}
               pxPerMeter={config.pxPerMeter}
+              onReorder={onReorder ? mode => onReorder(selectedElement.id, mode) : undefined}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">

@@ -2,13 +2,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Trash2, Search, Loader2, Sparkles, Plus } from 'lucide-react'
+import { Trash2, Search, Loader2, Sparkles, Plus, ChevronsUp, ChevronUp, ChevronDown, ChevronsDown } from 'lucide-react'
 import type { PlantCatalog } from '@prisma/client'
 import { cn } from '@/lib/utils'
 import { searchCatalog } from '@/lib/actions/catalog.actions'
 import { pxToM, mToPx, parseCote } from '@/lib/garden/scale'
 import { snapToGrid } from '@/lib/garden/compute-sun'
-import type { GardenElement, ElementSun, GardenElementType } from '@/lib/garden/types'
+import type { GardenElement, ElementSun, GardenElementType, LayerOrder } from '@/lib/garden/types'
 import type { Plant } from '@/lib/plant-types'
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
@@ -35,6 +35,7 @@ interface GardenPropsTabProps {
   plants?: Plant[]
   onAddPlant?: (catalogPlant: PlantCatalog, element: GardenElement) => Promise<void>
   pxPerMeter?: number
+  onReorder?: (mode: LayerOrder) => void
 }
 
 export function GardenPropsTab({
@@ -44,6 +45,7 @@ export function GardenPropsTab({
   plants = [],
   onAddPlant,
   pxPerMeter,
+  onReorder,
 }: GardenPropsTabProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -116,6 +118,31 @@ export function GardenPropsTab({
           className="border border-border rounded-lg px-2.5 py-1.5 font-raleway text-xs text-forest focus:outline-none focus:ring-1 focus:ring-lime"
         />
       </div>
+
+      {/* Ordre des calques */}
+      {onReorder && (
+        <div className="flex flex-col gap-1">
+          <span className="font-raleway text-[11px] font-semibold text-forest/60">Ordre des calques</span>
+          <div className="flex gap-1.5">
+            {([
+              ['front',    ChevronsUp,   'Mettre devant tout'],
+              ['forward',  ChevronUp,    'Avancer d’un cran'],
+              ['backward', ChevronDown,  'Reculer d’un cran'],
+              ['back',     ChevronsDown, 'Mettre derrière tout'],
+            ] as const).map(([mode, Icon, label]) => (
+              <button
+                key={mode}
+                onClick={() => onReorder(mode)}
+                title={label}
+                aria-label={label}
+                className="flex-1 flex items-center justify-center py-1.5 rounded-lg border border-border text-forest/60 hover:border-lime hover:text-forest transition-colors"
+              >
+                <Icon size={15} aria-hidden />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Sun exposure */}
       <div className="flex flex-col gap-1">

@@ -1,8 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { useRef, useState } from 'react'
-import { Save, Camera, Trash2, Sprout, ScanSearch, Undo2, Redo2, Ruler } from 'lucide-react'
+import { Save, Camera, Trash2, Undo2, Redo2, Ruler, MessageSquarePlus, Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
@@ -16,17 +15,21 @@ interface GardenToolbarProps {
   onSave: () => void
   onExport: () => void
   onClear: () => void
-  onAddPlant: () => void
   onUndo: () => void
   onRedo: () => void
   canUndo: boolean
   canRedo: boolean
   cotesOn: boolean
   onToggleCotes: () => void
+  commentMode: boolean
+  onToggleComment: () => void
+  commentsVisible: boolean
+  onToggleCommentsVisible: () => void
+  hasComments: boolean
   isSaving: boolean
 }
 
-export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, onAddPlant, onUndo, onRedo, canUndo, canRedo, cotesOn, onToggleCotes, isSaving }: GardenToolbarProps) {
+export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, onUndo, onRedo, canUndo, canRedo, cotesOn, onToggleCotes, commentMode, onToggleComment, commentsVisible, onToggleCommentsVisible, hasComments, isSaving }: GardenToolbarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const [clearOpen, setClearOpen] = useState(false)
@@ -109,26 +112,6 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, o
         {/* Right: actions */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
-            onClick={onAddPlant}
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-lg font-poppins font-semibold text-xs text-forest bg-lime hover:bg-lime-hover shadow-cta transition-all hover:-translate-y-0.5"
-            title="Ajouter une plante au jardin"
-            aria-label="Ajouter une plante au jardin"
-          >
-            <Sprout size={14} aria-hidden />
-            <span className="hidden sm:inline">Ajouter une plante</span>
-            <span className="sm:hidden">Plante</span>
-          </button>
-          <Link
-            href="/dashboard/identifier"
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-lg font-poppins font-semibold text-xs text-white bg-forest hover:bg-forest/90 transition-all hover:-translate-y-0.5"
-            title="Identifier une plante en photo"
-            aria-label="Identifier une plante en photo"
-          >
-            <ScanSearch size={14} aria-hidden />
-            <span className="hidden sm:inline">Identifier une plante</span>
-            <span className="sm:hidden">Identifier</span>
-          </Link>
-          <button
             onClick={onToggleCotes}
             aria-pressed={cotesOn}
             className={cn(
@@ -141,6 +124,30 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, o
             <Ruler size={14} aria-hidden />
             <span>Cotes</span>
           </button>
+          <button
+            onClick={onToggleComment}
+            aria-pressed={commentMode}
+            className={cn(
+              'hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-raleway text-xs transition-colors',
+              commentMode ? 'bg-lime/30 text-forest font-semibold' : 'text-forest/60 hover:bg-sand hover:text-forest',
+            )}
+            title="Ajouter un commentaire sur le plan"
+            aria-label="Ajouter un commentaire sur le plan"
+          >
+            <MessageSquarePlus size={14} aria-hidden />
+            <span>Commentaire</span>
+          </button>
+          {hasComments && (
+            <button
+              onClick={onToggleCommentsVisible}
+              aria-pressed={!commentsVisible}
+              className="hidden sm:flex items-center p-1.5 rounded-lg text-forest/60 hover:bg-sand hover:text-forest transition-colors"
+              title={commentsVisible ? 'Masquer les commentaires' : 'Afficher les commentaires'}
+              aria-label={commentsVisible ? 'Masquer les commentaires' : 'Afficher les commentaires'}
+            >
+              {commentsVisible ? <Eye size={14} aria-hidden /> : <EyeOff size={14} aria-hidden />}
+            </button>
+          )}
           <button
             onClick={() => setClearOpen(true)}
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-raleway text-xs text-forest/60 hover:bg-sand hover:text-forest transition-colors"

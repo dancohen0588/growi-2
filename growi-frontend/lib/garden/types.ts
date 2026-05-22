@@ -38,6 +38,18 @@ export function isSurfaceType(type: GardenElementType): boolean {
   return SURFACE_TYPES.includes(type)
 }
 
+/** Types « zone » — placés par défaut sur le calque le plus en arrière. */
+export const ZONE_TYPES: GardenElementType[] = [
+  'massif', 'pelouse', 'potager', 'serre', 'allee', 'rocaille',
+]
+
+export function isZoneType(type: GardenElementType): boolean {
+  return ZONE_TYPES.includes(type)
+}
+
+/** Modes de réordonnancement des calques. */
+export type LayerOrder = 'front' | 'back' | 'forward' | 'backward'
+
 export interface GardenElement {
   id: string
   type: GardenElementType
@@ -73,6 +85,15 @@ export interface GardenConfig {
   pxPerMeter?: number
 }
 
+/** Commentaire libre positionné sur le plan (P3). */
+export interface GardenAnnotation {
+  id: string
+  x: number
+  y: number
+  text: string
+  createdAt: string
+}
+
 export interface Garden {
   id: string
   name: string
@@ -80,6 +101,8 @@ export interface Garden {
   config: GardenConfig
   createdAt: string
   updatedAt: string
+  /** Commentaires sur le plan (P3). */
+  annotations?: GardenAnnotation[]
 }
 
 /** Rectangle à 4 coins, en coordonnées locales. */
