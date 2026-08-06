@@ -9,9 +9,26 @@ Thumbs.db
 # Node
 node_modules/
 
+# Monorepo (Turborepo)
+.turbo/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
 # Next.js (au cas où des artefacts remontent au niveau racine)
 .next/
 out/
+
+# Vercel
+.vercel
+
+# Tests
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 
 # Logs
 *.log
