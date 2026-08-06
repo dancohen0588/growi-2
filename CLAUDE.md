@@ -260,6 +260,31 @@ Pas de backend séparé : les Server Actions Next.js + Prisma jouent ce rôle, e
 - Nouveau package : l'ajouter sous `apps/` ou `packages/`, étendre `tsconfig.base.json`, exposer
   les scripts `build` / `lint` / `typecheck` / `test` pour qu'ils soient pris par Turborepo.
 
+### `@growi/shared`
+
+Source de vérité du domaine, consommée par le web et (à venir) le mobile :
+
+| Module | Contenu |
+|---|---|
+| `constants/enums.ts` | Valeurs métier telles que stockées en base (`GARDEN_TYPES`, `PLANT_LOCATIONS`, `SUN_EXPOSURES`, `HEALTH_STATUSES`, `PLANT_CATEGORIES`, `CARE_LOG_TYPES`…) + libellés français |
+| `schemas/user.ts` | `alertConfigSchema` et `DEFAULT_ALERT_CONFIG`, `publicUserSchema` (jamais de `password`), `userProfileSchema`, `updateProfileSchema`, et les schémas de formulaires `loginSchema` / `registerSchema` / `profilSchema` / `changePasswordSchema` |
+| `schemas/garden.ts` | `gardenSchema`, `gardenZoneSchema` + DTOs de création/mise à jour |
+| `schemas/plant.ts` | `plantCatalogSchema`, `plantInstanceSchema` + DTOs (`createPlantInstanceSchema`, `addIdentifiedPlantSchema`) |
+| `schemas/logs.ts` | Les 4 types de logs d'entretien + `createCareLogSchema`, union discriminée par `type` pour l'endpoint unifié de l'API v1 |
+| `schemas/common.ts` | `idSchema`, `isoDateTimeSchema`, helper `nullish()`, enveloppes `{ data }` / `{ error }` de l'API v1 |
+
+Deux conventions à respecter :
+
+- Les schémas d'**entité** décrivent la représentation **JSON de l'API** (dates en chaînes ISO).
+  Côté web, les Server Components manipulent encore des `Date` Prisma : la conversion sera faite
+  par la couche de sérialisation des routes `/api/v1/*`.
+- Les valeurs du domaine sont en MAJUSCULES (`OUTDOOR`, `HEALTHY`, `FULL_SUN`). Le web garde en
+  parallèle des types de **présentation** en minuscules et en français dans `lib/plant-types.ts` ;
+  `lib/plant-mapper.ts` convertit des uns vers les autres. Les deux jeux portent volontairement les
+  mêmes noms de types — ne pas les confondre lors d'un import.
+
+Tests du package : `pnpm --filter @growi/shared test` (Vitest, sans fichier de config).
+
 ## Commandes
 
 Depuis la **racine** du repo :
