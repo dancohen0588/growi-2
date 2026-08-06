@@ -3,14 +3,9 @@
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import { revalidatePath } from 'next/cache'
-import { z } from 'zod'
+import { createGardenSchema, type CreateGardenInput } from '@growi/shared'
 
-const gardenSchema = z.object({
-  name:        z.string().min(1, 'Nom requis').max(50),
-  type:        z.enum(['OUTDOOR', 'INDOOR', 'BALCONY', 'GREENHOUSE', 'ALLOTMENT']),
-  description: z.string().max(500).optional(),
-  surfaceM2:   z.number().positive().optional(),
-})
+const gardenSchema = createGardenSchema
 
 export async function getUserGardens() {
   const session = await auth()
@@ -42,7 +37,7 @@ export async function getOrCreateDefaultGarden() {
   })
 }
 
-export async function createGarden(data: z.infer<typeof gardenSchema>) {
+export async function createGarden(data: CreateGardenInput) {
   const session = await auth()
   if (!session?.user?.id) throw new Error('Non authentifié')
 

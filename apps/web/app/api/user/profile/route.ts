@@ -1,24 +1,12 @@
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
-import { z } from 'zod'
+import { updateProfileSchema } from '@growi/shared'
 
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { defaultAlertConfig, type AlertConfig, type UserProfile } from '@/lib/user-types'
 
-const patchSchema = z.object({
-  firstName: z.string().min(2).optional(),
-  lastName: z.string().min(2).optional(),
-  email: z.string().email().optional(),
-  address: z.string().optional().nullable(),
-  gardenType: z
-    .enum(['potager', 'ornement', 'mixte', 'interieur', 'balcon'])
-    .optional()
-    .nullable(),
-  avatarColor: z.string().optional().nullable(),
-  latitude: z.number().optional().nullable(),
-  longitude: z.number().optional().nullable(),
-})
+const patchSchema = updateProfileSchema
 
 function toProfile(user: {
   firstName: string | null

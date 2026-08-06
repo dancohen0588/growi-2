@@ -3,24 +3,20 @@
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import { revalidatePath } from 'next/cache'
-import { z } from 'zod'
+import {
+  addIdentifiedPlantSchema,
+  createPlantInstanceSchema,
+  type AddIdentifiedPlantInput,
+  type CreatePlantInstanceInput,
+  type HealthStatus as HealthStatusValue,
+} from '@growi/shared'
 import type { Plant } from '@/lib/plant-types'
 import { toPlant } from '@/lib/plant-mapper'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 
 // ── Validation schemas ─────────────────────────────────────────────────────
 
-const addPlantSchema = z.object({
-  catalogPlantId:   z.string().optional(),
-  customName:       z.string().min(1).max(50).optional(),
-  emoji:            z.string().optional(),
-  gardenId:         z.string().optional(),
-  location:         z.enum(['OUTDOOR', 'INDOOR', 'GREENHOUSE', 'BALCONY']),
-  wateringFreqDays: z.number().int().positive().optional(),
-  sunExposure:      z.enum(['FULL_SUN', 'PARTIAL', 'SHADE']).optional(),
-  datePlanted:      z.string().optional(),
-  notes:            z.string().max(1000).optional(),
-})
+const addPlantSchema = createPlantInstanceSchema
 
 // ── Server Actions ─────────────────────────────────────────────────────────
 
@@ -45,7 +41,7 @@ export async function getUserPlants(gardenId?: string): Promise<Plant[]> {
 }
 
 export async function addPlantToMyGarden(
-  data: z.infer<typeof addPlantSchema>,
+  data: CreatePlantInstanceInput,
 ): Promise<{ success: boolean; plant?: Plant; error?: string }> {
   const session = await auth()
   if (!session?.user?.id) return { success: false, error: 'Non authentifié' }
@@ -100,15 +96,10 @@ export async function addPlantToMyGarden(
 // If the identified plant matches a PlantCatalog entry (via slug), link via
 // catalogPlantId and inherit its defaults. Otherwise, create a custom plant
 // instance using the AI-supplied commonName/emoji so nothing is lost.
-const addIdentifiedPlantSchema = z.object({
-  commonName:       z.string().min(1).max(100),
-  scientificName:   z.string().max(120).optional(),
-  emoji:            z.string().max(8).optional(),
-  encyclopediaSlug: z.string().max(120).nullable().optional(),
-})
+// Schéma dans @growi/shared (addIdentifiedPlantSchema), partagé avec le mobile.
 
 export async function addIdentifiedPlantToMyPlants(
-  input: z.infer<typeof addIdentifiedPlantSchema>,
+  input: AddIdentifiedPlantInput,
 ): Promise<{ success: boolean; plantId?: string; error?: string }> {
   const session = await auth()
   if (!session?.user?.id) return { success: false, error: 'Non authentifié' }
@@ -179,7 +170,7 @@ export async function logWatering(
 
 export async function updatePlantHealth(
   plantInstanceId: string,
-  status: 'HEALTHY' | 'WARNING' | 'CRITICAL',
+  status: HealthStatusValue,
   note?: string,
 ): Promise<{ success: boolean }> {
   const session = await auth()

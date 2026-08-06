@@ -1,31 +1,12 @@
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
-import { z } from 'zod'
+import { updateAlertConfigSchema } from '@growi/shared'
 
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { defaultAlertConfig, type AlertConfig } from '@/lib/user-types'
 
-const alertConfigSchema = z.object({
-  frostAlert: z.boolean(),
-  frostThreshold: z.number().int().min(-5).max(5),
-  heatAlert: z.boolean(),
-  rainAlert: z.boolean(),
-  windAlert: z.boolean(),
-  wateringReminder: z.boolean(),
-  wateringFrequencyDays: z.number().int().min(1).max(30),
-  repottingReminder: z.boolean(),
-  pruningReminder: z.boolean(),
-  seedingAlerts: z.boolean(),
-  harvestAlerts: z.boolean(),
-  channel: z.enum(['push', 'email', 'both', 'none']),
-  frequency: z.enum(['immediate', 'daily_digest', 'weekly_digest']),
-  quietHoursEnabled: z.boolean(),
-  quietHoursStart: z.string().regex(/^\d{2}:\d{2}$/),
-  quietHoursEnd: z.string().regex(/^\d{2}:\d{2}$/),
-})
-
-const patchSchema = alertConfigSchema.partial()
+const patchSchema = updateAlertConfigSchema
 
 export async function PATCH(request: Request) {
   const session = await auth()

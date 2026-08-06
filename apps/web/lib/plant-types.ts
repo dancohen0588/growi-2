@@ -1,4 +1,10 @@
 // Plant types and UI utilities — replaces the type/util exports of mock-plants.ts
+//
+// ⚠️ Ces types sont la représentation **de présentation** du web : valeurs en
+// minuscules et en français. Les valeurs du domaine (celles stockées en base et
+// échangées par l'API, en MAJUSCULES : OUTDOOR, HEALTHY, FULL_SUN…) vivent dans
+// @growi/shared et portent volontairement les mêmes noms de types.
+// `lib/plant-mapper.ts` fait la conversion des unes vers les autres.
 
 export type PlantLocation = 'interieur' | 'exterieur' | 'serre' | 'balcon'
 export type SunExposure = 'full' | 'partial' | 'shade'
