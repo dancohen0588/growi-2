@@ -226,29 +226,61 @@ Seuil de rentabilité atteint en Y2 (scénario base).
 
 ---
 
-# Codebase actuelle — Next.js 14
+# Codebase actuelle — monorepo pnpm + Turborepo
 
 ## Structure du repo
 
 ```
 growi-2/
-├── growi-frontend/     # Next.js 14 marketing + auth + dashboard (App Router)
-└── docs/               # Specs et plans d'implémentation
+├── apps/
+│   └── web/            # Next.js 14 marketing + auth + dashboard (App Router) — ex growi-frontend
+├── packages/
+│   └── shared/         # @growi/shared : types TS, schémas Zod, constantes métier
+├── docs/               # Specs et plans d'implémentation
+├── pnpm-workspace.yaml
+├── turbo.json
+└── tsconfig.base.json  # config TS commune, étendue par chaque package
 ```
 
-Tout le code frontend vit dans `growi-frontend/`. Pas encore de backend séparé (les Server Actions Next.js + Prisma jouent ce rôle).
+`apps/mobile` (Expo) et `packages/api-client` arriveront aux phases 4 et 2 du plan mobile.
+
+Pas de backend séparé : les Server Actions Next.js + Prisma jouent ce rôle, et l'API REST
+`/api/v1/*` consommée par le mobile vivra dans `apps/web`.
+
+**Gestionnaire de paquets : pnpm** (obligatoire — workspaces). Ne pas utiliser npm/yarn à la racine.
+
+### Conventions monorepo
+
+- Un package = un `package.json` avec un `name` (`web`, `@growi/shared`, à venir `mobile`, `@growi/api-client`).
+- Dépendances internes déclarées en `"@growi/shared": "workspace:*"`.
+- `packages/*` sont des packages « source-first » : pas d'étape de build, on importe le TS
+  directement (`transpilePackages` côté Next.js, Metro/Babel côté Expo).
+- pnpm est strict : **toute dépendance importée doit être déclarée** dans le `package.json` du
+  package qui l'importe (pas de hoisting implicite comme avec npm).
+- Nouveau package : l'ajouter sous `apps/` ou `packages/`, étendre `tsconfig.base.json`, exposer
+  les scripts `build` / `lint` / `typecheck` / `test` pour qu'ils soient pris par Turborepo.
 
 ## Commandes
 
-Toutes depuis `growi-frontend/` :
+Depuis la **racine** du repo :
 
 ```bash
-npm run dev      # Dev server (localhost:3000)
-npm run build    # Production build
-npm run lint     # ESLint
+pnpm install                # Installe tout le monorepo
+pnpm --filter web dev       # Dev server web (localhost:3000)
+pnpm --filter web build     # Production build web
+pnpm --filter web lint      # ESLint web
+pnpm --filter web test      # Vitest
+pnpm --filter web e2e       # Playwright
+pnpm build                  # Turborepo : build de tous les packages
+pnpm typecheck              # Turborepo : tsc --noEmit partout
 ```
 
-Tests : Playwright configuré (`playwright.config.ts`, dossier `e2e/`).
+Tests : Vitest (`vitest.config.ts`) et Playwright (`playwright.config.ts`, dossier `e2e/`),
+tous deux dans `apps/web`.
+
+> Note : `pnpm --filter web lint` remonte 15 erreurs ESLint pré-existantes
+> (`no-explicit-any`, variables inutilisées). Le build les ignore volontairement
+> (`eslint.ignoreDuringBuilds`). À traiter séparément, hors migration monorepo.
 
 ## Architecture
 
