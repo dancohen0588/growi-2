@@ -6,7 +6,11 @@
  * `lib/plant-mapper.ts`, celle vers le JSON de l'API v1 dans les routes.
  */
 
-import type { AddIdentifiedPlantInput, CreatePlantInstanceInput } from '@growi/shared'
+import type {
+  AddIdentifiedPlantInput,
+  CreatePlantInstanceInput,
+  UpdatePlantInstanceInput,
+} from '@growi/shared'
 import type { PlantCatalog } from '@prisma/client'
 
 import { prisma } from '@/lib/prisma'
@@ -147,6 +151,35 @@ export async function addIdentifiedPlant(
   })
 
   return { plantId: created.id }
+}
+
+/**
+ * Met à jour une plante. Seuls les champs fournis sont modifiés.
+ * @throws ServiceError('NOT_FOUND') si la plante n'est pas à l'utilisateur.
+ */
+export async function updatePlantInstance(
+  plantInstanceId: string,
+  userId: string,
+  input: UpdatePlantInstanceInput,
+): Promise<PlantInstanceWithRelations> {
+  await assertPlantOwned(plantInstanceId, userId)
+
+  const { datePlanted, ...rest } = input
+
+  await prisma.plantInstance.update({
+    where: { id: plantInstanceId, userId },
+    data: {
+      ...rest,
+      ...(datePlanted !== undefined
+        ? { datePlanted: datePlanted ? new Date(datePlanted) : null }
+        : {}),
+    },
+  })
+
+  return prisma.plantInstance.findUniqueOrThrow({
+    where: { id: plantInstanceId },
+    include: { catalogPlant: true, zone: true },
+  })
 }
 
 export async function deletePlantInstance(plantInstanceId: string, userId: string) {
