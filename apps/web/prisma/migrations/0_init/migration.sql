@@ -1,3 +1,7 @@
+-- Extension requise par la table `documents` (magasin d'embeddings pgvector).
+-- Déjà présente sur la base réelle ; utile à la base fantôme des migrations.
+CREATE EXTENSION IF NOT EXISTS "vector";
+
 
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";

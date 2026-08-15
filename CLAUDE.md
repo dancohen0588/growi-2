@@ -394,6 +394,7 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/planning/today` | GET |
 | `/api/v1/me` | GET, PATCH |
 | `/api/v1/identify` | POST |
+| `/api/v1/auth/register` · `/login` · `/refresh` · `/logout` | POST |
 
 Chaque route suit le même squelette, à respecter pour toute nouvelle route :
 
@@ -409,14 +410,61 @@ export const POST = withApiErrorHandling(async (request: Request) => {
 
 - **Enveloppes** : succès `{ data }`, erreur `{ error: { code, message } }`. 201 à la création,
   204 à la suppression.
-- **`lib/api/auth-context.ts`** est le seul endroit qui sait comment on authentifie. Le passage au
-  JWT `Bearer` (phase 3) s'y fera sans toucher aux routes.
+- **`lib/api/auth-context.ts`** est le seul endroit qui sait comment on authentifie. Il accepte un
+  access token JWT en `Authorization: Bearer …` (mobile) **ou** la session NextAuth par cookies
+  (web). Le Bearer est examiné en premier, et un Bearer invalide fait échouer la requête plutôt que
+  de retomber silencieusement sur la session cookie.
 - `withApiErrorHandling` relaie telles quelles les exceptions de contrôle de Next
   (`DYNAMIC_SERVER_USAGE`, `NEXT_REDIRECT`) : les intercepter casserait le rendu.
 
 Les routes historiques (`/api/user/*`, `/api/weather`, `/api/garden/[id]/advice`,
 `/api/identify-plant`) restent en place pour le web et gardent leur format de réponse
 (`{ error: string }`) — ne pas les confondre avec l'API v1.
+
+### Authentification mobile (jetons)
+
+Le web garde sa session NextAuth par cookies. Le mobile utilise des jetons, servis par
+`/api/v1/auth/*` et implémentés dans `lib/auth/tokens.ts` + `lib/services/auth.service.ts` :
+
+| | Access token | Refresh token |
+|---|---|---|
+| Nature | JWT signé HS256 (`jose`) | 256 bits d'aléa, opaque |
+| Durée | 15 min | 60 jours |
+| Stockage serveur | aucun | empreinte SHA-256 uniquement |
+| Clé | `JWT_SECRET`, **distinct** de `AUTH_SECRET` | — |
+
+- **Rotation** : chaque `/refresh` révoque le jeton présenté et en émet un nouveau, dans une seule
+  transaction.
+- **Détection de rejeu** : présenter un jeton déjà révoqué révoque *toutes* les sessions de
+  l'utilisateur. C'est le comportement attendu, pas un bug — un jeton rejoué signale une fuite.
+- `logout` est idempotent et ne demande pas d'access token valide : une déconnexion ne doit jamais
+  échouer côté client.
+- Les messages d'erreur ne distinguent jamais « compte inconnu » de « mot de passe faux », ni
+  « jeton expiré » de « signature invalide ».
+
+> ⚠️ Le rate limiting (`lib/api/rate-limit.ts`) est **en mémoire**, donc partiel sur Vercel où
+> chaque instance a la sienne. Il freine le bourrage naïf ; un verrou partagé (Upstash Redis ou la
+> couche Vercel) reste à mettre en place avant l'ouverture publique.
+
+### Migrations Prisma — procédure imposée
+
+La base contient une table `documents` en **pgvector** (type `vector(1024)`, index `ivfflat`) que
+Prisma ne sait pas représenter. `prisma migrate dev` échoue donc sur sa base fantôme.
+
+**Ne pas utiliser `prisma migrate dev`.** Générer la migration par différence, puis l'appliquer :
+
+```bash
+# 1. modifier schema.prisma, puis générer le SQL (aucune base fantôme requise)
+pnpm exec prisma migrate diff --from-url "$DIRECT_URL" --to-schema-datamodel prisma/schema.prisma \
+  --script > prisma/migrations/<horodatage>_<nom>/migration.sql
+# 2. relire le SQL — vérifier l'absence de DROP inattendu — puis appliquer
+pnpm exec prisma migrate deploy
+```
+
+`DIRECT_URL` doit pointer sur le **pooler en mode session** (port 5432) : l'hôte direct
+`db.<ref>.supabase.co` n'a qu'un enregistrement IPv6 et reste injoignable depuis un réseau IPv4.
+
+L'historique antérieur (migrations SQLite, scripts SQL manuels) est archivé dans `prisma/legacy/`.
 
 ### IA & APIs externes
 

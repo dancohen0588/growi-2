@@ -34,9 +34,45 @@ model User {
   accounts       Account[]
   gardens        Garden[]
   plantInstances PlantInstance[]
+  pushTokens     PushToken[]
+  refreshTokens  RefreshToken[]
   sessions       Session[]
 
   @@map("users")
+}
+
+/// Jeton de rafraîchissement de l'app mobile.
+/// Seule l'empreinte SHA-256 est stockée : une fuite de la base ne permet pas
+/// de rejouer un jeton. Rotation à chaque rafraîchissement — l'ancien est
+/// révoqué, et sa réutilisation entraîne la révocation de toute la famille.
+model RefreshToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  userId     String
+  /// Modèle et OS de l'appareil, pour que l'utilisateur reconnaisse ses sessions.
+  deviceInfo String?
+  expiresAt  DateTime  @db.Timestamptz(6)
+  revokedAt  DateTime? @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+/// Jeton de notification push Expo, un par appareil.
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  platform  String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_tokens")
 }
 
 // ─── Garden ────────────────────────────────────────────────────────────────
