@@ -89,6 +89,9 @@ importers:
       html2canvas:
         specifier: ^1.4.1
         version: 1.4.1
+      jose:
+        specifier: ^6.2.8
+        version: 6.2.8
       konva:
         specifier: ^9.0.0
         version: 9.3.22

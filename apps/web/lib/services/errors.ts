@@ -12,6 +12,7 @@ export type ServiceErrorCode =
   | 'FORBIDDEN'
   | 'CONFLICT'
   | 'INVALID_INPUT'
+  | 'RATE_LIMITED'
   | 'UNAVAILABLE'
   | 'INTERNAL'
 
@@ -36,6 +37,7 @@ export const SERVICE_ERROR_STATUS: Record<ServiceErrorCode, number> = {
   FORBIDDEN: 403,
   CONFLICT: 409,
   INVALID_INPUT: 400,
+  RATE_LIMITED: 429,
   UNAVAILABLE: 503,
   INTERNAL: 500,
 }
