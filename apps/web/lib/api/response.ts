@@ -10,20 +10,31 @@ import { ZodError, type ZodType } from 'zod'
 
 import { SERVICE_ERROR_STATUS, ServiceError, isServiceError } from '@/lib/services/errors'
 
+/**
+ * Toutes les réponses de l'API v1 sont propres à un utilisateur authentifié :
+ * aucun intermédiaire ne doit les conserver. Sans cela, Next.js émet
+ * `Cache-Control: public`, ce qui autorise un proxy à stocker la réponse.
+ */
+const NO_STORE = { 'cache-control': 'no-store, private' } as const
+
+function withNoStore(init?: ResponseInit): ResponseInit {
+  return { ...init, headers: { ...NO_STORE, ...(init?.headers as Record<string, string>) } }
+}
+
 export function ok<T>(data: T, init?: ResponseInit): NextResponse {
-  return NextResponse.json({ data }, init)
+  return NextResponse.json({ data }, withNoStore(init))
 }
 
 export function created<T>(data: T): NextResponse {
-  return NextResponse.json({ data }, { status: 201 })
+  return NextResponse.json({ data }, withNoStore({ status: 201 }))
 }
 
 export function noContent(): NextResponse {
-  return new NextResponse(null, { status: 204 })
+  return new NextResponse(null, withNoStore({ status: 204 }))
 }
 
 export function fail(code: string, message: string, status: number): NextResponse {
-  return NextResponse.json({ error: { code, message } }, { status })
+  return NextResponse.json({ error: { code, message } }, withNoStore({ status }))
 }
 
 /**

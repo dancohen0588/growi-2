@@ -45,6 +45,36 @@ export async function findPlantInstance(plantInstanceId: string, userId: string)
 }
 
 /**
+ * Vérifie qu'un jardin cible appartient bien à l'utilisateur.
+ *
+ * Indispensable dès qu'un `gardenId` vient du client : sans ce contrôle, on
+ * peut déposer une plante dans le jardin de quelqu'un d'autre.
+ * @throws ServiceError('NOT_FOUND')
+ */
+async function assertGardenBelongsToUser(gardenId: string, userId: string): Promise<void> {
+  const garden = await prisma.garden.findFirst({
+    where: { id: gardenId, userId },
+    select: { id: true },
+  })
+  if (!garden) throw new ServiceError('NOT_FOUND', 'Jardin introuvable')
+}
+
+/**
+ * Vérifie qu'une zone cible appartient à un jardin de l'utilisateur.
+ *
+ * Même raisonnement : la fiche plante renvoie le nom et la couleur de sa zone,
+ * donc rattacher sa plante à la zone d'un autre reviendrait à les lire.
+ * @throws ServiceError('NOT_FOUND')
+ */
+async function assertZoneBelongsToUser(zoneId: string, userId: string): Promise<void> {
+  const zone = await prisma.gardenZone.findFirst({
+    where: { id: zoneId, garden: { userId } },
+    select: { id: true },
+  })
+  if (!zone) throw new ServiceError('NOT_FOUND', 'Zone introuvable')
+}
+
+/**
  * Vérifie que la plante appartient à l'utilisateur et renvoie son jardin.
  * @throws ServiceError('NOT_FOUND')
  */
@@ -72,7 +102,9 @@ export async function createPlantInstance(
   input: CreatePlantInstanceInput,
 ): Promise<PlantInstanceWithRelations> {
   let gardenId = input.gardenId
-  if (!gardenId) {
+  if (gardenId) {
+    await assertGardenBelongsToUser(gardenId, userId)
+  } else {
     const defaultGarden = await prisma.garden.findFirst({
       where: { userId },
       select: { id: true },
@@ -163,6 +195,10 @@ export async function updatePlantInstance(
   input: UpdatePlantInstanceInput,
 ): Promise<PlantInstanceWithRelations> {
   await assertPlantOwned(plantInstanceId, userId)
+
+  // Le jardin et la zone visés viennent du client : ils doivent lui appartenir.
+  if (input.gardenId) await assertGardenBelongsToUser(input.gardenId, userId)
+  if (input.zoneId) await assertZoneBelongsToUser(input.zoneId, userId)
 
   const { datePlanted, ...rest } = input
 

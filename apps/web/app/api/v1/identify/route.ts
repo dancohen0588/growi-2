@@ -1,6 +1,7 @@
-import { z } from 'zod'
+import { identifyRequestSchema } from '@growi/shared'
 
 import { requireUserId } from '@/lib/api/auth-context'
+import { enforceRateLimit } from '@/lib/api/rate-limit'
 import { ok, parseJsonBody, withApiErrorHandling } from '@/lib/api/response'
 import { identifyPlant } from '@/lib/services/identify.service'
 
@@ -9,13 +10,17 @@ export const dynamic = 'force-dynamic'
 
 export const runtime = 'nodejs'
 
-const identifyBodySchema = z.object({
-  /** Photo au format data URL base64 (`data:image/jpeg;base64,...`), 4 Mo max. */
-  imageBase64: z.string().min(1, 'Image requise'),
-})
+/**
+ * Chaque identification consomme un appel Gemini facturé. La limite est posée
+ * par utilisateur — et non par IP — puisque la route est authentifiée : c'est
+ * le compte qui engage la dépense, pas la connexion.
+ */
+const RATE_LIMIT = { limit: 30, windowMs: 60 * 60 * 1000 }
 
 export const POST = withApiErrorHandling(async (request: Request) => {
-  await requireUserId()
-  const { imageBase64 } = await parseJsonBody(request, identifyBodySchema)
+  const userId = await requireUserId()
+  enforceRateLimit(`identify:${userId}`, RATE_LIMIT)
+
+  const { imageBase64 } = await parseJsonBody(request, identifyRequestSchema)
   return ok(await identifyPlant(imageBase64))
 })
