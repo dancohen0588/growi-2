@@ -1,0 +1,121 @@
+import { z } from 'zod'
+
+import { idSchema, nullish } from './common'
+
+/**
+ * Contrat de `GET /api/v1/planning/today` — l'écran d'accueil du mobile.
+ *
+ * Les tâches et alertes sont produites par le moteur de recommandation du
+ * web ; ces schémas en figent la forme telle qu'elle transite sur le réseau.
+ */
+
+// ─── Tâches ────────────────────────────────────────────────────────────────
+
+export const ACTION_TYPES = [
+  'arrosage',
+  'taille',
+  'semis',
+  'rempotage',
+  'fertilisation',
+  'traitement',
+  'recolte',
+  'autre',
+] as const
+export const actionTypeSchema = z.enum(ACTION_TYPES)
+export type ActionType = z.infer<typeof actionTypeSchema>
+
+export const ACTION_PRIORITIES = ['high', 'medium', 'low'] as const
+export const actionPrioritySchema = z.enum(ACTION_PRIORITIES)
+export type ActionPriority = z.infer<typeof actionPrioritySchema>
+
+export const gardenActionSchema = z.object({
+  id: z.string(),
+  type: actionTypeSchema,
+  label: z.string(),
+  shortLabel: z.string(),
+  plantId: z.string().optional(),
+  plantName: z.string().optional(),
+  plantEmoji: z.string().optional(),
+  /** Échéance au format `YYYY-MM-DD`. */
+  dueDate: z.string(),
+  done: z.boolean(),
+  doneAt: z.string().optional(),
+  priority: actionPrioritySchema,
+  notes: z.string().optional(),
+  estimatedMinutes: z.number().optional(),
+  recurringDays: z.number().optional(),
+})
+
+export type GardenAction = z.infer<typeof gardenActionSchema>
+
+// ─── Alertes ───────────────────────────────────────────────────────────────
+
+export const ALERT_TYPES = ['gel', 'canicule', 'secheresse', 'maladie'] as const
+export const alertTypeSchema = z.enum(ALERT_TYPES)
+export type AlertType = z.infer<typeof alertTypeSchema>
+
+export const ALERT_SEVERITIES = ['high', 'medium', 'low'] as const
+export const alertSeveritySchema = z.enum(ALERT_SEVERITIES)
+export type AlertSeverity = z.infer<typeof alertSeveritySchema>
+
+export const plantAlertSchema = z.object({
+  id: z.string(),
+  type: alertTypeSchema,
+  message: z.string(),
+  severity: alertSeveritySchema,
+  plantInstanceId: z.string(),
+})
+
+export type PlantAlert = z.infer<typeof plantAlertSchema>
+
+// ─── Météo embarquée dans le planning ──────────────────────────────────────
+
+export const weatherCurrentSchema = z.object({
+  temperature: z.number(),
+  apparentTemperature: z.number(),
+  humidity: z.number(),
+  precipitation: z.number(),
+  weatherCode: z.number(),
+  windSpeed: z.number(),
+  windDirection: z.number(),
+  time: z.string(),
+})
+
+export type WeatherCurrent = z.infer<typeof weatherCurrentSchema>
+
+export const forecastDaySchema = z.object({
+  /** Jour au format `YYYY-MM-DD`. */
+  date: z.string(),
+  weatherCode: z.number(),
+  tempMax: z.number(),
+  tempMin: z.number(),
+  precipitationSum: z.number(),
+  precipitationProbability: z.number(),
+  sunrise: z.string(),
+  sunset: z.string(),
+})
+
+export type ForecastDay = z.infer<typeof forecastDaySchema>
+
+export const planningWeatherSchema = z.object({
+  locationName: z.string(),
+  current: weatherCurrentSchema,
+  today: nullish(forecastDaySchema),
+})
+
+export type PlanningWeather = z.infer<typeof planningWeatherSchema>
+
+// ─── Réponse complète ──────────────────────────────────────────────────────
+
+export const todayPlanningSchema = z.object({
+  /** Jour de référence, au format `YYYY-MM-DD`. */
+  date: z.string(),
+  garden: nullish(z.object({ id: idSchema })),
+  /** Tâches dues aujourd'hui ou en retard, non encore faites. */
+  actions: z.array(gardenActionSchema),
+  alerts: z.array(plantAlertSchema),
+  /** `null` si l'utilisateur n'a pas de coordonnées ou si la météo est indisponible. */
+  weather: nullish(planningWeatherSchema),
+})
+
+export type TodayPlanning = z.infer<typeof todayPlanningSchema>

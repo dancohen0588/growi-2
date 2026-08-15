@@ -235,14 +235,15 @@ growi-2/
 ├── apps/
 │   └── web/            # Next.js 14 marketing + auth + dashboard (App Router) — ex growi-frontend
 ├── packages/
-│   └── shared/         # @growi/shared : types TS, schémas Zod, constantes métier
+│   ├── shared/         # @growi/shared : types TS, schémas Zod, constantes métier
+│   └── api-client/     # @growi/api-client : client typé de l'API v1
 ├── docs/               # Specs et plans d'implémentation
 ├── pnpm-workspace.yaml
 ├── turbo.json
 └── tsconfig.base.json  # config TS commune, étendue par chaque package
 ```
 
-`apps/mobile` (Expo) et `packages/api-client` arriveront aux phases 4 et 2 du plan mobile.
+`apps/mobile` (Expo) arrivera à la phase 4 du plan mobile.
 
 Pas de backend séparé : les Server Actions Next.js + Prisma jouent ce rôle, et l'API REST
 `/api/v1/*` consommée par le mobile vivra dans `apps/web`.
@@ -284,6 +285,28 @@ Deux conventions à respecter :
   mêmes noms de types — ne pas les confondre lors d'un import.
 
 Tests du package : `pnpm --filter @growi/shared test` (Vitest, sans fichier de config).
+
+### `@growi/api-client`
+
+Client TypeScript de l'API v1, destiné au mobile et utilisable depuis le web.
+Voir `packages/api-client/README.md` pour l'usage détaillé.
+
+```ts
+const api = createGrowiApiClient({
+  baseUrl: process.env.EXPO_PUBLIC_API_URL!,
+  getAccessToken: () => SecureStore.getItemAsync('accessToken'), // phase 3
+  onUnauthorized: refreshAccessToken, // true => la requête est rejouée une fois
+})
+await api.gardens.list()
+```
+
+- Une méthode par endpoint (`gardens`, `plants`, `planning`, `me`, `identify`), typée avec
+  `@growi/shared` en entrée comme en sortie.
+- Toute défaillance remonte en `ApiError` (`isNotFound`, `isUnauthorized`, `isNetworkError`…),
+  y compris les pannes réseau et les réponses non-JSON.
+- `fetch` est injectable, ce qui rend les tests indépendants du réseau.
+
+Tests : `pnpm --filter @growi/api-client test`.
 
 ## Commandes
 

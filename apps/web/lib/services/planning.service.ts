@@ -7,25 +7,15 @@
  * ni une météo indisponible ne doivent empêcher l'écran de s'afficher.
  */
 
-import type { GardenAction, PlantAlert } from '@/lib/recommendation/types'
+// Le contrat de la réponse vit dans @growi/shared : le mobile et le web
+// s'appuient sur la même définition.
+import type { TodayPlanning } from '@growi/shared'
+
 import { getCurrentGardenAdvice } from '@/lib/services/advice.service'
 import { getUserLocation } from '@/lib/services/user.service'
 import { getWeatherForecast } from '@/lib/services/weather.service'
-import type { ForecastDay, WeatherCurrent } from '@/types/weather'
 
-export interface TodayPlanning {
-  /** Jour de référence, au format `YYYY-MM-DD`. */
-  date: string
-  garden: { id: string } | null
-  /** Tâches dues aujourd'hui ou en retard, non encore faites. */
-  actions: GardenAction[]
-  alerts: PlantAlert[]
-  weather: {
-    locationName: string
-    current: WeatherCurrent
-    today: ForecastDay | null
-  } | null
-}
+export type { TodayPlanning }
 
 /** Date du jour au format `YYYY-MM-DD`, dans le fuseau du serveur. */
 function todayIsoDate(now: Date): string {
