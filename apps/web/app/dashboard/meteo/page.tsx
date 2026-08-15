@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
+import { getUserLocation } from '@/lib/services/user.service'
 import { WeatherPageClient } from '@/components/dashboard/meteo/WeatherPageClient'
 
 export const metadata: Metadata = {
@@ -14,10 +14,7 @@ export default async function MeteoPage() {
   const session = await auth()
   if (!session) redirect('/login')
 
-  const user = await prisma.user.findUnique({
-    where:  { id: session.user.id },
-    select: { address: true, latitude: true, longitude: true },
-  })
+  const user = await getUserLocation(session.user.id)
 
   return (
     <WeatherPageClient

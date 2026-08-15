@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
+import { getCatalogDefaultLocation } from '@/lib/services/plant.service'
 import { addPlantToMyGarden } from '@/lib/actions/plant.actions'
 
 export const dynamic = 'force-dynamic'
@@ -12,13 +12,7 @@ export default async function QuickAddPlantPage({
   const catalogId = searchParams.catalogId
   if (!catalogId) redirect('/dashboard/plantes')
 
-  const cat = await prisma.plantCatalog.findUnique({
-    where: { id: catalogId },
-    select: { indoor: true, outdoor: true },
-  })
-
-  const location: 'INDOOR' | 'OUTDOOR' =
-    cat?.indoor && !cat?.outdoor ? 'INDOOR' : 'OUTDOOR'
+  const location = await getCatalogDefaultLocation(catalogId)
 
   await addPlantToMyGarden({ catalogPlantId: catalogId, location })
 

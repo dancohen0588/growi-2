@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import bcrypt from 'bcryptjs'
+import { changePasswordSchema } from '@growi/shared'
 
 import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
-import { changePasswordSchema } from '@/lib/schemas/profil-schema'
+import { isServiceError } from '@/lib/services/errors'
+import * as userService from '@/lib/services/user.service'
 
 export async function PATCH(request: Request) {
   const session = await auth()
@@ -20,30 +20,20 @@ export async function PATCH(request: Request) {
     )
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { password: true },
-  })
-  if (!user?.password) {
-    return NextResponse.json(
-      { error: 'Aucun mot de passe défini sur ce compte.' },
-      { status: 400 },
+  try {
+    await userService.changePassword(
+      session.user.id,
+      parsed.data.currentPassword,
+      parsed.data.newPassword,
     )
+  } catch (err) {
+    if (isServiceError(err)) {
+      // Aucun mot de passe sur le compte → 400 ; mot de passe actuel faux → 401.
+      const status = err.code === 'INVALID_INPUT' ? 400 : 401
+      return NextResponse.json({ error: err.message }, { status })
+    }
+    throw err
   }
-
-  const ok = await bcrypt.compare(parsed.data.currentPassword, user.password)
-  if (!ok) {
-    return NextResponse.json(
-      { error: 'Mot de passe actuel incorrect.' },
-      { status: 401 },
-    )
-  }
-
-  const hashed = await bcrypt.hash(parsed.data.newPassword, 12)
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { password: hashed },
-  })
 
   return NextResponse.json({ ok: true })
 }

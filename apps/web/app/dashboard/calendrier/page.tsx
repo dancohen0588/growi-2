@@ -1,7 +1,6 @@
 import { Suspense } from 'react'
 import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
-import { getGardenAdvice } from '@/lib/recommendation/garden-advice-service'
+import { getCurrentGardenAdvice } from '@/lib/services/advice.service'
 import { CalendrierPageInner } from './CalendrierPageInner'
 import type { GardenAction, PlantAlert } from '@/lib/recommendation/types'
 
@@ -15,26 +14,12 @@ export default async function CalendrierPage() {
     )
   }
 
-  const garden = await prisma.garden.findFirst({
-    where: { userId: session.user.id },
-    select: { id: true },
-    orderBy: { createdAt: 'desc' },
-  })
+  const current = await getCurrentGardenAdvice(session.user.id)
 
-  let actions: GardenAction[] = []
-  let alerts: PlantAlert[] = []
+  const actions: GardenAction[] = current?.advice?.actions ?? []
+  const alerts: PlantAlert[] = current?.advice?.alerts ?? []
 
-  if (garden) {
-    try {
-      const result = await getGardenAdvice(garden.id, session.user.id)
-      actions = result.actions
-      alerts = result.alerts
-    } catch (err) {
-      console.error('[CalendrierPage] advice error:', err)
-    }
-  }
-
-  if (!garden) {
+  if (!current) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <p className="font-poppins font-bold text-xl text-forest">
@@ -49,7 +34,7 @@ export default async function CalendrierPage() {
 
   return (
     <Suspense>
-      <CalendrierPageInner initialActions={actions} alerts={alerts} gardenId={garden.id} />
+      <CalendrierPageInner initialActions={actions} alerts={alerts} gardenId={current.gardenId} />
     </Suspense>
   )
 }

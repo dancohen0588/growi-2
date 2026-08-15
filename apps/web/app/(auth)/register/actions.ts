@@ -1,11 +1,10 @@
 'use server'
 
-import { registerSchema } from '@/lib/auth-schemas'
+import { registerSchema, type RegisterInput } from '@growi/shared'
+
 import { signIn } from '@/auth'
-import { prisma } from '@/lib/prisma'
-import bcrypt from 'bcryptjs'
-import { Prisma } from '@prisma/client'
-import type { RegisterInput } from '@/lib/auth-schemas'
+import { isServiceError } from '@/lib/services/errors'
+import { createUser } from '@/lib/services/user.service'
 
 // TODO: Add "mot de passe oublié" flow when email provider is set up.
 
@@ -17,22 +16,15 @@ export async function registerAction(
     return { error: parsed.error.issues[0].message }
   }
 
-  const hashedPassword = await bcrypt.hash(parsed.data.password, 12)
-
   try {
-    await prisma.user.create({
-      data: {
-        email: parsed.data.email,
-        name: parsed.data.firstName,
-        password: hashedPassword,
-      },
+    await createUser({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      firstName: parsed.data.firstName,
     })
   } catch (err) {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === 'P2002'
-    ) {
-      return { error: 'Un compte existe déjà avec cet email.' }
+    if (isServiceError(err) && err.code === 'CONFLICT') {
+      return { error: err.message }
     }
     console.error('[registerAction] prisma.user.create failed:', err)
     return { error: 'Erreur lors de la création du compte.' }
