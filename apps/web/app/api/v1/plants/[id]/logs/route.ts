@@ -1,4 +1,4 @@
-import { createCareLogSchema } from '@growi/shared'
+import { createCareLogSchema, type CreatedCareLog } from '@growi/shared'
 
 import { requireUserId } from '@/lib/api/auth-context'
 import { created, ok, parseJsonBody, withApiErrorHandling } from '@/lib/api/response'
@@ -43,7 +43,8 @@ export const POST = withApiErrorHandling(async (request: Request, { params }: Co
         note: input.note,
         wateredAt: input.wateredAt ? new Date(input.wateredAt) : undefined,
       })
-      return created({ type: input.type, log: serializeWateringLog(log) })
+      const payload: CreatedCareLog = { type: input.type, log: serializeWateringLog(log) }
+      return created(payload)
     }
     case 'pruning': {
       const log = await logService.logPruning(plantId, userId, {
@@ -51,7 +52,8 @@ export const POST = withApiErrorHandling(async (request: Request, { params }: Co
         pruningType: input.pruningType,
         prunedAt: input.prunedAt ? new Date(input.prunedAt) : undefined,
       })
-      return created({ type: input.type, log: serializePruningLog(log) })
+      const payload: CreatedCareLog = { type: input.type, log: serializePruningLog(log) }
+      return created(payload)
     }
     case 'fertilizing': {
       const log = await logService.logFertilizing(plantId, userId, {
@@ -59,7 +61,8 @@ export const POST = withApiErrorHandling(async (request: Request, { params }: Co
         productUsed: input.productUsed,
         fertilizedAt: input.fertilizedAt ? new Date(input.fertilizedAt) : undefined,
       })
-      return created({ type: input.type, log: serializeFertilizingLog(log) })
+      const payload: CreatedCareLog = { type: input.type, log: serializeFertilizingLog(log) }
+      return created(payload)
     }
     case 'health': {
       const log = await logService.logHealth(plantId, userId, input.status, {
@@ -67,7 +70,8 @@ export const POST = withApiErrorHandling(async (request: Request, { params }: Co
         photoUrl: input.photoUrl,
         loggedAt: input.loggedAt ? new Date(input.loggedAt) : undefined,
       })
-      return created({ type: input.type, log: serializeHealthLog(log) })
+      const payload: CreatedCareLog = { type: input.type, log: serializeHealthLog(log) }
+      return created(payload)
     }
   }
 })

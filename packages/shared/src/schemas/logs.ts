@@ -99,6 +99,13 @@ export const createCareLogSchema = z.discriminatedUnion('type', [
 ])
 
 export type CreateCareLogInput = z.infer<typeof createCareLogSchema>
+
+/** Réponse de `POST /api/v1/plants/[id]/logs` : le log créé et son type. */
+export type CreatedCareLog =
+  | { type: 'watering'; log: WateringLog }
+  | { type: 'pruning'; log: PruningLog }
+  | { type: 'fertilizing'; log: FertilizingLog }
+  | { type: 'health'; log: HealthLog }
 export type CreateWateringLogInput = z.infer<typeof createWateringLogSchema>
 export type CreatePruningLogInput = z.infer<typeof createPruningLogSchema>
 export type CreateFertilizingLogInput = z.infer<typeof createFertilizingLogSchema>
