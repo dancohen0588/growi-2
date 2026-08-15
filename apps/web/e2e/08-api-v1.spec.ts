@@ -124,6 +124,42 @@ test.describe('API v1', () => {
     ).toBe(404)
   })
 
+  test('E2E-APIV1-06 — Une plante ne peut pas être déplacée chez un autre', async ({
+    page,
+  }) => {
+    await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
+    const api = page.request
+
+    const plant = (
+      await (
+        await api.post(`/api/v1/gardens/${gardenId1}/plants`, {
+          data: { location: 'OUTDOOR', customName: 'Plante IDOR' },
+        })
+      ).json()
+    ).data
+
+    // Rattacher sa propre plante au jardin d'un autre compte doit échouer.
+    const moved = await api.patch(`/api/v1/plants/${plant.id}`, {
+      data: { gardenId: gardenId2 },
+    })
+    expect(moved.status()).toBe(404)
+
+    // La plante n'a pas bougé.
+    const after = await api.get(`/api/v1/plants/${plant.id}`)
+    expect((await after.json()).data.gardenId).toBe(gardenId1)
+
+    await api.delete(`/api/v1/plants/${plant.id}`)
+  })
+
+  test('E2E-APIV1-07 — Les réponses authentifiées ne sont pas mises en cache', async ({
+    page,
+  }) => {
+    await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
+
+    const res = await page.request.get('/api/v1/me')
+    expect(res.headers()['cache-control']).toContain('no-store')
+  })
+
   test('E2E-APIV1-05 — Profil et planning du jour', async ({ page }) => {
     await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
     const api = page.request

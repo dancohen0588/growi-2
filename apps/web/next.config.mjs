@@ -12,6 +12,26 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs', '@auth/prisma-adapter'],
   },
+  // En-têtes de sécurité appliqués à toutes les réponses. Vercel ajoute déjà
+  // Strict-Transport-Security ; le reste manquait.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          // Empêche le navigateur de deviner un type MIME (XSS par upload).
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // Interdit l'inclusion du site dans une iframe (clickjacking).
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          // Ne divulgue pas l'URL complète aux sites tiers.
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          // Aucune de ces API n'est utilisée côté web.
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' },
+        ],
+      },
+    ]
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [

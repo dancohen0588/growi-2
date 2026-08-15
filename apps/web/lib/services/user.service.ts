@@ -194,10 +194,21 @@ export async function changePassword(
  */
 export async function verifyCredentials(email: string, password: string) {
   const user = await prisma.user.findUnique({ where: { email } })
-  if (!user || !user.password) return null
 
-  const passwordsMatch = await bcrypt.compare(password, user.password)
-  if (!passwordsMatch) return null
+  // Une comparaison bcrypt est toujours effectuée, même quand le compte
+  // n'existe pas : sans ce leurre, la réponse serait nettement plus rapide
+  // pour un email inconnu, ce qui permettrait de découvrir quels emails sont
+  // enregistrés — et annulerait l'effort fait sur des messages indistincts.
+  const hash = user?.password ?? DUMMY_PASSWORD_HASH
+  const passwordsMatch = await bcrypt.compare(password, hash)
 
+  if (!user?.password || !passwordsMatch) return null
   return user
 }
+
+/**
+ * Empreinte d'un mot de passe qui n'est celui de personne, au même coût
+ * bcrypt (12 tours) que les vrais.
+ */
+const DUMMY_PASSWORD_HASH =
+  '$2a$12$oPYUp2CEv4iYPUREbWrWu.Ql4vNfnpN5D38veu/SPzkzOCK33clzy'
