@@ -1,39 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 // ─── Auth ──────────────────────────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  firstName     String?
-  lastName      String?
-  address       String?
-  gardenType    String?
-  avatarColor   String?
-  alertConfig   Json?
-  plan          String    @default("FREE")
-  timezone      String    @default("Europe/Paris")
-  locationCity  String?
-  latitude      Float?
-  longitude     Float?
-  onboarded     Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
+  id             String          @id @default(cuid())
+  name           String?
+  email          String          @unique
+  emailVerified  DateTime?       @db.Timestamptz(6)
+  image          String?
+  password       String?
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime        @default(now()) @updatedAt @db.Timestamptz(6)
+  firstName      String?
+  lastName       String?
+  plan           String          @default("FREE")
+  timezone       String          @default("Europe/Paris")
+  locationCity   String?
+  onboarded      Boolean         @default(false)
+  address        String?
+  gardenType     String?
+  avatarColor    String?
+  alertConfig    Json?
+  latitude       Float?
+  longitude      Float?
+  accounts       Account[]
   gardens        Garden[]
   plantInstances PlantInstance[]
+  sessions       Session[]
 
   @@map("users")
 }
@@ -41,33 +42,31 @@ model User {
 // ─── Garden ────────────────────────────────────────────────────────────────
 
 model Garden {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  description String?
-  type        String   @default("OUTDOOR")
-  surfaceM2   Float?
-  climateZone String?
-  soilType    String?
-  orientation String?
-  canvasData  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String          @id @default(cuid())
+  userId         String
+  name           String
+  description    String?
+  type           String          @default("OUTDOOR")
+  surfaceM2      Float?
+  climateZone    String?
+  soilType       String?
+  orientation    String?
+  canvasData     String?
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime        @default(now()) @updatedAt @db.Timestamptz(6)
   zones          GardenZone[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   plantInstances PlantInstance[]
 
   @@map("gardens")
 }
 
 model GardenZone {
-  id       String  @id @default(cuid())
-  gardenId String
-  name     String
-  type     String
-  colorHex String?
-
+  id             String          @id @default(cuid())
+  gardenId       String
+  name           String
+  type           String
+  colorHex       String?
   garden         Garden          @relation(fields: [gardenId], references: [id], onDelete: Cascade)
   plantInstances PlantInstance[]
 
@@ -77,35 +76,33 @@ model GardenZone {
 // ─── Plants ────────────────────────────────────────────────────────────────
 
 model PlantCatalog {
-  id                 String   @id @default(cuid())
-  slug               String?  @unique
-  commonName         String
-  scientificName     String   @unique
-  family             String?
-  emoji              String?
-  category           String
-  /** Sous-type pour la catégorie TREES_SHRUBS : CONIFER | DECIDUOUS | FRUIT | SHRUB */
-  treeType           String?
-  imageUrl           String?
-  descriptionShort   String?
-  descriptionLong    String?
-  sunExposure        String
-  wateringFreqDays   Int
-  wateringDifficulty String   @default("EASY")
-  minTempCelsius     Float?
-  maxTempCelsius     Float?
-  hardinesZone       String?
-  soilTypes          String?
-  fertilizerMonths   String?
-  indoor             Boolean  @default(false)
-  outdoor            Boolean  @default(true)
-  edible             Boolean  @default(false)
-  toxic              Boolean  @default(false)
-  aliases            String?
-  tags               String?
-  source             String?
-
-  // Calendrier cultural
+  id                    String          @id @default(cuid())
+  commonName            String
+  scientificName        String          @unique
+  family                String?
+  emoji                 String?
+  category              String
+  imageUrl              String?
+  descriptionShort      String?
+  descriptionLong       String?
+  sunExposure           String
+  wateringFreqDays      Int
+  wateringDifficulty    String          @default("EASY")
+  minTempCelsius        Float?
+  maxTempCelsius        Float?
+  hardinesZone          String?
+  soilTypes             String?
+  fertilizerMonths      String?
+  indoor                Boolean         @default(false)
+  outdoor               Boolean         @default(true)
+  edible                Boolean         @default(false)
+  toxic                 Boolean         @default(false)
+  aliases               String?
+  tags                  String?
+  source                String?
+  createdAt             DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime        @default(now()) @updatedAt @db.Timestamptz(6)
+  slug                  String?         @unique
   pruningMonths         String?
   pruningType           String?
   sowingMonthsIndoor    String?
@@ -116,138 +113,118 @@ model PlantCatalog {
   harvestDaysFromSowing Int?
   dormancyMonths        String?
   floweringMonths       String?
-
-  // Agro-climatologie
-  frostSensitivity     String?
-  heatStressThresholdC Float?
-  wateringAdjHeat      Float?
-  wateringAdjRain      Float?
-  sunHoursNeeded       Float?
-
-  // Entretien spécialisé
-  repottingFreqMonths  Int?
-  repottingSeasons     String?
-  fertilizationType    String?
-  treatmentSeasons     String?
-  mulchRecommended     Boolean  @default(false)
-  winterProtectionType String?
-
-  // Care tips éditoriaux
-  careTipWatering String?
-  careTipLight    String?
-  careTipSoil     String?
-  careTipPruning  String?
-  careTipDiseases String?
-  careTipWinter   String?
-  funFact         String?
-
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  plantInstances PlantInstance[]
+  frostSensitivity      String?
+  heatStressThresholdC  Float?
+  wateringAdjHeat       Float?
+  wateringAdjRain       Float?
+  sunHoursNeeded        Float?
+  repottingFreqMonths   Int?
+  repottingSeasons      String?
+  fertilizationType     String?
+  treatmentSeasons      String?
+  mulchRecommended      Boolean         @default(false)
+  winterProtectionType  String?
+  careTipWatering       String?
+  careTipLight          String?
+  careTipSoil           String?
+  careTipPruning        String?
+  careTipDiseases       String?
+  careTipWinter         String?
+  funFact               String?
+  /// * Sous-type pour la catégorie TREES_SHRUBS : CONIFER | DECIDUOUS | FRUIT | SHRUB
+  treeType              String?
+  plantInstances        PlantInstance[]
 
   @@map("plant_catalog")
 }
 
 model PlantInstance {
-  id               String    @id @default(cuid())
-  userId           String
-  gardenId         String?
-  zoneId           String?
-  catalogPlantId   String?
-  customName       String?
-  emoji            String?
-  photoUrl         String?
-  location         String    @default("OUTDOOR")
-  positionX        Float?
-  positionY        Float?
-  datePlanted      DateTime?
-  dateAdded        DateTime  @default(now())
-  wateringFreqDays Int?
-  lastWateredAt    DateTime?
-  lastFertilizedAt DateTime?
-  soilType         String?
-  sunExposure      String?
-  healthStatus     String    @default("HEALTHY")
-  healthNote       String?
-  notes            String?
-
-  // Contexte pot/substrat
+  id                      String           @id @default(cuid())
+  userId                  String
+  gardenId                String?
+  zoneId                  String?
+  catalogPlantId          String?
+  customName              String?
+  emoji                   String?
+  photoUrl                String?
+  location                String           @default("OUTDOOR")
+  positionX               Float?
+  positionY               Float?
+  datePlanted             DateTime?        @db.Timestamptz(6)
+  dateAdded               DateTime         @default(now()) @db.Timestamptz(6)
+  wateringFreqDays        Int?
+  lastWateredAt           DateTime?        @db.Timestamptz(6)
+  lastFertilizedAt        DateTime?        @db.Timestamptz(6)
+  soilType                String?
+  sunExposure             String?
+  healthStatus            String           @default("HEALTHY")
+  healthNote              String?
+  notes                   String?
+  updatedAt               DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
   containerSizeLiters     Float?
   containerMaterial       String?
   substrateType           String?
-
-  // Historique interventions
   lastPrunedAt            DateTime?
   lastRepottedAt          DateTime?
   lastTreatedAt           DateTime?
-
-  // Données culturales
   seedBatchRef            String?
   growthStage             String?
   isMultiYear             Boolean?
   expectedHarvestDate     DateTime?
   customWateringAdjFactor Float?
-  alertsEnabled           Boolean   @default(true)
-
-  updatedAt        DateTime  @updatedAt
-
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  garden          Garden?          @relation(fields: [gardenId], references: [id], onDelete: SetNull)
-  zone            GardenZone?      @relation(fields: [zoneId], references: [id], onDelete: SetNull)
-  catalogPlant    PlantCatalog?    @relation(fields: [catalogPlantId], references: [id])
-  wateringLogs    WateringLog[]
-  healthLogs      HealthLog[]
-  pruningLogs     PruningLog[]
-  fertilizingLogs FertilizingLog[]
+  alertsEnabled           Boolean          @default(true)
+  fertilizingLogs         FertilizingLog[]
+  healthLogs              HealthLog[]
+  catalogPlant            PlantCatalog?    @relation(fields: [catalogPlantId], references: [id])
+  garden                  Garden?          @relation(fields: [gardenId], references: [id])
+  user                    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  zone                    GardenZone?      @relation(fields: [zoneId], references: [id])
+  pruningLogs             PruningLog[]
+  wateringLogs            WateringLog[]
 
   @@map("plant_instances")
 }
 
 model WateringLog {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   plantInstanceId String
-  wateredAt       DateTime @default(now())
+  wateredAt       DateTime      @default(now()) @db.Timestamptz(6)
   note            String?
-
-  plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
+  plantInstance   PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
 
   @@map("watering_logs")
 }
 
 model HealthLog {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   plantInstanceId String
   status          String
   note            String?
   photoUrl        String?
-  loggedAt        DateTime @default(now())
-
-  plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
+  loggedAt        DateTime      @default(now()) @db.Timestamptz(6)
+  plantInstance   PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
 
   @@map("health_logs")
 }
 
 model PruningLog {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   plantInstanceId String
-  prunedAt        DateTime @default(now())
+  prunedAt        DateTime      @default(now())
   pruningType     String?
   note            String?
-
-  plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
+  plantInstance   PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
 
   @@map("pruning_logs")
 }
 
 model FertilizingLog {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   plantInstanceId String
-  fertilizedAt    DateTime @default(now())
+  fertilizedAt    DateTime      @default(now())
   productUsed     String?
   note            String?
-
-  plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
+  plantInstance   PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
 
   @@map("fertilizing_logs")
 }
@@ -260,4 +237,61 @@ model GardenAdviceCache {
   payload     Json
 
   @@map("garden_advice_cache")
+}
+
+// ─── Tables annexes ────────────────────────────────────────────────────────
+// Présentes en base mais inutilisées aujourd'hui : la session est en JWT, pas
+// en base. Modélisées pour que Prisma ne propose pas de les supprimer à chaque
+// migration — Account / Session / VerificationToken serviront à l'adaptateur
+// NextAuth quand les connexions Apple et Google arriveront (phase 6.3).
+
+model Account {
+  id                String  @id
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+/// Magasin d'embeddings pgvector, hors périmètre applicatif Growi.
+/// Le type `vector` n'a pas d'équivalent Prisma : la table est déclarée pour
+/// être préservée, mais ne doit pas être manipulée via le client.
+model Document {
+  id        BigInt                 @id @default(autoincrement())
+  content   String?
+  metadata  Json?
+  embedding Unsupported("vector")?
+
+  @@index([embedding])
+  @@map("documents")
+}
+
+model Session {
+  id           String   @id
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime @db.Timestamptz(6)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime @db.Timestamptz(6)
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }
