@@ -1,37 +1,9 @@
 import { NextResponse } from 'next/server'
-import { Prisma } from '@prisma/client'
 import { updateProfileSchema } from '@growi/shared'
 
 import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
-import { defaultAlertConfig, type AlertConfig, type UserProfile } from '@/lib/user-types'
-
-const patchSchema = updateProfileSchema
-
-function toProfile(user: {
-  firstName: string | null
-  lastName: string | null
-  name: string | null
-  email: string
-  address: string | null
-  gardenType: string | null
-  avatarColor: string | null
-  alertConfig: Prisma.JsonValue | null
-  latitude: number | null
-  longitude: number | null
-}): UserProfile {
-  return {
-    firstName: user.firstName ?? user.name ?? '',
-    lastName: user.lastName ?? '',
-    email: user.email,
-    address: user.address ?? undefined,
-    avatarColor: user.avatarColor ?? undefined,
-    gardenType: (user.gardenType ?? undefined) as UserProfile['gardenType'],
-    alertConfig: (user.alertConfig as AlertConfig | null) ?? defaultAlertConfig,
-    latitude: user.latitude,
-    longitude: user.longitude,
-  }
-}
+import { isServiceError } from '@/lib/services/errors'
+import * as userService from '@/lib/services/user.service'
 
 export async function GET() {
   const session = await auth()
@@ -39,27 +11,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      firstName: true,
-      lastName: true,
-      name: true,
-      email: true,
-      address: true,
-      gardenType: true,
-      avatarColor: true,
-      alertConfig: true,
-      latitude: true,
-      longitude: true,
-    },
-  })
-
-  if (!user) {
-    return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
+  try {
+    return NextResponse.json(await userService.getProfile(session.user.id))
+  } catch (err) {
+    if (isServiceError(err) && err.code === 'NOT_FOUND') {
+      return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
+    }
+    throw err
   }
-
-  return NextResponse.json(toProfile(user))
 }
 
 export async function PATCH(request: Request) {
@@ -69,7 +28,7 @@ export async function PATCH(request: Request) {
   }
 
   const body = await request.json().catch(() => null)
-  const parsed = patchSchema.safeParse(body)
+  const parsed = updateProfileSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? 'Données invalides' },
@@ -78,32 +37,10 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const updated = await prisma.user.update({
-      where: { id: session.user.id },
-      data: parsed.data,
-      select: {
-        firstName: true,
-        lastName: true,
-        name: true,
-        email: true,
-        address: true,
-        gardenType: true,
-        avatarColor: true,
-        alertConfig: true,
-        latitude: true,
-        longitude: true,
-      },
-    })
-    return NextResponse.json(toProfile(updated))
+    return NextResponse.json(await userService.updateProfile(session.user.id, parsed.data))
   } catch (err) {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === 'P2002'
-    ) {
-      return NextResponse.json(
-        { error: 'Cet email est déjà utilisé.' },
-        { status: 409 },
-      )
+    if (isServiceError(err) && err.code === 'CONFLICT') {
+      return NextResponse.json({ error: err.message }, { status: 409 })
     }
     console.error('[api/user/profile PATCH]', err)
     return NextResponse.json(

@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server'
-import { Prisma } from '@prisma/client'
 import { updateAlertConfigSchema } from '@growi/shared'
 
 import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
-import { defaultAlertConfig, type AlertConfig } from '@/lib/user-types'
-
-const patchSchema = updateAlertConfigSchema
+import * as userService from '@/lib/services/user.service'
 
 export async function PATCH(request: Request) {
   const session = await auth()
@@ -15,7 +11,7 @@ export async function PATCH(request: Request) {
   }
 
   const body = await request.json().catch(() => null)
-  const parsed = patchSchema.safeParse(body)
+  const parsed = updateAlertConfigSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? 'Données invalides' },
@@ -24,21 +20,7 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const current = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { alertConfig: true },
-    })
-    const merged: AlertConfig = {
-      ...defaultAlertConfig,
-      ...((current?.alertConfig as AlertConfig | null) ?? {}),
-      ...parsed.data,
-    }
-
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: { alertConfig: merged as unknown as Prisma.InputJsonValue },
-    })
-
+    const merged = await userService.updateAlertConfig(session.user.id, parsed.data)
     return NextResponse.json(merged)
   } catch (err) {
     console.error('[api/user/alerts PATCH]', err)
