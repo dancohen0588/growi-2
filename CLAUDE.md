@@ -346,6 +346,55 @@ Ombres custom : `shadow-card`, `shadow-card-hover`, `shadow-cta`.
 - **Middleware** : protège `/dashboard/**` uniquement (`auth.config.ts` séparé pour compat Edge Runtime).
 - **Prisma + Supabase** : schema dans `prisma/schema.prisma`, migrations dans `prisma/migrations/`.
 
+### Couche services et API v1
+
+Depuis l'étape 2.1 du plan mobile, la logique métier vit dans `apps/web/lib/services/` :
+`garden`, `plant`, `log`, `user`, `weather`, `advice`, `planning`, `identify`.
+
+- **Un service ne lit jamais la session** : le `userId` est toujours un paramètre. Ce sont les
+  Server Actions et les routes qui authentifient.
+- Un service lève une `ServiceError` porteuse d'un code stable (`NOT_FOUND`, `CONFLICT`,
+  `UNAUTHENTICATED`, `INVALID_INPUT`, `UNAVAILABLE`…) ; `SERVICE_ERROR_STATUS` donne le statut
+  HTTP correspondant. Aucune connaissance de HTTP ni de Next.js dans les services.
+- Les services renvoient les entités Prisma brutes ; la conversion est faite en bout de chaîne
+  par `lib/plant-mapper.ts` (présentation web) ou `lib/api/serializers.ts` (JSON de l'API).
+
+Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par le mobile :
+
+| Route | Méthodes |
+|---|---|
+| `/api/v1/gardens` | GET, POST |
+| `/api/v1/gardens/[id]` | GET, PATCH, DELETE |
+| `/api/v1/gardens/[id]/plants` | GET, POST |
+| `/api/v1/plants/[id]` | GET, PATCH, DELETE |
+| `/api/v1/plants/[id]/logs` | GET, POST (union discriminée par `type`) |
+| `/api/v1/planning/today` | GET |
+| `/api/v1/me` | GET, PATCH |
+| `/api/v1/identify` | POST |
+
+Chaque route suit le même squelette, à respecter pour toute nouvelle route :
+
+```ts
+export const dynamic = 'force-dynamic'   // routes authentifiées, jamais statiques
+
+export const POST = withApiErrorHandling(async (request: Request) => {
+  const userId = await requireUserId()                      // lib/api/auth-context
+  const input = await parseJsonBody(request, someSchema)    // schéma de @growi/shared
+  return created(serializeX(await someService.create(userId, input)))
+})
+```
+
+- **Enveloppes** : succès `{ data }`, erreur `{ error: { code, message } }`. 201 à la création,
+  204 à la suppression.
+- **`lib/api/auth-context.ts`** est le seul endroit qui sait comment on authentifie. Le passage au
+  JWT `Bearer` (phase 3) s'y fera sans toucher aux routes.
+- `withApiErrorHandling` relaie telles quelles les exceptions de contrôle de Next
+  (`DYNAMIC_SERVER_USAGE`, `NEXT_REDIRECT`) : les intercepter casserait le rendu.
+
+Les routes historiques (`/api/user/*`, `/api/weather`, `/api/garden/[id]/advice`,
+`/api/identify-plant`) restent en place pour le web et gardent leur format de réponse
+(`{ error: string }`) — ne pas les confondre avec l'API v1.
+
 ### IA & APIs externes
 
 - **Identification de plantes** : Gemini 2.5 Flash via `app/api/identify-plant/` (clé `GEMINI_API_KEY`).
