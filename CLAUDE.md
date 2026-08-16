@@ -234,6 +234,7 @@ Seuil de rentabilité atteint en Y2 (scénario base).
 growi-2/
 ├── apps/
 │   └── web/            # Next.js 14 marketing + auth + dashboard (App Router) — ex growi-frontend
+│   └── mobile/         # App Expo (React Native, Expo Router, NativeWind)
 ├── packages/
 │   ├── shared/         # @growi/shared : types TS, schémas Zod, constantes métier
 │   └── api-client/     # @growi/api-client : client typé de l'API v1
@@ -243,7 +244,28 @@ growi-2/
 └── tsconfig.base.json  # config TS commune, étendue par chaque package
 ```
 
-`apps/mobile` (Expo) arrivera à la phase 4 du plan mobile.
+### `apps/mobile`
+
+App Expo (SDK 57, React Native 0.86, React 19) en Expo Router, stylée avec NativeWind 4.
+
+```bash
+pnpm --filter mobile start     # Metro + QR code pour Expo Go
+pnpm --filter mobile typecheck
+```
+
+- **Design** : le skill `.claude/skills/growi-mobile-design` fait foi pour tout écran ou
+  composant. Les tokens sont dupliqués dans `apps/mobile/tailwind.config.js` — le web utilise des
+  variables CSS que React Native ne sait pas résoudre, toute évolution doit donc être reportée.
+- **Configuration réseau** : `EXPO_PUBLIC_API_URL` dans `apps/mobile/.env` (voir `.env.example`).
+  Pour tester sur téléphone, y mettre l'IP du Mac sur le réseau local, pas `localhost`.
+- **Metro** : depuis le SDK 52, Expo configure seul le monorepo. Ne pas ajouter `watchFolders` ni
+  `nodeModulesPaths`, cela entrerait en conflit avec sa détection.
+
+Trois réglages de `pnpm-workspace.yaml` existent uniquement pour faire cohabiter web et mobile,
+chacun commenté dans le fichier : `publicHoistPattern` pour `@babel/traverse` (que
+`react-native-worklets` requiert sans le déclarer), l'exclusion des typages React du hoisting, et
+l'épinglage de `@types/react` 18 à la racine pour Next. Le hoisting complet que recommande la doc
+Expo a été volontairement écarté : il ferait perdre la rigueur de pnpm sur tout le monorepo.
 
 Pas de backend séparé : les Server Actions Next.js + Prisma jouent ce rôle, et l'API REST
 `/api/v1/*` consommée par le mobile vivra dans `apps/web`.

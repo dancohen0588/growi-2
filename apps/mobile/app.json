@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Growi",
+    "slug": "growi",
+    "owner": "growi-plant",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "growi",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F9F7E8",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.growi.mobile"
+    },
+    "android": {
+      "package": "app.growi.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#F9F7E8",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": ["expo-router", "expo-font", "expo-secure-store"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
