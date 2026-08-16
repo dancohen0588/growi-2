@@ -2,6 +2,40 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+# L'écosystème React Native suppose un node_modules à plat : plusieurs paquets
+# requièrent des dépendances qu'ils ne déclarent pas (react-native-worklets
+# exige @babel/traverse, par exemple). On les expose dans le magasin caché
+# node_modules/.pnpm/node_modules, accessible aux seules dépendances tierces.
+#
+# À ne pas confondre avec `nodeLinker: hoisted` que recommande la doc Expo :
+# celui-ci aplatirait tout le monorepo et nos propres packages pourraient de
+# nouveau importer des dépendances non déclarées — c'est précisément cette
+# rigueur qui a révélé les dépendances fantômes @radix-ui/react-slot et jose.
+# react-native-worklets/plugin requiert @babel/traverse sans le déclarer. On
+# l'expose à la racine, seul emplacement qu'un paquet du magasin .pnpm puisse
+# atteindre en remontant l'arborescence.
+#
+# Exposition volontairement limitée à ce paquet : un hoisting large ferait
+# cohabiter les typages React 18 (web) et 19 (mobile) dans une même résolution
+# TypeScript, et le hoisting complet recommandé par la doc Expo ferait perdre
+# la rigueur de pnpm sur tout le monorepo — celle qui a révélé les dépendances
+# fantômes @radix-ui/react-slot et jose.
+publicHoistPattern:
+  - '@babel/traverse'
+
+# Depuis l'arrivée du mobile, deux versions des typages React coexistent :
+# 18 pour le web, 19 pour React Native.
+#
+# Next déclare `@types/react` en peer optionnel sans l'imbriquer : il le
+# cherche en remontant l'arborescence et tombait sur la 19 hoistée depuis le
+# mobile, si bien que `tsc` chargeait les deux jeux de types côté web
+# (incompatibilités RefObject, ReactNode). On retire donc les typages React du
+# magasin caché, et on épingle la 18 à la racine — c'est ce que Next trouvera.
+hoistPattern:
+  - '*'
+  - '!@types/react'
+  - '!@types/react-dom'
+
 # Dépendances autorisées à exécuter leurs scripts d'installation
 # (pnpm les bloque par défaut depuis la v10).
 allowBuilds:

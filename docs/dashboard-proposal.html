@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Growi — Proposition /dashboard (page d'accueil)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --lime:#B4DD7F; --lime-soft:#E6F1D2; --forest:#1E5631; --forest-soft:#2F7444;
+    --sand:#F9F7E8; --sand-deep:#F1EED5; --sun:#F6C445; --ink:#0F1F14;
+    --line:rgba(30,86,49,.12); --line-strong:rgba(30,86,49,.22);
+    --shadow:0 1px 0 rgba(30,86,49,.04), 0 8px 24px -12px rgba(30,86,49,.18);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--sand);color:var(--ink);font-family:'Raleway',system-ui,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  ::selection{background:var(--lime);color:var(--forest)}
+  a{color:var(--forest);text-decoration:none;border-bottom:1px solid var(--line-strong)}
+  a:hover{background:var(--lime-soft)}
+  code,pre,.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+  code{background:var(--sand-deep);padding:1px 6px;border-radius:4px;font-size:.86em;color:var(--forest)}
+
+  /* Layout */
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+  header.hero{padding:72px 0 32px;border-bottom:1px solid var(--line)}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:'Poppins';font-weight:600;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--forest);background:var(--lime-soft);padding:6px 12px;border-radius:999px;border:1px solid var(--line)}
+  h1{font-family:'Poppins';font-weight:800;font-size:clamp(36px,5vw,60px);line-height:1.04;letter-spacing:-.02em;color:var(--forest);margin:18px 0 14px}
+  h1 em{font-style:normal;background:linear-gradient(180deg,transparent 62%,var(--sun) 62%);padding:0 4px}
+  .lede{font-size:18px;max-width:760px;color:#314238}
+  .meta{display:flex;flex-wrap:wrap;gap:18px 28px;margin-top:28px;font-size:13px;color:#46594d}
+  .meta b{font-family:'Poppins';font-weight:600;color:var(--forest);display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
+
+  /* Sticky TOC */
+  .layout{display:grid;grid-template-columns:220px 1fr;gap:56px;padding:48px 0 96px}
+  @media (max-width:900px){.layout{grid-template-columns:1fr;gap:24px}}
+  nav.toc{position:sticky;top:24px;align-self:start;font-size:13px}
+  nav.toc ol{list-style:none;margin:0;padding:0;counter-reset:s}
+  nav.toc li{counter-increment:s;margin:0}
+  nav.toc a{display:block;padding:8px 10px 8px 32px;border:0;border-radius:8px;color:#46594d;position:relative}
+  nav.toc a::before{content:counter(s,decimal-leading-zero);position:absolute;left:6px;top:8px;font-family:'JetBrains Mono';font-size:11px;color:var(--forest);opacity:.55}
+  nav.toc a:hover{background:var(--lime-soft);color:var(--forest)}
+  nav.toc a.active{background:var(--forest);color:#fff}
+  nav.toc a.active::before{color:var(--lime)}
+
+  /* Sections */
+  section{padding:36px 0;border-top:1px solid var(--line)}
+  section:first-of-type{border-top:0;padding-top:8px}
+  h2{font-family:'Poppins';font-weight:700;font-size:30px;letter-spacing:-.01em;color:var(--forest);margin:0 0 6px}
+  h2 .num{font-family:'JetBrains Mono';font-size:13px;color:var(--forest-soft);background:var(--sand-deep);padding:3px 8px;border-radius:6px;margin-right:10px;vertical-align:middle}
+  h3{font-family:'Poppins';font-weight:600;font-size:18px;color:var(--forest);margin:28px 0 8px}
+  p{margin:10px 0}
+  ul,ol{padding-left:22px}
+  li{margin:6px 0}
+
+  /* Cards / grid */
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:18px}
+  @media (max-width:720px){.cards{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+  .card h4{font-family:'Poppins';font-weight:600;font-size:14px;color:var(--forest);margin:0 0 6px;display:flex;align-items:center;gap:8px}
+  .card h4 .dot{width:8px;height:8px;border-radius:99px;background:var(--lime)}
+  .card.pillar{position:relative;overflow:hidden}
+  .card.pillar .idx{position:absolute;right:-6px;top:-12px;font-family:'Poppins';font-weight:800;font-size:88px;color:var(--lime-soft);letter-spacing:-.04em;line-height:1;user-select:none}
+  .card p{font-size:14px;color:#384a3e}
+
+  /* Pills / status */
+  .pill{display:inline-flex;align-items:center;gap:6px;font-family:'Poppins';font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--line)}
+  .pill.ok{background:var(--lime-soft);color:var(--forest)}
+  .pill.todo{background:#fff;color:var(--forest)}
+  .pill.warn{background:#FFF5D4;color:#6B5300;border-color:#E9C975}
+  .pill.no{background:#FBE6E1;color:#8E2A18;border-color:#F1B3A4}
+
+  /* Wireframe */
+  .wire{background:#fff;border:1px dashed var(--line-strong);border-radius:18px;padding:18px;font-family:'JetBrains Mono';font-size:12px;color:#39513f;overflow-x:auto;white-space:pre;line-height:1.5}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:12px;color:#46594d}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+  /* Tables */
+  table{width:100%;border-collapse:separate;border-spacing:0;margin:14px 0;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}
+  th,td{padding:11px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+  th{background:var(--sand-deep);font-family:'Poppins';font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--forest)}
+  tr:last-child td{border-bottom:0}
+  td code{font-size:12px}
+
+  /* Roadmap timeline */
+  .roadmap{position:relative;margin:20px 0 0;padding-left:28px}
+  .roadmap::before{content:"";position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--line-strong);border-radius:2px}
+  .phase{position:relative;margin:0 0 22px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 18px 14px;box-shadow:var(--shadow)}
+  .phase::before{content:"";position:absolute;left:-26px;top:22px;width:14px;height:14px;border-radius:99px;background:var(--lime);border:3px solid var(--forest);box-shadow:0 0 0 4px var(--sand)}
+  .phase h3{margin:0 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .phase .tag{font-family:'JetBrains Mono';font-size:11px;background:var(--forest);color:#fff;padding:2px 8px;border-radius:6px}
+  .phase .why{font-size:13px;color:#46594d;margin:0 0 8px}
+  .checklist{list-style:none;padding:0;margin:8px 0 0;display:grid;grid-template-columns:1fr;gap:6px}
+  .checklist li{display:grid;grid-template-columns:22px 1fr auto;align-items:start;gap:8px;font-size:13.5px;padding:6px 0;border-top:1px dashed var(--line)}
+  .checklist li:first-child{border-top:0}
+  .checklist .box{width:16px;height:16px;border:1.5px solid var(--forest);border-radius:4px;margin-top:2px;background:#fff}
+  .checklist .ref{font-family:'JetBrains Mono';font-size:11px;color:var(--forest-soft);white-space:nowrap}
+
+  /* Callouts */
+  .callout{border-left:3px solid var(--sun);background:#FFF8DF;padding:12px 16px;border-radius:0 10px 10px 0;font-size:14px;margin:14px 0}
+  .callout b{font-family:'Poppins'}
+
+  footer{padding:28px 0 60px;color:#46594d;font-size:12px;text-align:center;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header class="hero">
+  <span class="eyebrow">● Growi · Spec produit · /dashboard</span>
+  <h1>Une <em>page d'accueil</em> qui répond avant<br/>que l'utilisateur ne pose la question.</h1>
+  <p class="lede">
+    Aujourd'hui <code>/dashboard</code> est un menu : 9 cartes vers les autres modules, des compteurs codés en dur à <code>0</code>, aucune lecture Prisma. Cette proposition transforme la route en <b>centre de décision quotidien</b> : ce qu'il faut faire aujourd'hui, ce qui menace mes plantes, ce que la météo change, ce que je peux explorer ensuite — branché sur les données déjà disponibles (<code>PlantInstance</code>, <code>getGardenAdvice()</code>, Open-Meteo).
+  </p>
+  <div class="meta">
+    <div><b>Route</b> app/dashboard/page.tsx</div>
+    <div><b>Persona prioritaire</b> Julie · Marc (B2C, post-onboarding)</div>
+    <div><b>État actuel</b> Coquille statique</div>
+    <div><b>Effort estimé</b> ~5–7 j-h frontend, 1–2 j-h data</div>
+    <div><b>Dépendances</b> Aucune nouvelle migration Prisma</div>
+  </div>
+</header>
+
+<div class="layout">
+
+<nav class="toc">
+  <ol>
+    <li><a href="#diag">Diagnostic actuel</a></li>
+    <li><a href="#vision">Vision &amp; piliers</a></li>
+    <li><a href="#wire">Wireframe cible</a></li>
+    <li><a href="#sections">Inventaire des blocs</a></li>
+    <li><a href="#data">Données &amp; branchements</a></li>
+    <li><a href="#plan">Plan d'implémentation</a></li>
+    <li><a href="#components">Composants à créer</a></li>
+    <li><a href="#kpis">KPIs &amp; instrumentation</a></li>
+    <li><a href="#risks">Arbitrages &amp; risques</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="diag">
+  <h2><span class="num">01</span>Diagnostic actuel</h2>
+  <p>La page existe (78 lignes) et utilise déjà le bon design system (Poppins/Raleway, palette <code>forest/lime/sand</code>, ombres <code>shadow-card</code>) — mais elle ne lit rien.</p>
+  <table>
+    <thead><tr><th style="width:38%">Élément en place</th><th>État</th><th>Détail</th></tr></thead>
+    <tbody>
+      <tr><td>Salutation <code>Bonjour {firstName}</code></td><td><span class="pill ok">Branché</span></td><td>Lit <code>session.user.firstName</code> via <code>auth()</code></td></tr>
+      <tr><td>3 stats (Plantes / Tâches / Alertes)</td><td><span class="pill no">Codé en dur à 0</span></td><td>Lignes 96–99 : <code>value:&nbsp;'0'</code></td></tr>
+      <tr><td>CTA hero « Identifier en photo »</td><td><span class="pill ok">OK</span></td><td>Lien vers <code>/dashboard/identifier</code></td></tr>
+      <tr><td>Grille de 8 <code>FeatureCard</code></td><td><span class="pill warn">2 liens morts</span></td><td><code>/dashboard/diagnostic</code> &amp; <code>/dashboard/marketplace</code> n'existent pas (badge « Bientôt » mais pas de stub)</td></tr>
+      <tr><td>Banner Premium</td><td><span class="pill ok">OK</span></td><td>Lien <code>/tarifs</code></td></tr>
+      <tr><td>Météo / actions du jour / alertes plantes</td><td><span class="pill no">Absent</span></td><td>Pourtant déjà calculés dans <code>getGardenAdvice()</code></td></tr>
+      <tr><td>État onboarding (0 jardin / 0 plante)</td><td><span class="pill no">Non géré</span></td><td>Un nouvel utilisateur voit la même page qu'un actif</td></tr>
+    </tbody>
+  </table>
+  <div class="callout"><b>Constat.</b> Le squelette UI est sain ; ce qui manque, ce sont les <i>signaux</i> (météo + advice engine + compteurs Prisma) et les <i>parcours conditionnels</i> (onboarding, jardin vide, jardin actif).</div>
+</section>
+
+<section id="vision">
+  <h2><span class="num">02</span>Vision &amp; 4 piliers</h2>
+  <p>Le dashboard doit répondre à <b>quatre questions</b> dans l'ordre où elles se posent quand on ouvre l'app :</p>
+  <div class="cards">
+    <div class="card pillar"><span class="idx">1</span>
+      <h4><span class="dot"></span>Que dois-je faire maintenant&nbsp;?</h4>
+      <p>Top 3 actions du jour (arroser, rentrer la basilic, semer les radis), tirées de <code>getGardenAdvice()</code>, validables en un clic via <code>DoneButton</code> déjà existant.</p>
+    </div>
+    <div class="card pillar"><span class="idx">2</span>
+      <h4><span class="dot"></span>Qu'est-ce qui menace mon jardin&nbsp;?</h4>
+      <p>Alertes météo (gel, canicule, sécheresse) + état santé des plantes (<code>healthStatus !== 'HEALTHY'</code>). Bandeau dégradable selon sévérité.</p>
+    </div>
+    <div class="card pillar"><span class="idx">3</span>
+      <h4><span class="dot"></span>Comment va mon jardin&nbsp;?</h4>
+      <p>3 KPIs vivants : nb de plantes, tâches semaine, alertes — chacun cliquable vers la vue détail correspondante. Sparkline 14 j sur l'arrosage (à partir de <code>WateringLog</code>).</p>
+    </div>
+    <div class="card pillar"><span class="idx">4</span>
+      <h4><span class="dot"></span>Qu'est-ce que je peux explorer&nbsp;?</h4>
+      <p>Identifier en photo (hero), grille de modules, encart « plante à découvrir » (PlantCatalog au hasard / saisonnier), CTA Premium contextuel.</p>
+    </div>
+  </div>
+</section>
+
+<section id="wire">
+  <h2><span class="num">03</span>Wireframe cible</h2>
+  <p>Composition mobile-first, max <code>1180&nbsp;px</code> en desktop, dans le <code>&lt;main&gt;</code> existant du <code>DashboardLayout</code>.</p>
+<div class="wire">┌─────────────────────────────────────────────────────────────────────────────┐
+│ Bonjour, Julie 👋                                            ☀️ 22° · Paris │  ← Header contextuel
+│ Mardi 23 mai · 3 tâches t'attendent aujourd'hui                              │     (météo briefing)
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ⚠️  ALERTE  Risque de gel cette nuit (−1°C). 4 plantes sensibles.   [Voir →]│  ← WeatherAlertBanner
+├─────────────────────────────────────────────────────────────────────────────┤  (conditionnel)
+│ 🪴 Plantes        ✅ Cette semaine     🔔 Alertes actives                    │
+│   12               7 / 12               2                                    │  ← StatRow × 3
+│   +2 ce mois       ▓▓▓▓▓░░░░░ 58 %     gel + 1 maladie                       │     (cliquables)
+├─────────────────────────────────────────────────────────────────────────────┤
+│ AUJOURD'HUI                                                  Voir tout →    │
+│ ┌───────────┐ ┌───────────┐ ┌───────────┐                                   │  ← TodayStrip
+│ │ 💧 Arroser│ │ ✂️ Tailler │ │ 🌱 Semer  │   (issus de getGardenAdvice)     │     (max 3 cartes,
+│ │ Basilic   │ │ Lavande   │ │ Radis     │   [Fait ✓]   [Reporter]          │      ActionCardMedium)
+│ └───────────┘ └───────────┘ └───────────┘                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ 🔍  Identifier une plante en photo                       [Identifier →] │ │  ← Hero CTA
+│ │     L'IA reconnaît l'espèce et te livre l'entretien complet.            │ │     (conservé)
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ EXPLORER                                                                    │
+│ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐                       │  ← FeatureCard grid
+│ │Jardin│ │Plant.│ │Calend│ │Météo │ │Cataloˋ│ │Param.│   (les modules)      │     (6 cartes au lieu de 8 :
+│ └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ └──────┘                       │      on retire les liens morts)
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 🌿  Plante du moment — Pivoine 'Sarah Bernhardt'              [Découvrir →] │  ← PlantOfTheMonth
+│      Floraison en mai-juin · mi-ombre · sol riche                            │     (PlantCatalog)
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 📈  Passe à Premium — Diagnostics illimités, multi-jardins.   [Voir offres] │  ← Premium banner
+└─────────────────────────────────────────────────────────────────────────────┘</div>
+  <div class="legend">
+    <span><i style="background:var(--lime)"></i> existant déjà codé</span>
+    <span><i style="background:var(--sun)"></i> à brancher sur données</span>
+    <span><i style="background:var(--forest)"></i> nouveau composant</span>
+  </div>
+</section>
+
+<section id="sections">
+  <h2><span class="num">04</span>Inventaire des blocs</h2>
+  <table>
+    <thead><tr><th>Bloc</th><th>Origine</th><th>Source de données</th><th>Conditionnel</th></tr></thead>
+    <tbody>
+      <tr><td><b>HeaderBriefing</b><br/><span class="mono">salutation + date + météo</span></td><td>Nouveau</td><td><code>session</code>, Open-Meteo via <code>/api/weather</code></td><td>—</td></tr>
+      <tr><td><b>WeatherAlertBanner</b></td><td>Déjà existe — <code>components/dashboard/calendrier/WeatherAlertBanner.tsx</code></td><td><code>alerts</code> de <code>getGardenAdvice()</code></td><td>Si <code>alerts.length &gt; 0</code></td></tr>
+      <tr><td><b>StatRow</b> (3 KPI)</td><td>Refonte du bloc actuel</td><td>Prisma : <code>plantInstance.count()</code>, advice <code>actions</code>, <code>alerts</code></td><td>Cachez si onboarding</td></tr>
+      <tr><td><b>TodayStrip</b></td><td>Nouveau (réutilise <code>ActionCardMedium</code>)</td><td><code>actions.filter(a =&gt; isToday(a.dueDate) &amp;&amp; !a.done).slice(0,3)</code></td><td>Si <code>plantInstance &gt; 0</code></td></tr>
+      <tr><td><b>IdentifierHeroCTA</b></td><td>Existe (conservé)</td><td>—</td><td>Toujours</td></tr>
+      <tr><td><b>FeatureGrid</b> (6 cartes au lieu de 8)</td><td>Existe (à élaguer)</td><td>—</td><td>Toujours</td></tr>
+      <tr><td><b>PlantOfTheMonth</b></td><td>Nouveau</td><td><code>PlantCatalog</code> filtré par mois de floraison/saison</td><td>Toujours</td></tr>
+      <tr><td><b>PremiumBanner</b></td><td>Existe (conservé)</td><td>—</td><td>Masqué si déjà premium (futur)</td></tr>
+      <tr><td><b>EmptyStateOnboarding</b></td><td>Nouveau</td><td><code>!garden || plantInstance === 0</code></td><td>Remplace tout sauf hero CTA + grille</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="data">
+  <h2><span class="num">05</span>Données &amp; branchements</h2>
+  <p>Tout est déjà accessible côté serveur — aucun nouveau endpoint nécessaire pour la V1.</p>
+  <h3>Lecture en Server Component (la page reste <code>async</code>)</h3>
+  <table>
+    <thead><tr><th style="width:34%">Donnée affichée</th><th>Provenance</th><th>Fichier source</th></tr></thead>
+    <tbody>
+      <tr><td>Nom utilisateur</td><td><code>auth()</code></td><td><a href="../growi-frontend/auth.ts">growi-frontend/auth.ts</a></td></tr>
+      <tr><td>Jardin par défaut</td><td><code>prisma.garden.findFirst({ where:{ userId }, orderBy:{ createdAt:'desc' }})</code></td><td><a href="../growi-frontend/lib/prisma.ts">lib/prisma.ts</a></td></tr>
+      <tr><td>Nb de plantes + delta mensuel</td><td><code>prisma.plantInstance.count()</code> × 2 (total &amp; <code>dateAdded ≥ startOfMonth</code>)</td><td><a href="../growi-frontend/prisma/schema.prisma">schema.prisma:PlantInstance</a></td></tr>
+      <tr><td>Actions du jour &amp; semaine, alertes</td><td><code>getGardenAdvice(gardenId, userId)</code> (cache <code>GardenAdviceCache</code> déjà en place)</td><td><a href="../growi-frontend/lib/recommendation/garden-advice-service.ts">lib/recommendation/garden-advice-service.ts</a></td></tr>
+      <tr><td>Météo briefing</td><td><code>WeatherForecast</code> retourné par l'advice service (déjà appelé en interne)</td><td><a href="../growi-frontend/lib/recommendation/types.ts">lib/recommendation/types.ts</a></td></tr>
+      <tr><td>Plante du mois</td><td><code>prisma.plantCatalog.findMany({ where:{ floweringMonths:{ has:currentMonth }}, take:1, orderBy:{ id:'asc' }})</code> — fallback si schéma ne contient pas encore le champ : sélection statique côté composant</td><td>schema.prisma:PlantCatalog</td></tr>
+    </tbody>
+  </table>
+  <h3>Interactions client (Server Actions existantes)</h3>
+  <ul>
+    <li><b>Cocher une action</b> → réutilise le mécanisme de <code>/dashboard/calendrier</code> (mutation côté calendrier engine ; <code>revalidatePath('/dashboard')</code> pour rafraîchir le strip).</li>
+    <li><b>Reporter une action</b> → idem, à isoler dans un client component <code>TodayStripClient</code>.</li>
+  </ul>
+  <div class="callout"><b>Important.</b> Garder la page Server Component et ne descendre en <code>"use client"</code> que pour <code>TodayStripClient</code> (boutons « Fait / Reporter »). Évite de tout déclasser et préserve le cache RSC.</div>
+</section>
+
+<section id="plan">
+  <h2><span class="num">06</span>Plan d'implémentation</h2>
+  <p>Quatre phases, ~5–7 j-h frontend cumulés. Chaque phase laisse la branche dans un état déployable.</p>
+
+  <div class="roadmap">
+
+    <article class="phase">
+      <h3><span class="tag">Phase 0 · 0,5 j</span>Préparer le terrain (zéro régression)</h3>
+      <p class="why">Nettoyer le statique avant d'y poser du dynamique. Fin de phase : la page actuelle reste visible, mais débarrassée des chausse-trapes.</p>
+      <ol class="checklist">
+        <li><span class="box"></span>Retirer les 2 <code>FeatureCard</code> qui pointent vers des routes inexistantes (<code>/dashboard/diagnostic</code>, <code>/dashboard/marketplace</code>) — ou créer des stubs <code>page.tsx</code> « Bientôt disponible » et garder les liens.<span class="ref">app/dashboard/page.tsx:50,63</span></li>
+        <li><span class="box"></span>Décision design : choix entre stubs ou retrait (recommandé : stubs, pour ne pas casser l'UX de découverte).<span class="ref">décision</span></li>
+        <li><span class="box"></span>Ajouter en haut de fichier un commentaire JSDoc résumant la composition (utile pour la maintenance).<span class="ref">doc</span></li>
+      </ol>
+    </article>
+
+    <article class="phase">
+      <h3><span class="tag">Phase 1 · 1,5 j</span>Brancher les stats &amp; l'empty state</h3>
+      <p class="why">Premier signal de vie : les chiffres ne sont plus des « 0 » menteurs, et un nouvel utilisateur reçoit un parcours guidé. Pas encore de dépendance à l'advice engine.</p>
+      <ol class="checklist">
+        <li><span class="box"></span>Créer <code>lib/dashboard/loaders.ts</code> exportant <code>getDashboardOverview(userId)</code> : retourne <code>{ garden, plantCount, plantCountThisMonth, hasOnboarded }</code>.<span class="ref">nouveau</span></li>
+        <li><span class="box"></span>Composant <code>StatRow</code> (server) qui prend ces props et rend 3 tuiles cliquables (vers <code>/dashboard/plantes</code>, <code>/dashboard/calendrier</code>, <code>/dashboard/calendrier?tab=alerts</code>).<span class="ref">components/dashboard/</span></li>
+        <li><span class="box"></span>Composant <code>EmptyStateOnboarding</code> : 3 étapes (« Crée ton jardin → Ajoute ta première plante → Active les alertes »), CTA principal vers <code>/dashboard/jardin</code>.<span class="ref">components/dashboard/</span></li>
+        <li><span class="box"></span>Brancher dans <code>page.tsx</code> : si <code>!hasOnboarded</code> → render <code>EmptyStateOnboarding</code> + hero CTA Identifier + FeatureGrid (sans stats).<span class="ref">app/dashboard/page.tsx</span></li>
+        <li><span class="box"></span>Sinon → render <code>StatRow</code> avec données réelles.<span class="ref">app/dashboard/page.tsx</span></li>
+        <li><span class="box"></span>Test Playwright minimal : un utilisateur sans jardin voit l'empty state ; un utilisateur avec ≥1 plante voit les stats correctes.<span class="ref">e2e/</span></li>
+      </ol>
+    </article>
+
+    <article class="phase">
+      <h3><span class="tag">Phase 2 · 2 j</span>Brancher l'advice engine (briefing + actions + alertes)</h3>
+      <p class="why">Le dashboard devient utile : on voit ce qu'il faut faire et ce qui menace. Réutilise 100 % de l'engine déjà servant <code>/calendrier</code>.</p>
+      <ol class="checklist">
+        <li><span class="box"></span>Étendre <code>getDashboardOverview</code> : appel à <code>getGardenAdvice(garden.id, userId)</code> (en parallèle du <code>plantInstance.count</code> avec <code>Promise.all</code>).<span class="ref">lib/dashboard/loaders.ts</span></li>
+        <li><span class="box"></span>Composant <code>HeaderBriefing</code> (server) : salutation + date FR + résumé météo (<code>weather.current.temperature</code>) + nb d'actions du jour. Skeleton si météo indispo.<span class="ref">components/dashboard/</span></li>
+        <li><span class="box"></span>Réutiliser <code>WeatherAlertBanner</code> existant (<code>components/dashboard/calendrier/</code>) — soit en l'important tel quel, soit en le déplaçant vers <code>components/dashboard/shared/</code>.<span class="ref">refacto léger</span></li>
+        <li><span class="box"></span>Composant <code>TodayStrip</code> = wrapper server qui filtre <code>actions</code> sur <code>dueDate === today &amp;&amp; !done</code>, prend les 3 prioritaires (<code>priority === 'high'</code> en premier), et rend 3 <code>ActionCardMedium</code> (déjà existant).<span class="ref">components/dashboard/</span></li>
+        <li><span class="box"></span>Wrapper client <code>TodayStripClient</code> pour le bouton « Fait ✓ » : appelle la Server Action de toggle existante puis <code>router.refresh()</code>.<span class="ref">client component</span></li>
+        <li><span class="box"></span>Gestion d'erreur : si <code>getGardenAdvice</code> throw (cas existant dans <code>CalendrierPage</code>), on log et on rend la page sans <code>TodayStrip</code> ni <code>WeatherAlertBanner</code> — pas de page blanche.<span class="ref">try/catch</span></li>
+        <li><span class="box"></span>Test Playwright : un jardin avec actions du jour affiche bien le strip ; cocher « Fait » fait disparaître l'action sans recharger la page complète.<span class="ref">e2e/</span></li>
+      </ol>
+    </article>
+
+    <article class="phase">
+      <h3><span class="tag">Phase 3 · 1 j</span>Découverte &amp; finitions</h3>
+      <p class="why">Tirer parti de l'écosystème (catalogue, Premium) et soigner le rendu pour livrer.</p>
+      <ol class="checklist">
+        <li><span class="box"></span>Composant <code>PlantOfTheMonth</code> : sélection saisonnière (mai = pivoine / rose / lavande…). Fallback statique au début si le champ <code>floweringMonths</code> n'existe pas encore en BDD.<span class="ref">components/dashboard/</span></li>
+        <li><span class="box"></span>Élaguer la <code>FeatureGrid</code> à 6 cartes (retirer ce qui devient redondant avec le briefing : Météo + Calendrier déjà résumés en haut → conserver mais réordonner).<span class="ref">app/dashboard/page.tsx</span></li>
+        <li><span class="box"></span>Animations <code>fadeUp</code> staggered via <code>lib/animations.ts</code> sur les blocs principaux, en respectant <code>useReducedMotion</code>.<span class="ref">lib/animations.ts</span></li>
+        <li><span class="box"></span>Audit a11y : ordre de tabulation, contrastes, alt-text, <code>aria-live="polite"</code> sur le banner d'alerte.<span class="ref">a11y</span></li>
+        <li><span class="box"></span>Audit perf : tout reste RSC sauf <code>TodayStripClient</code> ; pas de fetch client redondant. Vérifier que le payload JS ajouté reste &lt; 5 ko.<span class="ref">vercel best practices</span></li>
+        <li><span class="box"></span>Instrumentation (voir §08) avant merge.<span class="ref">analytics</span></li>
+      </ol>
+    </article>
+
+  </div>
+</section>
+
+<section id="components">
+  <h2><span class="num">07</span>Composants à créer (récap)</h2>
+  <table>
+    <thead><tr><th>Composant</th><th>Type</th><th>Emplacement proposé</th><th>Réutilise</th></tr></thead>
+    <tbody>
+      <tr><td><b>HeaderBriefing</b></td><td>Server</td><td><code>components/dashboard/home/HeaderBriefing.tsx</code></td><td><code>auth()</code>, <code>Intl.DateTimeFormat('fr-FR')</code></td></tr>
+      <tr><td><b>StatRow</b></td><td>Server</td><td><code>components/dashboard/home/StatRow.tsx</code></td><td>—</td></tr>
+      <tr><td><b>TodayStrip</b></td><td>Server</td><td><code>components/dashboard/home/TodayStrip.tsx</code></td><td><code>ActionCardMedium</code></td></tr>
+      <tr><td><b>TodayStripClient</b></td><td>Client</td><td><code>components/dashboard/home/TodayStripClient.tsx</code></td><td><code>DoneButton</code> existant</td></tr>
+      <tr><td><b>EmptyStateOnboarding</b></td><td>Server</td><td><code>components/dashboard/home/EmptyStateOnboarding.tsx</code></td><td><code>FeatureCard</code></td></tr>
+      <tr><td><b>PlantOfTheMonth</b></td><td>Server</td><td><code>components/dashboard/home/PlantOfTheMonth.tsx</code></td><td>—</td></tr>
+      <tr><td><b>getDashboardOverview</b></td><td>Loader</td><td><code>lib/dashboard/loaders.ts</code></td><td><code>getGardenAdvice</code>, Prisma</td></tr>
+    </tbody>
+  </table>
+  <p>Soit <b>6 composants</b> + <b>1 loader</b>, tous dans un sous-dossier <code>home/</code> dédié — facile à isoler/tester, et aligné avec la convention existante (<code>components/dashboard/&lt;route&gt;/</code>).</p>
+</section>
+
+<section id="kpis">
+  <h2><span class="num">08</span>KPIs &amp; instrumentation</h2>
+  <p>À mesurer dès la mise en ligne pour valider l'hypothèse « le dashboard devient une rampe d'action quotidienne ».</p>
+  <ul>
+    <li><b>Taux de clic sur TodayStrip</b> — % de sessions où ≥ 1 action est cochée depuis le dashboard (vs cochée depuis <code>/calendrier</code>).</li>
+    <li><b>Activation J+7</b> — % d'utilisateurs ayant cartographié leur jardin <em>et</em> ajouté ≥ 3 plantes (déjà au CLAUDE.md, à exposer ici).</li>
+    <li><b>Taux d'utilisation Identifier</b> — % de sessions où la CTA hero est cliquée (probable baisse car le hero est plus bas qu'avant : à arbitrer).</li>
+    <li><b>Bounce sur empty state</b> — % de nouveaux utilisateurs quittant la page sans cliquer aucune étape d'onboarding.</li>
+    <li><b>Latence p95 du loader</b> — <code>getDashboardOverview</code> doit rester &lt; 400 ms en cache chaud (cache <code>GardenAdviceCache</code> déjà en place).</li>
+  </ul>
+</section>
+
+<section id="risks">
+  <h2><span class="num">09</span>Arbitrages &amp; risques</h2>
+  <table>
+    <thead><tr><th>Sujet</th><th>Option recommandée</th><th>Alternative écartée</th><th>Pourquoi</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Multi-jardins</td>
+        <td>V1 : afficher le jardin le plus récent (<code>orderBy createdAt desc</code>)</td>
+        <td>Sélecteur de jardin en header</td>
+        <td>Aucun utilisateur n'a encore plusieurs jardins ; à ajouter quand le besoin émerge (déjà prévu Phase 1 produit)</td>
+      </tr>
+      <tr>
+        <td>Liens morts <code>/diagnostic</code> &amp; <code>/marketplace</code></td>
+        <td>Stubs « Bientôt » (page minimale + badge)</td>
+        <td>Retrait complet</td>
+        <td>Le badge « Bientôt » est un signal de roadmap utile — il pré-commercialise la valeur future</td>
+      </tr>
+      <tr>
+        <td>Plante du mois</td>
+        <td>Sélection statique mensuelle (12 entrées hardcodées) au début</td>
+        <td>Ajout d'un champ <code>floweringMonths</code> à <code>PlantCatalog</code></td>
+        <td>Évite une migration Prisma pour la V1 ; migration prévue quand l'éditorial est mature</td>
+      </tr>
+      <tr>
+        <td>Sparkline arrosage 14 j</td>
+        <td>Reporté Phase 4</td>
+        <td>Inclure en Phase 2</td>
+        <td>Requiert un agrégat <code>WateringLog</code> non encore optimisé ; on valide d'abord les blocs essentiels</td>
+      </tr>
+      <tr>
+        <td>Cas « API météo down »</td>
+        <td>Skeleton inerte (« Météo indisponible — </code>réessayer</code> »), reste de la page utilisable</td>
+        <td>Bloquer le rendu</td>
+        <td>L'advice engine sans météo retombe sur défauts ; ne pas pénaliser l'utilisateur</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+</main>
+</div>
+
+<footer>
+  Growi · proposition produit · <code>docs/dashboard-proposal.html</code> · à itérer en revue d'équipe
+</footer>
+
+</div>
+
+<script>
+  // Active link in TOC on scroll
+  const links = document.querySelectorAll('nav.toc a');
+  const sections = [...links].map(a => document.querySelector(a.getAttribute('href')));
+  const setActive = () => {
+    const y = window.scrollY + 120;
+    let idx = 0;
+    sections.forEach((s,i) => { if (s && s.offsetTop <= y) idx = i; });
+    links.forEach(l => l.classList.remove('active'));
+    links[idx]?.classList.add('active');
+  };
+  document.addEventListener('scroll', setActive, {passive:true});
+  setActive();
+</script>
+
+</body>
+</html>
