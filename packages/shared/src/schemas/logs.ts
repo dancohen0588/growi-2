@@ -43,6 +43,38 @@ export const harvestUnitSchema = z.enum(HARVEST_UNITS)
 export type HarvestUnit = z.infer<typeof harvestUnitSchema>
 
 /**
+ * Forme plurielle de chaque unité.
+ *
+ * Les symboles (g, kg, L) sont invariables ; seuls les noms s'accordent. Toute
+ * unité ajoutée doit déclarer son pluriel ici plutôt que de se voir coller un
+ * « s » à l'affichage.
+ */
+const HARVEST_UNIT_PLURALS: Record<HarvestUnit, string> = {
+  g: 'g',
+  kg: 'kg',
+  L: 'L',
+  pièce: 'pièces',
+  botte: 'bottes',
+}
+
+/**
+ * Quantité récoltée telle qu'on l'écrit : « 3 bottes », « 1,2 kg ».
+ *
+ * En français le pluriel commence à 2 — 1,2 kg reste au singulier. La virgule
+ * décimale est rendue localement plutôt que par `Intl`, dont Hermes ne garantit
+ * pas la présence sur tous les appareils.
+ */
+export function formatHarvest(quantity: number, unit?: string | null): string {
+  const amount = String(quantity).replace('.', ',')
+  if (!unit) return amount
+
+  const plural = HARVEST_UNIT_PLURALS[unit as HarvestUnit]
+  if (!plural) return `${amount} ${unit}`
+
+  return `${amount} ${quantity >= 2 ? plural : unit}`
+}
+
+/**
  * Corps de `POST /api/v1/plants/[id]/logs`.
  *
  * Tous les champs sont facultatifs sauf le type : un geste rapide se résume à

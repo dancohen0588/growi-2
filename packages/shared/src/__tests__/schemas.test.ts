@@ -6,6 +6,7 @@ import {
   createCareLogSchema,
   createGardenSchema,
   createPlantInstanceSchema,
+  formatHarvest,
   loginSchema,
   profilSchema,
   registerSchema,
@@ -127,5 +128,34 @@ describe('journal d\'entretien', () => {
 
   it('rejette un type d\'intervention inconnu', () => {
     expect(createCareLogSchema.safeParse({ type: 'bricolage' }).success).toBe(false)
+  })
+})
+
+describe('affichage d\'une récolte', () => {
+  it('accorde les unités qui sont des noms', () => {
+    expect(formatHarvest(1, 'pièce')).toBe('1 pièce')
+    expect(formatHarvest(3, 'pièce')).toBe('3 pièces')
+    expect(formatHarvest(3, 'botte')).toBe('3 bottes')
+  })
+
+  it('laisse les symboles invariables', () => {
+    expect(formatHarvest(3, 'kg')).toBe('3 kg')
+    expect(formatHarvest(500, 'g')).toBe('500 g')
+    expect(formatHarvest(2, 'L')).toBe('2 L')
+  })
+
+  it('garde le singulier en dessous de deux, comme le veut le français', () => {
+    expect(formatHarvest(1.5, 'pièce')).toBe('1,5 pièce')
+    expect(formatHarvest(2, 'pièce')).toBe('2 pièces')
+  })
+
+  it('écrit les décimales avec une virgule', () => {
+    expect(formatHarvest(1.2, 'kg')).toBe('1,2 kg')
+  })
+
+  it('supporte une unité absente ou inconnue', () => {
+    expect(formatHarvest(4)).toBe('4')
+    expect(formatHarvest(4, null)).toBe('4')
+    expect(formatHarvest(4, 'cageot')).toBe('4 cageot')
   })
 })

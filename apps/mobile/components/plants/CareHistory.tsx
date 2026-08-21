@@ -12,6 +12,7 @@ import {
 import {
   CARE_LOG_TYPE_LABELS,
   HEALTH_STATUS_LABELS,
+  formatHarvest,
   type CareLog,
   type CareLogType,
   type HealthStatus,
@@ -40,7 +41,7 @@ function describe(log: CareLog): { label: string; detail: string | null } {
     label += ` — ${HEALTH_STATUS_LABELS[log.status as HealthStatus] ?? log.status}`
   }
   if (type === 'harvest' && log.quantity) {
-    label += ` — ${log.quantity} ${log.unit ?? ''}`.trimEnd()
+    label += ` — ${formatHarvest(log.quantity, log.unit)}`
   }
 
   const detail = [log.productUsed, log.note].filter(Boolean).join(' · ') || null
