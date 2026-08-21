@@ -268,6 +268,43 @@ describe('endpoints', () => {
     expect(planning.date).toBe('2026-08-15')
   })
 
+  it('expose les quatre routes d\'authentification', async () => {
+    const tokens = {
+      accessToken: 'jwt',
+      refreshToken: 'opaque',
+      tokenType: 'Bearer',
+      expiresIn: 900,
+      user: { id: 'u1', email: 'dan@growi.fr', firstName: 'Dan' },
+    }
+
+    // Une réponse fraîche par appel : le corps d'une Response ne se lit qu'une fois.
+    fetchMock.mockImplementation(async () => jsonResponse({ data: tokens }))
+    const client = makeClient()
+
+    await client.auth.register({
+      firstName: 'Dan',
+      email: 'dan@growi.fr',
+      password: 'motdepasse',
+    })
+    expect(callArgs(0).url).toBe('https://growi.test/api/v1/auth/register')
+
+    const session = await client.auth.login({
+      email: 'dan@growi.fr',
+      password: 'motdepasse',
+      deviceInfo: 'iPhone',
+    })
+    expect(callArgs(1).url).toBe('https://growi.test/api/v1/auth/login')
+    expect(session.accessToken).toBe('jwt')
+
+    await client.auth.refresh('mon-jeton')
+    expect(callArgs(2).url).toBe('https://growi.test/api/v1/auth/refresh')
+    expect(JSON.parse(callArgs(2).init.body as string)).toEqual({ refreshToken: 'mon-jeton' })
+
+    fetchMock.mockImplementation(async () => new Response(null, { status: 204 }))
+    await expect(client.auth.logout('mon-jeton')).resolves.toBeUndefined()
+    expect(callArgs(3).url).toBe('https://growi.test/api/v1/auth/logout')
+  })
+
   it('envoie la photo à identifier dans le corps', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ data: { identified: false, reason: 'flou' } }))
 
