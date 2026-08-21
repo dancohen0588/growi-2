@@ -32,7 +32,7 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="aujourdhui"
         options={{
           title: "Aujourd'hui",
           tabBarIcon: ({ color, size }) => <Sun color={color} size={size} />,

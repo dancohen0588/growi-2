@@ -6,7 +6,7 @@ export default function AuthLayout() {
   const status = useSession((s) => s.status)
 
   // Déjà connecté : rien à faire sur les écrans d'authentification.
-  if (status === 'authenticated') return <Redirect href="/(tabs)" />
+  if (status === 'authenticated') return <Redirect href="/(tabs)/aujourdhui" />
 
   return (
     <Stack

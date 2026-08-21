@@ -2,14 +2,15 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 
 import { PlantDetail } from '@/components/plants/PlantDetail'
 
+/** La même fiche que dans l'onglet Jardins, mais dans la pile d'Aujourd'hui. */
 export default function PlanteDetailScreen() {
-  const { id, plantId } = useLocalSearchParams<{ id: string; plantId: string }>()
+  const { plantId } = useLocalSearchParams<{ plantId: string }>()
   const router = useRouter()
 
   return (
     <PlantDetail
       plantId={plantId}
-      onEdit={() => router.push(`/(tabs)/jardins/${id}/plantes/${plantId}/modifier`)}
+      onEdit={() => router.push(`/(tabs)/aujourdhui/plantes/${plantId}/modifier`)}
     />
   )
 }

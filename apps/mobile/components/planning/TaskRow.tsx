@@ -2,6 +2,8 @@ import { Pressable, Text, View } from 'react-native'
 import { Check, ChevronRight } from 'lucide-react-native'
 import type { ActionPriority, GardenAction } from '@growi/shared'
 
+import { ActionIcon, CareIconBadge } from '@/components/plants/CareIcon'
+
 /** L'urgence se lit à la pastille ; le texte reste lisible en toutes circonstances. */
 const PRIORITY_TONE: Record<ActionPriority, string> = {
   high: 'bg-destructive',
@@ -19,39 +21,33 @@ export interface TaskRowProps {
   action: GardenAction
   /** Coche la tâche : le geste correspondant part au journal. */
   onDone: () => void
-  /** Ouvre la fiche de la plante — absent quand la tâche n'en vise aucune. */
+  /** Ouvre la fiche de la plante — absent sur la fiche elle-même. */
   onOpenPlant?: () => void
-  disabled?: boolean
+  /** Sur la fiche d'une plante, répéter son nom n'apprend rien. */
+  showPlantName?: boolean
 }
 
-export function TaskRow({ action, onDone, onOpenPlant, disabled }: TaskRowProps) {
+export function TaskRow({ action, onDone, onOpenPlant, showPlantName = true }: TaskRowProps) {
   const late = action.dueDate < new Date().toISOString().slice(0, 10)
+
+  const meta = [
+    showPlantName ? action.plantName : null,
+    late ? 'en retard' : null,
+    action.estimatedMinutes ? `${action.estimatedMinutes} min` : null,
+  ].filter(Boolean)
 
   return (
     <View className="flex-row items-center gap-3 rounded-xl bg-card p-3">
-      {/* Case à cocher : 44 pt de zone tactile pour un visuel de 28. */}
-      <Pressable
-        onPress={onDone}
-        disabled={disabled}
-        hitSlop={8}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: false, disabled }}
-        accessibilityLabel={`Marquer « ${action.shortLabel} » comme fait`}
-        className={[
-          'h-7 w-7 items-center justify-center rounded-full border-2 border-forest',
-          disabled ? 'opacity-50' : '',
-        ].join(' ')}
-        style={({ pressed }) => (pressed && !disabled ? { backgroundColor: '#B4DD7F' } : null)}
-      >
-        <Check size={16} color="#1E5631" opacity={0.25} />
-      </Pressable>
+      <CareIconBadge>
+        <ActionIcon type={action.type} />
+      </CareIconBadge>
 
       <Pressable
         onPress={onOpenPlant}
         disabled={!onOpenPlant}
         accessibilityRole={onOpenPlant ? 'button' : undefined}
         accessibilityLabel={onOpenPlant ? `Ouvrir la fiche de ${action.plantName}` : undefined}
-        className="flex-1 flex-row items-center gap-2"
+        className="flex-1 flex-row items-center gap-1"
       >
         <View className="flex-1 gap-0.5">
           <Text className="font-raleway-medium text-body text-forest" numberOfLines={2}>
@@ -64,14 +60,25 @@ export function TaskRow({ action, onDone, onOpenPlant, disabled }: TaskRowProps)
               accessibilityLabel={PRIORITY_LABEL[action.priority]}
             />
             <Text className="font-raleway text-caption text-muted-foreground" numberOfLines={1}>
-              {action.plantName ?? action.shortLabel}
-              {late ? ' · en retard' : ''}
-              {action.estimatedMinutes ? ` · ${action.estimatedMinutes} min` : ''}
+              {meta.length > 0 ? meta.join(' · ') : action.shortLabel}
             </Text>
           </View>
         </View>
 
         {onOpenPlant ? <ChevronRight size={18} color="hsl(139 20% 40%)" /> : null}
+      </Pressable>
+
+      {/* Valider est l'action principale de la ligne : un vrai bouton lime,
+          pas une case à cocher qu'on cherche du regard. */}
+      <Pressable
+        onPress={onDone}
+        accessibilityRole="button"
+        accessibilityLabel={`${action.shortLabel} : c'est fait`}
+        className="h-11 flex-row items-center gap-1 rounded-lg bg-lime px-3"
+        style={({ pressed }) => (pressed ? { backgroundColor: '#a2cf6b' } : null)}
+      >
+        <Check size={18} color="#1E5631" />
+        <Text className="font-raleway-semibold text-secondary text-forest">Fait</Text>
       </Pressable>
     </View>
   )

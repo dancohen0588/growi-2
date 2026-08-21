@@ -118,12 +118,11 @@ export default function AujourdhuiScreen() {
                         key={action.id}
                         action={action}
                         onDone={() => completeTask(garden, action)}
+                        // La fiche s'ouvre dans la pile d'Aujourd'hui : le
+                        // retour ramène ici, pas dans l'onglet Jardins.
                         onOpenPlant={
                           action.plantId
-                            ? () =>
-                                router.push(
-                                  `/(tabs)/jardins/${garden.id}/plantes/${action.plantId}`,
-                                )
+                            ? () => router.push(`/(tabs)/aujourdhui/plantes/${action.plantId}`)
                             : undefined
                         }
                       />

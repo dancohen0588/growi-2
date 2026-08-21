@@ -8,7 +8,9 @@ import type {
 } from '@growi/shared'
 
 import { api } from '@/lib/api'
-import { gardenKeys } from '@/lib/queries/gardens'
+import { gardenKeys, planningKeys, plantKeys } from '@/lib/queries/keys'
+
+export { plantKeys }
 
 /** Date de la plante que chaque geste fait avancer — miroir du service serveur. */
 const PLANT_DATE_FIELD: Partial<Record<CareLogType, keyof PlantInstanceWithRelations>> = {
@@ -17,12 +19,6 @@ const PLANT_DATE_FIELD: Partial<Record<CareLogType, keyof PlantInstanceWithRelat
   fertilizing: 'lastFertilizedAt',
   treatment: 'lastTreatedAt',
   repotting: 'lastRepottedAt',
-}
-
-export const plantKeys = {
-  all: ['plants'] as const,
-  detail: (plantId: string) => [...plantKeys.all, 'detail', plantId] as const,
-  logs: (plantId: string) => [...plantKeys.all, 'detail', plantId, 'logs'] as const,
 }
 
 export function usePlant(plantId: string) {
@@ -42,6 +38,8 @@ export function useUpdatePlant(plantId: string) {
       queryClient.setQueryData(plantKeys.detail(plantId), plant)
       // La liste du jardin affiche le nom et l'emoji : elle doit suivre.
       void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
+      // La fréquence d'arrosage ou l'exposition changent les gestes du jour.
+      void queryClient.invalidateQueries({ queryKey: planningKeys.all })
     },
   })
 }
@@ -130,8 +128,10 @@ export function useAddCareLog(plantId: string) {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: plantKeys.detail(plantId) })
       void queryClient.invalidateQueries({ queryKey: plantKeys.logs(plantId) })
-      // Le planning du jour et les listes dépendent des dates d'entretien.
+      // Le planning du jour et les listes dépendent des dates d'entretien :
+      // « J'ai arrosé » doit faire tomber la tâche « Arroser ».
       void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
+      void queryClient.invalidateQueries({ queryKey: planningKeys.all })
     },
   })
 }
@@ -144,6 +144,7 @@ export function useDeletePlant() {
     onSuccess: (_data, plantId) => {
       queryClient.removeQueries({ queryKey: plantKeys.detail(plantId) })
       void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
+      void queryClient.invalidateQueries({ queryKey: planningKeys.all })
     },
   })
 }

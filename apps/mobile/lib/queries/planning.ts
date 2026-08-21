@@ -2,13 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { MarkActionDoneInput, TodayPlanning } from '@growi/shared'
 
 import { api } from '@/lib/api'
-import { gardenKeys } from '@/lib/queries/gardens'
-import { plantKeys } from '@/lib/queries/plants'
+import { gardenKeys, planningKeys, plantKeys } from '@/lib/queries/keys'
 
-export const planningKeys = {
-  all: ['planning'] as const,
-  today: () => [...planningKeys.all, 'today'] as const,
-}
+export { planningKeys }
 
 /**
  * Le planning du jour.
@@ -17,11 +13,27 @@ export const planningKeys = {
  * coûteux à recalculer côté serveur : cinq minutes de fraîcheur évitent de le
  * redemander à chaque retour sur l'onglet.
  */
+const todayQuery = {
+  queryKey: planningKeys.today(),
+  queryFn: () => api.planning.today(),
+  staleTime: 5 * 60 * 1000,
+}
+
 export function useTodayPlanning() {
+  return useQuery(todayQuery)
+}
+
+/**
+ * Les tâches du jour visant une plante précise.
+ *
+ * Même requête, même cache que l'onglet Aujourd'hui : la fiche plante montre
+ * exactement ce que l'accueil annonce, sans second aller-retour.
+ */
+export function usePlantActions(plantId: string) {
   return useQuery({
-    queryKey: planningKeys.today(),
-    queryFn: () => api.planning.today(),
-    staleTime: 5 * 60 * 1000,
+    ...todayQuery,
+    select: (planning: TodayPlanning) =>
+      planning.gardens.flatMap((garden) => garden.actions).filter((a) => a.plantId === plantId),
   })
 }
 
