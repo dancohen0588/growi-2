@@ -231,6 +231,32 @@ test.describe('API v1', () => {
     await api.patch('/api/v1/me/alerts', { data: { frostAlert: before.frostAlert } })
   })
 
+  test('E2E-APIV1-12 — Ajout d\'une plante identifiée', async ({ page }) => {
+    await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
+    const api = page.request
+
+    // Espèce du catalogue : la plante doit en hériter les besoins.
+    const res = await api.post('/api/v1/plants', {
+      data: {
+        commonName: 'Basilic',
+        scientificName: 'Ocimum basilicum',
+        emoji: '🌿',
+        encyclopediaSlug: 'basilic',
+      },
+    })
+    expect(res.status()).toBe(201)
+
+    const plant = (await res.json()).data
+    expect(plant.catalogPlant?.slug).toBe('basilic')
+    expect(plant.wateringFreqDays).toBeGreaterThan(0)
+    // Rattachée d'office au jardin le plus récent, sans en choisir un.
+    expect(plant.gardenId).not.toBeNull()
+
+    expect((await api.post('/api/v1/plants', { data: { emoji: '🌿' } })).status()).toBe(400)
+
+    await api.delete(`/api/v1/plants/${plant.id}`)
+  })
+
   test('E2E-APIV1-08 — Recherche dans le catalogue', async ({ page }) => {
     await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
 

@@ -153,7 +153,7 @@ export async function createPlantInstance(
 export async function addIdentifiedPlant(
   userId: string,
   input: AddIdentifiedPlantInput,
-): Promise<{ plantId: string }> {
+): Promise<PlantInstanceWithRelations> {
   const catalogPlant = input.encyclopediaSlug
     ? await prisma.plantCatalog.findUnique({
         where: { slug: input.encyclopediaSlug },
@@ -184,7 +184,12 @@ export async function addIdentifiedPlant(
 
   if (defaultGarden?.id) await invalidateGardenAdviceCache(defaultGarden.id)
 
-  return { plantId: created.id }
+  // La fiche complète plutôt que le seul identifiant : l'app y navigue juste
+  // après, et le web y lit le même `id`.
+  return prisma.plantInstance.findUniqueOrThrow({
+    where: { id: created.id },
+    include: { catalogPlant: true, zone: true },
+  })
 }
 
 /**

@@ -7,6 +7,7 @@
  */
 
 import type {
+  AddIdentifiedPlantInput,
   AlertConfig,
   AuthTokens,
   CareLog,
@@ -139,6 +140,13 @@ export class GrowiApiClient {
     /** Toutes les plantes, tous jardins confondus. */
     list: (options?: CallOptions): Promise<PlantInstanceWithRelations[]> =>
       this.http.request('/api/v1/plants', { ...options }),
+
+    /** Ajoute une plante reconnue en photo, dans le jardin le plus récent. */
+    addIdentified: (
+      input: AddIdentifiedPlantInput,
+      options?: CallOptions,
+    ): Promise<PlantInstanceWithRelations> =>
+      this.http.request('/api/v1/plants', { ...options, method: 'POST', body: input }),
 
     get: (plantId: string, options?: CallOptions): Promise<PlantInstanceWithRelations> =>
       this.http.request(`/api/v1/plants/${encodeURIComponent(plantId)}`, { ...options }),

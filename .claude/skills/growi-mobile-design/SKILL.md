@@ -63,6 +63,7 @@ Règles : fond d'écran = `sand`, texte = `forest` ; jamais de blanc pur en fond
 | `StatCard` | Indicateur chiffré de l'accueil ; la couleur vient d'`indicatorTone` (`@growi/shared`) et se porte sur un liseré, jamais sur le fond |
 | `Toggle` | Interrupteur d'un réglage, natif mais teinté Growi |
 | `weather/` → `WeatherNow`, `ForecastRow`, `GardenContextCard`, `WeeklyTips`, `WeatherUnavailable` | La météo du jardin, portée de la page Météo du web ; `WeatherIcon` relie un code WMO à son composant lucide |
+| `IdentifyResult` | Fiche d'une plante reconnue en photo : confiance, guide d'entretien, anecdote, points d'attention |
 
 ### Conventions retenues sur les écrans de liste
 
@@ -77,6 +78,8 @@ Règles : fond d'écran = `sand`, texte = `forest` ; jamais de blanc pur en fond
 - **Pas d'`Intl`** : Hermes n'embarque pas les données de locale sur toutes les plateformes. Dates en toutes lettres (`lib/dates.ts`), accords et unités (`formatHarvest` dans `@growi/shared`) sont écrits à la main — l'app n'est qu'en français.
 - **Contenu partagé avec le web** dans `@growi/shared`, y compris les libellés et conseils (codes météo, correspondance tâche → geste). Ne rester local que ce qui l'est vraiment : la liaison d'un nom d'icône à son composant, `lucide-react` d'un côté, `lucide-react-native` de l'autre.
 - **Ne pas désactiver une liste entière** pendant une mutation optimiste : la ligne cochée disparaît déjà, et on coche souvent plusieurs tâches d'affilée.
+- **Permission refusée** : ce n'est pas une erreur mais un choix. Expliquer ce qui est bloqué et proposer `Linking.openSettings()`, plutôt qu'un message d'échec.
+- **Photos** : redimensionner à 1920 px et recompresser en JPEG 0,85 avant l'envoi (`lib/photo.ts`), comme le fait le web. Une photo d'iPhone dépasse sinon la limite de 4 Mo de la route.
 
 ## 3. Règles UX mobile (non négociables)
 

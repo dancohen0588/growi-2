@@ -275,6 +275,23 @@ describe('endpoints', () => {
     expect(planning.gardens[0]?.name).toBe('Potager')
   })
 
+  it('ajoute une plante identifiée', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { id: 'p1' } }, 201))
+
+    await makeClient().plants.addIdentified({
+      commonName: 'Basilic',
+      encyclopediaSlug: 'basilic',
+    })
+
+    const { url, init } = callArgs()
+    expect(url).toBe('https://growi.test/api/v1/plants')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({
+      commonName: 'Basilic',
+      encyclopediaSlug: 'basilic',
+    })
+  })
+
   it('liste toutes les plantes, tous jardins confondus', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ data: [{ id: 'p1' }, { id: 'p2' }] }))
 
