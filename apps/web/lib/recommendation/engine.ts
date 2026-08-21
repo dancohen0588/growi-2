@@ -62,8 +62,14 @@ export class RecommendationEngine {
         return true
       })
 
+      // La photo est attachée ici plutôt que dans chacune des douze règles :
+      // elle décrit la plante, pas le geste.
+      const photoUrl = ctx.instance.photoUrl ?? ctx.instance.catalogPlant?.imageUrl ?? null
+
       // Cap per plant
-      allActions.push(...unique.slice(0, MAX_ACTIONS_PER_PLANT))
+      allActions.push(
+        ...unique.slice(0, MAX_ACTIONS_PER_PLANT).map((a) => ({ ...a, plantPhotoUrl: photoUrl })),
+      )
     }
 
     // Sort: priority (high→low) then dueDate (ascending)

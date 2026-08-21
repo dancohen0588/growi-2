@@ -43,6 +43,8 @@ export interface GardenAction {
   plantId?: string
   plantName?: string
   plantEmoji?: string
+  /** Ajoutée par le moteur après évaluation, pas par les règles. */
+  plantPhotoUrl?: string | null
   dueDate: string               // ISO date string "YYYY-MM-DD"
   done: boolean
   doneAt?: string

@@ -259,13 +259,39 @@ describe('endpoints', () => {
 
   it('expose le planning du jour', async () => {
     fetchMock.mockResolvedValue(
-      jsonResponse({ data: { date: '2026-08-15', actions: [], alerts: [] } }),
+      jsonResponse({
+        data: {
+          date: '2026-08-15',
+          gardens: [{ id: 'g1', name: 'Potager', actions: [], alerts: [] }],
+          weather: null,
+        },
+      }),
     )
 
     const planning = await makeClient().planning.today()
 
     expect(callArgs().url).toBe('https://growi.test/api/v1/planning/today')
     expect(planning.date).toBe('2026-08-15')
+    expect(planning.gardens[0]?.name).toBe('Potager')
+  })
+
+  it('coche une tâche du planning', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+
+    await makeClient().planning.markDone({
+      gardenId: 'g1',
+      actionType: 'arrosage',
+      plantId: 'p1',
+    })
+
+    const { url, init } = callArgs()
+    expect(url).toBe('https://growi.test/api/v1/planning/actions/done')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({
+      gardenId: 'g1',
+      actionType: 'arrosage',
+      plantId: 'p1',
+    })
   })
 
   it('expose les quatre routes d\'authentification', async () => {

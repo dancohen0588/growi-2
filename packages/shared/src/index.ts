@@ -10,6 +10,7 @@
  */
 
 export * from './constants/enums'
+export * from './constants/weather'
 export * from './schemas/common'
 export * from './schemas/user'
 export * from './schemas/garden'

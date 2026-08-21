@@ -16,6 +16,7 @@ import type {
   Garden,
   GardenWithStats,
   IdentifyApiResponse,
+  MarkActionDoneInput,
   MobileLoginInput,
   MobileRegisterInput,
   PlantCatalog,
@@ -191,6 +192,14 @@ export class GrowiApiClient {
     /** Tâches du jour, alertes et météo locale — l'écran d'accueil du mobile. */
     today: (options?: CallOptions): Promise<TodayPlanning> =>
       this.http.request('/api/v1/planning/today', { ...options }),
+
+    /** Coche une tâche : le geste correspondant est noté sur la plante. */
+    markDone: (input: MarkActionDoneInput, options?: CallOptions): Promise<void> =>
+      this.http.request('/api/v1/planning/actions/done', {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
   }
 
   // ─── Profil ──────────────────────────────────────────────────────────────

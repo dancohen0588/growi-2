@@ -17,14 +17,17 @@ const logService = vi.hoisted(() => ({
   listPlantLogs: vi.fn(),
   logCare: vi.fn(),
 }))
+const adviceService = vi.hoisted(() => ({ markActionDone: vi.fn() }))
 
 vi.mock('@/lib/api/auth-context', () => ({ requireUserId, getUserId: vi.fn() }))
 vi.mock('@/lib/services/garden.service', () => gardenService)
 vi.mock('@/lib/services/log.service', () => logService)
+vi.mock('@/lib/services/advice.service', () => adviceService)
 
 const { GET: listGardens, POST: createGarden } = await import('@/app/api/v1/gardens/route')
 const { GET: getGarden } = await import('@/app/api/v1/gardens/[id]/route')
 const { POST: createLog } = await import('@/app/api/v1/plants/[id]/logs/route')
+const { POST: markDone } = await import('@/app/api/v1/planning/actions/done/route')
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -261,5 +264,42 @@ describe('POST /api/v1/plants/[id]/logs', () => {
     })
     expect(JSON.stringify(body)).not.toContain('Prisma')
     consoleError.mockRestore()
+  })
+})
+
+// ─── POST /api/v1/planning/actions/done ────────────────────────────────────
+
+describe('POST /api/v1/planning/actions/done', () => {
+  it('coche la tâche et répond 204 sans corps', async () => {
+    adviceService.markActionDone.mockResolvedValue(undefined)
+
+    const res = await markDone(
+      jsonRequest({ gardenId: 'garden_1', actionType: 'arrosage', plantId: 'plant_1' }),
+    )
+
+    expect(res.status).toBe(204)
+    expect(adviceService.markActionDone).toHaveBeenCalledWith(USER_ID, {
+      gardenId: 'garden_1',
+      actionType: 'arrosage',
+      plantId: 'plant_1',
+    })
+  })
+
+  it('rejette un type de tâche inconnu sans toucher au service', async () => {
+    const res = await markDone(jsonRequest({ gardenId: 'garden_1', actionType: 'bricolage' }))
+
+    expect(res.status).toBe(400)
+    expect(adviceService.markActionDone).not.toHaveBeenCalled()
+  })
+
+  it('traduit un jardin non possédé en 404', async () => {
+    adviceService.markActionDone.mockRejectedValue(
+      new ServiceError('NOT_FOUND', 'Jardin introuvable'),
+    )
+
+    const res = await markDone(jsonRequest({ gardenId: 'garden_autre', actionType: 'taille' }))
+
+    expect(res.status).toBe(404)
+    expect((await res.json()).error.code).toBe('NOT_FOUND')
   })
 })

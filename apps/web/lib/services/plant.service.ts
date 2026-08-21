@@ -133,6 +133,10 @@ export async function createPlantInstance(
     },
   })
 
+  // Sans cela, la plante n'apparaîtrait dans le planning qu'à l'expiration du
+  // cache de conseils — jusqu'à six heures plus tard.
+  if (gardenId) await invalidateGardenAdviceCache(gardenId)
+
   return prisma.plantInstance.findUniqueOrThrow({
     where: { id: created.id },
     include: { catalogPlant: true, zone: true },
@@ -178,6 +182,8 @@ export async function addIdentifiedPlant(
     },
   })
 
+  if (defaultGarden?.id) await invalidateGardenAdviceCache(defaultGarden.id)
+
   return { plantId: created.id }
 }
 
@@ -190,7 +196,7 @@ export async function updatePlantInstance(
   userId: string,
   input: UpdatePlantInstanceInput,
 ): Promise<PlantInstanceWithRelations> {
-  await assertPlantOwned(plantInstanceId, userId)
+  const { gardenId: previousGardenId } = await assertPlantOwned(plantInstanceId, userId)
 
   // Le jardin et la zone visés viennent du client : ils doivent lui appartenir.
   if (input.gardenId) await assertGardenBelongsToUser(input.gardenId, userId)
@@ -207,6 +213,12 @@ export async function updatePlantInstance(
         : {}),
     },
   })
+
+  // La fréquence d'arrosage ou l'exposition changent les conseils ; un
+  // déménagement en change deux, celui qu'on quitte et celui qu'on rejoint.
+  for (const gardenId of new Set([previousGardenId, input.gardenId].filter(Boolean))) {
+    await invalidateGardenAdviceCache(gardenId as string)
+  }
 
   return prisma.plantInstance.findUniqueOrThrow({
     where: { id: plantInstanceId },

@@ -3,11 +3,12 @@ import type { AdviceRule, PlantContext, GardenAction } from '../types'
 const MS_PER_DAY = 86_400_000
 const ELEVEN_MONTHS_DAYS = 335
 
-function getSeasonLabel(month: number): string {
-  if (month >= 3 && month <= 5) return 'printemps'
-  if (month >= 6 && month <= 8) return 'été'
-  if (month >= 9 && month <= 11) return 'automne'
-  return 'hiver'
+/** Saison avec sa préposition, élision comprise : « d'été », et non « de été ». */
+function getSeasonComplement(month: number): string {
+  if (month >= 3 && month <= 5) return 'de printemps'
+  if (month >= 6 && month <= 8) return "d'été"
+  if (month >= 9 && month <= 11) return "d'automne"
+  return "d'hiver"
 }
 
 function parsePruningMonths(raw: string | null | undefined): number[] {
@@ -41,7 +42,7 @@ export const r4PruningSeasonal: AdviceRule = {
 
     const plantName = instance.customName ?? catalog.commonName ?? 'Plante'
     const emoji = instance.emoji ?? catalog.emoji ?? ''
-    const season = getSeasonLabel(currentMonth)
+    const season = getSeasonComplement(currentMonth)
 
     const firstOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
 
@@ -49,7 +50,7 @@ export const r4PruningSeasonal: AdviceRule = {
       {
         id: `${this.id}:${instance.id}`,
         type: 'taille',
-        label: `Taille de ${season} — ${plantName} ✂️`,
+        label: `Taille ${season} — ${plantName} ✂️`,
         shortLabel: 'Tailler',
         plantId: instance.id,
         plantName,

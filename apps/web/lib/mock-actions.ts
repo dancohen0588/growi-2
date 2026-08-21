@@ -18,6 +18,8 @@ export interface GardenAction {
   plantId?: string
   plantName?: string
   plantEmoji?: string
+  /** Photo de la plante, ajoutée par le moteur. */
+  plantPhotoUrl?: string | null
   dueDate: string          // ISO date string "YYYY-MM-DD"
   done: boolean
   doneAt?: string

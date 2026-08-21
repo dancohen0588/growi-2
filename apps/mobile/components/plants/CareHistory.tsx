@@ -1,15 +1,5 @@
 import { Text, View } from 'react-native'
 import {
-  Droplets,
-  HeartPulse,
-  Leaf,
-  Scissors,
-  ShoppingBasket,
-  Shrub,
-  Sprout,
-  SprayCan,
-} from 'lucide-react-native'
-import {
   CARE_LOG_TYPE_LABELS,
   HEALTH_STATUS_LABELS,
   formatHarvest,
@@ -18,19 +8,8 @@ import {
   type HealthStatus,
 } from '@growi/shared'
 
+import { CareIcon, CareIconBadge } from '@/components/plants/CareIcon'
 import { formatLogDate } from '@/lib/dates'
-
-const ICONS: Record<CareLogType, React.ReactNode> = {
-  watering: <Droplets size={18} color="#1E5631" />,
-  pruning: <Scissors size={18} color="#1E5631" />,
-  fertilizing: <Sprout size={18} color="#1E5631" />,
-  health: <HeartPulse size={18} color="#1E5631" />,
-  harvest: <ShoppingBasket size={18} color="#1E5631" />,
-  treatment: <SprayCan size={18} color="#1E5631" />,
-  repotting: <Shrub size={18} color="#1E5631" />,
-  sowing: <Leaf size={18} color="#1E5631" />,
-  other: <Leaf size={18} color="#1E5631" />,
-}
 
 /** Libellé du geste, enrichi de ce qui le précise : état, produit, quantité. */
 function describe(log: CareLog): { label: string; detail: string | null } {
@@ -65,9 +44,9 @@ export function CareHistory({ logs }: { logs: CareLog[] }) {
         const { label, detail } = describe(log)
         return (
           <View key={log.id} className="flex-row items-start gap-3 rounded-xl bg-card p-3">
-            <View className="h-9 w-9 items-center justify-center rounded-lg bg-sand">
-              {ICONS[log.type as CareLogType] ?? ICONS.other}
-            </View>
+            <CareIconBadge>
+              <CareIcon type={log.type as CareLogType} />
+            </CareIconBadge>
             <View className="flex-1">
               <Text className="font-raleway-medium text-body text-forest">{label}</Text>
               {detail ? (

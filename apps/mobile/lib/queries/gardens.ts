@@ -6,20 +6,9 @@ import type {
 } from '@growi/shared'
 
 import { api } from '@/lib/api'
+import { gardenKeys, planningKeys } from '@/lib/queries/keys'
 
-/**
- * Clés de cache des jardins.
- *
- * Hiérarchiques pour qu'invalider `all` couvre les listes, les détails et les
- * plantes d'un coup — utile après une création ou une suppression, où l'on ne
- * sait pas exactement ce qui a bougé.
- */
-export const gardenKeys = {
-  all: ['gardens'] as const,
-  list: () => [...gardenKeys.all, 'list'] as const,
-  detail: (gardenId: string) => [...gardenKeys.all, 'detail', gardenId] as const,
-  plants: (gardenId: string) => [...gardenKeys.all, 'detail', gardenId, 'plants'] as const,
-}
+export { gardenKeys }
 
 export function useGardens() {
   return useQuery({
@@ -79,6 +68,8 @@ export function useAddPlant(gardenId: string) {
     onSuccess: () => {
       // Le compteur de plantes de la liste change aussi : on invalide large.
       void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
+      // Une plante qui arrive amène ses propres gestes du jour.
+      void queryClient.invalidateQueries({ queryKey: planningKeys.all })
     },
   })
 }
@@ -90,6 +81,7 @@ export function useDeletePlant(gardenId: string) {
     mutationFn: (plantId: string) => api.plants.remove(plantId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
+      void queryClient.invalidateQueries({ queryKey: planningKeys.all })
     },
   })
 }

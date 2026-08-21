@@ -182,12 +182,25 @@ describe('R1 — Arrosage standard', () => {
     expect(watering!.done).toBe(false)
   })
 
-  it('does NOT trigger when plant was watered today', () => {
+  it('annonce le prochain arrosage quand la plante vient d\'être arrosée', () => {
     const ctx = makeCtx({ lastWateredAt: NOW })
     const actions = engine.evaluate([ctx])
 
-    const watering = actions.filter((a) => a.type === 'arrosage')
-    expect(watering).toHaveLength(0)
+    // freq = 7 jours : rendez-vous dans une semaine, en priorité basse pour ne
+    // pas concurrencer ce qui est dû aujourd'hui.
+    const watering = actions.find((a) => a.type === 'arrosage')
+    expect(watering).toBeDefined()
+    expect(watering!.priority).toBe('low')
+    expect(watering!.dueDate).toBe(
+      new Date(NOW.getTime() + 7 * DAY).toISOString().slice(0, 10),
+    )
+  })
+
+  it('se tait quand le prochain arrosage est au-delà de deux semaines', () => {
+    const ctx = makeCtx({ lastWateredAt: NOW, wateringFreqDays: 30 })
+    const actions = engine.evaluate([ctx])
+
+    expect(actions.filter((a) => a.type === 'arrosage')).toHaveLength(0)
   })
 })
 

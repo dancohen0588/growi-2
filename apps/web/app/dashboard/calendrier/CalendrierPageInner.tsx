@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useReducedMotion } from 'framer-motion'
 import type { GardenAction } from '@/lib/mock-actions'
 import type { PlantAlert } from '@/lib/recommendation/types'
-import { getTemporalBucket } from '@/lib/calendar-utils'
+import { groupActionsByHorizon } from '@growi/shared'
 import { CalendarViewToggle, type ActiveView } from '@/components/dashboard/calendrier/CalendarViewToggle'
 import { TodoView } from '@/components/dashboard/calendrier/views/TodoView'
 import { CalendarView } from '@/components/dashboard/calendrier/views/CalendarView'
@@ -71,7 +71,7 @@ function CalendrierContent({ initialActions, alerts, gardenId }: CalendrierPageI
     [actions],
   )
 
-  // Summary bar counts
+  // Summary bar counts — mêmes horizons que les sections et que le mobile.
   const todayDoneCount = useMemo(
     () =>
       actions.filter(
@@ -79,18 +79,8 @@ function CalendrierContent({ initialActions, alerts, gardenId }: CalendrierPageI
       ).length,
     [actions],
   )
-  const weekPendingCount = useMemo(
-    () =>
-      actions.filter(a => {
-        if (a.done) return false
-        const b = getTemporalBucket(a.dueDate)
-        return b === 'today' || b === 'tomorrow' || b === 'this-week'
-      }).length,
-    [actions],
-  )
-  const monthPendingCount = useMemo(
-    () =>
-      actions.filter(a => !a.done && getTemporalBucket(a.dueDate) === 'this-month').length,
+  const pendingByHorizon = useMemo(
+    () => groupActionsByHorizon(actions.filter(a => !a.done)),
     [actions],
   )
 
@@ -119,8 +109,9 @@ function CalendrierContent({ initialActions, alerts, gardenId }: CalendrierPageI
         {todayDoneCount > 0 && (
           <span>✅ {todayDoneCount} faite{todayDoneCount > 1 ? 's' : ''} aujourd&apos;hui</span>
         )}
-        <span>⏳ {weekPendingCount} à venir cette semaine</span>
-        <span>📅 {monthPendingCount} ce mois</span>
+        <span>🌱 {pendingByHorizon.today.length} aujourd&apos;hui</span>
+        <span>⏳ {pendingByHorizon.tomorrow.length} demain</span>
+        <span>📅 {pendingByHorizon.later.length} plus tard</span>
       </div>
 
       {/* Views */}

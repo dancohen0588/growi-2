@@ -1,13 +1,9 @@
 'use client'
 
 import { useMemo } from 'react'
+import { ACTION_HORIZONS, groupActionsByHorizon } from '@growi/shared'
 import { GardenAction } from '@/lib/mock-actions'
-import { getTemporalBucket } from '@/lib/calendar-utils'
-import { TodaySection } from '../timeline/TodaySection'
-import { TomorrowSection } from '../timeline/TomorrowSection'
-import { ThisWeekSection } from '../timeline/ThisWeekSection'
-import { ThisMonthSection } from '../timeline/ThisMonthSection'
-import { LaterSection } from '../timeline/LaterSection'
+import { HorizonSection } from '../timeline/HorizonSection'
 import {
   Accordion, AccordionItem, AccordionTrigger, AccordionContent,
 } from '@/components/ui/accordion'
@@ -20,44 +16,27 @@ interface TodoViewProps {
 }
 
 export function TodoView({ actions, doneActions, onDone, onUndo }: TodoViewProps) {
-  const pending = useMemo(
-    () => actions.filter(a => !a.done),
+  // Le rangement par échéance vient de @growi/shared : le mobile applique
+  // exactement les mêmes règles, retard compris.
+  const byHorizon = useMemo(
+    () => groupActionsByHorizon(actions.filter((a) => !a.done)),
     [actions],
   )
 
-  const byBucket = useMemo(() => ({
-    today:     pending.filter(a => getTemporalBucket(a.dueDate) === 'today'),
-    tomorrow:  pending.filter(a => getTemporalBucket(a.dueDate) === 'tomorrow'),
-    thisWeek:  pending.filter(a => getTemporalBucket(a.dueDate) === 'this-week'),
-    thisMonth: pending.filter(a => getTemporalBucket(a.dueDate) === 'this-month'),
-    later:     pending.filter(a => getTemporalBucket(a.dueDate) === 'later'),
-  }), [pending])
-
   return (
     <div className="flex flex-col gap-8">
-      <TodaySection actions={byBucket.today} onDone={onDone} />
+      {ACTION_HORIZONS.map((horizon, index) => {
+        // Les sections lointaines vides ne méritent pas d'occuper l'écran ;
+        // celle du jour, si, pour dire que la journée est faite.
+        if (horizon !== 'today' && byHorizon[horizon].length === 0) return null
 
-      <div className="h-px bg-forest/10" aria-hidden />
-
-      <TomorrowSection actions={byBucket.tomorrow} onDone={onDone} />
-
-      <div className="h-px bg-forest/10" aria-hidden />
-
-      <ThisWeekSection actions={byBucket.thisWeek} onDone={onDone} />
-
-      {byBucket.thisMonth.length > 0 && (
-        <>
-          <div className="h-px bg-forest/10" aria-hidden />
-          <ThisMonthSection actions={byBucket.thisMonth} onDone={onDone} />
-        </>
-      )}
-
-      {byBucket.later.length > 0 && (
-        <>
-          <div className="h-px bg-forest/10" aria-hidden />
-          <LaterSection actions={byBucket.later} />
-        </>
-      )}
+        return (
+          <div key={horizon} className="flex flex-col gap-8">
+            {index > 0 && <div className="h-px bg-forest/10" aria-hidden />}
+            <HorizonSection horizon={horizon} actions={byHorizon[horizon]} onDone={onDone} />
+          </div>
+        )
+      })}
 
       {/* Done accordion */}
       {doneActions.length > 0 && (

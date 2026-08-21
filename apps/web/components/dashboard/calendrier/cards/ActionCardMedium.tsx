@@ -1,63 +1,66 @@
 // growi-frontend/components/dashboard/calendrier/cards/ActionCardMedium.tsx
-import { Clock, Droplets, Scissors, Sprout, Package, FlaskConical, Shield, Apple, Wrench } from 'lucide-react'
-import { GardenAction, ActionType } from '@/lib/mock-actions'
+import Image from 'next/image'
+import { GardenAction } from '@/lib/mock-actions'
+import { formatDueDate } from '@/lib/calendar-utils'
+import { ActionIcon } from '../ActionIcon'
 import { DoneButton } from '../DoneButton'
-
-const iconMap: Record<ActionType, React.ElementType> = {
-  arrosage:     Droplets,
-  taille:       Scissors,
-  semis:        Sprout,
-  rempotage:    Package,
-  fertilisation:FlaskConical,
-  traitement:   Shield,
-  recolte:      Apple,
-  autre:        Wrench,
-}
-
-const typeLabel: Record<ActionType, string> = {
-  arrosage:     'Arrosage',
-  taille:       'Taille',
-  semis:        'Semis',
-  rempotage:    'Rempotage',
-  fertilisation:'Fertilisation',
-  traitement:   'Traitement',
-  recolte:      'Récolte',
-  autre:        'Autre',
-}
 
 interface ActionCardMediumProps {
   action: GardenAction
   onDone: (id: string) => void
 }
 
+/**
+ * Ligne d'un geste à venir : vignette de la plante, icône du geste posée
+ * dessus, validation à droite. Reprend la ligne de l'app mobile.
+ */
 export function ActionCardMedium({ action, onDone }: ActionCardMediumProps) {
-  const Icon = iconMap[action.type]
+  const due = formatDueDate(action.dueDate)
+
+  const meta = [action.plantName, due.label, action.estimatedMinutes ? `~${action.estimatedMinutes} min` : null]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
-    <div className="rounded-xl shadow-card bg-white p-4">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-2">
-        <Icon size={20} className="text-forest/60 shrink-0" aria-hidden />
-        <p className="font-poppins font-semibold text-forest text-sm flex-1 leading-snug">
-          {action.label}
-        </p>
-        <span className="shrink-0 rounded-full bg-sand px-2 py-0.5 font-raleway text-xs text-forest/70 border border-forest/10">
-          {typeLabel[action.type]}
+    <div className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-card">
+      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-sand-dark">
+        {action.plantPhotoUrl ? (
+          <Image
+            src={action.plantPhotoUrl}
+            alt=""
+            fill
+            sizes="56px"
+            className="object-cover"
+          />
+        ) : (
+          <span className="flex h-full items-center justify-center text-2xl" aria-hidden>
+            {action.plantEmoji || '🌿'}
+          </span>
+        )}
+        <span className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full border-2 border-white bg-sand text-forest">
+          <ActionIcon type={action.type} size={13} />
         </span>
       </div>
 
-      {action.estimatedMinutes && (
-        <div className="flex items-center gap-1.5 text-forest/50 font-raleway text-xs mb-3">
-          <Clock size={12} aria-hidden />
-          <span>~{action.estimatedMinutes} min</span>
-        </div>
-      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-poppins font-semibold text-forest text-sm">
+          {action.shortLabel}
+        </p>
+        <p
+          className={`truncate font-raleway text-xs ${
+            due.late ? 'font-semibold text-destructive' : 'text-forest/60'
+          }`}
+        >
+          {meta}
+        </p>
+      </div>
 
       <DoneButton
         actionId={action.id}
         actionLabel={action.label}
         variant="outline"
         onDone={onDone}
+        className="w-auto shrink-0"
       />
     </div>
   )
