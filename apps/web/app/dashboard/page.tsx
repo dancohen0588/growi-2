@@ -15,6 +15,8 @@ import {
   ScanSearch,
 } from 'lucide-react'
 import { FeatureCard } from '@/components/dashboard/FeatureCard'
+import { SummaryStats } from '@/components/dashboard/SummaryStats'
+import { getDashboardSummary } from '@/lib/services/summary.service'
 
 export const metadata: Metadata = {
   title: 'Tableau de bord',
@@ -79,6 +81,15 @@ export default async function DashboardPage() {
   const session = await auth()
   const firstName = session?.user?.firstName ?? 'Jardinier'
 
+  // Les indicateurs ne valent pas la page : si le moteur ou la base bronche,
+  // l'accueil s'affiche sans eux plutôt que de ne pas s'afficher.
+  const summary = session?.user?.id
+    ? await getDashboardSummary(session.user.id).catch((error) => {
+        console.error('[dashboard] indicateurs indisponibles :', error)
+        return null
+      })
+    : null
+
   return (
     <div className="flex flex-col gap-8">
       {/* Welcome */}
@@ -92,22 +103,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Overview stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: 'Plantes', value: '0', sub: 'ajoutées' },
-          { label: 'Tâches', value: '0', sub: 'cette semaine' },
-          { label: 'Alertes', value: '0', sub: 'en cours' },
-        ].map(({ label, value, sub }) => (
-          <div
-            key={label}
-            className="bg-white rounded-2xl shadow-card p-5 flex flex-col gap-1"
-          >
-            <span className="font-raleway text-xs text-forest/50">{label}</span>
-            <span className="font-poppins font-bold text-3xl text-forest">{value}</span>
-            <span className="font-raleway text-xs text-forest/40">{sub}</span>
-          </div>
-        ))}
-      </div>
+      {summary && <SummaryStats summary={summary} />}
 
       {/* Identifier hero CTA */}
       <Link

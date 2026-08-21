@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 import { prisma } from '@/lib/prisma'
+import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 import { ServiceError } from '@/lib/services/errors'
 
 const PROFILE_SELECT = {
@@ -16,6 +17,7 @@ const PROFILE_SELECT = {
   name: true,
   email: true,
   address: true,
+  locationCity: true,
   gardenType: true,
   avatarColor: true,
   alertConfig: true,
@@ -29,6 +31,7 @@ type ProfileRow = {
   name: string | null
   email: string
   address: string | null
+  locationCity: string | null
   gardenType: string | null
   avatarColor: string | null
   alertConfig: Prisma.JsonValue | null
@@ -43,6 +46,7 @@ export function toProfile(user: ProfileRow): UserProfile {
     lastName: user.lastName ?? '',
     email: user.email,
     address: user.address ?? undefined,
+    city: user.locationCity ?? undefined,
     avatarColor: user.avatarColor ?? undefined,
     gardenType: (user.gardenType ?? undefined) as UserProfile['gardenType'],
     alertConfig: (user.alertConfig as AlertConfig | null) ?? DEFAULT_ALERT_CONFIG,
@@ -66,12 +70,24 @@ export async function updateProfile(
   userId: string,
   input: UpdateProfileInput,
 ): Promise<UserProfile> {
+  // `city` est exposée sous ce nom mais stockée en `locationCity`.
+  const { city, ...rest } = input
+
   try {
     const updated = await prisma.user.update({
       where: { id: userId },
-      data: input,
+      data: { ...rest, ...(city !== undefined ? { locationCity: city } : {}) },
       select: PROFILE_SELECT,
     })
+
+    // Les conseils sont calculés avec la météo du lieu : déménager doit les
+    // refaire, sans quoi l'utilisateur renseigne sa ville et ne voit rien
+    // changer pendant six heures.
+    if (input.latitude !== undefined || input.longitude !== undefined) {
+      const gardens = await prisma.garden.findMany({ where: { userId }, select: { id: true } })
+      await Promise.all(gardens.map((garden) => invalidateGardenAdviceCache(garden.id)))
+    }
+
     return toProfile(updated)
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {

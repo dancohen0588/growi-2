@@ -25,3 +25,12 @@ export const planningKeys = {
   all: ['planning'] as const,
   today: () => [...planningKeys.all, 'today'] as const,
 }
+
+export const summaryKeys = {
+  all: ['summary'] as const,
+}
+
+export const meKeys = {
+  all: ['me'] as const,
+  profile: () => [...meKeys.all, 'profile'] as const,
+}

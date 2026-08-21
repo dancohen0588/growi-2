@@ -19,18 +19,27 @@ const logService = vi.hoisted(() => ({
 }))
 const adviceService = vi.hoisted(() => ({ markActionDone: vi.fn() }))
 const plantService = vi.hoisted(() => ({ listPlantInstances: vi.fn() }))
+const summaryService = vi.hoisted(() => ({ getDashboardSummary: vi.fn() }))
+const userService = vi.hoisted(() => ({
+  getAlertConfig: vi.fn(),
+  updateAlertConfig: vi.fn(),
+}))
 
 vi.mock('@/lib/api/auth-context', () => ({ requireUserId, getUserId: vi.fn() }))
 vi.mock('@/lib/services/garden.service', () => gardenService)
 vi.mock('@/lib/services/log.service', () => logService)
 vi.mock('@/lib/services/advice.service', () => adviceService)
 vi.mock('@/lib/services/plant.service', () => plantService)
+vi.mock('@/lib/services/summary.service', () => summaryService)
+vi.mock('@/lib/services/user.service', () => userService)
 
 const { GET: listGardens, POST: createGarden } = await import('@/app/api/v1/gardens/route')
 const { GET: getGarden } = await import('@/app/api/v1/gardens/[id]/route')
 const { POST: createLog } = await import('@/app/api/v1/plants/[id]/logs/route')
 const { POST: markDone } = await import('@/app/api/v1/planning/actions/done/route')
 const { GET: listPlants } = await import('@/app/api/v1/plants/route')
+const { GET: getSummary } = await import('@/app/api/v1/summary/route')
+const { PATCH: patchAlerts } = await import('@/app/api/v1/me/alerts/route')
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -313,6 +322,61 @@ describe('GET /api/v1/plants', () => {
 
     expect(res.status).toBe(401)
     expect(plantService.listPlantInstances).not.toHaveBeenCalled()
+  })
+})
+
+// ─── GET /api/v1/summary ───────────────────────────────────────────────────
+
+describe('GET /api/v1/summary', () => {
+  it('renvoie les indicateurs de l\'accueil', async () => {
+    summaryService.getDashboardSummary.mockResolvedValue({
+      gardens: 2,
+      plants: 7,
+      plantsToWater: 3,
+      tasksToday: 5,
+      tasksLate: 1,
+      tasksWeek: 4,
+      alerts: 1,
+      alertsHigh: 0,
+      plantsWarning: 2,
+      plantsCritical: 0,
+    })
+
+    const res = await getSummary()
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(summaryService.getDashboardSummary).toHaveBeenCalledWith(USER_ID)
+    expect(body.data).toMatchObject({ plants: 7, tasksLate: 1 })
+  })
+
+  it('répond 401 sans authentification', async () => {
+    requireUserId.mockRejectedValue(
+      new ServiceError('UNAUTHENTICATED', 'Authentification requise'),
+    )
+
+    expect((await getSummary()).status).toBe(401)
+    expect(summaryService.getDashboardSummary).not.toHaveBeenCalled()
+  })
+})
+
+// ─── PATCH /api/v1/me/alerts ───────────────────────────────────────────────
+
+describe('PATCH /api/v1/me/alerts', () => {
+  it('transmet la mise à jour partielle au service', async () => {
+    userService.updateAlertConfig.mockResolvedValue({ frostAlert: false })
+
+    const res = await patchAlerts(jsonRequest({ frostAlert: false }))
+
+    expect(res.status).toBe(200)
+    expect(userService.updateAlertConfig).toHaveBeenCalledWith(USER_ID, { frostAlert: false })
+  })
+
+  it('rejette un seuil de gel hors bornes', async () => {
+    const res = await patchAlerts(jsonRequest({ frostThreshold: 40 }))
+
+    expect(res.status).toBe(400)
+    expect(userService.updateAlertConfig).not.toHaveBeenCalled()
   })
 })
 

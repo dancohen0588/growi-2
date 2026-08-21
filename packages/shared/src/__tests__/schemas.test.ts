@@ -9,6 +9,7 @@ import {
   DEFAULT_ALERT_CONFIG,
   alertConfigSchema,
   getWeatherCodeInfo,
+  indicatorTone,
   markActionDoneSchema,
   createCareLogSchema,
   createGardenSchema,
@@ -180,6 +181,43 @@ describe('planning du jour', () => {
     expect(getWeatherCodeInfo(0).label).toBe('Ciel dégagé')
     expect(getWeatherCodeInfo(95).severity).toBe('bad')
     expect(getWeatherCodeInfo(1234).label).toBe('Conditions inconnues')
+  })
+})
+
+describe('couleur des indicateurs', () => {
+  const empty = {
+    gardens: 0,
+    plants: 0,
+    plantsToWater: 0,
+    tasksToday: 0,
+    tasksLate: 0,
+    tasksWeek: 0,
+    alerts: 0,
+    alertsHigh: 0,
+    plantsWarning: 0,
+    plantsCritical: 0,
+  }
+
+  it('reste neutre sur un compte vide', () => {
+    expect(indicatorTone('plants', empty)).toBe('neutral')
+    expect(indicatorTone('health', empty)).toBe('neutral')
+    // Rien à faire est une bonne nouvelle, pas une absence d'information.
+    expect(indicatorTone('tasks', empty)).toBe('good')
+  })
+
+  it('réserve le rouge à ce qui se dégrade', () => {
+    expect(indicatorTone('tasks', { ...empty, tasksToday: 3 })).toBe('warning')
+    expect(indicatorTone('tasks', { ...empty, tasksToday: 3, tasksLate: 1 })).toBe('critical')
+    expect(indicatorTone('alerts', { ...empty, alerts: 2 })).toBe('warning')
+    expect(indicatorTone('alerts', { ...empty, alerts: 2, alertsHigh: 1 })).toBe('critical')
+    expect(indicatorTone('health', { ...empty, plants: 4, plantsCritical: 1 })).toBe('critical')
+  })
+
+  it('ne rougit pas l\'arrosage du jour à cause d\'une taille en retard', () => {
+    const summary = { ...empty, plants: 4, plantsToWater: 2, tasksToday: 5, tasksLate: 3 }
+
+    expect(indicatorTone('tasks', summary)).toBe('critical')
+    expect(indicatorTone('water', summary)).toBe('warning')
   })
 })
 

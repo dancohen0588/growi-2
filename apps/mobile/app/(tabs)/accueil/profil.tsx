@@ -1,19 +1,121 @@
 import { useState } from 'react'
-import { Alert, Text, View } from 'react-native'
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { LogOut } from 'lucide-react-native'
+import { useRouter } from 'expo-router'
+import * as Location from 'expo-location'
+import * as WebBrowser from 'expo-web-browser'
+import { ExternalLink, LocateFixed, LogOut, Map } from 'lucide-react-native'
+import type { UserProfile } from '@growi/shared'
 
 import { Button } from '@/components/ui/Button'
-import { Card, CardDescription, CardTitle } from '@/components/ui/Card'
+import { Input } from '@/components/ui/Input'
+import { Toggle } from '@/components/ui/Toggle'
+import { useToast } from '@/components/ui/Toast'
+import { ErrorState, ListSkeleton } from '@/components/ui/states'
+import { WEB_BASE_URL } from '@/lib/api'
+import { errorMessage } from '@/lib/errors'
+import { useProfile, useUpdateAlerts, useUpdateProfile } from '@/lib/queries/me'
 import { useSession } from '@/store/session'
 
-export default function ProfilScreen() {
-  const user = useSession((s) => s.user)
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <Text className="font-poppins text-section text-forest">{children}</Text>
+}
+
+/** Ouvre une page du site dans le navigateur intégré, sans quitter l'app. */
+async function openWeb(path: string) {
+  await WebBrowser.openBrowserAsync(`${WEB_BASE_URL}${path}`, {
+    toolbarColor: '#F9F7E8',
+    controlsColor: '#1E5631',
+  })
+}
+
+/** Monté une fois le profil chargé, pour que les champs partent des bonnes valeurs. */
+function ProfilContent({ profile }: { profile: UserProfile }) {
+  const toast = useToast()
+  const updateProfile = useUpdateProfile()
+  const updateAlerts = useUpdateAlerts()
   const signOut = useSession((s) => s.signOut)
+
+  const [city, setCity] = useState(profile.city ?? '')
+  const [locating, setLocating] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
 
-  // Se déconnecter efface des données locales : on demande confirmation,
-  // comme pour toute action difficile à annuler.
+  const alerts = profile.alertConfig
+  const hasCoordinates = profile.latitude != null && profile.longitude != null
+
+  const saveCity = async () => {
+    const trimmed = city.trim()
+    if (trimmed === (profile.city ?? '')) return
+
+    try {
+      // `null` efface la ville ; une chaîne vide serait stockée telle quelle.
+      await updateProfile.mutateAsync({ city: trimmed || null })
+      toast('Ville enregistrée 📍')
+    } catch (error) {
+      toast(errorMessage(error), 'error')
+    }
+  }
+
+  /**
+   * Récupère la position et en déduit la ville.
+   *
+   * Ce sont les coordonnées qui comptent : sans elles, la météo reste muette
+   * et le moteur travaille sur un temps neutre. La ville n'est que l'étiquette
+   * qu'on affiche à côté.
+   */
+  const useMyLocation = async () => {
+    setLocating(true)
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert(
+          'Localisation refusée',
+          'Tu peux l\'autoriser dans les réglages de ton téléphone, ou saisir ta ville à la main.',
+          [
+            { text: 'Plus tard', style: 'cancel' },
+            { text: 'Ouvrir les réglages', onPress: () => void Linking.openSettings() },
+          ],
+        )
+        return
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      })
+      const [place] = await Location.reverseGeocodeAsync(position.coords)
+      const found = place?.city ?? place?.subregion ?? place?.region ?? null
+
+      await updateProfile.mutateAsync({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        city: found,
+      })
+
+      setCity(found ?? '')
+      toast(found ? `Position enregistrée — ${found} 📍` : 'Position enregistrée 📍')
+    } catch (error) {
+      toast(errorMessage(error), 'error')
+    } finally {
+      setLocating(false)
+    }
+  }
+
+  const toggleAlert = (key: keyof typeof alerts, value: boolean) => {
+    updateAlerts.mutate(
+      { [key]: value },
+      { onError: (error) => toast(errorMessage(error), 'error') },
+    )
+  }
+
   const confirmSignOut = () => {
     Alert.alert('Se déconnecter', 'Tu devras saisir de nouveau ton mot de passe.', [
       { text: 'Annuler', style: 'cancel' },
@@ -33,33 +135,167 @@ export default function ProfilScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-sand" edges={['top', 'left', 'right']}>
-      <View className="flex-1 px-4 pt-2 gap-6">
-        <Text className="font-poppins-bold text-screen text-forest">Profil</Text>
+    <ScrollView contentContainerClassName="px-4 pb-8 gap-6" keyboardShouldPersistTaps="handled">
+      {/* Identité */}
+      <View className="rounded-xl bg-card p-4 gap-0.5">
+        <Text className="font-poppins text-section text-forest">
+          {[profile.firstName, profile.lastName].filter(Boolean).join(' ') || 'Jardinier'}
+        </Text>
+        <Text className="font-raleway text-secondary text-muted-foreground">{profile.email}</Text>
+      </View>
 
-        <Card>
-          <CardTitle>{user?.firstName ?? 'Jardinier'}</CardTitle>
-          <CardDescription>{user?.email ?? ''}</CardDescription>
-        </Card>
+      {/* Localisation */}
+      <View className="gap-3">
+        <SectionTitle>Ma localisation</SectionTitle>
+        <Text className="font-raleway text-secondary text-muted-foreground">
+          Elle sert à la météo de ton jardin et aux alertes gel ou canicule.
+        </Text>
 
-        <View className="gap-2">
-          <Text className="font-raleway text-secondary text-muted-foreground">
-            La localisation, les préférences de rappels et le plan de ton jardin arrivent
-            bientôt ici.
-          </Text>
-        </View>
+        <Input
+          label="Ville"
+          placeholder="Nantes"
+          value={city}
+          onChangeText={setCity}
+          onBlur={() => void saveCity()}
+          autoCapitalize="words"
+          returnKeyType="done"
+          onSubmitEditing={() => void saveCity()}
+          editable={!updateProfile.isPending}
+          hint={
+            hasCoordinates
+              ? 'Position enregistrée : la météo est active.'
+              : 'Sans position, la météo et ses alertes restent indisponibles.'
+          }
+        />
 
-        {/* Action en bas de l'écran, dans la zone du pouce. */}
-        <View className="flex-1 justify-end pb-4">
-          <Button
-            label="Se déconnecter"
-            variant="outline"
-            loading={signingOut}
-            onPress={confirmSignOut}
-            icon={<LogOut size={20} color="#1E5631" />}
+        <Button
+          label="Utiliser ma position"
+          variant="outline"
+          loading={locating}
+          onPress={() => void useMyLocation()}
+          icon={<LocateFixed size={20} color="#1E5631" />}
+        />
+      </View>
+
+      {/* Alertes */}
+      <View className="gap-1">
+        <SectionTitle>Mes alertes</SectionTitle>
+        <Text className="font-raleway text-secondary text-muted-foreground mb-1">
+          Ce dont Growi doit te prévenir.
+        </Text>
+
+        <View className="rounded-xl bg-card px-4">
+          <Toggle
+            label="Gel"
+            hint={`En dessous de ${alerts.frostThreshold} °C`}
+            value={alerts.frostAlert}
+            onChange={(v) => toggleAlert('frostAlert', v)}
+          />
+          <Toggle
+            label="Canicule"
+            hint="Fortes chaleurs annoncées"
+            value={alerts.heatAlert}
+            onChange={(v) => toggleAlert('heatAlert', v)}
+          />
+          <Toggle
+            label="Rappels d'arrosage"
+            value={alerts.wateringReminder}
+            onChange={(v) => toggleAlert('wateringReminder', v)}
+          />
+          <Toggle
+            label="Semis et récoltes"
+            hint="Aux périodes propices"
+            value={alerts.seedingAlerts}
+            onChange={(v) => toggleAlert('seedingAlerts', v)}
           />
         </View>
+
+        <Text className="font-raleway text-caption text-muted-foreground mt-1">
+          Les notifications push arrivent bientôt : ces réglages les attendent.
+        </Text>
       </View>
+
+      {/* Vers le web */}
+      <View className="gap-3">
+        <SectionTitle>Sur le site</SectionTitle>
+        <Pressable
+          onPress={() => void openWeb('/dashboard/jardin')}
+          accessibilityRole="button"
+          className="flex-row items-center gap-3 rounded-xl bg-card p-4"
+          style={({ pressed }) => (pressed ? { transform: [{ scale: 0.99 }] } : null)}
+        >
+          <Map size={22} color="#1E5631" />
+          <View className="flex-1">
+            <Text className="font-raleway-medium text-body text-forest">Plan de mon jardin</Text>
+            <Text className="font-raleway text-caption text-muted-foreground">
+              Le tracé des zones se fait au grand écran.
+            </Text>
+          </View>
+          <ExternalLink size={18} color="hsl(139 20% 40%)" />
+        </Pressable>
+      </View>
+
+      {/* Compte */}
+      <View className="gap-3">
+        <Button
+          label="Se déconnecter"
+          variant="outline"
+          loading={signingOut}
+          onPress={confirmSignOut}
+          icon={<LogOut size={20} color="#1E5631" />}
+        />
+
+        {/* Mentions légales et politique de confidentialité restent à écrire :
+            on ne renvoie pas vers des pages qui n'existent pas. Les deux sont
+            exigées par l'App Store et Google Play avant publication. */}
+        <View className="flex-row justify-center">
+          <Pressable onPress={() => void openWeb('/contact')} hitSlop={8}>
+            <Text className="font-raleway text-caption text-muted-foreground underline">
+              Nous contacter
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </ScrollView>
+  )
+}
+
+export default function ProfilScreen() {
+  const profile = useProfile()
+  const router = useRouter()
+
+  return (
+    <SafeAreaView className="flex-1 bg-sand">
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* Modale : un bouton de fermeture explicite, pas seulement le geste. */}
+        <View className="flex-row items-center justify-between px-4 py-3">
+          <Text className="font-poppins-bold text-screen text-forest">Profil</Text>
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Fermer"
+          >
+            <Text className="font-raleway text-body text-muted-foreground">Fermer</Text>
+          </Pressable>
+        </View>
+
+        {profile.isPending ? (
+          <View className="px-4">
+            <ListSkeleton count={3} />
+          </View>
+        ) : profile.isError ? (
+          <ErrorState
+            message={errorMessage(profile.error)}
+            onRetry={() => void profile.refetch()}
+          />
+        ) : (
+          <ProfilContent profile={profile.data} />
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }

@@ -8,7 +8,7 @@ import type {
 } from '@growi/shared'
 
 import { api } from '@/lib/api'
-import { gardenKeys, planningKeys, plantKeys } from '@/lib/queries/keys'
+import { gardenKeys, planningKeys, plantKeys, summaryKeys } from '@/lib/queries/keys'
 
 export { plantKeys }
 
@@ -53,6 +53,7 @@ export function useUpdatePlant(plantId: string) {
       void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
       // La fréquence d'arrosage ou l'exposition changent les gestes du jour.
       void queryClient.invalidateQueries({ queryKey: planningKeys.all })
+      void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
     },
   })
 }
@@ -145,6 +146,7 @@ export function useAddCareLog(plantId: string) {
       // « J'ai arrosé » doit faire tomber la tâche « Arroser ».
       void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
       void queryClient.invalidateQueries({ queryKey: planningKeys.all })
+      void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
     },
   })
 }
@@ -158,6 +160,7 @@ export function useDeletePlant() {
       queryClient.removeQueries({ queryKey: plantKeys.detail(plantId) })
       void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
       void queryClient.invalidateQueries({ queryKey: planningKeys.all })
+      void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
     },
   })
 }

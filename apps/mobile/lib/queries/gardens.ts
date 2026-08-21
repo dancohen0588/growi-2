@@ -6,7 +6,7 @@ import type {
 } from '@growi/shared'
 
 import { api } from '@/lib/api'
-import { gardenKeys, planningKeys } from '@/lib/queries/keys'
+import { gardenKeys, planningKeys, summaryKeys } from '@/lib/queries/keys'
 
 export { gardenKeys }
 
@@ -38,7 +38,12 @@ export function useCreateGarden() {
 
   return useMutation({
     mutationFn: (input: CreateGardenInput) => api.gardens.create(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: gardenKeys.all }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
+      // Le nombre de jardins figure parmi les indicateurs de l'accueil.
+      void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
+      void queryClient.invalidateQueries({ queryKey: planningKeys.all })
+    },
   })
 }
 
@@ -47,7 +52,12 @@ export function useUpdateGarden(gardenId: string) {
 
   return useMutation({
     mutationFn: (input: UpdateGardenInput) => api.gardens.update(gardenId, input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: gardenKeys.all }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
+      // Le nombre de jardins figure parmi les indicateurs de l'accueil.
+      void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
+      void queryClient.invalidateQueries({ queryKey: planningKeys.all })
+    },
   })
 }
 
@@ -56,7 +66,12 @@ export function useDeleteGarden() {
 
   return useMutation({
     mutationFn: (gardenId: string) => api.gardens.remove(gardenId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: gardenKeys.all }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
+      // Le nombre de jardins figure parmi les indicateurs de l'accueil.
+      void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
+      void queryClient.invalidateQueries({ queryKey: planningKeys.all })
+    },
   })
 }
 
@@ -70,6 +85,7 @@ export function useAddPlant(gardenId: string) {
       void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
       // Une plante qui arrive amène ses propres gestes du jour.
       void queryClient.invalidateQueries({ queryKey: planningKeys.all })
+      void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
     },
   })
 }
@@ -82,6 +98,7 @@ export function useDeletePlant(gardenId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
       void queryClient.invalidateQueries({ queryKey: planningKeys.all })
+      void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
     },
   })
 }

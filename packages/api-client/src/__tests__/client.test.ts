@@ -284,6 +284,26 @@ describe('endpoints', () => {
     expect(plants).toHaveLength(2)
   })
 
+  it('expose les indicateurs de l\'accueil', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { plants: 7, tasksToday: 3 } }))
+
+    const summary = await makeClient().summary.get()
+
+    expect(callArgs().url).toBe('https://growi.test/api/v1/summary')
+    expect(summary.plants).toBe(7)
+  })
+
+  it('met à jour les préférences d\'alertes partiellement', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { frostAlert: false } }))
+
+    await makeClient().me.updateAlerts({ frostAlert: false })
+
+    const { url, init } = callArgs()
+    expect(url).toBe('https://growi.test/api/v1/me/alerts')
+    expect(init.method).toBe('PATCH')
+    expect(JSON.parse(init.body as string)).toEqual({ frostAlert: false })
+  })
+
   it('coche une tâche du planning', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
 
