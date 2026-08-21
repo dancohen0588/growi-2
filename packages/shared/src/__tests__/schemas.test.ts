@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  ACTION_TYPES,
+  CARE_LOG_TYPES,
+  CARE_LOG_TYPE_BY_ACTION,
   DEFAULT_ALERT_CONFIG,
   alertConfigSchema,
+  getWeatherCodeInfo,
+  markActionDoneSchema,
   createCareLogSchema,
   createGardenSchema,
   createPlantInstanceSchema,
@@ -128,6 +133,30 @@ describe('journal d\'entretien', () => {
 
   it('rejette un type d\'intervention inconnu', () => {
     expect(createCareLogSchema.safeParse({ type: 'bricolage' }).success).toBe(false)
+  })
+})
+
+describe('planning du jour', () => {
+  it('associe un geste du journal à chaque type de tâche', () => {
+    for (const type of ACTION_TYPES) {
+      expect(CARE_LOG_TYPES).toContain(CARE_LOG_TYPE_BY_ACTION[type])
+    }
+  })
+
+  it('exige un jardin et un type de tâche connu pour cocher', () => {
+    expect(
+      markActionDoneSchema.safeParse({ gardenId: 'g1', actionType: 'arrosage' }).success,
+    ).toBe(true)
+    expect(markActionDoneSchema.safeParse({ actionType: 'arrosage' }).success).toBe(false)
+    expect(
+      markActionDoneSchema.safeParse({ gardenId: 'g1', actionType: 'bricolage' }).success,
+    ).toBe(false)
+  })
+
+  it('traduit les codes météo, et retombe sur un libellé neutre', () => {
+    expect(getWeatherCodeInfo(0).label).toBe('Ciel dégagé')
+    expect(getWeatherCodeInfo(95).severity).toBe('bad')
+    expect(getWeatherCodeInfo(1234).label).toBe('Conditions inconnues')
   })
 })
 

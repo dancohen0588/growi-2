@@ -1,17 +1,18 @@
 /**
  * Service planning — la vue « Aujourd'hui » de l'app mobile.
  *
- * Assemble en une seule réponse ce dont l'écran d'accueil a besoin : le jardin
- * courant, les tâches à faire aujourd'hui (ou en retard), les alertes en cours
- * et la météo locale. Chaque brique reste facultative : ni l'absence de jardin
- * ni une météo indisponible ne doivent empêcher l'écran de s'afficher.
+ * Assemble en une seule réponse ce dont l'écran d'accueil a besoin : les
+ * jardins avec leurs tâches du jour, les alertes en cours et la météo locale.
+ * Chaque brique reste facultative : ni l'absence de jardin ni une météo
+ * indisponible ne doivent empêcher l'écran de s'afficher.
  */
 
 // Le contrat de la réponse vit dans @growi/shared : le mobile et le web
 // s'appuient sur la même définition.
-import type { TodayPlanning } from '@growi/shared'
+import { CARE_LOG_TYPE_BY_ACTION, type GardenAction, type TodayPlanning } from '@growi/shared'
 
-import { getCurrentGardenAdvice } from '@/lib/services/advice.service'
+import { getGardensAdvice } from '@/lib/services/advice.service'
+import { findCareTypesByPlantSince } from '@/lib/services/log.service'
 import { getUserLocation } from '@/lib/services/user.service'
 import { getWeatherForecast } from '@/lib/services/weather.service'
 
@@ -24,26 +25,46 @@ function todayIsoDate(now: Date): string {
     .slice(0, 10)
 }
 
+function startOfDay(now: Date): Date {
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+}
+
 export async function getTodayPlanning(
   userId: string,
   now = new Date(),
 ): Promise<TodayPlanning> {
   const date = todayIsoDate(now)
 
-  const [advice, weather] = await Promise.all([
-    getCurrentGardenAdvice(userId),
+  const [gardensAdvice, doneToday, weather] = await Promise.all([
+    getGardensAdvice(userId),
+    findCareTypesByPlantSince(userId, startOfDay(now)),
     getTodayWeather(userId),
   ])
 
-  const actions = (advice?.advice?.actions ?? []).filter(
-    (action) => !action.done && action.dueDate <= date,
-  )
+  // Une plante sans jardin est rattachée à chacun d'eux par le moteur : sans
+  // cette mémoire, sa tâche apparaîtrait autant de fois qu'il y a de jardins.
+  const seenActionIds = new Set<string>()
+
+  const isDue = (action: GardenAction) => !action.done && action.dueDate <= date
+
+  /** Fait aujourd'hui : le geste correspondant est déjà au journal. */
+  const isDoneToday = (action: GardenAction) =>
+    action.plantId != null &&
+    (doneToday.get(action.plantId)?.has(CARE_LOG_TYPE_BY_ACTION[action.type]) ?? false)
+
+  const gardens = gardensAdvice.map(({ garden, advice }) => {
+    const actions = (advice?.actions ?? []).filter((action) => {
+      if (!isDue(action) || isDoneToday(action) || seenActionIds.has(action.id)) return false
+      seenActionIds.add(action.id)
+      return true
+    })
+
+    return { id: garden.id, name: garden.name, actions, alerts: advice?.alerts ?? [] }
+  })
 
   return {
     date,
-    garden: advice ? { id: advice.gardenId } : null,
-    actions,
-    alerts: advice?.advice?.alerts ?? [],
+    gardens,
     weather: weather
       ? {
           locationName: weather.locationName,

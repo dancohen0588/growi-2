@@ -54,6 +54,10 @@ Règles : fond d'écran = `sand`, texte = `forest` ; jamais de blanc pur en fond
 | `states.tsx` → `ListSkeleton`, `ErrorState`, `EmptyState` | Les trois états non-succès, à utiliser tels quels |
 | `EmojiPicker` | Grille des 12 emojis de jardin (mêmes valeurs que le web). **Jamais de champ texte pour un emoji** : cela oblige à ouvrir le clavier emoji et à chercher |
 | `CatalogSearch` | Autocomplétion sur le catalogue d'espèces : vignette, nom scientifique, badge toxique, tags, et repli « saisie à la main » |
+| `CareLogSheet` | Saisie détaillée d'un geste, champs adaptés au type (quantité + unité, état de santé, produit employé) |
+| `WeatherBanner` + `WeatherUnavailable` | Bandeau météo du jour et son repli quand l'utilisateur n'a pas de coordonnées |
+| `TaskRow` | Ligne de tâche du planning : case à cocher, priorité en pastille, accès à la fiche plante |
+| `AlertCard` | Alerte du moteur (gel, canicule, sécheresse, maladie), gravité portée par le fond |
 
 ### Conventions retenues sur les écrans de liste
 
@@ -65,6 +69,9 @@ Règles : fond d'écran = `sand`, texte = `forest` ; jamais de blanc pur en fond
 - **Navigation en pile dans un onglet** : `app/(tabs)/<onglet>/_layout.tsx` avec un `Stack`, pour conserver la barre d'onglets et le geste de retour iOS. Création et édition en `presentation: 'modal'` avec un bouton *Annuler* à gauche de l'en-tête.
 - **Saisie assistée plutôt que libre** : dès qu'une valeur existe en base, la proposer (recherche débouncée 250 ms, minimum 2 caractères) au lieu de la faire saisir. Un formulaire libre est un repli, pas le chemin principal.
 - **Messages d'erreur** : passer par `lib/errors.ts` (`errorMessage`), qui traduit une `ApiError` en phrase actionnable. Ne jamais afficher `error.message` brut.
+- **Pas d'`Intl`** : Hermes n'embarque pas les données de locale sur toutes les plateformes. Dates en toutes lettres (`lib/dates.ts`), accords et unités (`formatHarvest` dans `@growi/shared`) sont écrits à la main — l'app n'est qu'en français.
+- **Contenu partagé avec le web** dans `@growi/shared`, y compris les libellés et conseils (codes météo, correspondance tâche → geste). Ne rester local que ce qui l'est vraiment : la liaison d'un nom d'icône à son composant, `lucide-react` d'un côté, `lucide-react-native` de l'autre.
+- **Ne pas désactiver une liste entière** pendant une mutation optimiste : la ligne cochée disparaît déjà, et on coche souvent plusieurs tâches d'affilée.
 
 ## 3. Règles UX mobile (non négociables)
 

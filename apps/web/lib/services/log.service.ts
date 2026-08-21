@@ -29,6 +29,31 @@ const PLANT_DATE_FIELD: Partial<Record<CareLogType, keyof Prisma.PlantInstanceUp
   repotting: 'lastRepottedAt',
 }
 
+/**
+ * Gestes notés depuis `since`, par plante.
+ *
+ * Le planning s'en sert pour ne pas reproposer ce qui vient d'être fait : le
+ * moteur de conseils raisonne sur les dates de la plante, qui ne bougent pas
+ * pour une récolte ou un semis — le journal, lui, garde la trace.
+ */
+export async function findCareTypesByPlantSince(
+  userId: string,
+  since: Date,
+): Promise<Map<string, Set<CareLogType>>> {
+  const logs = await prisma.careLog.findMany({
+    where: { occurredAt: { gte: since }, plantInstance: { userId } },
+    select: { plantInstanceId: true, type: true },
+  })
+
+  const byPlant = new Map<string, Set<CareLogType>>()
+  for (const log of logs) {
+    const types = byPlant.get(log.plantInstanceId) ?? new Set<CareLogType>()
+    types.add(log.type as CareLogType)
+    byPlant.set(log.plantInstanceId, types)
+  }
+  return byPlant
+}
+
 /** Historique d'une plante, du plus récent au plus ancien. */
 export async function listPlantLogs(plantInstanceId: string, userId: string) {
   await assertPlantOwned(plantInstanceId, userId)

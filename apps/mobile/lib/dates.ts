@@ -18,3 +18,47 @@ export function formatLogDate(iso: string, now = new Date()): string {
 function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
+
+const WEEKDAYS = [
+  'dimanche',
+  'lundi',
+  'mardi',
+  'mercredi',
+  'jeudi',
+  'vendredi',
+  'samedi',
+] as const
+
+const MONTHS = [
+  'janvier',
+  'février',
+  'mars',
+  'avril',
+  'mai',
+  'juin',
+  'juillet',
+  'août',
+  'septembre',
+  'octobre',
+  'novembre',
+  'décembre',
+] as const
+
+/**
+ * Jour en toutes lettres — « jeudi 21 août ».
+ *
+ * Écrit à la main plutôt qu'avec `Intl` : Hermes n'embarque pas les données de
+ * locale sur toutes les plateformes, et l'app n'est qu'en français.
+ */
+export function formatDayLabel(date = new Date()): string {
+  const day = date.getDate()
+  return `${WEEKDAYS[date.getDay()]} ${day === 1 ? '1er' : day} ${MONTHS[date.getMonth()]}`
+}
+
+/** Salutation selon l'heure, pour ouvrir l'écran d'accueil sur un ton humain. */
+export function greeting(date = new Date()): string {
+  const hour = date.getHours()
+  if (hour < 6) return 'Bonne nuit'
+  if (hour < 18) return 'Bonjour'
+  return 'Bonsoir'
+}

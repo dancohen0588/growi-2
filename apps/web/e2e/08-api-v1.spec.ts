@@ -230,8 +230,43 @@ test.describe('API v1', () => {
     expect(planningRes.status()).toBe(200)
     const planning = (await planningRes.json()).data
     expect(planning.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-    expect(Array.isArray(planning.actions)).toBe(true)
-    expect(Array.isArray(planning.alerts)).toBe(true)
-    expect(planning.garden?.id).toBe(gardenId1)
+
+    // Un jardin par section, chacune avec ses tâches et ses alertes.
+    const garden = planning.gardens.find((g: { id: string }) => g.id === gardenId1)
+    expect(garden).toBeTruthy()
+    expect(Array.isArray(garden.actions)).toBe(true)
+    expect(Array.isArray(garden.alerts)).toBe(true)
+  })
+
+  test('E2E-APIV1-09 — Cocher une tâche note le geste sur la plante', async ({ page }) => {
+    await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
+    const api = page.request
+
+    const plant = (
+      await (
+        await api.post(`/api/v1/gardens/${gardenId1}/plants`, {
+          data: { location: 'OUTDOOR', customName: 'Plante à arroser' },
+        })
+      ).json()
+    ).data
+
+    const done = await api.post('/api/v1/planning/actions/done', {
+      data: { gardenId: gardenId1, actionType: 'arrosage', plantId: plant.id },
+    })
+    expect(done.status()).toBe(204)
+
+    // Le geste est au journal, et la date d'arrosage de la plante a avancé.
+    const logs = (await (await api.get(`/api/v1/plants/${plant.id}/logs`)).json()).data
+    expect(logs[0]).toMatchObject({ type: 'watering' })
+    expect((await (await api.get(`/api/v1/plants/${plant.id}`)).json()).data.lastWateredAt)
+      .not.toBeNull()
+
+    // Le jardin d'un autre compte reste inaccessible par cette route.
+    const stolen = await api.post('/api/v1/planning/actions/done', {
+      data: { gardenId: gardenId2, actionType: 'arrosage', plantId: plant.id },
+    })
+    expect(stolen.status()).toBe(404)
+
+    await api.delete(`/api/v1/plants/${plant.id}`)
   })
 })
