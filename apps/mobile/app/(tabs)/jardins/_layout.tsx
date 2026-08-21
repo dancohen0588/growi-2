@@ -17,7 +17,8 @@ export default function JardinsLayout() {
       {/* Création et édition en modale, avec un bouton Annuler explicite. */}
       <Stack.Screen name="nouveau" options={{ presentation: 'modal' }} />
       <Stack.Screen name="[id]/modifier" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="[id]/plante" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="[id]/plantes/nouvelle" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="[id]/plantes/[plantId]" options={{ presentation: 'modal' }} />
     </Stack>
   )
 }

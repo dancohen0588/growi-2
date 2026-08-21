@@ -21,14 +21,18 @@ function plantName(plant: PlantInstanceWithRelations): string {
   return plant.customName ?? plant.catalogPlant?.commonName ?? 'Ma plante'
 }
 
-// Non cliquable pour l'instant : la fiche plante arrive à l'étape suivante, et
-// une carte qui semble tactile sans mener nulle part est pire qu'une carte inerte.
-function PlantCard({ plant }: { plant: PlantInstanceWithRelations }) {
+function PlantCard({
+  plant,
+  onPress,
+}: {
+  plant: PlantInstanceWithRelations
+  onPress: () => void
+}) {
   const location = PLANT_LOCATION_LABELS[plant.location as PlantLocation] ?? plant.location
   const emoji = plant.emoji ?? plant.catalogPlant?.emoji ?? '🌿'
 
   return (
-    <Card>
+    <Card onPress={onPress} accessibilityLabel={`Modifier ${plantName(plant)}`}>
       <View className="flex-row items-center gap-3">
         <Text className="text-3xl">{emoji}</Text>
         <View className="flex-1 gap-0.5">
@@ -169,12 +173,16 @@ export default function JardinDetailScreen() {
               message="Ajoute ta première plante pour suivre son arrosage et son entretien."
               cta={{
                 label: 'Ajouter une plante',
-                onPress: () => router.push(`/(tabs)/jardins/${id}/plante`),
+                onPress: () => router.push(`/(tabs)/jardins/${id}/plantes/nouvelle`),
               }}
             />
           ) : (
             plants.data.map((plant) => (
-              <PlantCard key={plant.id} plant={plant} />
+              <PlantCard
+                key={plant.id}
+                plant={plant}
+                onPress={() => router.push(`/(tabs)/jardins/${id}/plantes/${plant.id}`)}
+              />
             ))
           )}
         </ScrollView>
@@ -183,7 +191,7 @@ export default function JardinDetailScreen() {
           <View className="px-4 pb-4 pt-2">
             <Button
               label="Ajouter une plante"
-              onPress={() => router.push(`/(tabs)/jardins/${id}/plante`)}
+              onPress={() => router.push(`/(tabs)/jardins/${id}/plantes/nouvelle`)}
               icon={<Plus size={20} color="#1E5631" />}
             />
           </View>

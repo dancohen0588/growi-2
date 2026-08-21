@@ -86,6 +86,22 @@ test.describe('API v1', () => {
     expect(plantsRes.status()).toBe(200)
     expect((await plantsRes.json()).data).toHaveLength(1)
 
+    // Modification, puis effacement d'un champ facultatif de la plante.
+    const renamed = await api.patch(`/api/v1/plants/${plant.id}`, {
+      data: { customName: 'Basilic renommé', notes: 'Bouturé en mai' },
+    })
+    expect(renamed.status()).toBe(200)
+    expect((await renamed.json()).data).toMatchObject({
+      customName: 'Basilic renommé',
+      notes: 'Bouturé en mai',
+    })
+
+    const clearedNotes = await api.patch(`/api/v1/plants/${plant.id}`, {
+      data: { notes: null },
+    })
+    expect((await clearedNotes.json()).data.notes).toBeNull()
+    expect((await clearedNotes.json()).data.customName).toBe('Basilic renommé')
+
     // Arrosage
     const logRes = await api.post(`/api/v1/plants/${plant.id}/logs`, {
       data: { type: 'watering', note: 'Premier arrosage' },

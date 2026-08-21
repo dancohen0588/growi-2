@@ -175,6 +175,10 @@ export const createPlantInstanceSchema = z.object({
 export type CreatePlantInstanceInput = z.infer<typeof createPlantInstanceSchema>
 
 export const updatePlantInstanceSchema = createPlantInstanceSchema.partial().extend({
+  // `null` efface le champ ; `undefined` le laisse inchangé.
+  customName: nullish(z.string().max(50)),
+  emoji: nullish(z.string()),
+  notes: nullish(z.string().max(1000)),
   zoneId: nullish(idSchema),
   soilType: nullish(z.string().max(100)),
   photoUrl: nullish(z.string()),
