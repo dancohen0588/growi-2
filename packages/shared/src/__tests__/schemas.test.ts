@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   ACTION_TYPES,
   CARE_LOG_TYPES,
+  actionHorizon,
+  groupActionsByHorizon,
   CARE_LOG_TYPE_BY_ACTION,
   DEFAULT_ALERT_CONFIG,
   alertConfigSchema,
@@ -151,6 +153,27 @@ describe('planning du jour', () => {
     expect(
       markActionDoneSchema.safeParse({ gardenId: 'g1', actionType: 'bricolage' }).success,
     ).toBe(false)
+  })
+
+  it('range les tâches en trois horizons, le retard avec le jour même', () => {
+    const groups = groupActionsByHorizon(
+      [
+        { id: 'retard', dueDate: '2026-08-18' },
+        { id: 'jour', dueDate: '2026-08-21' },
+        { id: 'demain', dueDate: '2026-08-22' },
+        { id: 'semaine', dueDate: '2026-08-27' },
+      ],
+      '2026-08-21',
+    )
+
+    expect(groups.today.map((a) => a.id)).toEqual(['retard', 'jour'])
+    expect(groups.tomorrow.map((a) => a.id)).toEqual(['demain'])
+    expect(groups.later.map((a) => a.id)).toEqual(['semaine'])
+  })
+
+  it('passe correctement la fin de mois', () => {
+    expect(actionHorizon('2026-09-01', '2026-08-31')).toBe('tomorrow')
+    expect(actionHorizon('2026-09-02', '2026-08-31')).toBe('later')
   })
 
   it('traduit les codes météo, et retombe sur un libellé neutre', () => {

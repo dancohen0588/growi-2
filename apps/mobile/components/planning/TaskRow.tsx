@@ -1,21 +1,10 @@
 import { Pressable, Text, View } from 'react-native'
+import { Image } from 'expo-image'
 import { Check, ChevronRight } from 'lucide-react-native'
-import type { ActionPriority, GardenAction } from '@growi/shared'
+import type { GardenAction } from '@growi/shared'
 
 import { ActionIcon, CareIconBadge } from '@/components/plants/CareIcon'
-
-/** L'urgence se lit à la pastille ; le texte reste lisible en toutes circonstances. */
-const PRIORITY_TONE: Record<ActionPriority, string> = {
-  high: 'bg-destructive',
-  medium: 'bg-sun',
-  low: 'bg-lime',
-}
-
-const PRIORITY_LABEL: Record<ActionPriority, string> = {
-  high: 'Priorité haute',
-  medium: 'Priorité moyenne',
-  low: 'Priorité basse',
-}
+import { formatDueDate } from '@/lib/dates'
 
 export interface TaskRowProps {
   action: GardenAction
@@ -25,22 +14,47 @@ export interface TaskRowProps {
   onOpenPlant?: () => void
   /** Sur la fiche d'une plante, répéter son nom n'apprend rien. */
   showPlantName?: boolean
+  /** Précision supplémentaire : le jardin, quand l'utilisateur en a plusieurs. */
+  subtitle?: string
 }
 
-export function TaskRow({ action, onDone, onOpenPlant, showPlantName = true }: TaskRowProps) {
-  const late = action.dueDate < new Date().toISOString().slice(0, 10)
+export function TaskRow({
+  action,
+  onDone,
+  onOpenPlant,
+  showPlantName = true,
+  subtitle,
+}: TaskRowProps) {
+  const due = formatDueDate(action.dueDate)
 
   const meta = [
     showPlantName ? action.plantName : null,
-    late ? 'en retard' : null,
+    subtitle,
+    due.label,
     action.estimatedMinutes ? `${action.estimatedMinutes} min` : null,
   ].filter(Boolean)
 
   return (
     <View className="flex-row items-center gap-3 rounded-xl bg-card p-3">
-      <CareIconBadge>
-        <ActionIcon type={action.type} />
-      </CareIconBadge>
+      {/* La photo identifie la plante ; l'icône, posée dessus, dit le geste. */}
+      {action.plantPhotoUrl ? (
+        <View className="h-14 w-14 overflow-hidden rounded-xl bg-sand-dark">
+          <Image
+            source={action.plantPhotoUrl}
+            contentFit="cover"
+            transition={150}
+            style={{ width: '100%', height: '100%' }}
+            accessibilityIgnoresInvertColors
+          />
+          <View className="absolute -bottom-0.5 -right-0.5 h-6 w-6 items-center justify-center rounded-full border-2 border-card bg-sand">
+            <ActionIcon type={action.type} size={13} />
+          </View>
+        </View>
+      ) : (
+        <CareIconBadge>
+          <ActionIcon type={action.type} />
+        </CareIconBadge>
+      )}
 
       <Pressable
         onPress={onOpenPlant}
@@ -49,20 +63,19 @@ export function TaskRow({ action, onDone, onOpenPlant, showPlantName = true }: T
         accessibilityLabel={onOpenPlant ? `Ouvrir la fiche de ${action.plantName}` : undefined}
         className="flex-1 flex-row items-center gap-1"
       >
-        <View className="flex-1 gap-0.5">
-          <Text className="font-raleway-medium text-body text-forest" numberOfLines={2}>
-            {action.label}
+        <View className="flex-1 gap-0.5 overflow-hidden">
+          <Text className="font-poppins text-body text-forest" numberOfLines={1}>
+            {action.shortLabel}
           </Text>
-
-          <View className="flex-row items-center gap-2">
-            <View
-              className={`h-2 w-2 rounded-full ${PRIORITY_TONE[action.priority]}`}
-              accessibilityLabel={PRIORITY_LABEL[action.priority]}
-            />
-            <Text className="font-raleway text-caption text-muted-foreground" numberOfLines={1}>
-              {meta.length > 0 ? meta.join(' · ') : action.shortLabel}
-            </Text>
-          </View>
+          <Text
+            className={[
+              'font-raleway text-caption',
+              due.late ? 'text-destructive' : 'text-muted-foreground',
+            ].join(' ')}
+            numberOfLines={1}
+          >
+            {meta.join(' · ')}
+          </Text>
         </View>
 
         {onOpenPlant ? <ChevronRight size={18} color="hsl(139 20% 40%)" /> : null}

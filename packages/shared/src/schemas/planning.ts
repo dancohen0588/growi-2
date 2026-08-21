@@ -56,6 +56,8 @@ export const gardenActionSchema = z.object({
   plantId: z.string().optional(),
   plantName: z.string().optional(),
   plantEmoji: z.string().optional(),
+  /** Photo de la plante — la sienne si elle en a une, sinon celle du catalogue. */
+  plantPhotoUrl: nullish(z.string()),
   /** Échéance au format `YYYY-MM-DD`. */
   dueDate: z.string(),
   done: z.boolean(),
@@ -67,6 +69,59 @@ export const gardenActionSchema = z.object({
 })
 
 export type GardenAction = z.infer<typeof gardenActionSchema>
+
+// ─── Échéances ─────────────────────────────────────────────────────────────
+
+/**
+ * Les trois horizons de l'écran d'accueil et du calendrier web.
+ *
+ * Trois suffisent : ce qui presse, ce qui vient, et le reste. Un découpage
+ * plus fin — cette semaine, ce mois — donnait des sections vides la plupart du
+ * temps, le moteur ne regardant guère au-delà de quelques jours.
+ */
+export const ACTION_HORIZONS = ['today', 'tomorrow', 'later'] as const
+export type ActionHorizon = (typeof ACTION_HORIZONS)[number]
+
+export const ACTION_HORIZON_LABELS: Record<ActionHorizon, string> = {
+  today: "À faire aujourd'hui",
+  tomorrow: 'À faire demain',
+  later: 'À faire plus tard',
+}
+
+/** Jour au format `YYYY-MM-DD`, dans le fuseau local. */
+export function toIsoDate(date: Date): string {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 10)
+}
+
+/** Décale une date `YYYY-MM-DD` de `days` jours. */
+export function addDays(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+/**
+ * L'horizon d'une tâche. Le retard compte pour aujourd'hui : une tâche en
+ * souffrance ne doit pas se ranger dans « plus tard », qui la rendrait
+ * invisible — c'est l'inverse de ce qu'on veut.
+ */
+export function actionHorizon(dueDate: string, today: string): ActionHorizon {
+  if (dueDate <= today) return 'today'
+  if (dueDate === addDays(today, 1)) return 'tomorrow'
+  return 'later'
+}
+
+/** Range les tâches par horizon, dans l'ordre où l'écran les présente. */
+export function groupActionsByHorizon<T extends { dueDate: string }>(
+  actions: T[],
+  today: string = toIsoDate(new Date()),
+): Record<ActionHorizon, T[]> {
+  const groups: Record<ActionHorizon, T[]> = { today: [], tomorrow: [], later: [] }
+  for (const action of actions) groups[actionHorizon(action.dueDate, today)].push(action)
+  return groups
+}
 
 // ─── Alertes ───────────────────────────────────────────────────────────────
 

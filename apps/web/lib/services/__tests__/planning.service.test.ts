@@ -58,20 +58,38 @@ describe('getTodayPlanning', () => {
     expect(planning.gardens[1]!.actions).toHaveLength(1)
   })
 
-  it('écarte les tâches à venir et celles déjà faites par le moteur', async () => {
+  it('garde tout l\'horizon et écarte ce que le moteur donne pour fait', async () => {
     adviceService.getGardensAdvice.mockResolvedValue([
       garden('g1', 'Potager', [
         action(),
         action({ id: 'demain', dueDate: '2026-08-22' }),
+        action({ id: 'plus-tard', dueDate: '2026-08-30' }),
         action({ id: 'faite', done: true }),
       ]),
     ])
 
     const planning = await getTodayPlanning(USER_ID, NOW)
 
+    // Le rangement par échéance revient à l'écran, pas au service.
     expect(planning.gardens[0]!.actions.map((a) => a.id)).toEqual([
       'r1-watering-standard:plant_1',
+      'demain',
+      'plus-tard',
     ])
+  })
+
+  it('n\'acquitte pas une tâche future avec un geste noté aujourd\'hui', async () => {
+    adviceService.getGardensAdvice.mockResolvedValue([
+      garden('g1', 'Potager', [action(), action({ id: 'demain', dueDate: '2026-08-22' })]),
+    ])
+    logService.findCareTypesByPlantSince.mockResolvedValue(
+      new Map([['plant_1', new Set(['watering'])]]),
+    )
+
+    const planning = await getTodayPlanning(USER_ID, NOW)
+
+    // L'arrosage du jour est acquitté ; celui de demain reste à faire.
+    expect(planning.gardens[0]!.actions.map((a) => a.id)).toEqual(['demain'])
   })
 
   it('garde une tâche en retard', async () => {

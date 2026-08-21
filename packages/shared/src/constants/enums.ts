@@ -175,6 +175,27 @@ export const CARE_LOG_ACTION_LABELS: Record<CareLogType, string> = {
   other: 'Autre geste',
 }
 
+/**
+ * Icône de chaque geste, par son nom.
+ *
+ * Comme pour la météo, seul le **nom** est partagé : le web le relie à un
+ * composant `lucide-react`, le mobile à `lucide-react-native`. C'est ce qui
+ * garantit qu'une récolte porte le même signe sur les deux plateformes.
+ */
+export const CARE_LOG_ICONS: Record<CareLogType, string> = {
+  watering: 'droplets',
+  pruning: 'scissors',
+  fertilizing: 'recycle',
+  health: 'heart-pulse',
+  harvest: 'shopping-basket',
+  treatment: 'spray-can',
+  repotting: 'shovel',
+  sowing: 'sprout',
+  other: 'leaf',
+}
+
+export type CareIconName = (typeof CARE_LOG_ICONS)[CareLogType]
+
 // ─── Notifications ─────────────────────────────────────────────────────────
 
 export const NOTIFICATION_CHANNELS = ['push', 'email', 'both', 'none'] as const

@@ -10,25 +10,31 @@ import {
   SprayCan,
   Sprout,
 } from 'lucide-react-native'
-import { CARE_LOG_TYPE_BY_ACTION, type ActionType, type CareLogType } from '@growi/shared'
+import {
+  CARE_LOG_ICONS,
+  CARE_LOG_TYPE_BY_ACTION,
+  type ActionType,
+  type CareLogType,
+} from '@growi/shared'
 
 /**
  * Une icône par geste, partagée par l'historique et le planning.
  *
  * Le libellé d'une tâche se lit mal en diagonale ; l'icône donne la nature du
- * geste avant la lecture. Elles doivent donc rester distinctes les unes des
- * autres, et identiques d'un écran à l'autre.
+ * geste avant la lecture. Le choix vit dans `@growi/shared` — le web dessine
+ * les mêmes gestes avec `lucide-react` ; ici on relie ces noms aux composants
+ * de `lucide-react-native`.
  */
-const ICONS: Record<CareLogType, typeof Droplets> = {
-  watering: Droplets,
-  pruning: Scissors,
-  fertilizing: Recycle,
-  health: HeartPulse,
-  harvest: ShoppingBasket,
-  treatment: SprayCan,
-  repotting: Shovel,
-  sowing: Sprout,
-  other: Leaf,
+const ICONS: Record<string, typeof Droplets> = {
+  droplets: Droplets,
+  scissors: Scissors,
+  recycle: Recycle,
+  'heart-pulse': HeartPulse,
+  'shopping-basket': ShoppingBasket,
+  'spray-can': SprayCan,
+  shovel: Shovel,
+  sprout: Sprout,
+  leaf: Leaf,
 }
 
 export interface CareIconProps {
@@ -38,7 +44,7 @@ export interface CareIconProps {
 }
 
 export function CareIcon({ type, size = 18, color = '#1E5631' }: CareIconProps) {
-  const Icon = ICONS[type] ?? Leaf
+  const Icon = ICONS[CARE_LOG_ICONS[type]] ?? Leaf
   return <Icon size={size} color={color} />
 }
 

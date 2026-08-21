@@ -45,16 +45,23 @@ export async function getTodayPlanning(
   // cette mémoire, sa tâche apparaîtrait autant de fois qu'il y a de jardins.
   const seenActionIds = new Set<string>()
 
-  const isDue = (action: GardenAction) => !action.done && action.dueDate <= date
+  // Tout l'horizon du moteur, pas seulement le jour même : l'écran range
+  // ensuite en « aujourd'hui », « demain » et « plus tard ».
+  const isPending = (action: GardenAction) => !action.done
 
-  /** Fait aujourd'hui : le geste correspondant est déjà au journal. */
+  /**
+   * Fait aujourd'hui : le geste correspondant est déjà au journal.
+   * Ne vaut que pour ce qui était dû — cocher aujourd'hui n'acquitte pas une
+   * tâche prévue la semaine prochaine.
+   */
   const isDoneToday = (action: GardenAction) =>
+    action.dueDate <= date &&
     action.plantId != null &&
     (doneToday.get(action.plantId)?.has(CARE_LOG_TYPE_BY_ACTION[action.type]) ?? false)
 
   const gardens = gardensAdvice.map(({ garden, advice }) => {
     const actions = (advice?.actions ?? []).filter((action) => {
-      if (!isDue(action) || isDoneToday(action) || seenActionIds.has(action.id)) return false
+      if (!isPending(action) || isDoneToday(action) || seenActionIds.has(action.id)) return false
       seenActionIds.add(action.id)
       return true
     })

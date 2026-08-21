@@ -68,7 +68,8 @@ export function DoneButton({
       ? 'En cours…'
       : phase === 'done'
       ? '✓ Fait !'
-      : '✓ Marquer comme fait'
+      : // Même formulation que le bouton de l'app mobile.
+        "✓ C'est fait"
 
   return (
     <Button

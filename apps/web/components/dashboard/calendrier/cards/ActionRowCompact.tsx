@@ -1,47 +1,42 @@
 // growi-frontend/components/dashboard/calendrier/cards/ActionRowCompact.tsx
-import {
-  Droplets, Scissors, Sprout, Package,
-  FlaskConical, Shield, Apple, Wrench,
-} from 'lucide-react'
-import { GardenAction, ActionType } from '@/lib/mock-actions'
-import { formatShortDate } from '@/lib/calendar-utils'
+import Image from 'next/image'
+import { GardenAction } from '@/lib/mock-actions'
+import { formatDueDate } from '@/lib/calendar-utils'
+import { ActionIcon } from '../ActionIcon'
 import { DoneButton } from '../DoneButton'
-
-const iconMap: Record<ActionType, React.ElementType> = {
-  arrosage:     Droplets,
-  taille:       Scissors,
-  semis:        Sprout,
-  rempotage:    Package,
-  fertilisation:FlaskConical,
-  traitement:   Shield,
-  recolte:      Apple,
-  autre:        Wrench,
-}
 
 interface ActionRowCompactProps {
   action: GardenAction
   onDone: (id: string) => void
 }
 
+/** Ligne dépouillée pour les échéances lointaines : on lit, on ne coche guère. */
 export function ActionRowCompact({ action, onDone }: ActionRowCompactProps) {
-  const Icon = iconMap[action.type]
+  const due = formatDueDate(action.dueDate)
 
   return (
-    <div className="flex items-center gap-3 py-3 border-b border-forest/10 last:border-0">
-      <Icon size={16} className="text-forest/50 shrink-0" aria-hidden />
-      <div className="flex-1 min-w-0">
-        <span className="font-raleway text-sm text-forest font-medium">
-          {action.shortLabel}
-        </span>
-        {action.plantName && (
-          <span className="font-raleway text-sm text-forest/60">
-            {' '}· {action.plantEmoji} {action.plantName}
+    <div className="flex items-center gap-3 border-b border-forest/10 py-2.5 last:border-0">
+      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-sand-dark">
+        {action.plantPhotoUrl ? (
+          <Image src={action.plantPhotoUrl} alt="" fill sizes="36px" className="object-cover" />
+        ) : (
+          <span className="flex h-full items-center justify-center text-base" aria-hidden>
+            {action.plantEmoji || '🌿'}
           </span>
         )}
       </div>
-      <span className="font-raleway text-xs text-forest/40 shrink-0 capitalize">
-        {formatShortDate(action.dueDate)}
-      </span>
+
+      <ActionIcon type={action.type} size={15} className="shrink-0 text-forest/50" />
+
+      <div className="min-w-0 flex-1">
+        <span className="font-raleway text-sm font-medium text-forest">{action.shortLabel}</span>
+        {action.plantName && (
+          <span className="font-raleway text-sm text-forest/60"> · {action.plantName}</span>
+        )}
+      </div>
+
+      <span className="shrink-0 font-raleway text-xs capitalize text-forest/40">{due.label}</span>
+
       <DoneButton
         actionId={action.id}
         actionLabel={action.label}

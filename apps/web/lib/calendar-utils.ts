@@ -1,36 +1,6 @@
 // growi-frontend/lib/calendar-utils.ts
 import { GardenAction, ActionType } from './mock-actions'
 
-export type TemporalBucket =
-  | 'today'
-  | 'tomorrow'
-  | 'this-week'
-  | 'this-month'
-  | 'later'
-
-/**
- * Returns the temporal bucket for a given ISO date string, relative to today.
- * today      = 0 days difference
- * tomorrow   = 1 day
- * this-week  = 2–7 days
- * this-month = 8–30 days
- * later      = > 30 days
- */
-export function getTemporalBucket(dueDate: string): TemporalBucket {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const due = new Date(dueDate)
-  due.setHours(0, 0, 0, 0)
-  const diffMs = due.getTime() - today.getTime()
-  const diffDays = Math.round(diffMs / 86400000)
-
-  if (diffDays === 0) return 'today'
-  if (diffDays === 1) return 'tomorrow'
-  if (diffDays <= 7) return 'this-week'
-  if (diffDays <= 30) return 'this-month'
-  return 'later'
-}
-
 /** Group actions by their ActionType */
 export function groupByType(
   actions: GardenAction[],
@@ -67,6 +37,35 @@ export function groupByMonth(
 }
 
 /** "Jeu 10" style short date */
+/**
+ * Échéance dite comme on la dirait : « en retard de 2 jours », « demain »,
+ * « lundi 25 ». Le retard est signalé à part pour que la carte le teinte.
+ *
+ * L'app mobile a la même fonction (`lib/dates.ts`) : les deux écrans doivent
+ * formuler une échéance de la même façon.
+ */
+export function formatDueDate(
+  isoDate: string,
+  now = new Date(),
+): { label: string; late: boolean } {
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  const due = new Date(`${isoDate}T00:00:00`)
+  const days = Math.round((due.getTime() - today.getTime()) / 86_400_000)
+
+  if (days < 0) {
+    return {
+      label: days === -1 ? "en retard d'un jour" : `en retard de ${-days} jours`,
+      late: true,
+    }
+  }
+  if (days === 0) return { label: "aujourd'hui", late: false }
+  if (days === 1) return { label: 'demain', late: false }
+  if (days < 7) return { label: formatShortDate(isoDate), late: false }
+
+  return { label: formatMediumDate(isoDate), late: false }
+}
+
 export function formatShortDate(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString('fr-FR', {
     weekday: 'short',
