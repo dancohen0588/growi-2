@@ -31,8 +31,8 @@ export function useTodayPlanning() {
 /**
  * Les tâches du jour visant une plante précise.
  *
- * Même requête, même cache que l'onglet Aujourd'hui : la fiche plante montre
- * exactement ce que l'accueil annonce, sans second aller-retour.
+ * Même requête, même cache que le calendrier : la fiche plante montre
+ * exactement ce qu'il annonce, sans second aller-retour.
  */
 export function usePlantActions(plantId: string) {
   return useQuery({
