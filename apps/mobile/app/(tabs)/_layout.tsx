@@ -1,5 +1,7 @@
-import { Tabs } from 'expo-router'
+import { Redirect, Tabs } from 'expo-router'
 import { Camera, Leaf, Sun, User } from 'lucide-react-native'
+
+import { useSession } from '@/store/session'
 
 /**
  * Les quatre onglets du MVP. « Aujourd'hui » est l'écran d'accueil : c'est la
@@ -7,6 +9,12 @@ import { Camera, Leaf, Sun, User } from 'lucide-react-native'
  * aujourd'hui dans mon jardin.
  */
 export default function TabsLayout() {
+  const status = useSession((s) => s.status)
+
+  // Session perdue en cours de route (jeton révoqué, rafraîchissement refusé) :
+  // on repart vers la connexion sans laisser d'écran vide derrière.
+  if (status !== 'authenticated') return <Redirect href="/(auth)/login" />
+
   return (
     <Tabs
       screenOptions={{

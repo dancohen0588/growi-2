@@ -7,6 +7,7 @@
  */
 
 import type {
+  AuthTokens,
   CareLogs,
   CreateCareLogInput,
   CreateGardenInput,
@@ -15,6 +16,8 @@ import type {
   Garden,
   GardenWithStats,
   IdentifyApiResponse,
+  MobileLoginInput,
+  MobileRegisterInput,
   PlantInstanceWithRelations,
   TodayPlanning,
   UpdateGardenInput,
@@ -37,6 +40,42 @@ export class GrowiApiClient {
 
   get baseUrl(): string {
     return this.http.baseUrl
+  }
+
+  // ─── Authentification ────────────────────────────────────────────────────
+
+  /**
+   * Ces appels ne portent pas de jeton d'accès : ils en produisent.
+   * Les utiliser depuis un client configuré avec `onUnauthorized` est sans
+   * danger — un 401 de connexion n'est pas un jeton expiré — mais préférer un
+   * client nu évite tout aller-retour inutile.
+   */
+  readonly auth = {
+    register: (input: MobileRegisterInput, options?: CallOptions): Promise<AuthTokens> =>
+      this.http.request('/api/v1/auth/register', {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
+
+    login: (input: MobileLoginInput, options?: CallOptions): Promise<AuthTokens> =>
+      this.http.request('/api/v1/auth/login', { ...options, method: 'POST', body: input }),
+
+    /** Échange le jeton présenté contre un nouveau couple ; l'ancien est révoqué. */
+    refresh: (refreshToken: string, options?: CallOptions): Promise<AuthTokens> =>
+      this.http.request('/api/v1/auth/refresh', {
+        ...options,
+        method: 'POST',
+        body: { refreshToken },
+      }),
+
+    /** Idempotent : révoquer un jeton inconnu ne provoque pas d'erreur. */
+    logout: (refreshToken: string, options?: CallOptions): Promise<void> =>
+      this.http.request('/api/v1/auth/logout', {
+        ...options,
+        method: 'POST',
+        body: { refreshToken },
+      }),
   }
 
   // ─── Jardins ─────────────────────────────────────────────────────────────

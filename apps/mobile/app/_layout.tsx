@@ -18,9 +18,12 @@ import {
 } from '@expo-google-fonts/raleway'
 
 import { queryClient } from '@/lib/query-client'
+import { useSession } from '@/store/session'
 
-// L'écran de démarrage reste affiché tant que les polices ne sont pas prêtes :
-// sans cela, l'app apparaît une fraction de seconde avec la police système.
+// L'écran de démarrage reste affiché tant que les polices ne sont pas prêtes et
+// que la session n'est pas restaurée : sans cela, l'app apparaîtrait une
+// fraction de seconde avec la police système, puis afficherait le login à
+// quelqu'un qui est déjà connecté.
 SplashScreen.preventAutoHideAsync()
 
 export default function RootLayout() {
@@ -32,13 +35,22 @@ export default function RootLayout() {
     Raleway_600SemiBold,
   })
 
-  useEffect(() => {
-    // On masque aussi en cas d'échec de chargement : mieux vaut une police de
-    // repli qu'un écran de démarrage bloqué.
-    if (fontsLoaded || fontError) SplashScreen.hideAsync()
-  }, [fontsLoaded, fontError])
+  const status = useSession((s) => s.status)
+  const restore = useSession((s) => s.restore)
 
-  if (!fontsLoaded && !fontError) return null
+  useEffect(() => {
+    void restore()
+  }, [restore])
+
+  const ready = (fontsLoaded || fontError) && status !== 'restoring'
+
+  useEffect(() => {
+    // On masque aussi en cas d'échec de chargement des polices : mieux vaut une
+    // police de repli qu'un écran de démarrage bloqué.
+    if (ready) SplashScreen.hideAsync()
+  }, [ready])
+
+  if (!ready) return null
 
   return (
     <SafeAreaProvider>
