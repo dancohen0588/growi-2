@@ -160,6 +160,26 @@ test.describe('API v1', () => {
     await api.delete(`/api/v1/plants/${plant.id}`)
   })
 
+  test('E2E-APIV1-08 — Recherche dans le catalogue', async ({ page }) => {
+    await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
+
+    const res = await page.request.get('/api/v1/catalog?q=tomate')
+    expect(res.status()).toBe(200)
+
+    const results = (await res.json()).data
+    expect(results.length).toBeGreaterThan(0)
+    // Les champs dont l'autocomplétion mobile a besoin pour afficher un résultat.
+    expect(results[0]).toMatchObject({
+      commonName: expect.any(String),
+      scientificName: expect.any(String),
+      wateringFreqDays: expect.any(Number),
+      toxic: expect.any(Boolean),
+    })
+
+    // Le catalogue est commun, mais la route reste authentifiée.
+    expect((await page.request.get('/api/v1/catalog?q=x')).status()).toBe(200)
+  })
+
   test('E2E-APIV1-07 — Les réponses authentifiées ne sont pas mises en cache', async ({
     page,
   }) => {

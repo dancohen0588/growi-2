@@ -52,6 +52,8 @@ Règles : fond d'écran = `sand`, texte = `forest` ; jamais de blanc pur en fond
 | `Card` + `CardTitle`, `CardDescription` | Carte, tactile si `onPress` est fourni |
 | `OptionGroup` | Choix parmi quelques valeurs, en pastilles. Préféré à un sélecteur natif tant que la liste est courte (≤ 6) : tout reste visible sans ouvrir de surcouche |
 | `states.tsx` → `ListSkeleton`, `ErrorState`, `EmptyState` | Les trois états non-succès, à utiliser tels quels |
+| `EmojiPicker` | Grille des 12 emojis de jardin (mêmes valeurs que le web). **Jamais de champ texte pour un emoji** : cela oblige à ouvrir le clavier emoji et à chercher |
+| `CatalogSearch` | Autocomplétion sur le catalogue d'espèces : vignette, nom scientifique, badge toxique, tags, et repli « saisie à la main » |
 
 ### Conventions retenues sur les écrans de liste
 
@@ -61,6 +63,7 @@ Règles : fond d'écran = `sand`, texte = `forest` ; jamais de blanc pur en fond
 - **Effacer un champ facultatif** : envoyer `null` (et non `''` ni `undefined`) ; les schémas de `@growi/shared` distinguent « effacer » de « laisser inchangé ».
 - **Pas de fausse affordance** : une carte ne devient tactile que si sa destination existe. Mieux vaut une carte inerte qu'un lien qui mène au mauvais écran.
 - **Navigation en pile dans un onglet** : `app/(tabs)/<onglet>/_layout.tsx` avec un `Stack`, pour conserver la barre d'onglets et le geste de retour iOS. Création et édition en `presentation: 'modal'` avec un bouton *Annuler* à gauche de l'en-tête.
+- **Saisie assistée plutôt que libre** : dès qu'une valeur existe en base, la proposer (recherche débouncée 250 ms, minimum 2 caractères) au lieu de la faire saisir. Un formulaire libre est un repli, pas le chemin principal.
 - **Messages d'erreur** : passer par `lib/errors.ts` (`errorMessage`), qui traduit une `ApiError` en phrase actionnable. Ne jamais afficher `error.message` brut.
 
 ## 3. Règles UX mobile (non négociables)
