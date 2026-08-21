@@ -95,14 +95,15 @@ export function WeatherBanner({ weather }: { weather: PlanningWeather }) {
 
 /**
  * Sans coordonnées, pas de météo — on le dit sans promettre de bouton, la
- * localisation se réglant depuis l'onglet Profil.
+ * localisation se réglant depuis le profil.
  */
 export function WeatherUnavailable() {
   return (
     <View className="rounded-xl bg-card p-4 flex-row items-center gap-3">
       <Cloudy size={22} color="hsl(139 20% 40%)" />
       <Text className="flex-1 font-raleway text-secondary text-muted-foreground">
-        Renseigne ta ville dans l'onglet Profil pour voir la météo de ton jardin.
+        Renseigne ta ville depuis ton profil — l'icône en haut à droite de l'Accueil — pour voir
+        la météo de ton jardin.
       </Text>
     </View>
   )

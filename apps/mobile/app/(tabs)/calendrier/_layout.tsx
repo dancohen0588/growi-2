@@ -1,12 +1,7 @@
 import { Stack } from 'expo-router'
 
-/**
- * Pile de navigation interne à l'onglet Aujourd'hui.
- *
- * Ouvrir une plante depuis une tâche doit ramener ici au retour, pas dans
- * l'onglet Jardins : chaque onglet garde sa propre pile.
- */
-export default function AujourdhuiLayout() {
+/** Pile de l'onglet Calendrier — ouvrir une plante y reste. */
+export default function CalendrierLayout() {
   return (
     <Stack
       screenOptions={{

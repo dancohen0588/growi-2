@@ -84,7 +84,7 @@ export interface PlantDetailProps {
 /**
  * Fiche d'une plante.
  *
- * Partagée par les onglets Aujourd'hui et Jardins : chacun a sa pile de
+ * Partagée par les onglets Calendrier, Mes plantes et Mon jardin : chacun a sa pile de
  * navigation, pour que le retour ramène là d'où l'on vient, mais l'écran doit
  * rester le même.
  */
@@ -255,7 +255,7 @@ export function PlantDetail({ plantId, onEdit }: PlantDetailProps) {
         </View>
 
         {/* Ce que le moteur conseille aujourd'hui pour cette plante, validable
-            sans repasser par l'onglet Aujourd'hui. */}
+            sans repasser par le calendrier. */}
         {todo.length > 0 && gardenId ? (
           <View className="gap-2">
             <Text className="font-poppins text-section text-forest">Actions à faire</Text>

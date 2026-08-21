@@ -275,6 +275,15 @@ describe('endpoints', () => {
     expect(planning.gardens[0]?.name).toBe('Potager')
   })
 
+  it('liste toutes les plantes, tous jardins confondus', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: [{ id: 'p1' }, { id: 'p2' }] }))
+
+    const plants = await makeClient().plants.list()
+
+    expect(callArgs().url).toBe('https://growi.test/api/v1/plants')
+    expect(plants).toHaveLength(2)
+  })
+
   it('coche une tâche du planning', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
 

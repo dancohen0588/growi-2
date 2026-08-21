@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { MarkActionDoneInput, TodayPlanning } from '@growi/shared'
+import {
+  groupActionsByHorizon,
+  type GardenAction,
+  type MarkActionDoneInput,
+  type TodayPlanning,
+} from '@growi/shared'
 
 import { api } from '@/lib/api'
 import { gardenKeys, planningKeys, plantKeys } from '@/lib/queries/keys'
@@ -26,8 +31,8 @@ export function useTodayPlanning() {
 /**
  * Les tâches du jour visant une plante précise.
  *
- * Même requête, même cache que l'onglet Aujourd'hui : la fiche plante montre
- * exactement ce que l'accueil annonce, sans second aller-retour.
+ * Même requête, même cache que le calendrier : la fiche plante montre
+ * exactement ce qu'il annonce, sans second aller-retour.
  */
 export function usePlantActions(plantId: string) {
   return useQuery({
@@ -35,6 +40,47 @@ export function usePlantActions(plantId: string) {
     select: (planning: TodayPlanning) =>
       planning.gardens.flatMap((garden) => garden.actions).filter((a) => a.plantId === plantId),
   })
+}
+
+/** Une tâche accompagnée du jardin dont elle vient — nécessaire pour la valider. */
+export interface PlanningTask {
+  action: GardenAction
+  gardenId: string
+  gardenName: string
+  dueDate: string
+}
+
+/**
+ * Le planning, rangé par échéance et prêt à afficher.
+ *
+ * L'accueil n'en montre que le jour même, le calendrier les trois horizons :
+ * ils partagent ce découpage pour ne pas pouvoir se contredire.
+ */
+export function usePlanningTasks() {
+  const query = useTodayPlanning()
+  const data = query.data
+
+  const tasks: PlanningTask[] =
+    data?.gardens.flatMap((garden) =>
+      garden.actions.map((action) => ({
+        action,
+        gardenId: garden.id,
+        gardenName: garden.name,
+        dueDate: action.dueDate,
+      })),
+    ) ?? []
+
+  return {
+    query,
+    date: data?.date,
+    weather: data?.weather ?? null,
+    alerts: data?.gardens.flatMap((garden) => garden.alerts) ?? [],
+    hasGarden: (data?.gardens.length ?? 0) > 0,
+    // Le nom du jardin ne distingue rien quand il n'y en a qu'un.
+    showGardenNames: (data?.gardens.length ?? 0) > 1,
+    total: tasks.length,
+    groups: groupActionsByHorizon(tasks, data?.date),
+  }
 }
 
 /**

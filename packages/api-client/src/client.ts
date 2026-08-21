@@ -132,6 +132,10 @@ export class GrowiApiClient {
   // ─── Plantes ─────────────────────────────────────────────────────────────
 
   readonly plants = {
+    /** Toutes les plantes, tous jardins confondus. */
+    list: (options?: CallOptions): Promise<PlantInstanceWithRelations[]> =>
+      this.http.request('/api/v1/plants', { ...options }),
+
     get: (plantId: string, options?: CallOptions): Promise<PlantInstanceWithRelations> =>
       this.http.request(`/api/v1/plants/${encodeURIComponent(plantId)}`, { ...options }),
 

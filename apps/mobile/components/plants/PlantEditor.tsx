@@ -252,8 +252,8 @@ function PlantForm({ plant }: { plant: PlantInstanceWithRelations }) {
 }
 
 /**
- * Édition d'une plante, partagée par les piles des onglets Aujourd'hui et
- * Jardins — `router.back()` referme la modale quelle que soit la pile.
+ * Édition d'une plante, partagée par les piles de chaque onglet —
+ * `router.back()` referme la modale quelle que soit la pile.
  */
 export function PlantEditor({ plantId }: { plantId: string }) {
   const router = useRouter()
