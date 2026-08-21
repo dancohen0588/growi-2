@@ -64,6 +64,15 @@ test.describe('API v1', () => {
     expect(patchRes.status()).toBe(200)
     expect((await patchRes.json()).data.name).toBe('Jardin API v1 renommé')
 
+    // `null` efface un champ facultatif, `undefined` le laisse inchangé.
+    const cleared = await api.patch(`/api/v1/gardens/${garden.id}`, {
+      data: { description: null },
+    })
+    expect(cleared.status()).toBe(200)
+    const clearedGarden = (await cleared.json()).data
+    expect(clearedGarden.description).toBeNull()
+    expect(clearedGarden.name).toBe('Jardin API v1 renommé')
+
     // Ajout d'une plante dans ce jardin
     const plantRes = await api.post(`/api/v1/gardens/${garden.id}/plants`, {
       data: { location: 'BALCONY', customName: 'Basilic API', wateringFreqDays: 3 },
