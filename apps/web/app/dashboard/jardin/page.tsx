@@ -3,7 +3,7 @@ import dynamic from 'next/dynamic'
 import { GardenCanvasSkeleton } from '@/components/dashboard/jardin/GardenCanvasSkeleton'
 
 export const metadata: Metadata = {
-  title: 'Mon Jardin',
+  title: 'Mon jardin',
 }
 
 const GardenCanvas = dynamic(

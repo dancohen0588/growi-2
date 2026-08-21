@@ -21,6 +21,19 @@ const PLANT_DATE_FIELD: Partial<Record<CareLogType, keyof PlantInstanceWithRelat
   repotting: 'lastRepottedAt',
 }
 
+/**
+ * Toutes les plantes, tous jardins confondus — l'onglet « Mes plantes ».
+ *
+ * Répond à « où en est mon basilic ? » sans obliger à se souvenir du jardin
+ * dans lequel il vit.
+ */
+export function useAllPlants() {
+  return useQuery({
+    queryKey: [...plantKeys.all, 'list'] as const,
+    queryFn: () => api.plants.list(),
+  })
+}
+
 export function usePlant(plantId: string) {
   return useQuery({
     queryKey: plantKeys.detail(plantId),

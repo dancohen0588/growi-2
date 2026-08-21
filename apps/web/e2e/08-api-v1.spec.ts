@@ -185,6 +185,26 @@ test.describe('API v1', () => {
     await api.delete(`/api/v1/plants/${plant.id}`)
   })
 
+  test('E2E-APIV1-10 — Toutes les plantes, tous jardins confondus', async ({ page }) => {
+    await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
+    const api = page.request
+
+    const plant = (
+      await (
+        await api.post(`/api/v1/gardens/${gardenId1}/plants`, {
+          data: { location: 'OUTDOOR', customName: 'Plante à plat' },
+        })
+      ).json()
+    ).data
+
+    const all = (await (await api.get('/api/v1/plants')).json()).data
+    expect(all.some((p: { id: string }) => p.id === plant.id)).toBe(true)
+    // Isolation : aucune plante d'un autre compte ne doit apparaître.
+    expect(all.every((p: { gardenId: string | null }) => p.gardenId !== gardenId2)).toBe(true)
+
+    await api.delete(`/api/v1/plants/${plant.id}`)
+  })
+
   test('E2E-APIV1-08 — Recherche dans le catalogue', async ({ page }) => {
     await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
 

@@ -18,16 +18,19 @@ const logService = vi.hoisted(() => ({
   logCare: vi.fn(),
 }))
 const adviceService = vi.hoisted(() => ({ markActionDone: vi.fn() }))
+const plantService = vi.hoisted(() => ({ listPlantInstances: vi.fn() }))
 
 vi.mock('@/lib/api/auth-context', () => ({ requireUserId, getUserId: vi.fn() }))
 vi.mock('@/lib/services/garden.service', () => gardenService)
 vi.mock('@/lib/services/log.service', () => logService)
 vi.mock('@/lib/services/advice.service', () => adviceService)
+vi.mock('@/lib/services/plant.service', () => plantService)
 
 const { GET: listGardens, POST: createGarden } = await import('@/app/api/v1/gardens/route')
 const { GET: getGarden } = await import('@/app/api/v1/gardens/[id]/route')
 const { POST: createLog } = await import('@/app/api/v1/plants/[id]/logs/route')
 const { POST: markDone } = await import('@/app/api/v1/planning/actions/done/route')
+const { GET: listPlants } = await import('@/app/api/v1/plants/route')
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -264,6 +267,52 @@ describe('POST /api/v1/plants/[id]/logs', () => {
     })
     expect(JSON.stringify(body)).not.toContain('Prisma')
     consoleError.mockRestore()
+  })
+})
+
+// ─── GET /api/v1/plants ────────────────────────────────────────────────────
+
+describe('GET /api/v1/plants', () => {
+  const plantRow = {
+    id: 'plant_1',
+    userId: USER_ID,
+    gardenId: 'garden_1',
+    zoneId: null,
+    catalogPlantId: null,
+    customName: 'Basilic',
+    emoji: null,
+    photoUrl: null,
+    location: 'BALCONY',
+    healthStatus: 'HEALTHY',
+    dateAdded: NOW,
+    createdAt: NOW,
+    updatedAt: NOW,
+    catalogPlant: null,
+    zone: null,
+  }
+
+  it('renvoie les plantes de tous les jardins, sans filtre de jardin', async () => {
+    plantService.listPlantInstances.mockResolvedValue([plantRow])
+
+    const res = await listPlants()
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    // Un seul argument : le `userId`. Passer un `gardenId` restreindrait la liste.
+    expect(plantService.listPlantInstances).toHaveBeenCalledWith(USER_ID)
+    expect(body.data[0]).toMatchObject({ id: 'plant_1', customName: 'Basilic' })
+    expect(body.data[0].dateAdded).toBe('2026-08-15T09:00:00.000Z')
+  })
+
+  it('répond 401 sans authentification, sans interroger le service', async () => {
+    requireUserId.mockRejectedValue(
+      new ServiceError('UNAUTHENTICATED', 'Authentification requise'),
+    )
+
+    const res = await listPlants()
+
+    expect(res.status).toBe(401)
+    expect(plantService.listPlantInstances).not.toHaveBeenCalled()
   })
 })
 

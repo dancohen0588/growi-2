@@ -12,5 +12,5 @@ export default function Index() {
 
   // L'onglet Aujourd'hui ayant sa propre pile, il n'est plus l'`index` du
   // groupe : la cible doit être nommée.
-  return <Redirect href={status === 'authenticated' ? '/(tabs)/aujourdhui' : '/(auth)/login'} />
+  return <Redirect href={status === 'authenticated' ? '/(tabs)/accueil' : '/(auth)/login'} />
 }

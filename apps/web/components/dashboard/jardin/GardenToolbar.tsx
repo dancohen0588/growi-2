@@ -60,7 +60,7 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, o
         {/* Left: breadcrumb + name */}
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-lg shrink-0" aria-hidden>🌱</span>
-          <span className="font-raleway text-xs text-forest/40 hidden sm:block shrink-0">Mon Jardin /</span>
+          <span className="font-raleway text-xs text-forest/40 hidden sm:block shrink-0">Mon jardin /</span>
           {editing ? (
             <input
               ref={inputRef}

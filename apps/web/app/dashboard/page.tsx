@@ -31,7 +31,7 @@ const featureCards = [
   },
   {
     href: '/dashboard/jardin',
-    title: 'Mon Jardin',
+    title: 'Mon jardin',
     description: 'Crée la carte de ton jardin et planifie tes zones.',
     icon: Map,
   },
