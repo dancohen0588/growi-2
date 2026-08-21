@@ -32,7 +32,7 @@ function PlantCard({
   const emoji = plant.emoji ?? plant.catalogPlant?.emoji ?? '🌿'
 
   return (
-    <Card onPress={onPress} accessibilityLabel={`Modifier ${plantName(plant)}`}>
+    <Card onPress={onPress} accessibilityLabel={`Fiche de ${plantName(plant)}`}>
       <View className="flex-row items-center gap-3">
         <Text className="text-3xl">{emoji}</Text>
         <View className="flex-1 gap-0.5">

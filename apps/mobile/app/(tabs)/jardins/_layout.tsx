@@ -18,7 +18,11 @@ export default function JardinsLayout() {
       <Stack.Screen name="nouveau" options={{ presentation: 'modal' }} />
       <Stack.Screen name="[id]/modifier" options={{ presentation: 'modal' }} />
       <Stack.Screen name="[id]/plantes/nouvelle" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="[id]/plantes/[plantId]" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="[id]/plantes/[plantId]/index" />
+      <Stack.Screen
+        name="[id]/plantes/[plantId]/modifier"
+        options={{ presentation: 'modal' }}
+      />
     </Stack>
   )
 }
