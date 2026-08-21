@@ -64,6 +64,15 @@ test.describe('API v1', () => {
     expect(patchRes.status()).toBe(200)
     expect((await patchRes.json()).data.name).toBe('Jardin API v1 renommé')
 
+    // `null` efface un champ facultatif, `undefined` le laisse inchangé.
+    const cleared = await api.patch(`/api/v1/gardens/${garden.id}`, {
+      data: { description: null },
+    })
+    expect(cleared.status()).toBe(200)
+    const clearedGarden = (await cleared.json()).data
+    expect(clearedGarden.description).toBeNull()
+    expect(clearedGarden.name).toBe('Jardin API v1 renommé')
+
     // Ajout d'une plante dans ce jardin
     const plantRes = await api.post(`/api/v1/gardens/${garden.id}/plants`, {
       data: { location: 'BALCONY', customName: 'Basilic API', wateringFreqDays: 3 },
@@ -76,6 +85,22 @@ test.describe('API v1', () => {
     const plantsRes = await api.get(`/api/v1/gardens/${garden.id}/plants`)
     expect(plantsRes.status()).toBe(200)
     expect((await plantsRes.json()).data).toHaveLength(1)
+
+    // Modification, puis effacement d'un champ facultatif de la plante.
+    const renamed = await api.patch(`/api/v1/plants/${plant.id}`, {
+      data: { customName: 'Basilic renommé', notes: 'Bouturé en mai' },
+    })
+    expect(renamed.status()).toBe(200)
+    expect((await renamed.json()).data).toMatchObject({
+      customName: 'Basilic renommé',
+      notes: 'Bouturé en mai',
+    })
+
+    const clearedNotes = await api.patch(`/api/v1/plants/${plant.id}`, {
+      data: { notes: null },
+    })
+    expect((await clearedNotes.json()).data.notes).toBeNull()
+    expect((await clearedNotes.json()).data.customName).toBe('Basilic renommé')
 
     // Arrosage
     const logRes = await api.post(`/api/v1/plants/${plant.id}/logs`, {
@@ -149,6 +174,26 @@ test.describe('API v1', () => {
     expect((await after.json()).data.gardenId).toBe(gardenId1)
 
     await api.delete(`/api/v1/plants/${plant.id}`)
+  })
+
+  test('E2E-APIV1-08 — Recherche dans le catalogue', async ({ page }) => {
+    await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
+
+    const res = await page.request.get('/api/v1/catalog?q=tomate')
+    expect(res.status()).toBe(200)
+
+    const results = (await res.json()).data
+    expect(results.length).toBeGreaterThan(0)
+    // Les champs dont l'autocomplétion mobile a besoin pour afficher un résultat.
+    expect(results[0]).toMatchObject({
+      commonName: expect.any(String),
+      scientificName: expect.any(String),
+      wateringFreqDays: expect.any(Number),
+      toxic: expect.any(Boolean),
+    })
+
+    // Le catalogue est commun, mais la route reste authentifiée.
+    expect((await page.request.get('/api/v1/catalog?q=x')).status()).toBe(200)
   })
 
   test('E2E-APIV1-07 — Les réponses authentifiées ne sont pas mises en cache', async ({

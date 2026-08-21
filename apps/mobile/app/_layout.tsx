@@ -17,6 +17,7 @@ import {
   Raleway_600SemiBold,
 } from '@expo-google-fonts/raleway'
 
+import { ToastProvider } from '@/components/ui/Toast'
 import { queryClient } from '@/lib/query-client'
 import { useSession } from '@/store/session'
 
@@ -55,6 +56,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
+        <ToastProvider>
         <StatusBar style="dark" />
         <Stack
           screenOptions={{
@@ -65,6 +67,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="(auth)" />
         </Stack>
+        </ToastProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   )

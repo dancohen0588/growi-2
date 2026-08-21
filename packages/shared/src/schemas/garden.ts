@@ -68,6 +68,8 @@ export const createGardenSchema = z.object({
 export type CreateGardenInput = z.infer<typeof createGardenSchema>
 
 export const updateGardenSchema = createGardenSchema.partial().extend({
+  // `null` efface le champ ; `undefined` le laisse inchangé.
+  description: nullish(z.string().max(500)),
   climateZone: nullish(z.string().max(50)),
   soilType: nullish(z.string().max(100)),
   orientation: nullish(z.string().max(10)),

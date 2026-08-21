@@ -18,6 +18,7 @@ import type {
   IdentifyApiResponse,
   MobileLoginInput,
   MobileRegisterInput,
+  PlantCatalog,
   PlantInstanceWithRelations,
   TodayPlanning,
   UpdateGardenInput,
@@ -164,6 +165,23 @@ export class GrowiApiClient {
         ...options,
         method: 'POST',
         body: input,
+      }),
+  }
+
+  // ─── Catalogue d'espèces ─────────────────────────────────────────────────
+
+  readonly catalog = {
+    /**
+     * Recherche par nom commun, nom scientifique ou alias.
+     * Une requête vide renvoie les premières fiches par ordre alphabétique.
+     */
+    search: (
+      query: string,
+      options?: CallOptions & { category?: string },
+    ): Promise<PlantCatalog[]> =>
+      this.http.request('/api/v1/catalog', {
+        ...options,
+        query: { q: query, category: options?.category },
       }),
   }
 
