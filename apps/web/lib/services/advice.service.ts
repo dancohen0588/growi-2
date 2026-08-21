@@ -17,9 +17,9 @@ import { assertGardenOwned, findLatestGarden } from '@/lib/services/garden.servi
 import {
   logFertilizing,
   logPruning,
+  logRepotting,
+  logTreatment,
   logWatering,
-  markRepotted,
-  markTreated,
 } from '@/lib/services/log.service'
 
 export { invalidateGardenAdviceCache }
@@ -92,10 +92,10 @@ export async function markActionDone(
         await logFertilizing(plantId, userId)
         break
       case 'traitement':
-        await markTreated(plantId, userId)
+        await logTreatment(plantId, userId)
         break
       case 'rempotage':
-        await markRepotted(plantId, userId)
+        await logRepotting(plantId, userId)
         break
     }
   }

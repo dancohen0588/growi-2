@@ -109,12 +109,21 @@ test.describe('API v1', () => {
     expect(logRes.status()).toBe(201)
     expect((await logRes.json()).data).toMatchObject({ type: 'watering' })
 
-    // Le log est dans l'historique et la plante porte la date d'arrosage
+    // Un geste ajouté par le journal unifié, avec sa quantité
+    const harvest = await api.post(`/api/v1/plants/${plant.id}/logs`, {
+      data: { type: 'harvest', quantity: 1.2, unit: 'kg', note: 'Première récolte' },
+    })
+    expect(harvest.status()).toBe(201)
+    expect((await harvest.json()).data).toMatchObject({ type: 'harvest', quantity: 1.2 })
+
+    // L'historique est une liste unique, du plus récent au plus ancien
     const logsRes = await api.get(`/api/v1/plants/${plant.id}/logs`)
     const logs = (await logsRes.json()).data
-    expect(logs.watering).toHaveLength(1)
-    expect(logs.watering[0].note).toBe('Premier arrosage')
-    expect(logs.pruning).toEqual([])
+    expect(logs).toHaveLength(2)
+    expect(logs[0].type).toBe('harvest')
+    expect(logs.find((l: { type: string }) => l.type === 'watering').note).toBe(
+      'Premier arrosage',
+    )
 
     const plantAfter = await api.get(`/api/v1/plants/${plant.id}`)
     expect((await plantAfter.json()).data.lastWateredAt).not.toBeNull()

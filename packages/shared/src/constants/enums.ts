@@ -128,8 +128,25 @@ export const TREE_TYPE_LABELS: Record<TreeType, string> = {
 
 // ─── Journal d'entretien ───────────────────────────────────────────────────
 
-/** Discriminant du endpoint unifié `POST /api/v1/plants/[id]/logs`. */
-export const CARE_LOG_TYPES = ['watering', 'pruning', 'fertilizing', 'health'] as const
+/**
+ * Gestes d'entretien enregistrables.
+ *
+ * Les quatre premiers alimentent le moteur de conseils via les dates portées
+ * par `PlantInstance` ; les suivants complètent le vocabulaire que ce moteur
+ * savait déjà produire (récolte, traitement, rempotage, semis) sans qu'on
+ * puisse les noter.
+ */
+export const CARE_LOG_TYPES = [
+  'watering',
+  'pruning',
+  'fertilizing',
+  'health',
+  'harvest',
+  'treatment',
+  'repotting',
+  'sowing',
+  'other',
+] as const
 export const careLogTypeSchema = z.enum(CARE_LOG_TYPES)
 export type CareLogType = z.infer<typeof careLogTypeSchema>
 
@@ -138,6 +155,24 @@ export const CARE_LOG_TYPE_LABELS: Record<CareLogType, string> = {
   pruning: 'Taille',
   fertilizing: 'Fertilisation',
   health: 'Santé',
+  harvest: 'Récolte',
+  treatment: 'Traitement',
+  repotting: 'Rempotage',
+  sowing: 'Semis',
+  other: 'Autre geste',
+}
+
+/** Verbe à la première personne, pour les boutons d'action. */
+export const CARE_LOG_ACTION_LABELS: Record<CareLogType, string> = {
+  watering: "J'ai arrosé",
+  pruning: "J'ai taillé",
+  fertilizing: "J'ai fertilisé",
+  health: 'Note de santé',
+  harvest: "J'ai récolté",
+  treatment: "J'ai traité",
+  repotting: "J'ai rempoté",
+  sowing: "J'ai semé",
+  other: 'Autre geste',
 }
 
 // ─── Notifications ─────────────────────────────────────────────────────────

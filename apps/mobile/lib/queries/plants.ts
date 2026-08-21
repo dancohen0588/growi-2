@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
-  CareLogs,
+  CareLog,
+  CareLogType,
   CreateCareLogInput,
   PlantInstanceWithRelations,
   UpdatePlantInstanceInput,
@@ -8,6 +9,15 @@ import type {
 
 import { api } from '@/lib/api'
 import { gardenKeys } from '@/lib/queries/gardens'
+
+/** Date de la plante que chaque geste fait avancer — miroir du service serveur. */
+const PLANT_DATE_FIELD: Partial<Record<CareLogType, keyof PlantInstanceWithRelations>> = {
+  watering: 'lastWateredAt',
+  pruning: 'lastPrunedAt',
+  fertilizing: 'lastFertilizedAt',
+  treatment: 'lastTreatedAt',
+  repotting: 'lastRepottedAt',
+}
 
 export const plantKeys = {
   all: ['plants'] as const,
@@ -44,14 +54,15 @@ export function usePlantLogs(plantId: string) {
   })
 }
 
-const EMPTY_LOGS: CareLogs = { watering: [], pruning: [], fertilizing: [], health: [] }
-
 /**
- * Enregistre une intervention avec mise à jour optimiste.
+ * Enregistre un geste avec mise à jour optimiste.
  *
- * Le geste « J'ai arrosé » doit se voir immédiatement : on inscrit le log et
- * on avance la date correspondante sur la plante avant même la réponse du
- * serveur, quitte à revenir en arrière si l'appel échoue.
+ * Le geste doit se voir immédiatement : on inscrit le log en tête de
+ * l'historique et on avance la date correspondante sur la plante avant la
+ * réponse du serveur, quitte à revenir en arrière si l'appel échoue.
+ *
+ * Le journal unifié simplifie beaucoup cette logique : une seule liste à
+ * compléter, au lieu de quatre selon le type.
  */
 export function useAddCareLog(plantId: string) {
   const queryClient = useQueryClient()
@@ -63,63 +74,43 @@ export function useAddCareLog(plantId: string) {
       await queryClient.cancelQueries({ queryKey: plantKeys.detail(plantId) })
       await queryClient.cancelQueries({ queryKey: plantKeys.logs(plantId) })
 
-      const previousLogs = queryClient.getQueryData<CareLogs>(plantKeys.logs(plantId))
+      const previousLogs = queryClient.getQueryData<CareLog[]>(plantKeys.logs(plantId))
       const previousPlant = queryClient.getQueryData<PlantInstanceWithRelations>(
         plantKeys.detail(plantId),
       )
 
-      const now = new Date().toISOString()
-      // Identifiant provisoire : remplacé par celui du serveur à l'invalidation.
-      const optimisticId = `optimistic-${now}`
+      const now = input.occurredAt ?? new Date().toISOString()
+      const optimistic: CareLog = {
+        // Identifiant provisoire, remplacé par celui du serveur à l'invalidation.
+        id: `optimistic-${now}`,
+        plantInstanceId: plantId,
+        type: input.type,
+        occurredAt: now,
+        note: input.note ?? null,
+        productUsed: input.productUsed ?? null,
+        status: input.status ?? null,
+        quantity: input.quantity ?? null,
+        unit: input.unit ?? null,
+        photoUrl: input.photoUrl ?? null,
+        createdAt: now,
+      }
 
-      queryClient.setQueryData<CareLogs>(plantKeys.logs(plantId), (current) => {
-        const logs = current ?? EMPTY_LOGS
-        const base = { id: optimisticId, plantInstanceId: plantId, note: input.note ?? null }
-
-        switch (input.type) {
-          case 'watering':
-            return { ...logs, watering: [{ ...base, wateredAt: now }, ...logs.watering] }
-          case 'pruning':
-            return {
-              ...logs,
-              pruning: [
-                { ...base, prunedAt: now, pruningType: input.pruningType ?? null },
-                ...logs.pruning,
-              ],
-            }
-          case 'fertilizing':
-            return {
-              ...logs,
-              fertilizing: [
-                { ...base, fertilizedAt: now, productUsed: input.productUsed ?? null },
-                ...logs.fertilizing,
-              ],
-            }
-          case 'health':
-            return {
-              ...logs,
-              health: [
-                { ...base, loggedAt: now, status: input.status, photoUrl: null },
-                ...logs.health,
-              ],
-            }
-        }
-      })
+      queryClient.setQueryData<CareLog[]>(plantKeys.logs(plantId), (logs) => [
+        optimistic,
+        ...(logs ?? []),
+      ])
 
       queryClient.setQueryData<PlantInstanceWithRelations>(
         plantKeys.detail(plantId),
         (plant) => {
           if (!plant) return plant
-          switch (input.type) {
-            case 'watering':
-              return { ...plant, lastWateredAt: now }
-            case 'pruning':
-              return { ...plant, lastPrunedAt: now }
-            case 'fertilizing':
-              return { ...plant, lastFertilizedAt: now }
-            case 'health':
-              return { ...plant, healthStatus: input.status, healthNote: input.note ?? null }
+          const dateField = PLANT_DATE_FIELD[input.type]
+          const next = dateField ? { ...plant, [dateField]: now } : { ...plant }
+          if (input.type === 'health' && input.status) {
+            next.healthStatus = input.status
+            next.healthNote = input.note ?? null
           }
+          return next
         },
       )
 

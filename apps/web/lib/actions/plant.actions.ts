@@ -58,7 +58,7 @@ export async function logWatering(
   const session = await auth()
   if (!session?.user?.id) throw new Error('Non authentifié')
 
-  await logService.logWatering(plantInstanceId, session.user.id, { note })
+  await logService.logWatering(plantInstanceId, session.user.id, note)
 
   revalidatePath('/dashboard/plantes')
   return { success: true }
