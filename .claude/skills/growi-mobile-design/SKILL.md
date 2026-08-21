@@ -62,6 +62,7 @@ Règles : fond d'écran = `sand`, texte = `forest` ; jamais de blanc pur en fond
 | `PlantGridCard` | Carte de la grille « Mes plantes », calquée sur celle du web |
 | `StatCard` | Indicateur chiffré de l'accueil ; la couleur vient d'`indicatorTone` (`@growi/shared`) et se porte sur un liseré, jamais sur le fond |
 | `Toggle` | Interrupteur d'un réglage, natif mais teinté Growi |
+| `weather/` → `WeatherNow`, `ForecastRow`, `GardenContextCard`, `WeeklyTips`, `WeatherUnavailable` | La météo du jardin, portée de la page Météo du web ; `WeatherIcon` relie un code WMO à son composant lucide |
 
 ### Conventions retenues sur les écrans de liste
 

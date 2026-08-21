@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { UpdateAlertConfigInput, UpdateProfileInput, UserProfile } from '@growi/shared'
 
 import { api } from '@/lib/api'
-import { meKeys, planningKeys, summaryKeys } from '@/lib/queries/keys'
+import { meKeys, planningKeys, summaryKeys, weatherKeys } from '@/lib/queries/keys'
 
 export function useProfile() {
   return useQuery({
@@ -21,6 +21,7 @@ export function useUpdateProfile() {
       // La localisation conditionne la météo, donc le planning et ses alertes.
       void queryClient.invalidateQueries({ queryKey: planningKeys.all })
       void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
+      void queryClient.invalidateQueries({ queryKey: weatherKeys.all })
     },
   })
 }

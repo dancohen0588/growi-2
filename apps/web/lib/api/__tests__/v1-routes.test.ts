@@ -20,6 +20,7 @@ const logService = vi.hoisted(() => ({
 const adviceService = vi.hoisted(() => ({ markActionDone: vi.fn() }))
 const plantService = vi.hoisted(() => ({ listPlantInstances: vi.fn() }))
 const summaryService = vi.hoisted(() => ({ getDashboardSummary: vi.fn() }))
+const gardenWeatherService = vi.hoisted(() => ({ getGardenWeather: vi.fn() }))
 const userService = vi.hoisted(() => ({
   getAlertConfig: vi.fn(),
   updateAlertConfig: vi.fn(),
@@ -31,6 +32,7 @@ vi.mock('@/lib/services/log.service', () => logService)
 vi.mock('@/lib/services/advice.service', () => adviceService)
 vi.mock('@/lib/services/plant.service', () => plantService)
 vi.mock('@/lib/services/summary.service', () => summaryService)
+vi.mock('@/lib/services/garden-weather.service', () => gardenWeatherService)
 vi.mock('@/lib/services/user.service', () => userService)
 
 const { GET: listGardens, POST: createGarden } = await import('@/app/api/v1/gardens/route')
@@ -39,6 +41,7 @@ const { POST: createLog } = await import('@/app/api/v1/plants/[id]/logs/route')
 const { POST: markDone } = await import('@/app/api/v1/planning/actions/done/route')
 const { GET: listPlants } = await import('@/app/api/v1/plants/route')
 const { GET: getSummary } = await import('@/app/api/v1/summary/route')
+const { GET: getWeather } = await import('@/app/api/v1/weather/route')
 const { PATCH: patchAlerts } = await import('@/app/api/v1/me/alerts/route')
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────
@@ -357,6 +360,39 @@ describe('GET /api/v1/summary', () => {
 
     expect((await getSummary()).status).toBe(401)
     expect(summaryService.getDashboardSummary).not.toHaveBeenCalled()
+  })
+})
+
+// ─── GET /api/v1/weather ───────────────────────────────────────────────────
+
+describe('GET /api/v1/weather', () => {
+  it('renvoie la météo, son contexte et les conseils', async () => {
+    gardenWeatherService.getGardenWeather.mockResolvedValue({
+      locationName: 'Nantes',
+      current: { temperature: 19 },
+      forecast: [{ date: '2026-08-21' }],
+      context: { wateringIndex: { score: 7 } },
+      tips: ['Arrose en profondeur le matin.'],
+    })
+
+    const res = await getWeather()
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.locationName).toBe('Nantes')
+    expect(body.data.tips).toHaveLength(1)
+  })
+
+  it('traduit l\'absence de position en 400, pas en panne', async () => {
+    gardenWeatherService.getGardenWeather.mockRejectedValue(
+      new ServiceError('INVALID_INPUT', 'Renseigne ta position dans ton profil.'),
+    )
+
+    const res = await getWeather()
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error.message).toContain('position')
   })
 })
 
