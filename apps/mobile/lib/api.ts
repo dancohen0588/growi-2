@@ -21,6 +21,12 @@ if (!baseUrl) {
 
 const API_BASE_URL = baseUrl ?? 'http://localhost:3000'
 
+/**
+ * L'API et le site web partagent la même origine : c'est elle qu'on ouvre
+ * pour les écrans que le mobile ne porte pas encore, comme le plan du jardin.
+ */
+export const WEB_BASE_URL = API_BASE_URL
+
 // ─── Perte de session ──────────────────────────────────────────────────────
 
 type SessionLostHandler = () => void

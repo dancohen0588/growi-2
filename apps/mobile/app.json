@@ -27,7 +27,18 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": ["expo-router", "expo-font", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Growi utilise ta position pour la météo de ton jardin et les conseils d'arrosage."
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     }

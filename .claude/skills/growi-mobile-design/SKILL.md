@@ -58,6 +58,11 @@ Règles : fond d'écran = `sand`, texte = `forest` ; jamais de blanc pur en fond
 | `WeatherBanner` + `WeatherUnavailable` | Bandeau météo du jour et son repli quand l'utilisateur n'a pas de coordonnées |
 | `TaskRow` | Ligne de tâche du planning : case à cocher, priorité en pastille, accès à la fiche plante |
 | `AlertCard` | Alerte du moteur (gel, canicule, sécheresse, maladie), gravité portée par le fond |
+| `TaskCard` | Carte d'une tâche prioritaire : grande photo, geste en titre, validation pleine largeur |
+| `PlantGridCard` | Carte de la grille « Mes plantes », calquée sur celle du web |
+| `StatCard` | Indicateur chiffré de l'accueil ; la couleur vient d'`indicatorTone` (`@growi/shared`) et se porte sur un liseré, jamais sur le fond |
+| `Toggle` | Interrupteur d'un réglage, natif mais teinté Growi |
+| `weather/` → `WeatherNow`, `ForecastRow`, `GardenContextCard`, `WeeklyTips`, `WeatherUnavailable` | La météo du jardin, portée de la page Météo du web ; `WeatherIcon` relie un code WMO à son composant lucide |
 
 ### Conventions retenues sur les écrans de liste
 

@@ -7,13 +7,16 @@
  */
 
 import type {
+  AlertConfig,
   AuthTokens,
   CareLog,
   CareLogs,
   CreateCareLogInput,
   CreateGardenInput,
   CreatePlantInstanceInput,
+  DashboardSummary,
   Garden,
+  GardenWeather,
   GardenWithStats,
   IdentifyApiResponse,
   MarkActionDoneInput,
@@ -22,6 +25,7 @@ import type {
   PlantCatalog,
   PlantInstanceWithRelations,
   TodayPlanning,
+  UpdateAlertConfigInput,
   UpdateGardenInput,
   UpdatePlantInstanceInput,
   UpdateProfileInput,
@@ -206,6 +210,20 @@ export class GrowiApiClient {
       }),
   }
 
+  // ─── Indicateurs ─────────────────────────────────────────────────────────
+
+  readonly weather = {
+    /** Météo du jardin : prévision, contexte et conseils de la semaine. */
+    get: (options?: CallOptions): Promise<GardenWeather> =>
+      this.http.request('/api/v1/weather', { ...options }),
+  }
+
+  readonly summary = {
+    /** Compteurs de l'accueil : jardins, plantes, gestes du jour, alertes. */
+    get: (options?: CallOptions): Promise<DashboardSummary> =>
+      this.http.request('/api/v1/summary', { ...options }),
+  }
+
   // ─── Profil ──────────────────────────────────────────────────────────────
 
   readonly me = {
@@ -214,6 +232,13 @@ export class GrowiApiClient {
 
     update: (input: UpdateProfileInput, options?: CallOptions): Promise<UserProfile> =>
       this.http.request('/api/v1/me', { ...options, method: 'PATCH', body: input }),
+
+    /** Préférences d'alertes — mise à jour partielle, fusionnée côté serveur. */
+    updateAlerts: (
+      input: UpdateAlertConfigInput,
+      options?: CallOptions,
+    ): Promise<AlertConfig> =>
+      this.http.request('/api/v1/me/alerts', { ...options, method: 'PATCH', body: input }),
   }
 
   // ─── Identification photo ────────────────────────────────────────────────

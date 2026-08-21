@@ -205,6 +205,32 @@ test.describe('API v1', () => {
     await api.delete(`/api/v1/plants/${plant.id}`)
   })
 
+  test('E2E-APIV1-11 — Indicateurs et préférences d\'alertes', async ({ page }) => {
+    await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
+    const api = page.request
+
+    const summary = (await (await api.get('/api/v1/summary')).json()).data
+    expect(summary.gardens).toBeGreaterThan(0)
+    expect(typeof summary.tasksToday).toBe('number')
+    expect(summary.tasksLate).toBeLessThanOrEqual(summary.tasksToday)
+
+    // Mise à jour partielle : le reste des préférences est conservé.
+    const before = (await (await api.get('/api/v1/me/alerts')).json()).data
+    const patched = (
+      await (
+        await api.patch('/api/v1/me/alerts', { data: { frostAlert: !before.frostAlert } })
+      ).json()
+    ).data
+    expect(patched.frostAlert).toBe(!before.frostAlert)
+    expect(patched.wateringReminder).toBe(before.wateringReminder)
+
+    // Un seuil hors bornes est refusé sans rien changer.
+    const invalid = await api.patch('/api/v1/me/alerts', { data: { frostThreshold: 40 } })
+    expect(invalid.status()).toBe(400)
+
+    await api.patch('/api/v1/me/alerts', { data: { frostAlert: before.frostAlert } })
+  })
+
   test('E2E-APIV1-08 — Recherche dans le catalogue', async ({ page }) => {
     await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
 

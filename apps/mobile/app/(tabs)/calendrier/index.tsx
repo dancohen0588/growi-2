@@ -6,7 +6,6 @@ import { ACTION_HORIZONS } from '@growi/shared'
 
 import { AlertCard } from '@/components/planning/AlertCard'
 import { PlanningSections } from '@/components/planning/PlanningSections'
-import { WeatherBanner, WeatherUnavailable } from '@/components/planning/WeatherBanner'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
 import { formatDayLabel, greeting } from '@/lib/dates'
@@ -16,9 +15,12 @@ import { useMarkActionDone, usePlanningTasks, type PlanningTask } from '@/lib/qu
 /**
  * Calendrier — l'écran qui s'appelait « Aujourd'hui ».
  *
- * Météo du jour, ce qu'il y a à surveiller, puis les gestes rangés par
- * échéance : aujourd'hui en carrousel, demain et plus tard en lignes. Même
- * découpage que la page Calendrier du web, aux mêmes règles.
+ * Ce qu'il y a à surveiller, puis les gestes rangés par échéance :
+ * aujourd'hui en carrousel, demain et plus tard en lignes. Même découpage que
+ * la page Calendrier du web, aux mêmes règles.
+ *
+ * La météo a rejoint l'accueil, où elle se consulte d'un coup d'œil à
+ * l'ouverture, plutôt que de doubler ici.
  */
 export default function CalendrierScreen() {
   const router = useRouter()
@@ -84,14 +86,6 @@ export default function CalendrierScreen() {
           />
         ) : (
           <>
-            <View className="px-4">
-              {planning.weather ? (
-                <WeatherBanner weather={planning.weather} />
-              ) : (
-                <WeatherUnavailable />
-              )}
-            </View>
-
             {planning.alerts.length > 0 ? (
               <View className="gap-2 px-4">
                 <Text className="font-poppins text-section text-forest">À surveiller</Text>

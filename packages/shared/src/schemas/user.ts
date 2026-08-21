@@ -107,6 +107,8 @@ export const updateProfileSchema = z.object({
   lastName: z.string().min(2).optional(),
   email: z.email().optional(),
   address: nullish(z.string()),
+  /** Ville affichée avec la météo ; stockée en `locationCity`. */
+  city: nullish(z.string().max(120)),
   gardenType: nullish(profileGardenTypeSchema),
   avatarColor: nullish(z.string()),
   latitude: nullish(z.number()),

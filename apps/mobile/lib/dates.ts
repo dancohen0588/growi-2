@@ -75,6 +75,12 @@ export function formatDueDate(
   return { label: formatDayLabel(due), late: false }
 }
 
+/** Jour abrégé d'une date `YYYY-MM-DD` — « mar. 25 », pour la prévision. */
+export function shortDayLabel(isoDate: string): string {
+  const date = new Date(`${isoDate}T12:00:00`)
+  return `${WEEKDAYS[date.getDay()].slice(0, 3)}. ${date.getDate()}`
+}
+
 /** Salutation selon l'heure, pour ouvrir l'écran d'accueil sur un ton humain. */
 export function greeting(date = new Date()): string {
   const hour = date.getHours()

@@ -7,7 +7,7 @@ import {
 } from '@growi/shared'
 
 import { api } from '@/lib/api'
-import { gardenKeys, planningKeys, plantKeys } from '@/lib/queries/keys'
+import { gardenKeys, planningKeys, plantKeys, summaryKeys } from '@/lib/queries/keys'
 
 export { planningKeys }
 
@@ -128,6 +128,7 @@ export function useMarkActionDone() {
 
     onSettled: (_data, _error, { plantId }) => {
       void queryClient.invalidateQueries({ queryKey: planningKeys.today() })
+      void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
       // Le geste noté apparaît aussi dans l'historique de la plante.
       if (plantId) {
         void queryClient.invalidateQueries({ queryKey: plantKeys.detail(plantId) })
