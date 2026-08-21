@@ -6,6 +6,7 @@ import {
   createCareLogSchema,
   createGardenSchema,
   createPlantInstanceSchema,
+  formatHarvest,
   loginSchema,
   profilSchema,
   registerSchema,
@@ -84,16 +85,77 @@ describe('DTOs jardin et plantes', () => {
 })
 
 describe('journal d\'entretien', () => {
-  it('accepte un arrosage sans champ supplémentaire', () => {
+  it('accepte un geste rapide réduit à son type', () => {
     expect(createCareLogSchema.safeParse({ type: 'watering' }).success).toBe(true)
   })
 
   it('exige un statut pour une note de santé', () => {
     expect(createCareLogSchema.safeParse({ type: 'health' }).success).toBe(false)
-    expect(createCareLogSchema.safeParse({ type: 'health', status: 'WARNING' }).success).toBe(true)
+    expect(createCareLogSchema.safeParse({ type: 'health', status: 'WARNING' }).success).toBe(
+      true,
+    )
+  })
+
+  it('accepte les gestes ajoutés avec le journal unifié', () => {
+    for (const type of ['harvest', 'treatment', 'repotting', 'sowing', 'other'] as const) {
+      expect(createCareLogSchema.safeParse({ type }).success).toBe(true)
+    }
+  })
+
+  it('accepte un produit employé — « marc de café »', () => {
+    const result = createCareLogSchema.safeParse({
+      type: 'fertilizing',
+      productUsed: 'Marc de café',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('exige une unité dès qu\'une quantité est donnée', () => {
+    expect(createCareLogSchema.safeParse({ type: 'harvest', quantity: 1.2 }).success).toBe(false)
+    expect(
+      createCareLogSchema.safeParse({ type: 'harvest', quantity: 1.2, unit: 'kg' }).success,
+    ).toBe(true)
+  })
+
+  it('rejette une unité inconnue et une quantité négative', () => {
+    expect(
+      createCareLogSchema.safeParse({ type: 'harvest', quantity: 1, unit: 'tonnes' }).success,
+    ).toBe(false)
+    expect(
+      createCareLogSchema.safeParse({ type: 'harvest', quantity: -3, unit: 'kg' }).success,
+    ).toBe(false)
   })
 
   it('rejette un type d\'intervention inconnu', () => {
-    expect(createCareLogSchema.safeParse({ type: 'repotting' }).success).toBe(false)
+    expect(createCareLogSchema.safeParse({ type: 'bricolage' }).success).toBe(false)
+  })
+})
+
+describe('affichage d\'une récolte', () => {
+  it('accorde les unités qui sont des noms', () => {
+    expect(formatHarvest(1, 'pièce')).toBe('1 pièce')
+    expect(formatHarvest(3, 'pièce')).toBe('3 pièces')
+    expect(formatHarvest(3, 'botte')).toBe('3 bottes')
+  })
+
+  it('laisse les symboles invariables', () => {
+    expect(formatHarvest(3, 'kg')).toBe('3 kg')
+    expect(formatHarvest(500, 'g')).toBe('500 g')
+    expect(formatHarvest(2, 'L')).toBe('2 L')
+  })
+
+  it('garde le singulier en dessous de deux, comme le veut le français', () => {
+    expect(formatHarvest(1.5, 'pièce')).toBe('1,5 pièce')
+    expect(formatHarvest(2, 'pièce')).toBe('2 pièces')
+  })
+
+  it('écrit les décimales avec une virgule', () => {
+    expect(formatHarvest(1.2, 'kg')).toBe('1,2 kg')
+  })
+
+  it('supporte une unité absente ou inconnue', () => {
+    expect(formatHarvest(4)).toBe('4')
+    expect(formatHarvest(4, null)).toBe('4')
+    expect(formatHarvest(4, 'cageot')).toBe('4 cageot')
   })
 })

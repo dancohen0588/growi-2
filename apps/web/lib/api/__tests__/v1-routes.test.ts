@@ -15,10 +15,7 @@ const gardenService = vi.hoisted(() => ({
 }))
 const logService = vi.hoisted(() => ({
   listPlantLogs: vi.fn(),
-  logWatering: vi.fn(),
-  logPruning: vi.fn(),
-  logFertilizing: vi.fn(),
-  logHealth: vi.fn(),
+  logCare: vi.fn(),
 }))
 
 vi.mock('@/lib/api/auth-context', () => ({ requireUserId, getUserId: vi.fn() }))
@@ -166,71 +163,82 @@ describe('GET /api/v1/gardens/[id]', () => {
 describe('POST /api/v1/plants/[id]/logs', () => {
   const context = { params: { id: 'plant_1' } }
 
+  const storedLog = {
+    id: 'log_1',
+    plantInstanceId: 'plant_1',
+    type: 'watering',
+    occurredAt: NOW,
+    note: 'copieux',
+    productUsed: null,
+    status: null,
+    quantity: null,
+    unit: null,
+    photoUrl: null,
+    createdAt: NOW,
+  }
+
   it('enregistre un arrosage et répond 201', async () => {
-    logService.logWatering.mockResolvedValue({
-      id: 'log_1',
-      plantInstanceId: 'plant_1',
-      wateredAt: NOW,
-      note: 'copieux',
-    })
+    logService.logCare.mockResolvedValue(storedLog)
 
     const res = await createLog(jsonRequest({ type: 'watering', note: 'copieux' }), context)
     const body = await res.json()
 
     expect(res.status).toBe(201)
-    expect(logService.logWatering).toHaveBeenCalledWith('plant_1', USER_ID, {
-      note: 'copieux',
-      wateredAt: undefined,
-    })
-    expect(body.data).toEqual({
+    expect(logService.logCare).toHaveBeenCalledWith('plant_1', USER_ID, {
       type: 'watering',
-      log: {
-        id: 'log_1',
-        plantInstanceId: 'plant_1',
-        wateredAt: '2026-08-15T09:00:00.000Z',
-        note: 'copieux',
-      },
+      note: 'copieux',
+    })
+    expect(body.data).toMatchObject({
+      id: 'log_1',
+      type: 'watering',
+      occurredAt: '2026-08-15T09:00:00.000Z',
     })
   })
 
-  it('aiguille vers le bon service selon le type', async () => {
-    logService.logHealth.mockResolvedValue({
-      id: 'log_2',
-      plantInstanceId: 'plant_1',
-      status: 'WARNING',
+  it('transmet un geste ajouté par le journal unifié, avec sa quantité', async () => {
+    logService.logCare.mockResolvedValue({
+      ...storedLog,
+      type: 'harvest',
+      quantity: 1.2,
+      unit: 'kg',
       note: null,
-      photoUrl: null,
-      loggedAt: NOW,
     })
 
-    const res = await createLog(jsonRequest({ type: 'health', status: 'WARNING' }), context)
+    const res = await createLog(
+      jsonRequest({ type: 'harvest', quantity: 1.2, unit: 'kg' }),
+      context,
+    )
 
     expect(res.status).toBe(201)
-    expect(logService.logHealth).toHaveBeenCalledWith('plant_1', USER_ID, 'WARNING', {
-      note: undefined,
-      photoUrl: undefined,
-      loggedAt: undefined,
+    expect(logService.logCare).toHaveBeenCalledWith('plant_1', USER_ID, {
+      type: 'harvest',
+      quantity: 1.2,
+      unit: 'kg',
     })
-    expect(logService.logWatering).not.toHaveBeenCalled()
   })
 
   it('refuse une note de santé sans statut', async () => {
     const res = await createLog(jsonRequest({ type: 'health' }), context)
 
     expect(res.status).toBe(400)
-    expect(logService.logHealth).not.toHaveBeenCalled()
+    expect(logService.logCare).not.toHaveBeenCalled()
+  })
+
+  it('refuse une quantité sans unité', async () => {
+    const res = await createLog(jsonRequest({ type: 'harvest', quantity: 2 }), context)
+
+    expect(res.status).toBe(400)
+    expect(logService.logCare).not.toHaveBeenCalled()
   })
 
   it('refuse un type d\'intervention inconnu', async () => {
-    const res = await createLog(jsonRequest({ type: 'rempotage' }), context)
+    const res = await createLog(jsonRequest({ type: 'bricolage' }), context)
 
     expect(res.status).toBe(400)
   })
 
   it('traduit une plante non possédée en 404', async () => {
-    logService.logWatering.mockRejectedValue(
-      new ServiceError('NOT_FOUND', 'Plante introuvable'),
-    )
+    logService.logCare.mockRejectedValue(new ServiceError('NOT_FOUND', 'Plante introuvable'))
 
     const res = await createLog(jsonRequest({ type: 'watering' }), context)
     const body = await res.json()
@@ -240,7 +248,7 @@ describe('POST /api/v1/plants/[id]/logs', () => {
   })
 
   it('ne laisse pas fuiter le détail d\'une erreur inattendue', async () => {
-    logService.logWatering.mockRejectedValue(new Error('connexion Prisma perdue'))
+    logService.logCare.mockRejectedValue(new Error('connexion Prisma perdue'))
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const res = await createLog(jsonRequest({ type: 'watering' }), context)

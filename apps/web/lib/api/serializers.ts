@@ -7,26 +7,20 @@
  */
 
 import type {
-  FertilizingLog,
+  CareLog,
   Garden,
   GardenWithStats,
   GardenZone,
-  HealthLog,
   PlantCatalog,
   PlantInstance,
   PlantInstanceWithRelations,
-  PruningLog,
-  WateringLog,
 } from '@growi/shared'
 import type {
-  FertilizingLog as PrismaFertilizingLog,
+  CareLog as PrismaCareLog,
   Garden as PrismaGarden,
   GardenZone as PrismaGardenZone,
-  HealthLog as PrismaHealthLog,
   PlantCatalog as PrismaPlantCatalog,
   PlantInstance as PrismaPlantInstance,
-  PruningLog as PrismaPruningLog,
-  WateringLog as PrismaWateringLog,
 } from '@prisma/client'
 
 const iso = (d: Date): string => d.toISOString()
@@ -107,18 +101,12 @@ export function serializePlantInstanceWithRelations(
 
 // ─── Journal d'entretien ───────────────────────────────────────────────────
 
-export function serializeWateringLog(log: PrismaWateringLog): WateringLog {
-  return { ...log, wateredAt: iso(log.wateredAt) }
-}
-
-export function serializePruningLog(log: PrismaPruningLog): PruningLog {
-  return { ...log, prunedAt: iso(log.prunedAt) }
-}
-
-export function serializeFertilizingLog(log: PrismaFertilizingLog): FertilizingLog {
-  return { ...log, fertilizedAt: iso(log.fertilizedAt) }
-}
-
-export function serializeHealthLog(log: PrismaHealthLog): HealthLog {
-  return { ...log, loggedAt: iso(log.loggedAt) }
+export function serializeCareLog(log: PrismaCareLog): CareLog {
+  return {
+    ...log,
+    // La colonne est un texte libre en base ; l'énumération vit dans le schéma.
+    type: log.type as CareLog['type'],
+    occurredAt: iso(log.occurredAt),
+    createdAt: iso(log.createdAt),
+  }
 }

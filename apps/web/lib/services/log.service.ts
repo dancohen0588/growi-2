@@ -1,171 +1,115 @@
 /**
- * Service journal d'entretien — arrosage, taille, fertilisation, santé.
+ * Service journal d'entretien.
  *
- * Chaque écriture est atomique : le log est créé et la date correspondante
- * mise à jour sur la plante dans la même transaction. Le cache de conseils du
- * jardin est invalidé dans la foulée, pour que le planning reflète le geste
- * qui vient d'être enregistré.
+ * Un seul type de log couvre tous les gestes. L'écriture reste atomique : le
+ * log est créé et la date correspondante mise à jour sur la plante dans la
+ * même transaction, puis le cache de conseils du jardin est invalidé pour que
+ * le planning reflète le geste qui vient d'être noté.
  */
 
-import type { HealthStatus } from '@growi/shared'
+import type { CareLogType, CreateCareLogInput, HealthStatus } from '@growi/shared'
+import type { Prisma } from '@prisma/client'
 
 import { prisma } from '@/lib/prisma'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 import { assertPlantOwned } from '@/lib/services/plant.service'
 
-/** Historique complet d'une plante, groupé par type d'intervention. */
+/**
+ * Date de la plante à faire avancer selon le geste.
+ *
+ * C'est par ces champs que le moteur de conseils raisonne — il ne lit pas les
+ * logs. Un geste sans date associée (récolte, semis, autre) n'a donc pas
+ * d'incidence sur le planning, seulement sur l'historique.
+ */
+const PLANT_DATE_FIELD: Partial<Record<CareLogType, keyof Prisma.PlantInstanceUpdateInput>> = {
+  watering: 'lastWateredAt',
+  pruning: 'lastPrunedAt',
+  fertilizing: 'lastFertilizedAt',
+  treatment: 'lastTreatedAt',
+  repotting: 'lastRepottedAt',
+}
+
+/** Historique d'une plante, du plus récent au plus ancien. */
 export async function listPlantLogs(plantInstanceId: string, userId: string) {
   await assertPlantOwned(plantInstanceId, userId)
 
-  const [watering, pruning, fertilizing, health] = await Promise.all([
-    prisma.wateringLog.findMany({
-      where: { plantInstanceId },
-      orderBy: { wateredAt: 'desc' },
-    }),
-    prisma.pruningLog.findMany({
-      where: { plantInstanceId },
-      orderBy: { prunedAt: 'desc' },
-    }),
-    prisma.fertilizingLog.findMany({
-      where: { plantInstanceId },
-      orderBy: { fertilizedAt: 'desc' },
-    }),
-    prisma.healthLog.findMany({
-      where: { plantInstanceId },
-      orderBy: { loggedAt: 'desc' },
-    }),
-  ])
-
-  return { watering, pruning, fertilizing, health }
+  return prisma.careLog.findMany({
+    where: { plantInstanceId },
+    orderBy: { occurredAt: 'desc' },
+  })
 }
 
-export async function logWatering(
+/**
+ * Enregistre un geste d'entretien.
+ * @throws ServiceError('NOT_FOUND') si la plante n'est pas à l'utilisateur.
+ */
+export async function logCare(
   plantInstanceId: string,
   userId: string,
-  options: { note?: string; wateredAt?: Date } = {},
+  input: CreateCareLogInput,
 ) {
   const { gardenId } = await assertPlantOwned(plantInstanceId, userId)
-  const at = options.wateredAt ?? new Date()
+  const occurredAt = input.occurredAt ? new Date(input.occurredAt) : new Date()
+
+  const plantUpdate: Prisma.PlantInstanceUpdateInput = {}
+
+  const dateField = PLANT_DATE_FIELD[input.type]
+  if (dateField) {
+    Object.assign(plantUpdate, { [dateField]: occurredAt })
+  }
+
+  // Une note de santé fait aussi l'état courant de la plante.
+  if (input.type === 'health' && input.status) {
+    plantUpdate.healthStatus = input.status satisfies HealthStatus
+    plantUpdate.healthNote = input.note ?? null
+  }
 
   const [log] = await prisma.$transaction([
-    prisma.wateringLog.create({
-      data: { plantInstanceId, note: options.note, wateredAt: at },
-    }),
-    prisma.plantInstance.update({
-      where: { id: plantInstanceId, userId },
-      data: { lastWateredAt: at },
-    }),
-  ])
-
-  await invalidateAdviceFor(gardenId)
-  return log
-}
-
-export async function logPruning(
-  plantInstanceId: string,
-  userId: string,
-  options: { note?: string; pruningType?: string; prunedAt?: Date } = {},
-) {
-  const { gardenId } = await assertPlantOwned(plantInstanceId, userId)
-  const at = options.prunedAt ?? new Date()
-
-  const [log] = await prisma.$transaction([
-    prisma.pruningLog.create({
+    prisma.careLog.create({
       data: {
         plantInstanceId,
-        note: options.note,
-        pruningType: options.pruningType,
-        prunedAt: at,
+        type: input.type,
+        occurredAt,
+        note: input.note,
+        productUsed: input.productUsed,
+        status: input.status,
+        quantity: input.quantity,
+        unit: input.unit,
+        photoUrl: input.photoUrl,
       },
     }),
     prisma.plantInstance.update({
       where: { id: plantInstanceId, userId },
-      data: { lastPrunedAt: at },
+      data: plantUpdate,
     }),
   ])
 
-  await invalidateAdviceFor(gardenId)
-  return log
-}
-
-export async function logFertilizing(
-  plantInstanceId: string,
-  userId: string,
-  options: { note?: string; productUsed?: string; fertilizedAt?: Date } = {},
-) {
-  const { gardenId } = await assertPlantOwned(plantInstanceId, userId)
-  const at = options.fertilizedAt ?? new Date()
-
-  const [log] = await prisma.$transaction([
-    prisma.fertilizingLog.create({
-      data: {
-        plantInstanceId,
-        note: options.note,
-        productUsed: options.productUsed,
-        fertilizedAt: at,
-      },
-    }),
-    prisma.plantInstance.update({
-      where: { id: plantInstanceId, userId },
-      data: { lastFertilizedAt: at },
-    }),
-  ])
-
-  await invalidateAdviceFor(gardenId)
-  return log
-}
-
-/** Note de santé : historisée et reportée sur l'état courant de la plante. */
-export async function logHealth(
-  plantInstanceId: string,
-  userId: string,
-  status: HealthStatus,
-  options: { note?: string; photoUrl?: string; loggedAt?: Date } = {},
-) {
-  const { gardenId } = await assertPlantOwned(plantInstanceId, userId)
-  const at = options.loggedAt ?? new Date()
-
-  const [log] = await prisma.$transaction([
-    prisma.healthLog.create({
-      data: {
-        plantInstanceId,
-        status,
-        note: options.note,
-        photoUrl: options.photoUrl,
-        loggedAt: at,
-      },
-    }),
-    prisma.plantInstance.update({
-      where: { id: plantInstanceId, userId },
-      data: { healthStatus: status, healthNote: options.note },
-    }),
-  ])
-
-  await invalidateAdviceFor(gardenId)
+  if (gardenId) await invalidateGardenAdviceCache(gardenId)
   return log
 }
 
 /**
- * Interventions sans journal dédié : on se contente d'horodater la plante.
+ * Raccourcis employés par le planning : marquer une action comme faite revient
+ * à noter le geste correspondant.
  */
-export async function markTreated(plantInstanceId: string, userId: string, at = new Date()) {
-  const { gardenId } = await assertPlantOwned(plantInstanceId, userId)
-  await prisma.plantInstance.update({
-    where: { id: plantInstanceId, userId },
-    data: { lastTreatedAt: at },
-  })
-  await invalidateAdviceFor(gardenId)
-}
+export const logWatering = (plantId: string, userId: string, note?: string) =>
+  logCare(plantId, userId, { type: 'watering', note })
 
-export async function markRepotted(plantInstanceId: string, userId: string, at = new Date()) {
-  const { gardenId } = await assertPlantOwned(plantInstanceId, userId)
-  await prisma.plantInstance.update({
-    where: { id: plantInstanceId, userId },
-    data: { lastRepottedAt: at },
-  })
-  await invalidateAdviceFor(gardenId)
-}
+export const logPruning = (plantId: string, userId: string, note?: string) =>
+  logCare(plantId, userId, { type: 'pruning', note })
 
-async function invalidateAdviceFor(gardenId: string | null) {
-  if (gardenId) await invalidateGardenAdviceCache(gardenId)
-}
+export const logFertilizing = (plantId: string, userId: string, note?: string) =>
+  logCare(plantId, userId, { type: 'fertilizing', note })
+
+export const logTreatment = (plantId: string, userId: string, note?: string) =>
+  logCare(plantId, userId, { type: 'treatment', note })
+
+export const logRepotting = (plantId: string, userId: string, note?: string) =>
+  logCare(plantId, userId, { type: 'repotting', note })
+
+export const logHealth = (
+  plantId: string,
+  userId: string,
+  status: HealthStatus,
+  options: { note?: string; photoUrl?: string } = {},
+) => logCare(plantId, userId, { type: 'health', status, ...options })

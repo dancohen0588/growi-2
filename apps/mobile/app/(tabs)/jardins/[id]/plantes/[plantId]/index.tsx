@@ -3,7 +3,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ChevronLeft, Droplets, HeartPulse, Pencil, Scissors, Sprout } from 'lucide-react-native'
+import { ChevronLeft, Droplets, Pencil, Plus, Scissors, Sprout } from 'lucide-react-native'
 import {
   HEALTH_STATUS_LABELS,
   PLANT_LOCATION_LABELS,
@@ -16,7 +16,7 @@ import {
 } from '@growi/shared'
 
 import { CareHistory } from '@/components/plants/CareHistory'
-import { HealthNoteSheet } from '@/components/plants/HealthNoteSheet'
+import { CareLogSheet } from '@/components/plants/CareLogSheet'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
@@ -83,7 +83,7 @@ export default function PlanteDetailScreen() {
   const addLog = useAddCareLog(plantId)
 
   const [refreshing, setRefreshing] = useState(false)
-  const [healthOpen, setHealthOpen] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
@@ -215,6 +215,14 @@ export default function PlanteDetailScreen() {
             disabled={addLog.isPending}
             onPress={() => logCare({ type: 'fertilizing' }, 'Fertilisation enregistrée 🌱')}
           />
+          {/* Récolte, traitement, rempotage, semis, note de santé : un tap de
+              plus pour ce qui se fait quelques fois par an. */}
+          <QuickAction
+            icon={<Plus size={22} color="#1E5631" />}
+            label="Autre geste"
+            disabled={addLog.isPending}
+            onPress={() => setSheetOpen(true)}
+          />
         </View>
 
         {/* Entretien */}
@@ -252,16 +260,7 @@ export default function PlanteDetailScreen() {
 
         {/* Historique */}
         <View className="gap-2">
-          <View className="flex-row items-center justify-between">
-            <Text className="font-poppins text-section text-forest">Historique</Text>
-            <Button
-              label="Note de santé"
-              variant="ghost"
-              fullWidth={false}
-              onPress={() => setHealthOpen(true)}
-              icon={<HeartPulse size={18} color="#1E5631" />}
-            />
-          </View>
+          <Text className="font-poppins text-section text-forest">Historique</Text>
 
           {logs.isPending ? (
             <ListSkeleton count={2} />
@@ -273,14 +272,14 @@ export default function PlanteDetailScreen() {
         </View>
       </ScrollView>
 
-      <HealthNoteSheet
-        visible={healthOpen}
-        current={health}
+      <CareLogSheet
+        visible={sheetOpen}
+        currentHealth={health}
         submitting={addLog.isPending}
-        onClose={() => setHealthOpen(false)}
-        onSubmit={(status, note) => {
-          setHealthOpen(false)
-          logCare({ type: 'health', status, note }, 'Note de santé enregistrée')
+        onClose={() => setSheetOpen(false)}
+        onSubmit={(input) => {
+          setSheetOpen(false)
+          logCare(input, 'Geste enregistré 🌿')
         }}
       />
     </SafeAreaView>

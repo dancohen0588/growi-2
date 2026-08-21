@@ -27,11 +27,7 @@ export async function listPlantInstances(userId: string, gardenId?: string) {
       userId,
       ...(gardenId ? { gardenId } : {}),
     },
-    include: {
-      catalogPlant: true,
-      zone: true,
-      wateringLogs: { orderBy: { wateredAt: 'desc' }, take: 1 },
-    },
+    include: { catalogPlant: true, zone: true },
     orderBy: { dateAdded: 'desc' },
   })
 }

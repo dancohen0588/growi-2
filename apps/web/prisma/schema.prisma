@@ -175,7 +175,7 @@ model PlantCatalog {
 }
 
 model PlantInstance {
-  id                      String           @id @default(cuid())
+  id                      String        @id @default(cuid())
   userId                  String
   gardenId                String?
   zoneId                  String?
@@ -183,20 +183,20 @@ model PlantInstance {
   customName              String?
   emoji                   String?
   photoUrl                String?
-  location                String           @default("OUTDOOR")
+  location                String        @default("OUTDOOR")
   positionX               Float?
   positionY               Float?
-  datePlanted             DateTime?        @db.Timestamptz(6)
-  dateAdded               DateTime         @default(now()) @db.Timestamptz(6)
+  datePlanted             DateTime?     @db.Timestamptz(6)
+  dateAdded               DateTime      @default(now()) @db.Timestamptz(6)
   wateringFreqDays        Int?
-  lastWateredAt           DateTime?        @db.Timestamptz(6)
-  lastFertilizedAt        DateTime?        @db.Timestamptz(6)
+  lastWateredAt           DateTime?     @db.Timestamptz(6)
+  lastFertilizedAt        DateTime?     @db.Timestamptz(6)
   soilType                String?
   sunExposure             String?
-  healthStatus            String           @default("HEALTHY")
+  healthStatus            String        @default("HEALTHY")
   healthNote              String?
   notes                   String?
-  updatedAt               DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
+  updatedAt               DateTime      @default(now()) @updatedAt @db.Timestamptz(6)
   containerSizeLiters     Float?
   containerMaterial       String?
   substrateType           String?
@@ -208,61 +208,45 @@ model PlantInstance {
   isMultiYear             Boolean?
   expectedHarvestDate     DateTime?
   customWateringAdjFactor Float?
-  alertsEnabled           Boolean          @default(true)
-  fertilizingLogs         FertilizingLog[]
-  healthLogs              HealthLog[]
-  catalogPlant            PlantCatalog?    @relation(fields: [catalogPlantId], references: [id])
-  garden                  Garden?          @relation(fields: [gardenId], references: [id])
-  user                    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  zone                    GardenZone?      @relation(fields: [zoneId], references: [id])
-  pruningLogs             PruningLog[]
-  wateringLogs            WateringLog[]
+  alertsEnabled           Boolean       @default(true)
+  careLogs                CareLog[]
+  catalogPlant            PlantCatalog? @relation(fields: [catalogPlantId], references: [id])
+  garden                  Garden?       @relation(fields: [gardenId], references: [id])
+  user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  zone                    GardenZone?   @relation(fields: [zoneId], references: [id])
 
   @@map("plant_instances")
 }
 
-model WateringLog {
-  id              String        @id @default(cuid())
+/// Journal d'entretien, tous gestes confondus.
+///
+/// Remplace les quatre tables d'origine (arrosage, taille, fertilisation,
+/// santé) : chacune imposait une migration, un endpoint et une branche d'union
+/// par nouveau geste, alors que la récolte, le traitement, le rempotage et le
+/// semis étaient déjà connus du moteur de conseils sans pouvoir être notés.
+/// Ajouter un geste est désormais une valeur d'énumération.
+model CareLog {
+  id              String   @id @default(cuid())
   plantInstanceId String
-  wateredAt       DateTime      @default(now()) @db.Timestamptz(6)
+  /// Voir CARE_LOG_TYPES dans @growi/shared.
+  type            String
+  occurredAt      DateTime @default(now()) @db.Timestamptz(6)
   note            String?
-  plantInstance   PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
-
-  @@map("watering_logs")
-}
-
-model HealthLog {
-  id              String        @id @default(cuid())
-  plantInstanceId String
-  status          String
-  note            String?
-  photoUrl        String?
-  loggedAt        DateTime      @default(now()) @db.Timestamptz(6)
-  plantInstance   PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
-
-  @@map("health_logs")
-}
-
-model PruningLog {
-  id              String        @id @default(cuid())
-  plantInstanceId String
-  prunedAt        DateTime      @default(now())
-  pruningType     String?
-  note            String?
-  plantInstance   PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
-
-  @@map("pruning_logs")
-}
-
-model FertilizingLog {
-  id              String        @id @default(cuid())
-  plantInstanceId String
-  fertilizedAt    DateTime      @default(now())
+  /// Produit employé : engrais, traitement, substrat… (« marc de café »)
   productUsed     String?
-  note            String?
-  plantInstance   PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
+  /// Statut renseigné, pour les gestes de type `health`.
+  status          String?
+  /// Quantité récoltée, avec son unité.
+  quantity        Float?
+  unit            String?
+  photoUrl        String?
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
 
-  @@map("fertilizing_logs")
+  plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
+
+  @@index([plantInstanceId, occurredAt])
+  @@index([type])
+  @@map("care_logs")
 }
 
 model GardenAdviceCache {

@@ -8,10 +8,10 @@
 
 import type {
   AuthTokens,
+  CareLog,
   CareLogs,
   CreateCareLogInput,
   CreateGardenInput,
-  CreatedCareLog,
   CreatePlantInstanceInput,
   Garden,
   GardenWithStats,
@@ -155,12 +155,12 @@ export class GrowiApiClient {
     listLogs: (plantId: string, options?: CallOptions): Promise<CareLogs> =>
       this.http.request(`/api/v1/plants/${encodeURIComponent(plantId)}/logs`, { ...options }),
 
-    /** Enregistre un arrosage, une taille, une fertilisation ou une note de santé. */
+    /** Enregistre un geste d'entretien, quel qu'il soit. */
     addLog: (
       plantId: string,
       input: CreateCareLogInput,
       options?: CallOptions,
-    ): Promise<CreatedCareLog> =>
+    ): Promise<CareLog> =>
       this.http.request(`/api/v1/plants/${encodeURIComponent(plantId)}/logs`, {
         ...options,
         method: 'POST',
