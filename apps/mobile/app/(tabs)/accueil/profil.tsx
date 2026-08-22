@@ -245,10 +245,22 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
           icon={<LogOut size={20} color="#1E5631" />}
         />
 
-        {/* Mentions légales et politique de confidentialité restent à écrire :
-            on ne renvoie pas vers des pages qui n'existent pas. Les deux sont
-            exigées par l'App Store et Google Play avant publication. */}
-        <View className="flex-row justify-center">
+        <View className="flex-row flex-wrap justify-center gap-x-4 gap-y-2">
+          <Pressable onPress={() => void openWeb('/mentions-legales')} hitSlop={8}>
+            <Text className="font-raleway text-caption text-muted-foreground underline">
+              Mentions légales
+            </Text>
+          </Pressable>
+          <Pressable onPress={() => void openWeb('/confidentialite')} hitSlop={8}>
+            <Text className="font-raleway text-caption text-muted-foreground underline">
+              Confidentialité
+            </Text>
+          </Pressable>
+          <Pressable onPress={() => void openWeb('/cgu')} hitSlop={8}>
+            <Text className="font-raleway text-caption text-muted-foreground underline">
+              CGU
+            </Text>
+          </Pressable>
           <Pressable onPress={() => void openWeb('/contact')} hitSlop={8}>
             <Text className="font-raleway text-caption text-muted-foreground underline">
               Nous contacter
