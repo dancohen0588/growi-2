@@ -5,9 +5,11 @@ import { revalidatePath } from 'next/cache'
 import {
   addIdentifiedPlantSchema,
   createPlantInstanceSchema,
+  updatePlantInstanceSchema,
   type AddIdentifiedPlantInput,
   type CreatePlantInstanceInput,
   type HealthStatus,
+  type UpdatePlantInstanceInput,
 } from '@growi/shared'
 
 import type { Plant } from '@/lib/plant-types'
@@ -33,6 +35,30 @@ export async function addPlantToMyGarden(
 
   const validated = createPlantInstanceSchema.parse(data)
   const instance = await plantService.createPlantInstance(session.user.id, validated)
+
+  revalidatePath('/dashboard/plantes', 'layout')
+  return { success: true, plant: toPlant(instance) }
+}
+
+/**
+ * Met à jour une plante.
+ *
+ * L'écran d'édition se contentait d'une mise à jour locale : le formulaire
+ * annonçait « mise à jour » et rien n'était écrit. Cette action manquait.
+ */
+export async function updateMyPlant(
+  plantInstanceId: string,
+  data: UpdatePlantInstanceInput,
+): Promise<{ success: boolean; plant?: Plant; error?: string }> {
+  const session = await auth()
+  if (!session?.user?.id) return { success: false, error: 'Non authentifié' }
+
+  const validated = updatePlantInstanceSchema.parse(data)
+  const instance = await plantService.updatePlantInstance(
+    plantInstanceId,
+    session.user.id,
+    validated,
+  )
 
   revalidatePath('/dashboard/plantes', 'layout')
   return { success: true, plant: toPlant(instance) }

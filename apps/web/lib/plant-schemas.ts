@@ -4,6 +4,8 @@ export const plantSchema = z.object({
   name:                  z.string().min(2, 'Nom requis (2 caractères min.)').max(50),
   scientificName:        z.string().max(80).optional(),
   emoji:                 z.string().min(1, 'Choisis un emoji').max(4),
+  // URL renvoyée par /api/v1/uploads ; vide = pas de photo.
+  photoUrl:              z.string().max(2000).optional(),
   category:              z.enum(['interieur', 'potager', 'fleurs', 'arbres', 'aromatiques']),
   location:              z.enum(['interieur', 'exterieur', 'serre', 'balcon']),
   zone:                  z.string().max(50).optional(),

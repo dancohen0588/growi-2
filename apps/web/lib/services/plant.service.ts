@@ -177,6 +177,8 @@ export async function addIdentifiedPlant(
       catalogPlantId: catalogPlant?.id,
       customName: catalogPlant ? null : input.commonName,
       emoji: catalogPlant?.emoji ?? input.emoji ?? null,
+      // La photo de l'utilisateur, quand il vient de la prendre.
+      photoUrl: input.photoUrl ?? null,
       wateringFreqDays: catalogPlant?.wateringFreqDays,
       sunExposure: catalogPlant?.sunExposure,
       location,
