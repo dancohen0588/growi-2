@@ -488,6 +488,23 @@ pnpm exec prisma migrate deploy
 
 L'historique antérieur (migrations SQLite, scripts SQL manuels) est archivé dans `prisma/legacy/`.
 
+### Notifications push
+
+Le serveur est en place ; le branchement de l'app attend un *development
+build* (les push ne fonctionnent pas dans Expo Go sur iOS).
+
+| Élément | Détail |
+|---|---|
+| Enregistrement | `POST`/`DELETE /api/v1/me/push-tokens` — un jeton Expo par appareil, idempotent |
+| Tournée | `GET /api/cron/daily-reminders`, déclenchée par Vercel Cron (`apps/web/vercel.json`, 6 h UTC) |
+| Protection | `CRON_SECRET` en `Authorization: Bearer` ; sans le secret la route répond 503, avec un mauvais secret 401 |
+| Envoi | `lib/push/expo-push.ts` — lots de 100 maximum, ne lève jamais |
+| Nettoyage | Un `DeviceNotRegistered` supprime le jeton : continuer à écrire à un appareil désinstallé dégrade la réputation d'expéditeur |
+| Filtres | Canal (`push`/`both`), heures calmes dans le fuseau de l'utilisateur, au moins un type de rappel actif, et au moins un geste dû |
+
+Un compte sans rien à faire ne reçoit rien : une notification quotidienne vide
+est le meilleur moyen de les faire couper.
+
 ### Stockage des photos
 
 Les photos déposées par les utilisateurs vivent dans le bucket Supabase

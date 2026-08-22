@@ -26,6 +26,7 @@ import type {
   PlantCatalog,
   PhotoKind,
   PlantInstanceWithRelations,
+  RegisterPushTokenInput,
   TodayPlanning,
   UpdateAlertConfigInput,
   UpdateGardenInput,
@@ -273,6 +274,25 @@ export class GrowiApiClient {
 
     update: (input: UpdateProfileInput, options?: CallOptions): Promise<UserProfile> =>
       this.http.request('/api/v1/me', { ...options, method: 'PATCH', body: input }),
+
+    /** Enregistre l'appareil courant pour les notifications. */
+    registerPushToken: (
+      input: RegisterPushTokenInput,
+      options?: CallOptions,
+    ): Promise<void> =>
+      this.http.request('/api/v1/me/push-tokens', {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
+
+    /** Oublie l'appareil — à la déconnexion. Idempotent. */
+    unregisterPushToken: (token: string, options?: CallOptions): Promise<void> =>
+      this.http.request('/api/v1/me/push-tokens', {
+        ...options,
+        method: 'DELETE',
+        body: { token },
+      }),
 
     /** Préférences d'alertes — mise à jour partielle, fusionnée côté serveur. */
     updateAlerts: (
