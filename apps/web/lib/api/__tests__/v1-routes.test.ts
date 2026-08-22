@@ -18,7 +18,10 @@ const logService = vi.hoisted(() => ({
   logCare: vi.fn(),
 }))
 const adviceService = vi.hoisted(() => ({ markActionDone: vi.fn() }))
-const plantService = vi.hoisted(() => ({ listPlantInstances: vi.fn() }))
+const plantService = vi.hoisted(() => ({
+  listPlantInstances: vi.fn(),
+  addIdentifiedPlant: vi.fn(),
+}))
 const summaryService = vi.hoisted(() => ({ getDashboardSummary: vi.fn() }))
 const gardenWeatherService = vi.hoisted(() => ({ getGardenWeather: vi.fn() }))
 const userService = vi.hoisted(() => ({
@@ -39,7 +42,7 @@ const { GET: listGardens, POST: createGarden } = await import('@/app/api/v1/gard
 const { GET: getGarden } = await import('@/app/api/v1/gardens/[id]/route')
 const { POST: createLog } = await import('@/app/api/v1/plants/[id]/logs/route')
 const { POST: markDone } = await import('@/app/api/v1/planning/actions/done/route')
-const { GET: listPlants } = await import('@/app/api/v1/plants/route')
+const { GET: listPlants, POST: addIdentifiedPlant } = await import('@/app/api/v1/plants/route')
 const { GET: getSummary } = await import('@/app/api/v1/summary/route')
 const { GET: getWeather } = await import('@/app/api/v1/weather/route')
 const { PATCH: patchAlerts } = await import('@/app/api/v1/me/alerts/route')
@@ -325,6 +328,36 @@ describe('GET /api/v1/plants', () => {
 
     expect(res.status).toBe(401)
     expect(plantService.listPlantInstances).not.toHaveBeenCalled()
+  })
+
+  it('ajoute une plante identifiée et répond 201', async () => {
+    plantService.addIdentifiedPlant.mockResolvedValue(plantRow)
+
+    const res = await addIdentifiedPlant(
+      jsonRequest({
+        commonName: 'Basilic',
+        scientificName: 'Ocimum basilicum',
+        emoji: '🌿',
+        encyclopediaSlug: 'basilic',
+      }),
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(plantService.addIdentifiedPlant).toHaveBeenCalledWith(USER_ID, {
+      commonName: 'Basilic',
+      scientificName: 'Ocimum basilicum',
+      emoji: '🌿',
+      encyclopediaSlug: 'basilic',
+    })
+    expect(body.data.id).toBe('plant_1')
+  })
+
+  it('refuse un ajout sans nom commun', async () => {
+    const res = await addIdentifiedPlant(jsonRequest({ scientificName: 'Ocimum basilicum' }))
+
+    expect(res.status).toBe(400)
+    expect(plantService.addIdentifiedPlant).not.toHaveBeenCalled()
   })
 })
 

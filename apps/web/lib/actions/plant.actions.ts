@@ -45,10 +45,10 @@ export async function addIdentifiedPlantToMyPlants(
   if (!session?.user?.id) return { success: false, error: 'Non authentifié' }
 
   const validated = addIdentifiedPlantSchema.parse(input)
-  const { plantId } = await plantService.addIdentifiedPlant(session.user.id, validated)
+  const plant = await plantService.addIdentifiedPlant(session.user.id, validated)
 
   revalidatePath('/dashboard/plantes', 'layout')
-  return { success: true, plantId }
+  return { success: true, plantId: plant.id }
 }
 
 export async function logWatering(

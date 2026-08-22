@@ -1,5 +1,7 @@
+import { addIdentifiedPlantSchema } from '@growi/shared'
+
 import { requireUserId } from '@/lib/api/auth-context'
-import { ok, withApiErrorHandling } from '@/lib/api/response'
+import { created, ok, parseJsonBody, withApiErrorHandling } from '@/lib/api/response'
 import { serializePlantInstanceWithRelations } from '@/lib/api/serializers'
 import * as plantService from '@/lib/services/plant.service'
 
@@ -16,4 +18,19 @@ export const GET = withApiErrorHandling(async () => {
 
   const plants = await plantService.listPlantInstances(userId)
   return ok(plants.map(serializePlantInstanceWithRelations))
+})
+
+/**
+ * Ajoute une plante reconnue en photo.
+ *
+ * Sans jardin dans le corps : la plante rejoint le plus récent, et hérite de
+ * la fiche du catalogue quand l'espèce y figure. Créer une plante dans un
+ * jardin choisi passe par `POST /api/v1/gardens/[id]/plants`.
+ */
+export const POST = withApiErrorHandling(async (request: Request) => {
+  const userId = await requireUserId()
+  const input = await parseJsonBody(request, addIdentifiedPlantSchema)
+
+  const plant = await plantService.addIdentifiedPlant(userId, input)
+  return created(serializePlantInstanceWithRelations(plant))
 })

@@ -37,6 +37,13 @@
         {
           "locationWhenInUsePermission": "Growi utilise ta position pour la météo de ton jardin et les conseils d'arrosage."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Growi utilise l'appareil photo pour identifier tes plantes.",
+          "photosPermission": "Growi accède à tes photos pour identifier une plante à partir d'un cliché existant."
+        }
       ]
     ],
     "experiments": {
