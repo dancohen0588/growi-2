@@ -7,6 +7,7 @@ import {
   addPlantToMyGarden,
   deletePlantInstance,
   logWatering,
+  updateMyPlant,
 } from '@/lib/actions/plant.actions'
 
 interface PlantsContextValue {
@@ -42,6 +43,7 @@ export function PlantsProvider({
       sunExposure:      mapSun(data.sunExposure),
       datePlanted:      data.datePlanted,
       notes:            data.notes,
+      photoUrl:         data.photoUrl || null,
     })
     if (result.success && result.plant) {
       startTransition(() => {
@@ -53,20 +55,39 @@ export function PlantsProvider({
   }
 
   async function updatePlant(id: string, data: PlantFormValues): Promise<void> {
-    // Optimistic update — Server Action revalidates path for full re-fetch
+    // L'affichage suit tout de suite ; la Server Action écrit et revalide.
     startTransition(() => {
       setPlants(prev =>
         prev.map(p =>
           p.id === id
             ? {
                 ...p,
-                name:                 data.name ?? p.name,
+                name:                  data.name ?? p.name,
+                emoji:                 data.emoji ?? p.emoji,
+                photoUrl:              data.photoUrl ?? p.photoUrl,
                 wateringFrequencyDays: data.wateringFrequencyDays ?? p.wateringFrequencyDays,
               }
             : p,
         ),
       )
     })
+
+    const result = await updateMyPlant(id, {
+      customName:       data.name || null,
+      emoji:            data.emoji,
+      location:         mapLocation(data.location),
+      wateringFreqDays: data.wateringFrequencyDays,
+      sunExposure:      mapSun(data.sunExposure),
+      soilType:         data.soilType || null,
+      datePlanted:      data.datePlanted,
+      notes:            data.notes || null,
+      // `null` efface la photo ; le serveur supprime alors le fichier.
+      photoUrl:         data.photoUrl || null,
+    })
+
+    if (!result.success) {
+      throw new Error(result.error ?? "La plante n'a pas pu être mise à jour.")
+    }
   }
 
   async function deletePlant(id: string): Promise<void> {

@@ -170,6 +170,8 @@ export const createPlantInstanceSchema = z.object({
   sunExposure: sunExposureSchema.optional(),
   datePlanted: z.string().optional(),
   notes: z.string().max(1000).optional(),
+  /** Photo déjà déposée par `/api/v1/uploads`. */
+  photoUrl: nullish(z.string().max(2000)),
 })
 
 export type CreatePlantInstanceInput = z.infer<typeof createPlantInstanceSchema>
@@ -199,6 +201,11 @@ export const addIdentifiedPlantSchema = z.object({
   scientificName: z.string().max(120).optional(),
   emoji: z.string().max(8).optional(),
   encyclopediaSlug: z.string().max(120).nullable().optional(),
+  /**
+   * Photo prise pour l'identification, déjà déposée par `/api/v1/uploads`.
+   * C'est celle de *sa* plante : elle prime sur l'image du catalogue.
+   */
+  photoUrl: nullish(z.string().max(2000)),
 })
 
 export type AddIdentifiedPlantInput = z.infer<typeof addIdentifiedPlantSchema>

@@ -1,5 +1,17 @@
 import { useState } from 'react'
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native'
+import {
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native'
+import { Camera, ImageIcon, X } from 'lucide-react-native'
 import {
   CARE_LOG_TYPES,
   CARE_LOG_TYPE_LABELS,
@@ -15,6 +27,8 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { OptionGroup } from '@/components/ui/OptionGroup'
+import { PermissionDeniedError, pickPhoto, takePhoto, type Photo } from '@/lib/photo'
+import { useUploadPhoto } from '@/lib/queries/uploads'
 
 const TYPE_OPTIONS = CARE_LOG_TYPES.map((value) => ({
   value,
@@ -59,6 +73,9 @@ export function CareLogSheet({
   const [status, setStatus] = useState<HealthStatus>(currentHealth)
   const [quantity, setQuantity] = useState('')
   const [unit, setUnit] = useState<HarvestUnit>('g')
+  const [photo, setPhoto] = useState<Photo | null>(null)
+
+  const uploadPhoto = useUploadPhoto()
 
   const isHarvest = type === 'harvest'
   const isHealth = type === 'health'
@@ -68,7 +85,42 @@ export function CareLogSheet({
   const quantityValue = Number(quantity.replace(',', '.'))
   const quantityInvalid = quantity.length > 0 && !(quantityValue > 0)
 
-  const submit = () => {
+  /**
+   * Choisit une photo pour ce geste.
+   *
+   * Elle n'est déposée qu'à l'enregistrement : abandonner la feuille ne doit
+   * rien laisser dans le stockage.
+   */
+  const choosePhoto = async (source: 'camera' | 'library') => {
+    try {
+      const picked = source === 'camera' ? await takePhoto() : await pickPhoto()
+      if (picked) setPhoto(picked)
+    } catch (error) {
+      if (error instanceof PermissionDeniedError) {
+        Alert.alert('Autorisation nécessaire', error.message, [
+          { text: 'Plus tard', style: 'cancel' },
+          { text: 'Ouvrir les réglages', onPress: () => void Linking.openSettings() },
+        ])
+        return
+      }
+      Alert.alert('Photo indisponible', String(error))
+    }
+  }
+
+  const submit = async () => {
+    // Une photo qui ne part pas ne doit pas emporter le geste avec elle.
+    let photoUrl: string | undefined
+    if (photo) {
+      try {
+        photoUrl = (await uploadPhoto.mutateAsync({ photo, kind: 'care-log' })).url
+      } catch {
+        Alert.alert(
+          'Photo non envoyée',
+          "Le geste va être enregistré sans la photo. Tu pourras réessayer plus tard.",
+        )
+      }
+    }
+
     onSubmit({
       type,
       note: note.trim() || undefined,
@@ -76,6 +128,7 @@ export function CareLogSheet({
       status: isHealth ? status : undefined,
       quantity: isHarvest && quantityValue > 0 ? quantityValue : undefined,
       unit: isHarvest && quantityValue > 0 ? unit : undefined,
+      photoUrl,
     })
   }
 
@@ -155,12 +208,52 @@ export function CareLogSheet({
             editable={!submitting}
           />
 
+          {/* Une photo vaut mieux qu'une description pour une feuille tachée
+              ou une récolte : facultative, jamais imposée. */}
+          <View className="gap-1.5">
+            <Text className="font-raleway-medium text-secondary text-forest">Photo</Text>
+
+            {photo ? (
+              <View className="h-40 w-full overflow-hidden rounded-xl bg-sand-dark">
+                <Image source={{ uri: photo.uri }} className="h-full w-full" resizeMode="cover" />
+                <Pressable
+                  onPress={() => setPhoto(null)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retirer la photo"
+                  className="absolute right-2 top-2 h-8 w-8 items-center justify-center rounded-full bg-forest/80"
+                >
+                  <X size={16} color="#F9F7E8" />
+                </Pressable>
+              </View>
+            ) : (
+              <View className="flex-row gap-2">
+                <View className="flex-1">
+                  <Button
+                    label="Photo"
+                    variant="outline"
+                    onPress={() => void choosePhoto('camera')}
+                    icon={<Camera size={18} color="#1E5631" />}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Button
+                    label="Galerie"
+                    variant="outline"
+                    onPress={() => void choosePhoto('library')}
+                    icon={<ImageIcon size={18} color="#1E5631" />}
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+
           <Button
             label="Enregistrer"
             size="lg"
-            loading={submitting}
+            loading={submitting || uploadPhoto.isPending}
             disabled={quantityInvalid}
-            onPress={submit}
+            onPress={() => void submit()}
           />
         </ScrollView>
       </KeyboardAvoidingView>

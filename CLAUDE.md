@@ -488,6 +488,27 @@ pnpm exec prisma migrate deploy
 
 L'historique antérieur (migrations SQLite, scripts SQL manuels) est archivé dans `prisma/legacy/`.
 
+### Stockage des photos
+
+Les photos déposées par les utilisateurs vivent dans le bucket Supabase
+`plant-photos` (même projet que la base), écrit par `lib/storage.ts` en REST —
+pas de SDK Supabase dans le projet.
+
+| Point | Choix |
+|---|---|
+| Trajet | Par l'API (`POST /api/v1/uploads`, multipart), pas d'envoi direct : le client compresse déjà à 1920 px, très en dessous des 4,5 Mo de Vercel |
+| Lecture | Bucket **public**, chemin `users/{userId}/{kind}/{uuid}.ext` choisi par le serveur |
+| Cache | Aucun en-tête posé : Supabase sert `no-cache`, donc une photo supprimée cesse d'être servie presque aussitôt |
+| Contrôles | 5 Mo, JPEG/PNG/WebP vérifiés **sur les octets** (un `Content-Type` se déclare), 30 envois/heure/compte |
+| Suppression | À la suppression d'une plante — la sienne et celles de ses gestes — et au remplacement |
+
+Le bucket a été créé par migration Supabase (`storage.buckets`), pas par
+Prisma : le schéma `storage` n'est pas dans le datamodel, et `migrate diff` ne
+doit pas le voir.
+
+Variables : `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` (serveur uniquement,
+elle contourne RLS).
+
 ### IA & APIs externes
 
 - **Identification de plantes** : Gemini 2.5 Flash via `app/api/identify-plant/` (clé `GEMINI_API_KEY`).

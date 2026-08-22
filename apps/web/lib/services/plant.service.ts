@@ -17,6 +17,7 @@ import { prisma } from '@/lib/prisma'
 import type { PlantInstanceWithRelations } from '@/lib/plant-mapper'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 import { ServiceError } from '@/lib/services/errors'
+import { deletePhotoByUrl } from '@/lib/storage'
 
 // ─── Plantes de l'utilisateur ──────────────────────────────────────────────
 
@@ -176,6 +177,8 @@ export async function addIdentifiedPlant(
       catalogPlantId: catalogPlant?.id,
       customName: catalogPlant ? null : input.commonName,
       emoji: catalogPlant?.emoji ?? input.emoji ?? null,
+      // La photo de l'utilisateur, quand il vient de la prendre.
+      photoUrl: input.photoUrl ?? null,
       wateringFreqDays: catalogPlant?.wateringFreqDays,
       sunExposure: catalogPlant?.sunExposure,
       location,
@@ -209,6 +212,18 @@ export async function updatePlantInstance(
 
   const { datePlanted, ...rest } = input
 
+  // Remplacer une photo doit effacer la précédente, sinon chaque changement
+  // laisse un fichier derrière lui. On la lit avant l'écriture.
+  const previousPhotoUrl =
+    input.photoUrl !== undefined
+      ? (
+          await prisma.plantInstance.findUnique({
+            where: { id: plantInstanceId },
+            select: { photoUrl: true },
+          })
+        )?.photoUrl
+      : undefined
+
   await prisma.plantInstance.update({
     where: { id: plantInstanceId, userId },
     data: {
@@ -218,6 +233,10 @@ export async function updatePlantInstance(
         : {}),
     },
   })
+
+  if (previousPhotoUrl && previousPhotoUrl !== input.photoUrl) {
+    await deletePhotoByUrl(previousPhotoUrl)
+  }
 
   // La fréquence d'arrosage ou l'exposition changent les conseils ; un
   // déménagement en change deux, celui qu'on quitte et celui qu'on rejoint.
@@ -234,9 +253,27 @@ export async function updatePlantInstance(
 export async function deletePlantInstance(plantInstanceId: string, userId: string) {
   const { gardenId } = await assertPlantOwned(plantInstanceId, userId)
 
+  // Les photos déposées par l'utilisateur s'en vont avec la plante : les logs
+  // partent en cascade côté base, mais leurs fichiers, eux, resteraient.
+  const [plant, logs] = await Promise.all([
+    prisma.plantInstance.findUnique({
+      where: { id: plantInstanceId },
+      select: { photoUrl: true },
+    }),
+    prisma.careLog.findMany({
+      where: { plantInstanceId, photoUrl: { not: null } },
+      select: { photoUrl: true },
+    }),
+  ])
+
   await prisma.plantInstance.delete({
     where: { id: plantInstanceId, userId },
   })
+
+  await Promise.all([
+    deletePhotoByUrl(plant?.photoUrl),
+    ...logs.map((log) => deletePhotoByUrl(log.photoUrl)),
+  ])
 
   if (gardenId) await invalidateGardenAdviceCache(gardenId)
 }

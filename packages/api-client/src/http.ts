@@ -84,13 +84,20 @@ export class HttpClient {
     if (token) headers.authorization = `Bearer ${token}`
 
     const hasBody = options.body !== undefined
-    if (hasBody) headers['content-type'] = 'application/json'
+
+    // Un `FormData` part tel quel : c'est le moteur HTTP qui pose le
+    // `Content-Type`, avec la frontière multipart qu'il vient de tirer. La
+    // fixer nous-mêmes rendrait le corps illisible.
+    const isFormData =
+      typeof FormData !== 'undefined' && options.body instanceof FormData
+
+    if (hasBody && !isFormData) headers['content-type'] = 'application/json'
 
     try {
       return await this.fetchImpl(this.buildUrl(path, options.query), {
         method: options.method ?? 'GET',
         headers,
-        body: hasBody ? JSON.stringify(options.body) : undefined,
+        body: !hasBody ? undefined : isFormData ? (options.body as FormData) : JSON.stringify(options.body),
         signal: options.signal,
         ...(this.options.credentials ? { credentials: this.options.credentials } : {}),
       })

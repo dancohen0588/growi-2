@@ -22,6 +22,7 @@ import { useToast } from '@/components/ui/Toast'
 import { errorMessage } from '@/lib/errors'
 import { PermissionDeniedError, pickPhoto, takePhoto, type Photo } from '@/lib/photo'
 import { useAddIdentifiedPlant, useIdentifyPlant } from '@/lib/queries/identify'
+import { useUploadPhoto } from '@/lib/queries/uploads'
 
 /** Les mêmes étapes que sur le web : photo, analyse, résultat. */
 const LOADING_MESSAGES = [
@@ -60,6 +61,7 @@ export default function IdentifierScreen() {
 
   const identify = useIdentifyPlant()
   const addPlant = useAddIdentifiedPlant()
+  const uploadPhoto = useUploadPhoto()
 
   const reset = () => {
     setPhoto(null)
@@ -101,8 +103,24 @@ export default function IdentifierScreen() {
     })
   }
 
-  const addToMyPlants = () => {
+  /**
+   * Ajoute la plante, avec la photo qui vient de servir à l'identifier.
+   *
+   * C'est *sa* plante sur la photo : elle vaut mieux que l'image générique du
+   * catalogue. Si le dépôt échoue, on ajoute quand même la plante — mieux
+   * vaut une fiche sans photo que pas de fiche — en le disant.
+   */
+  const addToMyPlants = async () => {
     if (!result?.identified) return
+
+    let photoUrl: string | null = null
+    if (photo) {
+      try {
+        photoUrl = (await uploadPhoto.mutateAsync({ photo, kind: 'plant' })).url
+      } catch {
+        toast("La photo n'a pas pu être envoyée ; la plante est ajoutée sans elle.", 'error')
+      }
+    }
 
     addPlant.mutate(
       {
@@ -110,6 +128,7 @@ export default function IdentifierScreen() {
         scientificName: result.scientificName,
         emoji: result.emoji,
         encyclopediaSlug: result.encyclopediaSlug,
+        photoUrl,
       },
       {
         onSuccess: (plant) => {
@@ -151,8 +170,8 @@ export default function IdentifierScreen() {
                 <Button
                   label="Ajouter à mes plantes"
                   size="lg"
-                  loading={addPlant.isPending}
-                  onPress={addToMyPlants}
+                  loading={addPlant.isPending || uploadPhoto.isPending}
+                  onPress={() => void addToMyPlants()}
                   icon={<Plus size={20} color="#1E5631" />}
                 />
               )}

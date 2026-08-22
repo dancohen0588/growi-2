@@ -24,16 +24,26 @@ import type {
   MobileLoginInput,
   MobileRegisterInput,
   PlantCatalog,
+  PhotoKind,
   PlantInstanceWithRelations,
   TodayPlanning,
   UpdateAlertConfigInput,
   UpdateGardenInput,
   UpdatePlantInstanceInput,
   UpdateProfileInput,
+  UploadedPhoto,
   UserProfile,
 } from '@growi/shared'
 
 import { HttpClient, type ApiClientOptions, type RequestOptions } from './http'
+
+/**
+ * Une photo prête à être envoyée.
+ *
+ * React Native n'a pas de `File` : il accepte, dans un `FormData`, un objet
+ * décrivant le fichier local.
+ */
+export type UploadablePhoto = Blob | { uri: string; name: string; type: string }
 
 /** Options communes à tous les appels : annulation, en-têtes ponctuels. */
 export type CallOptions = Pick<RequestOptions, 'signal' | 'headers'>
@@ -216,6 +226,29 @@ export class GrowiApiClient {
         method: 'POST',
         body: input,
       }),
+  }
+
+  // ─── Photos ──────────────────────────────────────────────────────────────
+
+  readonly uploads = {
+    /**
+     * Dépose une photo et renvoie son URL publique, à écrire ensuite dans le
+     * `photoUrl` d'une plante ou d'un geste.
+     *
+     * `file` est un `Blob`/`File` côté web, ou l'objet `{ uri, name, type }`
+     * que React Native attend dans un `FormData`.
+     */
+    photo: (
+      file: UploadablePhoto,
+      kind: PhotoKind = 'plant',
+      options?: CallOptions,
+    ): Promise<UploadedPhoto> => {
+      const form = new FormData()
+      form.append('file', file as unknown as Blob)
+      form.append('kind', kind)
+
+      return this.http.request('/api/v1/uploads', { ...options, method: 'POST', body: form })
+    },
   }
 
   // ─── Indicateurs ─────────────────────────────────────────────────────────

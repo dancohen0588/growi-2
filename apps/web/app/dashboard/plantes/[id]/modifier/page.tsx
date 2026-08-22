@@ -25,7 +25,17 @@ export default function ModifierPlantePage({ params }: PageProps) {
   const plantId = plant.id
 
   async function handleSubmit(data: PlantFormValues) {
-    updatePlant(plantId, data)
+    // Attendre l'écriture avant d'annoncer le succès : la page félicitait
+    // l'utilisateur sans savoir si quoi que ce soit avait été enregistré.
+    try {
+      await updatePlant(plantId, data)
+    } catch (error) {
+      toast(
+        error instanceof Error ? error.message : "La plante n'a pas pu être mise à jour.",
+      )
+      return
+    }
+
     toast(`✅ Ta plante a bien été mise à jour.`)
     router.push(`/dashboard/plantes/${plantId}`)
   }
@@ -66,8 +76,12 @@ export default function ModifierPlantePage({ params }: PageProps) {
 
       {/* Form */}
       <div className="bg-white rounded-2xl shadow-card p-6 md:p-8">
+        {/* `manual` : on modifie une plante existante, il n'y a rien à
+            rechercher dans le catalogue. Sans ce mode, l'écran s'ouvrait sur
+            « Trouve ta plante » et le formulaire restait invisible. */}
         <PlantForm
           defaultValues={plant}
+          mode="manual"
           onSubmit={handleSubmit}
           submitLabel="Enregistrer les modifications"
         />

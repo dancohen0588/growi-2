@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { NativeSelect as Select } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { PlantPhotoField } from './PlantPhotoField'
 import { PlantSearchInput } from './PlantSearchInput'
 
 const EMOJI_GRID = ['🌿', '🌹', '🍅', '🌱', '🌸', '🌺', '🌻', '🎋', '🌵', '🍋', '🍃', '💜']
@@ -89,6 +90,7 @@ export function PlantForm({
       name:                  defaultValues?.name ?? '',
       scientificName:        defaultValues?.scientificName ?? '',
       emoji:                 defaultValues?.emoji ?? '🌿',
+      photoUrl:              defaultValues?.photoUrl ?? undefined,
       category:              defaultValues?.category ?? 'interieur',
       location:              defaultValues?.location ?? 'interieur',
       zone:                  defaultValues?.zone ?? '',
@@ -104,6 +106,7 @@ export function PlantForm({
   })
 
   const watchedEmoji = watch('emoji')
+  const watchedPhoto = watch('photoUrl')
   const watchedSun = watch('sunExposure')
   const watchedDifficulty = watch('wateringDifficulty')
   const watchedHealth = watch('healthStatus')
@@ -127,6 +130,7 @@ export function PlantForm({
       name: '',
       scientificName: '',
       emoji: '🌿',
+      photoUrl: undefined,
       category: 'interieur',
       location: 'interieur',
       zone: '',
@@ -277,6 +281,13 @@ export function PlantForm({
                 ))}
               </div>
             </div>
+
+            {/* Photo — la sienne prime sur celle du catalogue */}
+            <PlantPhotoField
+              value={watchedPhoto}
+              emoji={watchedEmoji || '🌿'}
+              onChange={(url) => setValue('photoUrl', url, { shouldDirty: true })}
+            />
 
             {/* Catégorie */}
             <div>

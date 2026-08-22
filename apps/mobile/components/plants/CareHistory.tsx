@@ -1,4 +1,5 @@
 import { Text, View } from 'react-native'
+import { Image } from 'expo-image'
 import {
   CARE_LOG_TYPE_LABELS,
   HEALTH_STATUS_LABELS,
@@ -56,6 +57,20 @@ export function CareHistory({ logs }: { logs: CareLog[] }) {
                 >
                   {detail}
                 </Text>
+              ) : null}
+
+              {/* La photo d'un geste ne se voit que là : on l'affiche en
+                  vignette plutôt que de la laisser inaccessible. */}
+              {log.photoUrl ? (
+                <View className="mt-2 h-28 w-full overflow-hidden rounded-lg bg-sand-dark">
+                  <Image
+                    source={log.photoUrl}
+                    contentFit="cover"
+                    transition={150}
+                    style={{ width: '100%', height: '100%' }}
+                    accessibilityIgnoresInvertColors
+                  />
+                </View>
               ) : null}
             </View>
             <Text className="font-raleway text-caption text-muted-foreground">
