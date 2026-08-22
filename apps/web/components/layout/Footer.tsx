@@ -18,9 +18,9 @@ const companyLinks = [
 ]
 
 const legalLinks = [
-  { href: '/', label: 'Mentions légales' },
-  { href: '/', label: 'RGPD' },
-  { href: '/', label: 'CGU' },
+  { href: '/mentions-legales', label: 'Mentions légales' },
+  { href: '/confidentialite',  label: 'Confidentialité' },
+  { href: '/cgu',              label: 'CGU' },
 ]
 
 export function Footer() {

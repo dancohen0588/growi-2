@@ -2,6 +2,7 @@
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
+import { DashboardLegalLinks } from '@/components/dashboard/DashboardLegalLinks'
 import { DashboardNav } from '@/components/dashboard/DashboardNav'
 
 export default async function DashboardLayout({
@@ -19,6 +20,7 @@ export default async function DashboardLayout({
         <DashboardNav />
         <main className="flex-1 p-6 pb-24 md:pb-6 overflow-y-auto">
           {children}
+          <DashboardLegalLinks />
         </main>
       </div>
     </div>
