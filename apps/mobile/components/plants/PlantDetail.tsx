@@ -1,9 +1,18 @@
 import { useCallback, useState } from 'react'
-import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
-import { ChevronLeft, Droplets, Pencil, Plus, Scissors, Sprout } from 'lucide-react-native'
+import { Camera, ChevronLeft, Droplets, Pencil, Plus, Scissors, Sprout } from 'lucide-react-native'
 import {
   HEALTH_STATUS_LABELS,
   PLANT_LOCATION_LABELS,
@@ -23,8 +32,10 @@ import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
 import { formatLogDate } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
+import { PermissionDeniedError, pickPhoto, takePhoto } from '@/lib/photo'
 import { useMarkActionDone, usePlantActions } from '@/lib/queries/planning'
-import { useAddCareLog, usePlant, usePlantLogs } from '@/lib/queries/plants'
+import { useAddCareLog, usePlant, usePlantLogs, useUpdatePlant } from '@/lib/queries/plants'
+import { useUploadPhoto } from '@/lib/queries/uploads'
 
 function displayName(plant: PlantInstanceWithRelations): string {
   return plant.customName ?? plant.catalogPlant?.commonName ?? 'Ma plante'
@@ -97,6 +108,8 @@ export function PlantDetail({ plantId, onEdit }: PlantDetailProps) {
   const actions = usePlantActions(plantId)
   const addLog = useAddCareLog(plantId)
   const markDone = useMarkActionDone()
+  const updatePlant = useUpdatePlant(plantId)
+  const uploadPhoto = useUploadPhoto()
 
   const [refreshing, setRefreshing] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -129,6 +142,60 @@ export function PlantDetail({ plantId, onEdit }: PlantDetailProps) {
     )
   }
 
+  /**
+   * Remplace la photo de la plante.
+   *
+   * Deux temps : le fichier part au stockage, puis son URL est écrite sur la
+   * plante. Le second échoue rarement, mais s'il échoue la photo déposée
+   * reste orpheline — sans conséquence, elle n'est référencée nulle part.
+   */
+  const changePhoto = async (source: 'camera' | 'library') => {
+    try {
+      const picked = source === 'camera' ? await takePhoto() : await pickPhoto()
+      if (!picked) return
+
+      const { url } = await uploadPhoto.mutateAsync({ photo: picked, kind: 'plant' })
+      await updatePlant.mutateAsync({ photoUrl: url })
+      toast('Photo mise à jour 📸')
+    } catch (error) {
+      if (error instanceof PermissionDeniedError) {
+        Alert.alert('Autorisation nécessaire', error.message, [
+          { text: 'Plus tard', style: 'cancel' },
+          { text: 'Ouvrir les réglages', onPress: () => void Linking.openSettings() },
+        ])
+        return
+      }
+      toast(errorMessage(error), 'error')
+    }
+  }
+
+  const removePhoto = async () => {
+    try {
+      // `null` efface ; le fichier est supprimé du stockage par le serveur.
+      await updatePlant.mutateAsync({ photoUrl: null })
+      toast('Photo retirée')
+    } catch (error) {
+      toast(errorMessage(error), 'error')
+    }
+  }
+
+  const openPhotoMenu = (hasOwnPhoto: boolean) => {
+    Alert.alert('Photo de la plante', 'Comment veux-tu procéder ?', [
+      { text: 'Prendre une photo', onPress: () => void changePhoto('camera') },
+      { text: 'Choisir dans la galerie', onPress: () => void changePhoto('library') },
+      ...(hasOwnPhoto
+        ? [
+            {
+              text: 'Retirer la photo',
+              style: 'destructive' as const,
+              onPress: () => void removePhoto(),
+            },
+          ]
+        : []),
+      { text: 'Annuler', style: 'cancel' as const },
+    ])
+  }
+
   if (plant.isPending) {
     return (
       <SafeAreaView className="flex-1 bg-sand" edges={['top', 'left', 'right']}>
@@ -155,6 +222,7 @@ export function PlantDetail({ plantId, onEdit }: PlantDetailProps) {
   const sun = (data.sunExposure ?? data.catalogPlant?.sunExposure) as SunExposure | undefined
   // Sans jardin, aucune tâche à valider : le planning raisonne par jardin.
   const gardenId = data.gardenId ?? null
+  const busyWithPhoto = uploadPhoto.isPending || updatePlant.isPending
   const todo = gardenId ? (actions.data ?? []) : []
 
   return (
@@ -185,9 +253,18 @@ export function PlantDetail({ plantId, onEdit }: PlantDetailProps) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#B4DD7F" />
         }
       >
-        {/* En-tête : photo si elle existe, emoji en repli */}
+        {/* En-tête : la photo de l'utilisateur si elle existe, celle du
+            catalogue à défaut, l'emoji en dernier recours. Toujours tactile —
+            c'est le seul endroit d'où l'on change la photo. */}
         <View className="items-center gap-3">
-          <View className="h-32 w-32 items-center justify-center overflow-hidden rounded-2xl bg-sand-dark">
+          <Pressable
+            onPress={() => openPhotoMenu(data.photoUrl != null)}
+            disabled={busyWithPhoto}
+            accessibilityRole="button"
+            accessibilityLabel={data.photoUrl ? 'Changer la photo' : 'Ajouter une photo'}
+            className="h-32 w-32 items-center justify-center overflow-hidden rounded-2xl bg-sand-dark"
+            style={({ pressed }) => (pressed ? { opacity: 0.85 } : null)}
+          >
             {imageUrl ? (
               <Image
                 source={imageUrl}
@@ -199,7 +276,17 @@ export function PlantDetail({ plantId, onEdit }: PlantDetailProps) {
             ) : (
               <Text className="text-6xl">{emoji}</Text>
             )}
-          </View>
+
+            {busyWithPhoto ? (
+              <View className="absolute inset-0 items-center justify-center bg-forest/40">
+                <ActivityIndicator color="#F9F7E8" />
+              </View>
+            ) : (
+              <View className="absolute bottom-1 right-1 h-8 w-8 items-center justify-center rounded-full border-2 border-sand bg-lime">
+                <Camera size={16} color="#1E5631" />
+              </View>
+            )}
+          </Pressable>
 
           <View className="items-center gap-1">
             <Text className="font-poppins-bold text-screen text-forest text-center">

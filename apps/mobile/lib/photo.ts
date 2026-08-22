@@ -15,8 +15,11 @@ const JPEG_QUALITY = 0.85
 export interface Photo {
   /** URI locale, pour l'aperçu. */
   uri: string
-  /** Data URL prête à envoyer à l'API. */
+  /** Data URL, attendue par l'identification. */
   dataUrl: string
+  /** Nom et type, attendus par l'envoi en `multipart/form-data`. */
+  name: string
+  type: string
 }
 
 /** L'utilisateur a refusé l'accès ; l'écran le dit sans faire échouer l'app. */
@@ -42,6 +45,8 @@ async function prepare(uri: string): Promise<Photo> {
   return {
     uri: result.uri,
     dataUrl: `data:image/jpeg;base64,${result.base64 ?? ''}`,
+    name: 'photo.jpg',
+    type: 'image/jpeg',
   }
 }
 

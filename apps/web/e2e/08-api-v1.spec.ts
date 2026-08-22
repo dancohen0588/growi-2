@@ -257,6 +257,47 @@ test.describe('API v1', () => {
     await api.delete(`/api/v1/plants/${plant.id}`)
   })
 
+  test('E2E-APIV1-13 — Envoi d\'une photo et cycle de vie', async ({ page }) => {
+    await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
+    const api = page.request
+
+    // Un JPEG minimal : seule la signature est examinée côté serveur.
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(64)])
+
+    const upload = await api.post('/api/v1/uploads', {
+      multipart: {
+        file: { name: 'plante.jpg', mimeType: 'image/jpeg', buffer: jpeg },
+        kind: 'plant',
+      },
+    })
+    expect(upload.status()).toBe(201)
+
+    const { url } = (await upload.json()).data
+    expect(url).toContain('/storage/v1/object/public/plant-photos/')
+
+    // Un fichier qui n'est pas une image est refusé, même bien étiqueté.
+    const bogus = await api.post('/api/v1/uploads', {
+      multipart: {
+        file: { name: 'faux.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('pas une image') },
+      },
+    })
+    expect(bogus.status()).toBe(400)
+
+    // La photo se rattache à une plante par la route habituelle.
+    const plant = (
+      await (
+        await api.post(`/api/v1/gardens/${gardenId1}/plants`, {
+          data: { location: 'OUTDOOR', customName: 'Plante photographiée' },
+        })
+      ).json()
+    ).data
+
+    const patched = await api.patch(`/api/v1/plants/${plant.id}`, { data: { photoUrl: url } })
+    expect((await patched.json()).data.photoUrl).toBe(url)
+
+    await api.delete(`/api/v1/plants/${plant.id}`)
+  })
+
   test('E2E-APIV1-08 — Recherche dans le catalogue', async ({ page }) => {
     await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
 

@@ -38,6 +38,8 @@ const nextConfig = {
       { protocol: 'https', hostname: 'inaturalist-open-data.s3.amazonaws.com' },
       { protocol: 'https', hostname: 'static.inaturalist.org' },
       { protocol: 'https', hostname: 'upload.wikimedia.org' },
+      // Photos déposées par les utilisateurs (bucket public `plant-photos`).
+      { protocol: 'https', hostname: '*.supabase.co', pathname: '/storage/v1/object/public/**' },
     ],
   },
   webpack(config) {
