@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isApiError } from '@growi/api-client'
 import type {
   CreateGardenInput,
   CreatePlantInstanceInput,
@@ -30,6 +31,26 @@ export function useGardenPlants(gardenId: string) {
     queryKey: gardenKeys.plants(gardenId),
     queryFn: () => api.gardens.listPlants(gardenId),
     enabled: Boolean(gardenId),
+  })
+}
+
+/**
+ * Le plan dessiné du jardin.
+ *
+ * Requête à part de la fiche : le SVG pèse quelques dizaines de kilo-octets
+ * et ne bouge qu'à l'édition, qui se fait sur ordinateur. Une demi-heure de
+ * fraîcheur évite de le retélécharger à chaque aller-retour dans la pile.
+ *
+ * Un 404 signifie « pas encore de plan » autant que « jardin inconnu » : dans
+ * les deux cas il n'y a rien à montrer, donc rien à réessayer.
+ */
+export function useGardenPlan(gardenId: string) {
+  return useQuery({
+    queryKey: gardenKeys.plan(gardenId),
+    queryFn: () => api.gardens.plan(gardenId),
+    enabled: Boolean(gardenId),
+    staleTime: 30 * 60 * 1000,
+    retry: (failureCount, error) => !(isApiError(error) && error.isNotFound) && failureCount < 2,
   })
 }
 

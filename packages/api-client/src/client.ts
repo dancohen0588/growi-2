@@ -20,6 +20,7 @@ import type {
   CreatePlantInstanceInput,
   DashboardSummary,
   Garden,
+  GardenPlan,
   GardenWeather,
   GardenWithStats,
   IdentifyApiResponse,
@@ -127,6 +128,16 @@ export class GrowiApiClient {
         ...options,
         method: 'DELETE',
       }),
+
+    /**
+     * Le plan dessiné, en SVG prêt à afficher.
+     *
+     * `ApiError.isNotFound` distingue mal ici « jardin inconnu » de « pas
+     * encore de plan » : c'est voulu, l'app traite les deux pareil — il n'y a
+     * rien à montrer.
+     */
+    plan: (gardenId: string, options?: CallOptions): Promise<GardenPlan> =>
+      this.http.request(`/api/v1/gardens/${encodeURIComponent(gardenId)}/plan`, { ...options }),
 
     listPlants: (
       gardenId: string,

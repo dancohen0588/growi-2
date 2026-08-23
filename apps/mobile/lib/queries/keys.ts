@@ -13,6 +13,7 @@ export const gardenKeys = {
   list: () => [...gardenKeys.all, 'list'] as const,
   detail: (gardenId: string) => [...gardenKeys.all, 'detail', gardenId] as const,
   plants: (gardenId: string) => [...gardenKeys.all, 'detail', gardenId, 'plants'] as const,
+  plan: (gardenId: string) => [...gardenKeys.all, 'detail', gardenId, 'plan'] as const,
 }
 
 export const plantKeys = {

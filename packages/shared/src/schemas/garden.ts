@@ -58,6 +58,26 @@ export const gardenWithStatsSchema = gardenSchema.extend({
 
 export type GardenWithStats = z.infer<typeof gardenWithStatsSchema>
 
+// ─── Plan du jardin ────────────────────────────────────────────────────────
+
+/**
+ * Le plan dessiné, rendu en SVG par le serveur.
+ *
+ * L'app le reçoit prêt à afficher plutôt que sous forme de `canvasData` brut :
+ * le moteur de dessin vit côté web, et le dupliquer garantirait qu'un jour les
+ * deux plans ne se ressemblent plus.
+ */
+export const gardenPlanSchema = z.object({
+  /** Document SVG autonome. */
+  svg: z.string(),
+  /** Dimensions du `viewBox`, pour dimensionner le conteneur. */
+  width: z.number().positive(),
+  height: z.number().positive(),
+  elementCount: z.number().int().nonnegative(),
+})
+
+export type GardenPlan = z.infer<typeof gardenPlanSchema>
+
 export const createGardenSchema = z.object({
   name: z.string().min(1, 'Nom requis').max(50),
   type: gardenTypeSchema,
