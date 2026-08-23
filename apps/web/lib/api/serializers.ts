@@ -26,7 +26,7 @@ import type {
   PlantInstance as PrismaPlantInstance,
 } from '@prisma/client'
 
-import { SITE_URL, absoluteUrl } from '@/lib/site-url'
+import { absoluteUrl } from '@/lib/site-url'
 
 const iso = (d: Date): string => d.toISOString()
 const isoOrNull = (d: Date | null): string | null => (d ? d.toISOString() : null)
@@ -123,20 +123,33 @@ export function serializeCareLog(log: PrismaCareLog): CareLog {
  * les rend déjà au format des schémas partagés. Le seul travail restant est
  * de rendre les URLs **absolues** : le mobile affiche ce contenu hors du site,
  * sans page courante à partir de laquelle résoudre `/blog/…`.
+ *
+ * L'origine est passée par la route (`requestOrigin`) et non lue ici : en
+ * développement, le mobile joint le serveur par l'IP locale du Mac, et lui
+ * répondre des images sur `localhost` les ferait chercher sur le téléphone.
  */
-export function serializeBlogPostSummary(post: BlogPostSummary): BlogPostSummary {
-  return { ...post, coverImage: absoluteUrl(post.coverImage) }
+export function serializeBlogPostSummary(
+  post: BlogPostSummary,
+  baseUrl: string,
+): BlogPostSummary {
+  return { ...post, coverImage: absoluteUrl(post.coverImage, baseUrl) }
 }
 
-export function serializeBlogListResponse(response: BlogListResponse): BlogListResponse {
-  return { ...response, posts: response.posts.map(serializeBlogPostSummary) }
-}
-
-export function serializeBlogPost(post: BlogPost): BlogPost {
+export function serializeBlogListResponse(
+  response: BlogListResponse,
+  baseUrl: string,
+): BlogListResponse {
   return {
-    ...serializeBlogPostSummary(post),
+    ...response,
+    posts: response.posts.map(post => serializeBlogPostSummary(post, baseUrl)),
+  }
+}
+
+export function serializeBlogPost(post: BlogPost, baseUrl: string): BlogPost {
+  return {
+    ...serializeBlogPostSummary(post, baseUrl),
     updatedAt: post.updatedAt,
-    html: absolutizeHtmlUrls(post.html),
+    html: absolutizeHtmlUrls(post.html, baseUrl),
   }
 }
 
@@ -146,6 +159,6 @@ export function serializeBlogPost(post: BlogPost): BlogPost {
  * Les ancres (`#…`), les URLs déjà complètes et les liens protocol-relative
  * (`//…`) sont laissés intacts.
  */
-function absolutizeHtmlUrls(html: string): string {
-  return html.replace(/\b(src|href)="\/(?!\/)/g, `$1="${SITE_URL}/`)
+function absolutizeHtmlUrls(html: string, baseUrl: string): string {
+  return html.replace(/\b(src|href)="\/(?!\/)/g, `$1="${baseUrl}/`)
 }

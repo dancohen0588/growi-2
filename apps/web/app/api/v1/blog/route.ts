@@ -3,6 +3,7 @@ import { blogListQuerySchema } from '@growi/shared'
 import { ok, withApiErrorHandling } from '@/lib/api/response'
 import { serializeBlogListResponse } from '@/lib/api/serializers'
 import { listPosts } from '@/lib/blog/content'
+import { requestOrigin } from '@/lib/site-url'
 import { BLOG_CACHE_HEADERS } from './cache'
 
 // La liste dépend de la query string : jamais de rendu statique. La mise en
@@ -24,5 +25,7 @@ export const GET = withApiErrorHandling(async (request: Request) => {
     tag: searchParams.get('tag') ?? undefined,
   })
 
-  return ok(serializeBlogListResponse(listPosts(query)), { headers: BLOG_CACHE_HEADERS })
+  return ok(serializeBlogListResponse(listPosts(query), requestOrigin(request)), {
+    headers: BLOG_CACHE_HEADERS,
+  })
 })

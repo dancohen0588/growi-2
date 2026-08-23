@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BlogListResponse, BlogPost } from '@growi/shared'
 
 // L'origine du site est lue au chargement du module : la fixer avant tout import.
@@ -151,5 +151,55 @@ describe('GET /api/v1/blog/[slug]', () => {
 
     expect(response.headers.get('cache-control'))
       .toBe('public, s-maxage=3600, stale-while-revalidate=86400')
+  })
+})
+
+// ─── Origine des URLs absolues ─────────────────────────────────────────────
+
+describe('sans NEXT_PUBLIC_SITE_URL configurée', () => {
+  /**
+   * En développement, le mobile joint le Mac par son IP locale. Lui répondre
+   * des images sur `localhost` les ferait chercher sur le téléphone lui-même :
+   * l'origine doit alors venir de la requête, pas de l'environnement.
+   */
+  async function routesWithoutSiteUrl() {
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', '')
+    vi.resetModules()
+
+    return {
+      list: (await import('@/app/api/v1/blog/route')).GET,
+      detail: (await import('@/app/api/v1/blog/[slug]/route')).GET,
+    }
+  }
+
+  afterAll(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it('reprend l\'origine par laquelle l\'appel est arrivé', async () => {
+    const { list, detail } = await routesWithoutSiteUrl()
+    const lan = 'http://192.168.1.5:3000'
+
+    const listed = await (await list(new Request(`${lan}/api/v1/blog`))).json()
+    expect(listed.data.posts[0].coverImage).toBe(`${lan}${summary.coverImage}`)
+
+    const article = await (
+      await detail(new Request(`${lan}/api/v1/blog/${summary.slug}`), {
+        params: { slug: summary.slug },
+      })
+    ).json()
+    expect(article.data.coverImage).toBe(`${lan}${summary.coverImage}`)
+    expect(article.data.html).toContain(`src="${lan}/blog/`)
+    expect(article.data.html).toContain(`href="${lan}/encyclopedie/tomate"`)
+  })
+
+  it('mais l\'origine configurée l\'emporte quand elle existe', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://growi.app')
+    vi.resetModules()
+    const { GET: list } = await import('@/app/api/v1/blog/route')
+
+    const listed = await (await list(new Request('http://192.168.1.5:3000/api/v1/blog'))).json()
+    expect(listed.data.posts[0].coverImage).toBe(`https://growi.app${summary.coverImage}`)
   })
 })

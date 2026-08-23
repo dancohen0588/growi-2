@@ -552,8 +552,15 @@ d'écrire un article.
 - Les pages article sont `force-static` + `dynamicParams = false` : un slug
   inconnu fait une 404, jamais un rendu à la demande.
 - Le mobile reçoit du **HTML compilé** (`getPostAsHtml`), pas du MDX, avec
-  images et liens internes en URL absolue — d'où `NEXT_PUBLIC_SITE_URL`
-  (`lib/site-url.ts`), à renseigner en production.
+  images et liens internes en URL absolue.
+- Ces URLs absolues sont bâties sur `requestOrigin()` (`lib/site-url.ts`), pas
+  sur une constante : `NEXT_PUBLIC_SITE_URL` l'emporte quand elle est posée
+  (production), sinon on reprend l'origine par laquelle l'appel est arrivé,
+  en-tête `Host` compris. En développement le mobile joint le Mac par son IP
+  locale ; lui répondre des images sur `localhost` les ferait chercher sur le
+  téléphone. **Ne pas fixer `NEXT_PUBLIC_SITE_URL` en local** pour cette
+  raison. Le sitemap et le JSON-LD, eux, gardent `SITE_URL` : une URL
+  canonique ne peut pas varier avec l'hôte par lequel on est arrivé.
 - Les routes `/api/v1/blog*` sont les seules de l'API v1 **sans
   authentification**, et les seules à porter un `Cache-Control: public`.
   `ok()` pose `no-store, private` par défaut : ne pas retirer ce défaut, il
