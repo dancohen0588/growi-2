@@ -67,3 +67,69 @@ html {
     animation: none !important;
   }
 }
+
+/* ── Corps d'article de blog ───────────────────────────────────────────────
+   Styles de typographie « maison » pour le MDX compilé, calés sur les tokens
+   Growi. Pas de @tailwindcss/typography : la palette et les deux familles de
+   police tiennent en une trentaine de lignes, et on garde la main dessus. */
+@layer components {
+  .article-prose {
+    @apply font-raleway text-forest/85 text-[17px] leading-[1.75];
+  }
+  .article-prose > * + * {
+    @apply mt-5;
+  }
+  .article-prose h2 {
+    @apply font-poppins font-bold text-forest text-2xl md:text-3xl mt-12 mb-4 scroll-mt-24;
+  }
+  .article-prose h3 {
+    @apply font-poppins font-semibold text-forest text-xl mt-8 mb-3 scroll-mt-24;
+  }
+  /* rehype-autolink-headings enveloppe le titre : l'ancre ne doit pas se voir. */
+  .article-prose .heading-anchor {
+    @apply no-underline text-inherit hover:text-forest/70 transition-colors;
+  }
+  .article-prose a:not(.heading-anchor) {
+    @apply text-forest font-semibold underline decoration-lime decoration-2 underline-offset-4 hover:decoration-forest transition-colors;
+  }
+  .article-prose strong {
+    @apply font-semibold text-forest;
+  }
+  .article-prose ul {
+    @apply list-disc pl-6 space-y-2 marker:text-lime-hover;
+  }
+  .article-prose ol {
+    @apply list-decimal pl-6 space-y-2 marker:text-forest/50 marker:font-semibold;
+  }
+  .article-prose blockquote {
+    @apply border-l-4 border-lime pl-5 italic text-forest/70;
+  }
+  .article-prose code {
+    @apply rounded bg-forest/5 px-1.5 py-0.5 text-[0.9em] font-mono;
+  }
+  .article-prose pre {
+    @apply overflow-x-auto rounded-xl bg-forest p-4 text-sand;
+  }
+  .article-prose pre code {
+    @apply bg-transparent p-0 text-inherit;
+  }
+  .article-prose img {
+    @apply rounded-2xl shadow-card w-full h-auto;
+  }
+  .article-prose hr {
+    @apply border-forest/10 my-10;
+  }
+  /* Les tableaux (remark-gfm) débordent sur mobile : ils défilent seuls. */
+  .article-prose table {
+    @apply block w-full overflow-x-auto whitespace-nowrap text-left text-[15px] md:table md:whitespace-normal;
+  }
+  .article-prose thead {
+    @apply border-b-2 border-lime;
+  }
+  .article-prose th {
+    @apply font-poppins font-semibold text-forest py-2 pr-6;
+  }
+  .article-prose td {
+    @apply border-b border-forest/10 py-2 pr-6 align-top;
+  }
+}

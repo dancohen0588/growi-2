@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { prisma } from '@/lib/prisma'
+import { listAllSummaries } from '@/lib/blog/content'
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL
@@ -29,5 +30,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority:        0.6,
   }))
 
-  return [...staticRoutes, ...plantRoutes]
+  const blogRoutes: MetadataRoute.Sitemap = listAllSummaries().map(({ summary, updatedAt }) => ({
+    url:             `${SITE_URL}/blog/${summary.slug}`,
+    lastModified:    new Date(updatedAt),
+    changeFrequency: 'monthly',
+    priority:        0.7,
+  }))
+
+  return [...staticRoutes, ...blogRoutes, ...plantRoutes]
 }
