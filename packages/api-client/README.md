@@ -28,6 +28,24 @@ await api.plants.addLog(plant.id, { type: 'watering', note: 'Copieux' })
 Depuis le web, où l'authentification passe par les cookies NextAuth, il suffit
 de ne pas fournir `getAccessToken` et de passer `credentials: 'include'`.
 
+## Blog
+
+`api.blog` est la seule famille d'appels **publics** : elle aboutit sans jeton,
+et peut donc alimenter un écran visible avant connexion.
+
+```ts
+const { posts, pagination } = await api.blog.list({ tag: 'potager', limit: 5 })
+const post = await api.blog.get(posts[0].slug)   // post.html : MDX déjà compilé
+```
+
+- `list()` rend du plus récent au plus ancien ; `limit` est plafonné à 50 côté
+  serveur et `pagination.next` vaut `null` sur la dernière page.
+- `get()` renvoie le contenu en **HTML**, pas en MDX : le mobile n'exécute pas
+  de React. Les images et les liens internes y sont en URL absolue, prêts à
+  être rendus hors du site.
+- Le contenu ne change qu'au déploiement du site : un `staleTime` généreux
+  côté client (une heure) est le bon réglage.
+
 ## Erreurs
 
 Toute défaillance remonte en `ApiError`, avec un `code` stable et des

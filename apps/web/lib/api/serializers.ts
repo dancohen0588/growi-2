@@ -7,6 +7,9 @@
  */
 
 import type {
+  BlogListResponse,
+  BlogPost,
+  BlogPostSummary,
   CareLog,
   Garden,
   GardenWithStats,
@@ -22,6 +25,8 @@ import type {
   PlantCatalog as PrismaPlantCatalog,
   PlantInstance as PrismaPlantInstance,
 } from '@prisma/client'
+
+import { absoluteUrl } from '@/lib/site-url'
 
 const iso = (d: Date): string => d.toISOString()
 const isoOrNull = (d: Date | null): string | null => (d ? d.toISOString() : null)
@@ -109,4 +114,51 @@ export function serializeCareLog(log: PrismaCareLog): CareLog {
     occurredAt: iso(log.occurredAt),
     createdAt: iso(log.createdAt),
   }
+}
+
+// ─── Blog ──────────────────────────────────────────────────────────────────
+
+/**
+ * Les articles ne viennent pas de Prisma mais de `lib/blog/content.ts`, qui
+ * les rend déjà au format des schémas partagés. Le seul travail restant est
+ * de rendre les URLs **absolues** : le mobile affiche ce contenu hors du site,
+ * sans page courante à partir de laquelle résoudre `/blog/…`.
+ *
+ * L'origine est passée par la route (`requestOrigin`) et non lue ici : en
+ * développement, le mobile joint le serveur par l'IP locale du Mac, et lui
+ * répondre des images sur `localhost` les ferait chercher sur le téléphone.
+ */
+export function serializeBlogPostSummary(
+  post: BlogPostSummary,
+  baseUrl: string,
+): BlogPostSummary {
+  return { ...post, coverImage: absoluteUrl(post.coverImage, baseUrl) }
+}
+
+export function serializeBlogListResponse(
+  response: BlogListResponse,
+  baseUrl: string,
+): BlogListResponse {
+  return {
+    ...response,
+    posts: response.posts.map(post => serializeBlogPostSummary(post, baseUrl)),
+  }
+}
+
+export function serializeBlogPost(post: BlogPost, baseUrl: string): BlogPost {
+  return {
+    ...serializeBlogPostSummary(post, baseUrl),
+    updatedAt: post.updatedAt,
+    html: absolutizeHtmlUrls(post.html, baseUrl),
+  }
+}
+
+/**
+ * Réécrit les `src` et `href` racine du HTML d'un article.
+ *
+ * Les ancres (`#…`), les URLs déjà complètes et les liens protocol-relative
+ * (`//…`) sont laissés intacts.
+ */
+function absolutizeHtmlUrls(html: string, baseUrl: string): string {
+  return html.replace(/\b(src|href)="\/(?!\/)/g, `$1="${baseUrl}/`)
 }

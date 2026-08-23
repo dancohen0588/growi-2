@@ -64,7 +64,7 @@ export function Footer() {
 
           {/* Col 2: Product */}
           <div>
-            <h3 className="font-poppins font-semibold text-sm uppercase tracking-wider text-white/50 mb-4">
+            <h3 className="font-poppins font-semibold text-sm uppercase tracking-wider text-white mb-4">
               Produit
             </h3>
             <ul className="flex flex-col gap-3">
@@ -83,7 +83,7 @@ export function Footer() {
 
           {/* Col 3: Company */}
           <div>
-            <h3 className="font-poppins font-semibold text-sm uppercase tracking-wider text-white/50 mb-4">
+            <h3 className="font-poppins font-semibold text-sm uppercase tracking-wider text-white mb-4">
               Entreprise
             </h3>
             <ul className="flex flex-col gap-3">
@@ -102,7 +102,7 @@ export function Footer() {
 
           {/* Col 4: Legal */}
           <div>
-            <h3 className="font-poppins font-semibold text-sm uppercase tracking-wider text-white/50 mb-4">
+            <h3 className="font-poppins font-semibold text-sm uppercase tracking-wider text-white mb-4">
               Légal
             </h3>
             <ul className="flex flex-col gap-3">
@@ -122,7 +122,10 @@ export function Footer() {
 
         <Separator className="my-10 bg-white/10" />
 
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/50 font-raleway">
+        {/* Blanc à 70 % sur forest : 5,16:1, au-dessus du seuil AA de 4,5:1
+            que le texte de 14 px impose. En dessous de /70 on repasse sous la
+            barre — /60 ne donne que 4,24:1. */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/70 font-raleway">
           <Badge className="bg-forest-light text-white border-white/20">
             Greentech France 🌿
           </Badge>
