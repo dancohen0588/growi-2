@@ -8,15 +8,11 @@ import { MDXRemote } from 'next-mdx-remote/rsc'
 import { getPost, listRelatedPosts, listSlugs } from '@/lib/blog/content'
 import { webMdxComponents } from '@/lib/blog/mdx-components'
 import { mdxOptions } from '@/lib/blog/mdx-options'
+import { SITE_URL } from '@/lib/site-url'
 import { CTABottom } from '../../fonctionnalites/components/CTABottom'
 import { PostCard } from '../components/PostCard'
 import { PostMeta } from '../components/PostMeta'
 import { TagBadge } from '../components/TagPills'
-
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL
-  ?? process.env.NEXTAUTH_URL
-  ?? 'https://growi.app'
 
 // Les articles sont des fichiers du dépôt : tout est connu au build, rien ne
 // change entre deux déploiements. Un slug inconnu doit donc faire une 404,

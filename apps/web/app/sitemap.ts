@@ -1,11 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { prisma } from '@/lib/prisma'
 import { listAllSummaries } from '@/lib/blog/content'
-
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL
-  ?? process.env.NEXTAUTH_URL
-  ?? 'https://growi.app'
+import { SITE_URL } from '@/lib/site-url'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
