@@ -11,6 +11,7 @@ import {
   type PlantLocation,
 } from '@growi/shared'
 
+import { GardenPlanCard } from '@/components/garden/GardenPlanCard'
 import { Button } from '@/components/ui/Button'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
@@ -158,6 +159,10 @@ export default function JardinDetailScreen() {
               ) : null}
             </View>
           )}
+
+          {/* Le plan avant la liste : il donne la vue d'ensemble à laquelle
+              les plantes ci-dessous se rattachent. */}
+          <GardenPlanCard gardenId={id} />
 
           {plants.isPending ? (
             <ListSkeleton />
