@@ -387,3 +387,80 @@ describe('endpoints', () => {
     })
   })
 })
+
+// ─── Blog ──────────────────────────────────────────────────────────────────
+
+describe('blog', () => {
+  const summary = {
+    slug: 'preparer-son-potager-en-septembre',
+    title: 'Préparer son potager en septembre',
+    excerpt: 'La check-list du mois.',
+    coverImage: 'https://growi.test/blog/preparer-son-potager-en-septembre/cover.png',
+    coverImageAlt: null,
+    publishedAt: '2026-08-19T00:00:00.000Z',
+    readingTime: 6,
+    tags: ['potager', 'saison'],
+    author: 'Dan',
+  }
+
+  it('liste les articles sans paramètre', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        data: { posts: [summary], pagination: { page: 1, pages: 1, total: 1, next: null } },
+      }),
+    )
+
+    const { posts, pagination } = await makeClient().blog.list()
+
+    expect(posts[0].slug).toBe(summary.slug)
+    expect(pagination.next).toBeNull()
+    expect(callArgs().url).toBe('https://growi.test/api/v1/blog')
+  })
+
+  it('passe pagination et filtre en query string', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        data: { posts: [], pagination: { page: 2, pages: 3, total: 30, next: 3 } },
+      }),
+    )
+
+    await makeClient().blog.list({ page: 2, limit: 5, tag: 'potager' })
+
+    expect(callArgs().url).toBe('https://growi.test/api/v1/blog?page=2&limit=5&tag=potager')
+  })
+
+  it('récupère un article, slug échappé', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ data: { ...summary, html: '<p>Bonjour</p>', updatedAt: summary.publishedAt } }),
+    )
+
+    const post = await makeClient().blog.get('été/2026')
+
+    expect(post.html).toBe('<p>Bonjour</p>')
+    expect(callArgs().url).toBe('https://growi.test/api/v1/blog/%C3%A9t%C3%A9%2F2026')
+  })
+
+  it('aboutit sans jeton — le blog est public', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        data: { posts: [], pagination: { page: 1, pages: 1, total: 0, next: null } },
+      }),
+    )
+
+    await makeClient().blog.list()
+
+    expect(callArgs().headers.authorization).toBeUndefined()
+  })
+
+  it('remonte une ApiError 404 sur un article inconnu', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ error: { code: 'NOT_FOUND', message: 'Article introuvable' } }, 404),
+    )
+
+    const error = await makeClient().blog.get('inexistant').catch(err => err)
+
+    expect(isApiError(error)).toBe(true)
+    expect((error as ApiError).isNotFound).toBe(true)
+    expect((error as ApiError).code).toBe('NOT_FOUND')
+  })
+})

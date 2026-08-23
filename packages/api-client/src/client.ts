@@ -10,6 +10,9 @@ import type {
   AddIdentifiedPlantInput,
   AlertConfig,
   AuthTokens,
+  BlogListResponse,
+  BlogPost,
+  BlogTag,
   CareLog,
   CareLogs,
   CreateCareLogInput,
@@ -300,6 +303,27 @@ export class GrowiApiClient {
       options?: CallOptions,
     ): Promise<AlertConfig> =>
       this.http.request('/api/v1/me/alerts', { ...options, method: 'PATCH', body: input }),
+  }
+
+  // ─── Blog ────────────────────────────────────────────────────────────────
+
+  /**
+   * Articles « Conseils & actus jardin ».
+   *
+   * Seuls appels **publics** de l'API : ils aboutissent sans jeton. Un client
+   * nu suffit donc pour alimenter un écran visible avant connexion.
+   */
+  readonly blog = {
+    /** Liste paginée, du plus récent au plus ancien. `limit` est plafonné à 50. */
+    list: (
+      params: { page?: number; limit?: number; tag?: BlogTag } = {},
+      options?: CallOptions,
+    ): Promise<BlogListResponse> =>
+      this.http.request('/api/v1/blog', { ...options, query: params }),
+
+    /** Article complet : le MDX y est déjà compilé en HTML, images absolues. */
+    get: (slug: string, options?: CallOptions): Promise<BlogPost> =>
+      this.http.request(`/api/v1/blog/${encodeURIComponent(slug)}`, { ...options }),
   }
 
   // ─── Identification photo ────────────────────────────────────────────────
