@@ -61,17 +61,49 @@ d'affichage) — pas seulement ici.
 Un dossier par article, nommé comme le slug :
 
 ```
-public/blog/<slug>/cover.png
+public/blog/<slug>/cover.jpg
 public/blog/<slug>/oidium-face-inferieure.jpg
 ```
 
 Référence-les en chemin absolu dans le MDX : `![Oïdium sur courgette](/blog/<slug>/oidium.jpg)`.
 
-- Couverture : **1200 × 630** (format OpenGraph, c'est aussi la vignette
-  affichée quand l'article est partagé).
-- Toujours renseigner un texte alternatif, y compris pour les images du corps.
-- Les couvertures actuelles sont des **dégradés générés**, à remplacer par de
-  vraies photos.
+- Couverture en **16/9, 1600 px de large**, JPEG qualité ~82, sous 600 Ko.
+  C'est aussi la vignette de partage sur les réseaux, via OpenGraph.
+- Le texte alternatif décrit **ce qu'on voit**, pas le sujet de l'article :
+  « feuille de courgette couverte de plaques blanches poudreuses », pas
+  « illustration sur les maladies ».
+- Sans couverture (`coverImage` absent), la carte affiche un dégradé et un
+  emoji plutôt qu'un trou : un article peut donc sortir sans image.
+
+### Fabriquer une couverture
+
+Une photo réelle est toujours préférable. À défaut, elles sont **générées**,
+avec le serveur MCP Gamma (`generate_image`, `type: "photo"`,
+`sizePreset: "banner"`, ~70 crédits l'image).
+
+Pour que les couvertures forment une série et non une collection, le prompt
+suit toujours la même recette :
+
+1. **Un sujet concret et daté**, tiré de l'article — pas une image d'ambiance.
+   « Planche de potager début septembre, tomates en fin de cycle, courges sur
+   paillage, rangs de poireaux » plutôt que « un jardin ».
+2. **Un cadre français** : murets de pierre, bâti ancien, terrasse en pierre.
+3. **La lumière** : lumière naturelle rasante du matin ou de fin d'après-midi,
+   légère brume.
+4. **Le rendu** : `Natural documentary photography, shallow depth of field`,
+   palette verte et ocre chaude.
+5. **Les interdits**, à répéter à chaque fois :
+   `No people, no text, no logos, no watermark.` Un texte incrusté serait
+   illisible au recadrage et intraduisible.
+
+Puis redimensionner et réencoder avant de committer :
+
+```bash
+sips -Z 1600 --setProperty format jpeg --setProperty formatOptions 82 source.jpg --out cover.jpg
+```
+
+> Les couvertures générées restent des visuels de remplacement : dès qu'une
+> vraie photo du sujet existe, elle prend la place, au même chemin.
 
 ## 4. Écrire
 
