@@ -105,6 +105,22 @@ sips -Z 1600 --setProperty format jpeg --setProperty formatOptions 82 source.jpg
 > Les couvertures générées restent des visuels de remplacement : dès qu'une
 > vraie photo du sujet existe, elle prend la place, au même chemin.
 
+**En attente** — « Rentrer ses plantes » est encore sur un dégradé, la
+génération ayant manqué de crédits. Son prompt, prêt à relancer :
+
+> Potted plants gathered on a stone terrace at dawn in early autumn, ready to
+> be brought indoors: a small potted citrus tree with a few fruits, an
+> oleander, a large-leaved tropical houseplant and several terracotta pots of
+> geraniums, clustered beside an open glazed door of an old French house. Cold
+> blue morning mist in the garden behind, the first warm light catching the
+> leaves, a light dew on the terrace stones. Natural photography, shallow depth
+> of field, muted green and terracotta palette with cool blue background. No
+> people, no text, no logos, no watermark.
+
+Après génération : redimensionner, écrire dans
+`public/blog/rentrer-ses-plantes-avant-les-premieres-fraiches/cover.jpg`,
+passer le `coverImage` du frontmatter en `.jpg` et supprimer le `.png`.
+
 ## 4. Écrire
 
 Du Markdown standard, plus les tableaux et listes de tâches (`remark-gfm`).
