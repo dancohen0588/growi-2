@@ -49,7 +49,7 @@ function TagPill({
         'inline-flex min-h-[40px] items-center rounded-full px-4 font-raleway text-sm font-semibold transition-colors',
         isActive
           ? 'bg-forest text-sand'
-          : 'bg-white text-forest/70 shadow-card hover:bg-lime/25 hover:text-forest',
+          : 'bg-white text-forest/80 shadow-card hover:bg-lime/25 hover:text-forest',
       )}
     >
       {children}

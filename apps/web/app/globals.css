@@ -99,10 +99,10 @@ html {
     @apply list-disc pl-6 space-y-2 marker:text-lime-hover;
   }
   .article-prose ol {
-    @apply list-decimal pl-6 space-y-2 marker:text-forest/50 marker:font-semibold;
+    @apply list-decimal pl-6 space-y-2 marker:text-forest/80 marker:font-semibold;
   }
   .article-prose blockquote {
-    @apply border-l-4 border-lime pl-5 italic text-forest/70;
+    @apply border-l-4 border-lime pl-5 italic text-forest/80;
   }
   .article-prose code {
     @apply rounded bg-forest/5 px-1.5 py-0.5 text-[0.9em] font-mono;

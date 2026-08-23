@@ -25,7 +25,7 @@ export function PostMeta({
 }) {
   return (
     <div
-      className={`flex flex-wrap items-center gap-x-4 gap-y-1 font-raleway text-sm text-forest/60 ${className}`}
+      className={`flex flex-wrap items-center gap-x-4 gap-y-1 font-raleway text-sm text-forest/80 ${className}`}
     >
       <span className="inline-flex items-center gap-1.5">
         <CalendarDays size={14} aria-hidden />

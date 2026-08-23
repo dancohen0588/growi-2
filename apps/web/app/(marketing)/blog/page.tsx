@@ -100,7 +100,7 @@ function Hero({ tag, tags }: { tag?: BlogTag; tags: BlogTag[] }) {
           {tag ? BLOG_TAG_LABELS[tag] : 'Le blog Growi'}
         </h1>
 
-        <p className="font-raleway text-lg leading-relaxed text-forest/70">
+        <p className="font-raleway text-lg leading-relaxed text-forest/80">
           Des conseils concrets, calés sur la saison et sur ce qui pousse vraiment chez toi.
           Pas de généralités : ce qu&apos;il y a à faire, quand, et pourquoi.
         </p>
@@ -120,7 +120,7 @@ function EmptyState({ tag }: { tag?: BlogTag }) {
       <h2 className="font-poppins text-xl font-bold text-forest">
         {tag ? 'Rien sur ce thème pour l’instant' : 'Les premiers articles arrivent'}
       </h2>
-      <p className="font-raleway text-forest/70">
+      <p className="font-raleway text-forest/80">
         {tag
           ? 'On y travaille. En attendant, jette un œil aux autres thèmes.'
           : 'Reviens bientôt : on prépare la première série de conseils de saison.'}

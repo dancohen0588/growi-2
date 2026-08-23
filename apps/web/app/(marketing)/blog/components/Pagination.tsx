@@ -35,7 +35,7 @@ export function Pagination({
                 'flex h-11 min-w-[44px] items-center justify-center rounded-lg px-3 font-poppins text-sm font-semibold transition-colors',
                 n === page
                   ? 'bg-forest text-sand'
-                  : 'bg-white text-forest/70 shadow-card hover:bg-lime/25 hover:text-forest',
+                  : 'bg-white text-forest/80 shadow-card hover:bg-lime/25 hover:text-forest',
               )}
             >
               {n}

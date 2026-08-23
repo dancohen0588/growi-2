@@ -116,7 +116,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
             {summary.title}
           </h1>
 
-          <p className="mt-4 font-raleway text-lg leading-relaxed text-forest/70">
+          <p className="mt-4 font-raleway text-lg leading-relaxed text-forest/80">
             {summary.excerpt}
           </p>
 
@@ -152,7 +152,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
         </div>
 
         {updatedAt !== summary.publishedAt && (
-          <p className="mx-auto max-w-3xl px-4 pb-10 font-raleway text-sm italic text-forest/50 sm:px-6">
+          <p className="mx-auto max-w-3xl px-4 pb-10 font-raleway text-sm italic text-forest/80 sm:px-6">
             Article mis à jour le{' '}
             <time dateTime={updatedAt}>
               {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(new Date(updatedAt))}
@@ -189,7 +189,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
 function Breadcrumb({ title }: { title: string }) {
   return (
     <nav aria-label="Fil d'Ariane">
-      <ol className="flex items-center gap-1 font-raleway text-xs text-forest/50">
+      <ol className="flex items-center gap-1 font-raleway text-xs text-forest/80">
         <li>
           <Link href="/" className="hover:text-forest">
             Accueil
@@ -206,7 +206,7 @@ function Breadcrumb({ title }: { title: string }) {
         <li aria-hidden>
           <ChevronRight size={12} />
         </li>
-        <li className="truncate font-semibold text-forest/70">{title}</li>
+        <li className="truncate font-semibold text-forest/80">{title}</li>
       </ol>
     </nav>
   )

@@ -348,7 +348,7 @@ pnpm typecheck              # Turborepo : tsc --noEmit partout
 Tests : Vitest (`vitest.config.ts`) et Playwright (`playwright.config.ts`, dossier `e2e/`),
 tous deux dans `apps/web`.
 
-> Note : `pnpm --filter web lint` remonte 15 erreurs ESLint pré-existantes
+> Note : `pnpm --filter web lint` remonte 11 erreurs ESLint pré-existantes
 > (`no-explicit-any`, variables inutilisées). Le build les ignore volontairement
 > (`eslint.ignoreDuringBuilds`). À traiter séparément, hors migration monorepo.
 
@@ -416,6 +416,7 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/planning/today` | GET |
 | `/api/v1/me` | GET, PATCH |
 | `/api/v1/identify` | POST |
+| `/api/v1/blog` · `/blog/[slug]` | GET — **publiques**, sans jeton, mises en cache |
 | `/api/v1/auth/register` · `/login` · `/refresh` · `/logout` | POST |
 
 Chaque route suit le même squelette, à respecter pour toute nouvelle route :
@@ -526,6 +527,45 @@ doit pas le voir.
 Variables : `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` (serveur uniquement,
 elle contourne RLS).
 
+### Blog — contenu MDX dans le dépôt
+
+Les articles « Conseils & actus jardin » sont des fichiers `.mdx` de
+`apps/web/content/blog/`, un par slug. Pas de CMS : publier, c'est ajouter un
+fichier et pousser. Le workflow de rédaction est documenté dans
+[`content/blog/README.md`](apps/web/content/blog/README.md) — le lire avant
+d'écrire un article.
+
+| Élément | Rôle |
+|---|---|
+| `content/blog/*.mdx` + `public/blog/<slug>/` | Le contenu et ses images |
+| `lib/blog/content.ts` | **Seul** module qui lit ces fichiers (`server-only`). Le seul à réécrire si un CMS arrive un jour |
+| `lib/blog/mdx-components.tsx` | `Callout`, `YouTube` et les balises surchargées |
+| `lib/blog/mdx-options.ts` | `remark-gfm`, `rehype-slug`, `rehype-autolink-headings` — partagés par le web et le HTML du mobile |
+| `app/(marketing)/blog/` | Liste (`?tag=`, `?page=`) et article, prérendu au build |
+| `app/api/v1/blog/` | Les deux routes publiques que consomme le mobile |
+| `packages/shared/src/schemas/blog.ts` | Frontmatter + entités de l'API |
+| `apps/mobile/components/blog/` | Carrousel d'accueil, cartes, et le corps d'article en WebView |
+
+- Le frontmatter est **validé par Zod au build** : un champ manquant ou un tag
+  inconnu fait échouer la compilation en citant le fichier fautif.
+- `draft: true` masque l'article en production, le laisse visible en dev.
+- Les pages article sont `force-static` + `dynamicParams = false` : un slug
+  inconnu fait une 404, jamais un rendu à la demande.
+- Le mobile reçoit du **HTML compilé** (`getPostAsHtml`), pas du MDX, avec
+  images et liens internes en URL absolue — d'où `NEXT_PUBLIC_SITE_URL`
+  (`lib/site-url.ts`), à renseigner en production.
+- Les routes `/api/v1/blog*` sont les seules de l'API v1 **sans
+  authentification**, et les seules à porter un `Cache-Control: public`.
+  `ok()` pose `no-store, private` par défaut : ne pas retirer ce défaut, il
+  protège toutes les autres routes.
+- Le corps d'article mobile est rendu en **WebView** et non en composants
+  natifs : nos articles contiennent des tableaux, que les bibliothèques du
+  genre ne savent traiter qu'en ouvrant elles-mêmes une WebView. Sa feuille de
+  style (`components/blog/article-html.ts`) duplique `.article-prose` de
+  `globals.css` — toute évolution typographique doit être reportée des deux
+  côtés. Attention : elle vit dans un *template literal*, aucun backtick ne
+  doit y entrer, pas même dans un commentaire.
+
 ### IA & APIs externes
 
 - **Identification de plantes** : Gemini 2.5 Flash via `app/api/identify-plant/` (clé `GEMINI_API_KEY`).
@@ -537,7 +577,8 @@ elle contourne RLS).
 | Route | Description |
 |-------|-------------|
 | `/` | Homepage (sections marketing) |
-| `/fonctionnalites`, `/pro`, `/tarifs`, `/blog` | Pages marketing |
+| `/fonctionnalites`, `/pro`, `/tarifs` | Pages marketing |
+| `/blog`, `/blog/[slug]` | Blog (articles MDX du dépôt) |
 | `/login`, `/register` | Auth (custom pages) |
 | `/dashboard/plantes` | Catalogue perso + fiches plantes |
 | `/dashboard/catalogue` | Encyclopédie de plantes |

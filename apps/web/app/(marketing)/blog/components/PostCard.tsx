@@ -46,8 +46,8 @@ export function PostCard({
           <p
             className={
               featured
-                ? 'font-raleway leading-relaxed text-forest/70'
-                : 'line-clamp-3 flex-1 font-raleway text-sm leading-relaxed text-forest/70'
+                ? 'font-raleway leading-relaxed text-forest/80'
+                : 'line-clamp-3 flex-1 font-raleway text-sm leading-relaxed text-forest/80'
             }
           >
             {post.excerpt}
