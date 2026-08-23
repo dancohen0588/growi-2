@@ -81,6 +81,18 @@ export function shortDayLabel(isoDate: string): string {
   return `${WEEKDAYS[date.getDay()].slice(0, 3)}. ${date.getDate()}`
 }
 
+/**
+ * Date de publication d'un article — « 19 août 2026 ».
+ *
+ * L'année est gardée : un article de blog se lit longtemps après sa parution,
+ * et savoir qu'un conseil date de deux ans change la façon de le recevoir.
+ */
+export function formatArticleDate(iso: string): string {
+  const date = new Date(iso)
+  const day = date.getUTCDate()
+  return `${day === 1 ? '1er' : day} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`
+}
+
 /** Salutation selon l'heure, pour ouvrir l'écran d'accueil sur un ton humain. */
 export function greeting(date = new Date()): string {
   const hour = date.getHours()

@@ -34,6 +34,12 @@ export const weatherKeys = {
   all: ['weather'] as const,
 }
 
+export const blogKeys = {
+  all: ['blog'] as const,
+  list: (tag?: string) => [...blogKeys.all, 'list', tag ?? 'tous'] as const,
+  detail: (slug: string) => [...blogKeys.all, 'detail', slug] as const,
+}
+
 export const meKeys = {
   all: ['me'] as const,
   profile: () => [...meKeys.all, 'profile'] as const,
