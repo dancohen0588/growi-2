@@ -322,7 +322,7 @@ const api = createGrowiApiClient({
 await api.gardens.list()
 ```
 
-- Une méthode par endpoint (`gardens`, `plants`, `planning`, `me`, `identify`), typée avec
+- Une méthode par endpoint (`gardens`, `plants`, `planning`, `me`, `identify`, `diagnosis`), typée avec
   `@growi/shared` en entrée comme en sortie.
 - Toute défaillance remonte en `ApiError` (`isNotFound`, `isUnauthorized`, `isNetworkError`…),
   y compris les pannes réseau et les réponses non-JSON.
@@ -394,7 +394,9 @@ Ombres custom : `shadow-card`, `shadow-card-hover`, `shadow-cta`.
 ### Couche services et API v1
 
 Depuis l'étape 2.1 du plan mobile, la logique métier vit dans `apps/web/lib/services/` :
-`garden`, `plant`, `log`, `user`, `weather`, `advice`, `planning`, `identify`.
+`garden`, `plant`, `log`, `user`, `weather`, `advice`, `planning`, `identify`, `diagnosis`.
+La mécanique Gemini elle-même (repli entre modèles, validation d'image) est partagée par
+`identify` et `diagnosis` dans `lib/services/gemini.ts`.
 
 - **Un service ne lit jamais la session** : le `userId` est toujours un paramètre. Ce sont les
   Server Actions et les routes qui authentifient.
@@ -416,6 +418,9 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/planning/today` | GET |
 | `/api/v1/me` | GET, PATCH |
 | `/api/v1/identify` | POST |
+| `/api/v1/plants/[id]/diagnose` | POST |
+| `/api/v1/plants/[id]/diagnoses` · `/diagnoses/[diagnosisId]` | GET |
+| `/api/v1/plants/[id]/diagnoses/[diagnosisId]/apply` | POST |
 | `/api/v1/blog` · `/blog/[slug]` | GET — **publiques**, sans jeton, mises en cache |
 | `/api/v1/auth/register` · `/login` · `/refresh` · `/logout` | POST |
 
@@ -575,9 +580,60 @@ d'écrire un article.
 
 ### IA & APIs externes
 
-- **Identification de plantes** : Gemini 2.5 Flash via `app/api/identify-plant/` (clé `GEMINI_API_KEY`).
-- **Diagnostic & advice engine** : Server Actions dans `app/actions/advice.actions.ts`, `lib/recommendation/`.
+- **Identification de plantes** : Gemini via `app/api/identify-plant/` et `/api/v1/identify` (clé `GEMINI_API_KEY`).
+- **Diagnostic IA de plante** : voir la section dédiée ci-dessous.
+- **Moteur de conseils** (règles, sans IA) : Server Actions dans `app/actions/advice.actions.ts`, `lib/recommendation/`.
 - **Météo** : Open-Meteo (intégré dans `dashboard/meteo`).
+
+Les deux usages de Gemini partagent `lib/services/gemini.ts` :
+
+| Point | Choix |
+|---|---|
+| Modèles | `gemini-2.5-flash` puis `gemini-2.5-flash-lite`, repli sur 429/503 — quotas séparés |
+| Réflexion | **Coupée** (`thinkingBudget: 0`) : les jetons de pensée s'imputent sur `maxOutputTokens` et tronquaient le JSON en plein milieu. On demande une structure à température nulle, pas un raisonnement |
+| Troncature | Un `finishReason: MAX_TOKENS` est traité comme un échec et fait jouer le repli — le SDK, lui, ne lève pas |
+| Échec | Jamais d'exception : `{ ok: false, reason }`, que l'appelant rend en « pas de résultat » affichable |
+
+> Ne pas remettre `gemini-2.0-flash` dans la liste : l'API répond 404 depuis sa
+> mise hors service.
+
+### Diagnostic IA d'une plante
+
+Diagnostic de santé d'une **plante de l'utilisateur** à partir d'une photo — à
+distinguer de l'identification, qui part d'une photo inconnue.
+
+| Élément | Rôle |
+|---|---|
+| `lib/services/diagnosis.service.ts` | Assemblage du contexte, prompt, persistance, application du statut |
+| `packages/shared/src/schemas/diagnosis.ts` | Résultat, requête, historique |
+| `app/api/v1/plants/[id]/diagnose*` | Les quatre routes |
+| `components/diagnosis/` (web) · `apps/mobile/components/diagnosis/` | Parcours, résultat, historique |
+| Modèle `Diagnosis` | Champs promus (status, confidence, summary) + `payload` Json complet |
+
+- Ce qui fait la valeur du service n'est pas l'appel au modèle mais
+  `buildDiagnosisContext` : la photo part accompagnée de la fiche de la plante,
+  de sa fiche catalogue, de son jardin, de la météo du lieu et de ses dix
+  derniers gestes. **La météo n'est jamais bloquante** — sans adresse ou sans
+  Open-Meteo, on diagnostique sans elle.
+- Le `healthStatus` proposé n'est **jamais** appliqué d'office : il faut un
+  geste explicite (`POST …/apply`), qui passe par `logHealth` pour que le
+  diagnostic accepté soit indiscernable d'une note de santé saisie à la main.
+- **Rien n'est écrit quand l'analyse échoue** — JSON cassé, hors schéma, modèle
+  saturé. La photo n'est déposée sur Supabase (kind `diagnosis`) qu'après
+  validation du résultat.
+- `POST …/diagnose` répond **200 même sur un échec d'analyse** (`diagnosed:
+  false` + motif). Une photo floue est un résultat, pas une panne : la remonter
+  en erreur ferait afficher « une erreur est survenue » là où l'utilisateur a
+  besoin de lire quoi refaire. Même règle dans `@growi/api-client` et dans les
+  queries mobiles — tester `diagnosed` avant de lire le résultat.
+- Le prompt a été réglé sur photos réelles. Quatre règles y sont tenues par
+  l'expérience, à ne pas retirer sans la refaire : tutoiement partout, pas de
+  refus quand l'espèce photographiée ne correspond pas à la fiche (elle peut
+  être mal renseignée), `probableCauses` vide quand la plante est saine, et un
+  `followUp` qui ne promet ni expert ni suivi personnalisé — rien de tout cela
+  n'existe.
+- Pas de rate limit en v1 (décision produit) ; l'appel est prêt en commentaire
+  dans `app/api/v1/plants/[id]/diagnose/route.ts`.
 
 ### Routing principal
 
@@ -593,4 +649,5 @@ d'écrire un article.
 | `/dashboard/calendrier` | Calendrier + alertes météo |
 | `/dashboard/meteo` | Météo locale |
 | `/dashboard/identifier` | Identification photo (Gemini) |
+| `/dashboard/diagnostic` | Choix de la plante à diagnostiquer (le parcours vit sur sa fiche) |
 | `/dashboard/parametres` | Profil + adresse autocomplete |

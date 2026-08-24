@@ -108,6 +108,12 @@ export const GEMINI_FAILURE_MESSAGES = {
   overloaded:
     'Service Gemini momentanément surchargé. Veuillez réessayer dans quelques instants.',
   quota: 'Quota Gemini dépassé pour le moment. Veuillez réessayer plus tard.',
+  /**
+   * Un 400 porte presque toujours sur l'image : fichier tronqué, encodage
+   * exotique, contenu illisible. Le dire évite de renvoyer l'utilisateur vers
+   * un « réessayez » qui redonnera exactement le même résultat.
+   */
+  badImage: "Cette photo n'a pas pu être lue. Essaie une autre image, en JPEG ou PNG.",
   failed: "Erreur d'analyse, veuillez réessayer.",
 } as const
 
@@ -170,6 +176,8 @@ export async function generateJson(
         ? GEMINI_FAILURE_MESSAGES.overloaded
         : lastStatus === 429
           ? GEMINI_FAILURE_MESSAGES.quota
-          : GEMINI_FAILURE_MESSAGES.failed,
+          : lastStatus === 400
+            ? GEMINI_FAILURE_MESSAGES.badImage
+            : GEMINI_FAILURE_MESSAGES.failed,
   }
 }

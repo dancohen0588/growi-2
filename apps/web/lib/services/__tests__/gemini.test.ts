@@ -181,11 +181,20 @@ describe('generateJson', () => {
   it("n'insiste pas sur une erreur non transitoire", async () => {
     generateContent.mockRejectedValue(httpError(400))
 
+    await generateJson(parts, options)
+
+    expect(generateContent).toHaveBeenCalledOnce()
+  })
+
+  it('dit que la photo est illisible sur un 400, plutôt que « réessayez »', async () => {
+    // Un 400 porte sur l'image : réessayer avec la même donnera le même
+    // résultat, autant dire quoi changer.
+    generateContent.mockRejectedValue(httpError(400))
+
     await expect(generateJson(parts, options)).resolves.toEqual({
       ok: false,
-      reason: "Erreur d'analyse, veuillez réessayer.",
+      reason: "Cette photo n'a pas pu être lue. Essaie une autre image, en JPEG ou PNG.",
     })
-    expect(generateContent).toHaveBeenCalledOnce()
   })
 
   it('rend le message de surcharge quand tous les modèles sont saturés', async () => {

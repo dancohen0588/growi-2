@@ -77,13 +77,18 @@ Si la photo ne permet pas de juger (floue, plante non visible, sujet qui n'est p
 }
 
 Règles :
-- Tout en français, ton bienveillant et concret.
-- 1 à 3 causes probables, 2 à 5 recommandations, 2 à 4 observations.
+- Tout en français, et TUTOIE l'utilisateur partout — dans "summary", "observations", "probableCauses" comme dans "recommendations". Jamais de vouvoiement.
+- Ton bienveillant et concret.
+- 2 à 4 observations, 2 à 5 recommandations.
+- "probableCauses" explique un PROBLÈME : 1 à 3 causes quand la plante en a un. Si "status" vaut "HEALTHY", laisse le tableau VIDE — « arrosage optimal » n'est pas une cause, et remplir cette section sur une plante saine ne fait qu'inquiéter pour rien.
+- Accorde "priority" et "timeframe" : "urgent" va avec « aujourd'hui », "soon" avec « cette semaine », "watch" avec « ce mois-ci ». Pas d'action urgente renvoyée à la semaine prochaine.
 - CROISE la photo et le contexte : le même jaunissement ne se lit pas pareil après trois jours à 34 °C ou après deux semaines de pluie. Cite le contexte dans "explanation" quand il éclaire vraiment la cause.
 - N'invente JAMAIS une maladie : en cas de doute, confidence "low" et causes en "possible".
 - Une plante en bonne santé est un diagnostic valable : status "HEALTHY", et des recommandations d'entretien courant.
 - Recommandations faisables par un amateur. Jamais de produit phytosanitaire sans avoir proposé d'abord une alternative douce.
-- Si le contexte manque (pas de météo, pas de fiche catalogue), diagnostique sur ce que tu vois sans le signaler à l'utilisateur.`
+- Si le contexte manque (pas de météo, pas de fiche catalogue), diagnostique sur ce que tu vois sans le signaler à l'utilisateur.
+- Si la plante photographiée ne correspond PAS à l'espèce enregistrée au contexte, diagnostique quand même ce que tu vois : signale simplement l'écart dans "observations" et baisse "confidence". Ne refuse jamais pour ce motif — la fiche peut avoir été mal renseignée.
+- "followUp" ne propose que ce que l'utilisateur peut faire seul dans l'app, typiquement relancer un diagnostic après un délai. Écris-le à la 2e personne, sans jamais parler de toi : « Reprends une photo dans 7 jours pour voir l'évolution », et non « … pour que je puisse évaluer ». Tu ne suis pas cette plante, tu ne recontactes personne, et aucun expert n'est joignable : ne le laisse pas entendre.`
 
 // ─── Contexte ──────────────────────────────────────────────────────────────
 
