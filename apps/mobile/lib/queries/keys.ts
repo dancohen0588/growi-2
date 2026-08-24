@@ -22,6 +22,13 @@ export const plantKeys = {
   logs: (plantId: string) => [...plantKeys.all, 'detail', plantId, 'logs'] as const,
 }
 
+export const diagnosisKeys = {
+  all: ['diagnoses'] as const,
+  list: (plantId: string) => [...diagnosisKeys.all, 'list', plantId] as const,
+  detail: (plantId: string, diagnosisId: string) =>
+    [...diagnosisKeys.all, 'detail', plantId, diagnosisId] as const,
+}
+
 export const planningKeys = {
   all: ['planning'] as const,
   today: () => [...planningKeys.all, 'today'] as const,

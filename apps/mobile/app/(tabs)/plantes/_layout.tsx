@@ -11,6 +11,7 @@ export default function PlantesLayout() {
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="[plantId]/index" />
+      <Stack.Screen name="[plantId]/diagnostic" />
       <Stack.Screen name="[plantId]/modifier" options={{ presentation: 'modal' }} />
     </Stack>
   )

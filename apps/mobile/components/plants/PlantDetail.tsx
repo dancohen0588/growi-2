@@ -12,7 +12,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
-import { Camera, ChevronLeft, Droplets, Pencil, Plus, Scissors, Sprout } from 'lucide-react-native'
+import {
+  Camera,
+  ChevronLeft,
+  Droplets,
+  Pencil,
+  Plus,
+  Scissors,
+  Sprout,
+  Stethoscope,
+} from 'lucide-react-native'
 import {
   HEALTH_STATUS_LABELS,
   PLANT_LOCATION_LABELS,
@@ -25,14 +34,17 @@ import {
   type SunExposure,
 } from '@growi/shared'
 
+import { DiagnosisHistoryList } from '@/components/diagnosis/DiagnosisHistoryList'
 import { CareHistory } from '@/components/plants/CareHistory'
 import { CareLogSheet } from '@/components/plants/CareLogSheet'
 import { TaskRow } from '@/components/planning/TaskRow'
+import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
 import { formatLogDate } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { PermissionDeniedError, pickPhoto, takePhoto } from '@/lib/photo'
+import { useDiagnoses } from '@/lib/queries/diagnosis'
 import { useMarkActionDone, usePlantActions } from '@/lib/queries/planning'
 import { useAddCareLog, usePlant, usePlantLogs, useUpdatePlant } from '@/lib/queries/plants'
 import { useUploadPhoto } from '@/lib/queries/uploads'
@@ -90,6 +102,8 @@ export interface PlantDetailProps {
   plantId: string
   /** Ouvre l'édition dans la pile courante — chaque onglet a la sienne. */
   onEdit: () => void
+  /** Ouvre le diagnostic dans la pile courante, même raison. */
+  onDiagnose: () => void
 }
 
 /**
@@ -99,13 +113,14 @@ export interface PlantDetailProps {
  * navigation, pour que le retour ramène là d'où l'on vient, mais l'écran doit
  * rester le même.
  */
-export function PlantDetail({ plantId, onEdit }: PlantDetailProps) {
+export function PlantDetail({ plantId, onEdit, onDiagnose }: PlantDetailProps) {
   const router = useRouter()
   const toast = useToast()
 
   const plant = usePlant(plantId)
   const logs = usePlantLogs(plantId)
   const actions = usePlantActions(plantId)
+  const diagnoses = useDiagnoses(plantId)
   const addLog = useAddCareLog(plantId)
   const markDone = useMarkActionDone()
   const updatePlant = useUpdatePlant(plantId)
@@ -117,11 +132,11 @@ export function PlantDetail({ plantId, onEdit }: PlantDetailProps) {
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
     try {
-      await Promise.all([plant.refetch(), logs.refetch(), actions.refetch()])
+      await Promise.all([plant.refetch(), logs.refetch(), actions.refetch(), diagnoses.refetch()])
     } finally {
       setRefreshing(false)
     }
-  }, [plant, logs, actions])
+  }, [plant, logs, actions, diagnoses])
 
   // Geste rapide : la fiche se met à jour aussitôt, le toast confirme,
   // et l'échec éventuel remet l'affichage dans son état précédent.
@@ -341,6 +356,15 @@ export function PlantDetail({ plantId, onEdit }: PlantDetailProps) {
           />
         </View>
 
+        {/* Le diagnostic mérite sa propre place : il ouvre un écran, là où les
+            gestes rapides s'exécutent sur-le-champ. */}
+        <Button
+          label="Diagnostiquer ma plante"
+          size="lg"
+          onPress={onDiagnose}
+          icon={<Stethoscope size={20} color="#1E5631" />}
+        />
+
         {/* Ce que le moteur conseille aujourd'hui pour cette plante, validable
             sans repasser par le calendrier. */}
         {todo.length > 0 && gardenId ? (
@@ -388,6 +412,11 @@ export function PlantDetail({ plantId, onEdit }: PlantDetailProps) {
             <Text className="font-raleway-medium text-secondary text-forest">Mes notes</Text>
             <Text className="font-raleway text-body text-muted-foreground">{data.notes}</Text>
           </View>
+        ) : null}
+
+        {/* Diagnostics passés — rien ne s'affiche tant qu'il n'y en a pas. */}
+        {diagnoses.data ? (
+          <DiagnosisHistoryList plantId={plantId} items={diagnoses.data} />
         ) : null}
 
         {/* Historique */}

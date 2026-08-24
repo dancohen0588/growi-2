@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router'
 
+import { DiagnosisScreen } from '@/components/diagnosis/DiagnosisScreen'
 import { PlantDetail } from '@/components/plants/PlantDetail'
 import { PlantEditor } from '@/components/plants/PlantEditor'
 
@@ -13,16 +14,34 @@ import { PlantEditor } from '@/components/plants/PlantEditor'
  */
 
 /**
- * Fiche d'une plante. `editHref` donne le chemin d'édition **dans la pile
- * courante** — il diffère d'un onglet à l'autre, d'où le paramètre plutôt
- * qu'un préfixe deviné.
+ * Fiche d'une plante. `editHref` et `diagnoseHref` donnent les chemins **dans
+ * la pile courante** — ils diffèrent d'un onglet à l'autre, d'où les
+ * paramètres plutôt qu'un préfixe deviné.
  */
-export function plantDetailRoute(editHref: (plantId: string) => Href) {
+export function plantDetailRoute(
+  editHref: (plantId: string) => Href,
+  diagnoseHref: (plantId: string) => Href,
+) {
   return function PlanteDetailScreen() {
     const { plantId } = useLocalSearchParams<{ plantId: string }>()
     const router = useRouter()
 
-    return <PlantDetail plantId={plantId} onEdit={() => router.push(editHref(plantId))} />
+    return (
+      <PlantDetail
+        plantId={plantId}
+        onEdit={() => router.push(editHref(plantId))}
+        onDiagnose={() => router.push(diagnoseHref(plantId))}
+      />
+    )
+  }
+}
+
+/** Diagnostic d'une plante — le même quelle que soit la pile. */
+export function plantDiagnosisRoute() {
+  return function DiagnosticPlanteScreen() {
+    const { plantId } = useLocalSearchParams<{ plantId: string }>()
+
+    return <DiagnosisScreen plantId={plantId} />
   }
 }
 
