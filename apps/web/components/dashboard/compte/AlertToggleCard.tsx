@@ -1,4 +1,4 @@
-// growi-frontend/components/dashboard/parametres/AlertToggleCard.tsx
+// growi-frontend/components/dashboard/compte/AlertToggleCard.tsx
 'use client'
 
 import { useReducedMotion } from 'framer-motion'

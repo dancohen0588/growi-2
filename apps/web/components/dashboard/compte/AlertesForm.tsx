@@ -1,4 +1,4 @@
-// growi-frontend/components/dashboard/parametres/AlertesForm.tsx
+// growi-frontend/components/dashboard/compte/AlertesForm.tsx
 'use client'
 
 import { useState } from 'react'

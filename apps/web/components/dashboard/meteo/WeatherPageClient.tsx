@@ -65,7 +65,7 @@ export function WeatherPageClient({
       .catch(() => { /* silent */ })
   }, [accountAddress, accountCoords])
 
-  // ── Listen for profile updates (address changed in /parametres) ───────────
+  // ── Listen for profile updates (address changed in /dashboard/compte) ─────
   useEffect(() => {
     function handleProfileUpdate(e: Event) {
       const detail = (e as CustomEvent<{
@@ -181,10 +181,10 @@ export function WeatherPageClient({
           <MapPin size={32} aria-hidden className="text-forest/30" />
           <p className="font-poppins font-semibold text-forest">Aucune adresse configurée</p>
           <p className="font-raleway text-sm text-forest/60 max-w-xs leading-relaxed">
-            Configure ton adresse dans tes paramètres pour obtenir la météo de ton jardin automatiquement.
+            Configure ton adresse dans ton compte pour obtenir la météo de ton jardin automatiquement.
           </p>
           <Link
-            href="/dashboard/parametres"
+            href="/dashboard/compte"
             className="inline-flex items-center gap-2 rounded-xl bg-lime px-5 py-2.5 font-raleway font-semibold text-sm text-forest transition-colors hover:bg-lime/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2"
           >
             Configurer mon adresse

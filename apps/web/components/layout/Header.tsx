@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Menu } from 'lucide-react'
+import { LayoutDashboard, Menu } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { UserMenu } from '@/components/auth/UserMenu'
@@ -12,10 +12,13 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 
+/**
+ * Premium n'est volontairement pas ici : l'offre s'atteint depuis le footer et
+ * depuis le cœur de la page Fonctionnalités, pas depuis la navigation globale.
+ */
 const navLinks = [
   { href: '/fonctionnalites', label: 'Fonctionnalités' },
   { href: '/encyclopedie',    label: 'Encyclopédie' },
-  { href: '/tarifs',          label: 'Premium' },
   { href: '/blog',            label: 'Blog' },
   { href: '/pro',             label: 'Pro' },
   { href: '/contact',         label: 'Contact' },
@@ -51,7 +54,17 @@ export function Header() {
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-8" aria-label="Navigation principale">
+          <nav className="hidden md:flex items-center gap-6" aria-label="Navigation principale">
+            {/* CTA principal : le retour à l'app prime sur le reste du menu. */}
+            {status === 'authenticated' && (
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 rounded-lg bg-lime px-4 py-2 font-poppins font-semibold text-sm text-forest shadow-cta transition-all duration-200 hover:bg-lime-hover active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2"
+              >
+                <LayoutDashboard size={16} aria-hidden />
+                Tableau de bord
+              </Link>
+            )}
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -91,6 +104,14 @@ export function Header() {
                 className="flex flex-col gap-6 mt-8"
                 aria-label="Navigation mobile"
               >
+                {status === 'authenticated' && (
+                  <Button variant="primary" size="default" className="w-full" asChild>
+                    <Link href="/dashboard" onClick={() => setOpen(false)}>
+                      <LayoutDashboard size={18} aria-hidden />
+                      Tableau de bord
+                    </Link>
+                  </Button>
+                )}
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}

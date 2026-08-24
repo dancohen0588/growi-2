@@ -1,25 +1,10 @@
 // growi-frontend/app/dashboard/parametres/page.tsx
-import type { Metadata } from 'next'
-import { auth } from '@/auth'
-import { redirect } from 'next/navigation'
-import { ParametresLayout } from '@/components/dashboard/parametres/ParametresLayout'
+import { permanentRedirect } from 'next/navigation'
 
-export const metadata: Metadata = {
-  title: 'Paramètres — Growi',
-  description: 'Gère ton profil et tes préférences de notifications.',
-  robots: { index: false },
-}
-
-export default async function ParametresPage() {
-  const session = await auth()
-  if (!session) redirect('/login')
-
-  return (
-    <ParametresLayout
-      initialSession={{
-        firstName: session.user.firstName ?? session.user.name ?? 'Jardinier',
-        email: session.user.email ?? '',
-      }}
-    />
-  )
+/**
+ * Les paramètres ont fusionné avec « Mon compte ». La route est conservée le
+ * temps que les liens et signets existants s'éteignent d'eux-mêmes.
+ */
+export default function ParametresPage() {
+  permanentRedirect('/dashboard/compte')
 }

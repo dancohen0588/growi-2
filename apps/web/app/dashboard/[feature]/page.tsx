@@ -8,7 +8,6 @@ const validFeatures = [
   'diagnostic',
   'meteo',
   'marketplace',
-  'compte',
 ] as const
 
 type Feature = (typeof validFeatures)[number]
@@ -18,7 +17,6 @@ const featureLabels: Record<Feature, string> = {
   diagnostic:  'Diagnostic IA',
   meteo:       'Météo locale',
   marketplace: 'Marketplace',
-  compte:      'Mon compte',
 }
 
 export async function generateMetadata({

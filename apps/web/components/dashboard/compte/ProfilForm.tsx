@@ -1,4 +1,4 @@
-// growi-frontend/components/dashboard/parametres/ProfilForm.tsx
+// growi-frontend/components/dashboard/compte/ProfilForm.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
