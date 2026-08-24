@@ -1,4 +1,4 @@
-// growi-frontend/components/dashboard/parametres/AvatarEditor.tsx
+// growi-frontend/components/dashboard/compte/AvatarEditor.tsx
 'use client'
 
 import { cn } from '@/lib/utils'

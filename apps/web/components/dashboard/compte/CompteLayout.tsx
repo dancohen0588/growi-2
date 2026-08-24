@@ -1,4 +1,4 @@
-// growi-frontend/components/dashboard/parametres/ParametresLayout.tsx
+// growi-frontend/components/dashboard/compte/CompteLayout.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -10,13 +10,13 @@ import { ProfilForm } from './ProfilForm'
 import { AlertesForm } from './AlertesForm'
 import { useUserProfile } from '@/hooks/useUserProfile'
 
-interface ParametresLayoutProps {
+interface CompteLayoutProps {
   initialSession: { firstName: string; email: string }
 }
 
 type TabValue = 'profil' | 'alertes'
 
-export function ParametresLayout({ initialSession }: ParametresLayoutProps) {
+export function CompteLayout({ initialSession }: CompteLayoutProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabValue>('profil')
   const { profile, isLoading, updateProfile, updateAlerts, resetAlerts } =
@@ -31,14 +31,14 @@ export function ParametresLayout({ initialSession }: ParametresLayoutProps) {
   function handleTabChange(value: string) {
     const tab = value as TabValue
     setActiveTab(tab)
-    router.replace(`/dashboard/parametres#${tab}`, { scroll: false })
+    router.replace(`/dashboard/compte#${tab}`, { scroll: false })
   }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="font-poppins font-bold text-[1.75rem] text-forest">Paramètres</h1>
+        <h1 className="font-poppins font-bold text-[1.75rem] text-forest">Mon compte</h1>
         <p className="font-raleway text-forest/70 mt-1">
           Gère ton profil et tes préférences de notifications.
         </p>

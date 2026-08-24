@@ -12,7 +12,6 @@ import {
   ShoppingBag,
   UserCircle,
   Map,
-  Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -32,8 +31,9 @@ const navItems = [
   { href: '/dashboard/diagnostic',   label: 'Diagnostic IA', icon: Stethoscope },
   { href: '/dashboard/meteo',        label: 'Météo',         icon: CloudSun },
   { href: '/dashboard/marketplace',  label: 'Marketplace',   icon: ShoppingBag },
+  // « Mon compte » porte aussi les réglages : profil et alertes y sont réunis,
+  // il n'y a plus d'entrée « Paramètres ».
   { href: '/dashboard/compte',       label: 'Mon compte',    icon: UserCircle },
-  { href: '/dashboard/parametres',   label: 'Paramètres',    icon: Settings },
 ] as const
 
 export function DashboardNav() {

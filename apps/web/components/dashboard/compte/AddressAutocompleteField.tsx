@@ -1,4 +1,4 @@
-// growi-frontend/components/dashboard/parametres/AddressAutocompleteField.tsx
+// growi-frontend/components/dashboard/compte/AddressAutocompleteField.tsx
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'

@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
-import { LogOut, User, Settings } from 'lucide-react'
+import { LogOut, User } from 'lucide-react'
 import { useUserProfile } from '@/hooks/useUserProfile'
 
 export function UserMenu() {
@@ -74,15 +74,6 @@ export function UserMenu() {
           >
             <User size={16} aria-hidden />
             Mon compte
-          </Link>
-          <Link
-            href="/dashboard/parametres"
-            role="menuitem"
-            className="flex items-center gap-2 px-4 py-2 font-raleway text-sm text-forest hover:bg-sand transition-colors"
-            onClick={() => setOpen(false)}
-          >
-            <Settings size={16} aria-hidden />
-            Paramètres
           </Link>
           <button
             role="menuitem"
