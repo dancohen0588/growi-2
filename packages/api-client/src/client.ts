@@ -19,10 +19,15 @@ import type {
   CreateGardenInput,
   CreatePlantInstanceInput,
   DashboardSummary,
+  DiagnoseApiResponse,
+  DiagnoseRequest,
+  DiagnosisDetail,
+  DiagnosisListItem,
   Garden,
   GardenPlan,
   GardenWeather,
   GardenWithStats,
+  HealthStatus,
   IdentifyApiResponse,
   MarkActionDoneInput,
   MobileLoginInput,
@@ -347,6 +352,58 @@ export class GrowiApiClient {
         method: 'POST',
         body: { imageBase64 },
       }),
+  }
+
+  // ─── Diagnostic ──────────────────────────────────────────────────────────
+
+  /**
+   * Le diagnostic porte toujours sur une plante que l'utilisateur possède —
+   * c'est ce qui le distingue de `identify`, qui part d'une photo inconnue.
+   */
+  readonly diagnosis = {
+    /**
+     * Lance un diagnostic. Le corps porte soit une photo neuve, soit
+     * `useExistingPhoto` pour reprendre celle de la fiche.
+     *
+     * Résout même quand l'analyse échoue : vérifier `diagnosed` avant de lire
+     * le résultat. Seul un vrai incident (plante inconnue, photo refusée)
+     * remonte en `ApiError`.
+     */
+    diagnose: (
+      plantId: string,
+      body: DiagnoseRequest,
+      options?: CallOptions,
+    ): Promise<DiagnoseApiResponse> =>
+      this.http.request(`/api/v1/plants/${encodeURIComponent(plantId)}/diagnose`, {
+        ...options,
+        method: 'POST',
+        body,
+      }),
+
+    /** Applique le statut proposé — sur accord explicite de l'utilisateur. */
+    applyStatus: (
+      plantId: string,
+      diagnosisId: string,
+      options?: CallOptions,
+    ): Promise<{ healthStatus: HealthStatus }> =>
+      this.http.request(
+        `/api/v1/plants/${encodeURIComponent(plantId)}/diagnoses/${encodeURIComponent(diagnosisId)}/apply`,
+        { ...options, method: 'POST', body: { apply: true } },
+      ),
+
+    /** Historique de la plante, du plus récent au plus ancien. */
+    list: (plantId: string, options?: CallOptions): Promise<DiagnosisListItem[]> =>
+      this.http.request(`/api/v1/plants/${encodeURIComponent(plantId)}/diagnoses`, { ...options }),
+
+    get: (
+      plantId: string,
+      diagnosisId: string,
+      options?: CallOptions,
+    ): Promise<DiagnosisDetail> =>
+      this.http.request(
+        `/api/v1/plants/${encodeURIComponent(plantId)}/diagnoses/${encodeURIComponent(diagnosisId)}`,
+        { ...options },
+      ),
   }
 }
 

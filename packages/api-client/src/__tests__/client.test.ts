@@ -388,6 +388,117 @@ describe('endpoints', () => {
   })
 })
 
+// ─── Diagnostic ────────────────────────────────────────────────────────────
+
+describe('diagnostic', () => {
+  const result = {
+    diagnosed: true,
+    status: 'WARNING',
+    confidence: 'medium',
+    summary: 'Un stress hydrique probable.',
+    observations: ['Feuilles basses jaunies'],
+    probableCauses: [],
+    recommendations: [],
+    followUp: null,
+    diagnosisId: 'diag_1',
+    photoUrl: 'https://growi.test/diag.jpg',
+    currentHealthStatus: 'HEALTHY',
+  }
+
+  it('poste une photo neuve sur la route de la plante', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: result }))
+
+    const response = await makeClient().diagnosis.diagnose('p1', {
+      imageBase64: 'data:image/jpeg;base64,AAAA',
+    })
+
+    const { url, init } = callArgs()
+    expect(url).toBe('https://growi.test/api/v1/plants/p1/diagnose')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ imageBase64: 'data:image/jpeg;base64,AAAA' })
+    expect(response.diagnosisId).toBe('diag_1')
+  })
+
+  it('sait demander la réutilisation de la photo de la fiche', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: result }))
+
+    await makeClient().diagnosis.diagnose('p1', { useExistingPhoto: true })
+
+    expect(JSON.parse(callArgs().init.body as string)).toEqual({ useExistingPhoto: true })
+  })
+
+  it('résout normalement quand le modèle n’a pas su juger', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        data: {
+          diagnosed: false,
+          reason: 'Reprends la photo en plein jour.',
+          diagnosisId: null,
+          photoUrl: null,
+          currentHealthStatus: 'HEALTHY',
+        },
+      }),
+    )
+
+    const response = await makeClient().diagnosis.diagnose('p1', { useExistingPhoto: true })
+
+    // Une analyse impossible est un résultat, pas une panne : elle ne doit pas
+    // remonter en ApiError, sinon l'écran affiche une erreur au lieu du motif.
+    expect(response.diagnosed).toBe(false)
+    expect(response).toMatchObject({ reason: 'Reprends la photo en plein jour.' })
+  })
+
+  it('matérialise l’accord de l’utilisateur dans le corps', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { healthStatus: 'WARNING' } }))
+
+    const applied = await makeClient().diagnosis.applyStatus('p1', 'diag_1')
+
+    const { url, init } = callArgs()
+    expect(url).toBe('https://growi.test/api/v1/plants/p1/diagnoses/diag_1/apply')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ apply: true })
+    expect(applied.healthStatus).toBe('WARNING')
+  })
+
+  it('liste l’historique d’une plante', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
+
+    await makeClient().diagnosis.list('p1')
+
+    expect(callArgs().url).toBe('https://growi.test/api/v1/plants/p1/diagnoses')
+    expect(callArgs().init.method).toBe('GET')
+  })
+
+  it('lit un diagnostic précis', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { id: 'diag_1' } }))
+
+    await makeClient().diagnosis.get('p1', 'diag_1')
+
+    expect(callArgs().url).toBe('https://growi.test/api/v1/plants/p1/diagnoses/diag_1')
+  })
+
+  it('encode les identifiants dans l’URL', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: {} }))
+
+    await makeClient().diagnosis.get('p/1', 'diag 1')
+
+    expect(callArgs().url).toBe('https://growi.test/api/v1/plants/p%2F1/diagnoses/diag%201')
+  })
+
+  it('remonte une ApiError 404 sur une plante inconnue', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ error: { code: 'NOT_FOUND', message: 'Plante introuvable' } }, 404),
+    )
+
+    const error = await makeClient()
+      .diagnosis.diagnose('inexistante', { useExistingPhoto: true })
+      .catch((err) => err)
+
+    expect(isApiError(error)).toBe(true)
+    expect((error as ApiError).isNotFound).toBe(true)
+  })
+})
+
 // ─── Blog ──────────────────────────────────────────────────────────────────
 
 describe('blog', () => {
