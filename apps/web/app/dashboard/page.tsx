@@ -52,9 +52,8 @@ const featureCards = [
   {
     href: '/dashboard/diagnostic',
     title: 'Diagnostic IA',
-    description: 'Identifiez maladies et nuisibles en photo.',
+    description: 'Analysez la santé d\'une plante en photo.',
     icon: Stethoscope,
-    badge: 'Bientôt',
   },
   {
     href: '/dashboard/meteo',

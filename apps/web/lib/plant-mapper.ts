@@ -1,6 +1,7 @@
 // Mapper: Prisma PlantInstance → Plant (presentation type)
 // Lives outside 'use server' so it can be used by both server actions and utilities.
 
+import type { HealthStatus as DomainHealthStatus } from '@growi/shared'
 import type { PlantInstance, PlantCatalog, GardenZone } from '@prisma/client'
 import type { Plant, PlantLocation, SunExposure, HealthStatus, WateringDifficulty } from '@/lib/plant-types'
 import { parseJsonArray } from '@/lib/recommendation/utils'
@@ -21,6 +22,11 @@ const healthMap: Record<string, HealthStatus> = {
   HEALTHY:  'healthy',
   WARNING:  'warning',
   CRITICAL: 'critical',
+}
+
+/** Domaine → présentation. Le diagnostic parle en MAJUSCULES, la fiche en minuscules. */
+export function toPresentationHealth(status: DomainHealthStatus): HealthStatus {
+  return healthMap[status] ?? 'healthy'
 }
 
 const sunMap: Record<string, SunExposure> = {
