@@ -6,7 +6,7 @@
  * l'interprétation du résultat appartiennent à chaque service appelant.
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAI, type GenerationConfig } from '@google/generative-ai'
 
 import { ServiceError } from '@/lib/services/errors'
 
@@ -14,12 +14,11 @@ export const MAX_IMAGE_BYTES = 4 * 1024 * 1024
 
 // Modèles essayés dans l'ordre — quotas séparés, donc un 429/503 sur l'un peut
 // tout de même passer sur le suivant. 2.5-flash = meilleure qualité,
-// 2.5-flash-lite = moins souvent saturé, 2.0-flash = repli historique.
-export const GEMINI_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-2.0-flash',
-] as const
+// 2.5-flash-lite = moins souvent saturé.
+//
+// `gemini-2.0-flash` figurait ici en troisième : l'API répond désormais 404,
+// le repli était donc inopérant depuis sa mise hors service.
+export const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'] as const
 
 /** Retire la clôture markdown qu'un modèle ajoute parfois malgré la consigne. */
 export function stripFence(raw: string): string {
@@ -74,6 +73,28 @@ export function requireGeminiKey(message: string): string {
   return key
 }
 
+/**
+ * Réglages d'appel, communs à tous les usages.
+ *
+ * `thinkingBudget: 0` coupe la réflexion des modèles 2.5. Ces jetons de
+ * pensée s'imputent sur `maxOutputTokens` : sur un contexte un peu riche ils
+ * dévoraient le budget (1 556 sur 2 000 mesurés), et la réponse revenait
+ * tronquée au milieu du JSON. On ne demande pas au modèle de raisonner
+ * longuement mais de rendre une structure à température nulle — la couper
+ * supprime la troncature, et divise par trois les jetons facturés.
+ *
+ * Le cast est nécessaire tant qu'on est sur `@google/generative-ai` : ses
+ * typages sont antérieurs à `thinkingConfig`, que l'API accepte pourtant.
+ */
+function generationConfig(maxOutputTokens: number): GenerationConfig {
+  return {
+    temperature: 0,
+    maxOutputTokens,
+    responseMimeType: 'application/json',
+    thinkingConfig: { thinkingBudget: 0 },
+  } as GenerationConfig & { thinkingConfig: { thinkingBudget: number } }
+}
+
 export type GeminiSuccess = { ok: true; raw: string; model: string }
 export type GeminiFailure = { ok: false; reason: string }
 
@@ -113,15 +134,22 @@ export async function generateJson(
   for (const modelName of GEMINI_MODELS) {
     const model = genAI.getGenerativeModel({
       model: modelName,
-      generationConfig: {
-        temperature: 0,
-        maxOutputTokens: options.maxOutputTokens,
-        responseMimeType: 'application/json',
-      },
+      generationConfig: generationConfig(options.maxOutputTokens),
     })
 
     try {
       const response = await model.generateContent(parts)
+
+      // Une réponse tronquée n'est pas une erreur pour le SDK : elle revient
+      // avec un texte incomplet et un `finishReason`. Sans ce contrôle, on
+      // rendait du JSON coupé à l'appelant, et le repli ne jouait jamais.
+      if (response.response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
+        console.error(
+          `[${options.logLabel}] réponse tronquée (model=${modelName}, maxOutputTokens=${options.maxOutputTokens})`,
+        )
+        continue
+      }
+
       return { ok: true, raw: response.response.text(), model: modelName }
     } catch (err) {
       const status =

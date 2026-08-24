@@ -30,8 +30,8 @@ function imageOf(bytes: number): string {
   return `data:image/jpeg;base64,${'A'.repeat(Math.ceil((bytes * 4) / 3))}`
 }
 
-function reply(text: string) {
-  return { response: { text: () => text } }
+function reply(text: string, finishReason = 'STOP') {
+  return { response: { text: () => text, candidates: [{ finishReason }] } }
 }
 
 function httpError(status: number) {
@@ -118,7 +118,7 @@ describe('generateJson', () => {
     expect(generateContent).toHaveBeenCalledWith(parts)
   })
 
-  it('demande du JSON à température nulle', async () => {
+  it('demande du JSON à température nulle, sans laisser le modèle penser', async () => {
     generateContent.mockResolvedValueOnce(reply('{}'))
     await generateJson(parts, options)
 
@@ -128,8 +128,35 @@ describe('generateJson', () => {
         temperature: 0,
         maxOutputTokens: 1500,
         responseMimeType: 'application/json',
+        // Les jetons de réflexion s'imputent sur `maxOutputTokens` : les
+        // laisser courir faisait revenir la réponse tronquée en plein JSON.
+        thinkingConfig: { thinkingBudget: 0 },
       },
     })
+  })
+
+  it('rejette une réponse tronquée et tente le modèle suivant', async () => {
+    generateContent
+      .mockResolvedValueOnce(reply('{"summary":"coupé au mil', 'MAX_TOKENS'))
+      .mockResolvedValueOnce(reply('{"ok":1}'))
+
+    // Le SDK ne lève pas sur une troncature : sans contrôle explicite, ce JSON
+    // coupé partait tel quel à l'appelant et le repli ne jouait jamais.
+    await expect(generateJson(parts, options)).resolves.toEqual({
+      ok: true,
+      raw: '{"ok":1}',
+      model: GEMINI_MODELS[1],
+    })
+  })
+
+  it('échoue proprement quand tous les modèles tronquent', async () => {
+    generateContent.mockResolvedValue(reply('{"a":', 'MAX_TOKENS'))
+
+    await expect(generateJson(parts, options)).resolves.toEqual({
+      ok: false,
+      reason: "Erreur d'analyse, veuillez réessayer.",
+    })
+    expect(generateContent).toHaveBeenCalledTimes(GEMINI_MODELS.length)
   })
 
   it('passe au modèle suivant quand le premier est saturé (503)', async () => {
