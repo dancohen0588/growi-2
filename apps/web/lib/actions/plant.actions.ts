@@ -4,9 +4,12 @@ import { auth } from '@/auth'
 import { revalidatePath } from 'next/cache'
 import {
   addIdentifiedPlantSchema,
+  createCareLogSchema,
   createPlantInstanceSchema,
   updatePlantInstanceSchema,
   type AddIdentifiedPlantInput,
+  type CareLog,
+  type CreateCareLogInput,
   type CreatePlantInstanceInput,
   type HealthStatus,
   type UpdatePlantInstanceInput,
@@ -88,6 +91,42 @@ export async function logWatering(
 
   revalidatePath('/dashboard/plantes')
   return { success: true }
+}
+
+/**
+ * Enregistre un geste d'entretien, quel qu'il soit.
+ *
+ * `logWatering` ci-dessus reste le raccourci du seul arrosage ; celle-ci
+ * couvre les sept autres gestes, comme le fait déjà l'API du mobile.
+ */
+export async function logCareAction(
+  plantInstanceId: string,
+  input: CreateCareLogInput,
+): Promise<{ success: boolean }> {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Non authentifié')
+
+  await logService.logCare(plantInstanceId, session.user.id, createCareLogSchema.parse(input))
+
+  revalidatePath('/dashboard/plantes')
+  revalidatePath('/dashboard/calendrier')
+  return { success: true }
+}
+
+/** Journal d'entretien d'une plante, du plus récent au plus ancien. */
+export async function getPlantLogsAction(plantInstanceId: string): Promise<CareLog[]> {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Non authentifié')
+
+  const logs = await logService.listPlantLogs(plantInstanceId, session.user.id)
+
+  // Les entités Prisma portent des `Date` ; la couche de présentation attend
+  // des chaînes ISO, comme tout ce qui traverse une frontière serveur/client.
+  return logs.map((log) => ({
+    ...log,
+    occurredAt: log.occurredAt.toISOString(),
+    createdAt: log.createdAt.toISOString(),
+  })) as CareLog[]
 }
 
 export async function updatePlantHealth(

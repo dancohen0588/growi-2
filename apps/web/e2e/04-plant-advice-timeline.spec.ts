@@ -50,23 +50,20 @@ test.describe('Plant Advice Timeline', () => {
     expect(monthsPresent.length).toBeGreaterThanOrEqual(10) // allow some tolerance
   })
 
-  test('E2E-PAT-02 — Tâches affichées dans "Prochaines tâches"', async ({ page }) => {
+  test('E2E-PAT-02 — Tâches à faire, cochables depuis la fiche', async ({ page }) => {
+    // Ces tâches vivaient en lecture seule au fond de la frise annuelle ;
+    // elles ont leur section « Actions à faire » en haut de fiche, où elles
+    // se cochent. Le test suivait l'ancien bloc — et, conditionnel, passait
+    // à vide depuis qu'il a disparu.
     await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
     await page.goto(`/dashboard/plantes/${tomatePlantId}`)
     await page.waitForLoadState('networkidle')
 
-    const section = page.locator('text=Prochaines tâches')
-    if ((await section.count()) > 0) {
-      // At least one task visible
-      const pageText = await page.textContent('body')
-      const hasTask =
-        pageText?.includes('Arrose') ||
-        pageText?.includes('Sème') ||
-        pageText?.includes('Fertilise') ||
-        pageText?.includes('récolter') ||
-        pageText?.includes('Taille')
-      expect(hasTask).toBeTruthy()
-    }
+    await expect(page.getByRole('heading', { name: 'Actions à faire' })).toBeVisible()
+
+    // Chaque tâche porte son bouton de validation, sans détour par le calendrier.
+    const doneButtons = page.getByRole('button', { name: /^Marquer comme fait/ })
+    expect(await doneButtons.count()).toBeGreaterThan(0)
   })
 
   test('E2E-PAT-03 — Catalogue incomplet → placeholder', async ({ page }) => {

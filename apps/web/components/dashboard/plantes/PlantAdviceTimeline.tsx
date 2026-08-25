@@ -1,28 +1,11 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Droplets, Scissors, Sprout, Package, FlaskConical, Shield, Apple, Wrench, AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import type { PlantAdvice } from '@/lib/recommendation/types'
-import type { ActionType } from '@/lib/mock-actions'
-import { actionTypeDotColor } from '@/lib/mock-actions'
+import { actionTypeDotColor, type ActionType } from '@/lib/mock-actions'
 
 const MONTHS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
-
-const iconMap: Record<ActionType, React.ElementType> = {
-  arrosage: Droplets,
-  taille: Scissors,
-  semis: Sprout,
-  rempotage: Package,
-  fertilisation: FlaskConical,
-  traitement: Shield,
-  recolte: Apple,
-  autre: Wrench,
-}
-
-function formatDateFr(dateStr: string): string {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-}
 
 interface PlantAdviceTimelineProps {
   advice: PlantAdvice | null
@@ -42,11 +25,6 @@ export function PlantAdviceTimeline({ advice }: PlantAdviceTimelineProps) {
     }
     return map
   }, [advice])
-
-  const pendingTasks = useMemo(
-    () => advice?.tasks.filter(t => !t.done).slice(0, 3) ?? [],
-    [advice],
-  )
 
   if (!advice || (advice.tasks.length === 0 && advice.alerts.length === 0)) {
     return (
@@ -94,41 +72,6 @@ export function PlantAdviceTimeline({ advice }: PlantAdviceTimelineProps) {
           )
         })}
       </div>
-
-      {/* Upcoming tasks */}
-      {pendingTasks.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <h3 className="font-poppins font-medium text-sm text-forest/70">
-            Prochaines tâches
-          </h3>
-          {pendingTasks.map(task => {
-            const Icon = iconMap[task.type] ?? Wrench
-            return (
-              <div
-                key={task.id}
-                className="flex items-center gap-3 rounded-xl bg-sand/50 px-4 py-2.5"
-              >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${actionTypeDotColor[task.type] ?? 'bg-gray-200'} bg-opacity-20`}>
-                  <Icon size={16} className="text-forest" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-raleway text-sm text-forest truncate">{task.label}</p>
-                  <p className="font-raleway text-xs text-forest/50">{formatDateFr(task.dueDate)}</p>
-                </div>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                  task.priority === 'high'
-                    ? 'bg-red-100 text-red-700'
-                    : task.priority === 'medium'
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-forest/10 text-forest/60'
-                }`}>
-                  {task.priority === 'high' ? 'Urgent' : task.priority === 'medium' ? 'Moyen' : 'Faible'}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      )}
 
       {/* Active alerts */}
       {advice.alerts.length > 0 && (
