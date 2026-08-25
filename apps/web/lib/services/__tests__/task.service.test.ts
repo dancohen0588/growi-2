@@ -66,9 +66,15 @@ beforeEach(() => {
 
 describe('recommandation → tâche', () => {
   it('reprend le geste et le délai fournis par le modèle', () => {
-    expect(toTaskDraft(reco({ actionType: 'arrosage', dueInDays: 0 }), NOW)).toEqual({
+    expect(
+      toTaskDraft(
+        reco({ actionType: 'arrosage', dueInDays: 0, shortAction: 'Arroser au pied' }),
+        NOW,
+      ),
+    ).toEqual({
       type: 'arrosage',
       label: 'Arrose abondamment ce soir',
+      shortLabel: 'Arroser au pied',
       dueDate: '2026-08-25',
       priority: 'high',
     })
@@ -89,6 +95,29 @@ describe('recommandation → tâche', () => {
     expect(toTaskDraft(reco({ priority: 'urgent' }), NOW).priority).toBe('high')
     expect(toTaskDraft(reco({ priority: 'soon' }), NOW).priority).toBe('medium')
     expect(toTaskDraft(reco({ priority: 'watch' }), NOW).priority).toBe('low')
+  })
+
+  it('abrège le titre quand le modèle n’en fournit pas', () => {
+    // Diagnostics d'avant `shortAction` : le titre est coupé sur un mot, sans
+    // ponctuation, pour que la carte reste lisible d'un coup d'œil.
+    const draft = toTaskDraft(
+      reco({ action: 'Retire et détruis immédiatement les parties les plus atteintes.' }),
+      NOW,
+    )
+
+    expect(draft.shortLabel).toBe('Retire et détruis immédiatement les…')
+    expect(draft.shortLabel.length).toBeLessThanOrEqual(41)
+    expect(draft.label).toBe('Retire et détruis immédiatement les parties les plus atteintes.')
+  })
+
+  it('laisse intact un libellé déjà court', () => {
+    expect(toTaskDraft(reco({ action: 'Arrose au pied.' }), NOW).shortLabel).toBe('Arrose au pied')
+  })
+
+  it('préfère le titre du modèle à son propre abrégé', () => {
+    expect(
+      toTaskDraft(reco({ shortAction: 'Arroser au pied' }), NOW).shortLabel,
+    ).toBe('Arroser au pied')
   })
 
   it('franchit un changement de mois sans se tromper', () => {
@@ -207,7 +236,8 @@ describe('tâches présentées comme actions du planning', () => {
   const row = {
     id: 'task_1',
     type: 'arrosage',
-    label: 'Arrose abondamment ce soir',
+    label: 'Arrose abondamment ce soir, au pied, sans mouiller le feuillage',
+    shortLabel: 'Arroser au pied',
     dueDate: '2026-08-25',
     priority: 'high',
     plantInstance: {
@@ -227,8 +257,10 @@ describe('tâches présentées comme actions du planning', () => {
       {
         id: 'task:task_1',
         type: 'arrosage',
-        label: 'Arrose abondamment ce soir',
-        shortLabel: 'Arrose abondamment ce soir',
+        label: 'Arrose abondamment ce soir, au pied, sans mouiller le feuillage',
+        shortLabel: 'Arroser au pied',
+        // La consigne complète, que la carte affiche sous son titre.
+        detail: 'Arrose abondamment ce soir, au pied, sans mouiller le feuillage',
         plantId: PLANT,
         plantName: 'Basilic du balcon',
         plantEmoji: '🌿',

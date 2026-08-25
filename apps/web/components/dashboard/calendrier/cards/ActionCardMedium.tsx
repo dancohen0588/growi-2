@@ -4,6 +4,7 @@ import { GardenAction } from '@/lib/mock-actions'
 import { formatDueDate } from '@/lib/calendar-utils'
 import { ActionIcon } from '../ActionIcon'
 import { DoneButton } from '../DoneButton'
+import { ActionDetail } from '../ActionDetailDialog'
 import { DiagnosisBadge } from '../DiagnosisBadge'
 
 interface ActionCardMediumProps {
@@ -56,6 +57,10 @@ export function ActionCardMedium({ action, onDone }: ActionCardMediumProps) {
             {meta}
           </p>
           <DiagnosisBadge action={action} />
+        </div>
+
+        <div className="mt-1 flex flex-col gap-0.5">
+          <ActionDetail action={action} />
         </div>
       </div>
 

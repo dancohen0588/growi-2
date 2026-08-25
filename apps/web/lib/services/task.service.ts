@@ -45,6 +45,25 @@ const ACTION_TYPE_BY_CARE_LOG = Object.fromEntries(
   Object.entries(CARE_LOG_TYPE_BY_ACTION).map(([action, care]) => [care, action]),
 ) as Record<CareLogType, ActionType>
 
+/** Longueur au-delà de laquelle un titre de carte cesse d'être lisible d'un coup d'œil. */
+const SHORT_LABEL_MAX = 40
+
+/**
+ * Abrège une consigne en titre de carte.
+ *
+ * Repli pour les diagnostics d'avant `shortAction` : on coupe sur un mot, sans
+ * ponctuation finale. Le résultat n'égale pas un titre écrit pour l'être, mais
+ * il vaut mieux qu'une carte dont le titre déborde sur six lignes.
+ */
+export function shorten(action: string): string {
+  const clean = action.trim().replace(/[.\s]+$/, '')
+  if (clean.length <= SHORT_LABEL_MAX) return clean
+
+  const cut = clean.slice(0, SHORT_LABEL_MAX)
+  const lastSpace = cut.lastIndexOf(' ')
+  return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).replace(/[,;:.\s]+$/, '')}…`
+}
+
 /** Jour civil au format `YYYY-MM-DD`, décalé de `days`. */
 export function isoDay(from: Date, days = 0): string {
   const d = new Date(from)
@@ -62,13 +81,20 @@ export function isoDay(from: Date, days = 0): string {
 export function toTaskDraft(
   recommendation: DiagnosisRecommendation,
   now: Date,
-): { type: ActionType; label: string; dueDate: string; priority: ActionPriority } {
+): {
+  type: ActionType
+  label: string
+  shortLabel: string
+  dueDate: string
+  priority: ActionPriority
+} {
   const dueInDays =
     recommendation.dueInDays ?? DUE_IN_DAYS_BY_PRIORITY[recommendation.priority]
 
   return {
     type: recommendation.actionType ?? 'autre',
     label: recommendation.action,
+    shortLabel: recommendation.shortAction?.trim() || shorten(recommendation.action),
     dueDate: isoDay(now, dueInDays),
     priority: PRIORITY_BY_DIAGNOSIS[recommendation.priority],
   }
@@ -148,7 +174,9 @@ function toGardenAction(task: TaskWithPlant): GardenAction {
     id: `task:${task.id}`,
     type: task.type as ActionType,
     label: task.label,
-    shortLabel: task.label,
+    shortLabel: task.shortLabel,
+    // La consigne complète, que la carte affiche sous son titre.
+    detail: task.label,
     plantId: plant.id,
     plantName: plant.customName ?? catalog?.commonName ?? 'Plante',
     plantEmoji: plant.emoji ?? catalog?.emoji ?? '',

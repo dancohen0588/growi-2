@@ -60,20 +60,21 @@ describe('fusion sur les quatre portes d’entrée', () => {
   it('getGardenAdvice ajoute les tâches aux actions du moteur', async () => {
     const result = await getGardenAdvice(GARDEN, USER)
 
-    expect(result.actions).toEqual([engineAction, taskAction])
+    // Les tâches passent devant : l'utilisateur les a validées lui-même.
+    expect(result.actions).toEqual([taskAction, engineAction])
     expect(taskService.listOpenTasksAsActions).toHaveBeenCalledWith(USER, { gardenId: GARDEN })
   })
 
   it('getCurrentGardenAdvice aussi — c’est par là que passe le calendrier web', async () => {
     const result = await getCurrentGardenAdvice(USER)
 
-    expect(result?.advice?.actions).toEqual([engineAction, taskAction])
+    expect(result?.advice?.actions).toEqual([taskAction, engineAction])
   })
 
   it('getGardensAdvice aussi — c’est par là que passe l’Accueil mobile', async () => {
     const [first] = await getGardensAdvice(USER)
 
-    expect(first.advice?.actions).toEqual([engineAction, taskAction])
+    expect(first.advice?.actions).toEqual([taskAction, engineAction])
   })
 
   it('getPlantAdvice ajoute les tâches de la plante à ses tâches', async () => {
@@ -81,7 +82,7 @@ describe('fusion sur les quatre portes d’entrée', () => {
 
     const result = await getPlantAdvice('p1', USER)
 
-    expect(result.tasks).toEqual([engineAction, taskAction])
+    expect(result.tasks).toEqual([taskAction, engineAction])
     expect(taskService.listOpenTasksAsActions).toHaveBeenCalledWith(USER, {
       plantInstanceId: 'p1',
     })
@@ -114,7 +115,7 @@ describe('fusion sur les quatre portes d’entrée', () => {
     const results = await getGardensAdvice(USER)
 
     expect(results[0].advice).toBeNull()
-    expect(results[1].advice?.actions).toEqual([engineAction, taskAction])
+    expect(results[1].advice?.actions).toEqual([taskAction, engineAction])
   })
 })
 

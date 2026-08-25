@@ -305,8 +305,11 @@ model PlantTask {
   source          String    @default("DIAGNOSIS")
   /// ActionType de @growi/shared : arrosage | taille | … | autre.
   type            String
-  /// Libellé affiché — l'action de la recommandation, telle quelle.
+  /// Consigne détaillée — l'action de la recommandation, telle quelle.
   label           String
+  /// Titre court de la carte du planning ; `label` en devient le détail.
+  /// Abrégé depuis `label` pour les diagnostics d'avant son introduction.
+  shortLabel      String
   /// Échéance `YYYY-MM-DD`, figée à la planification.
   dueDate         String
   /// high | medium | low, mappé depuis urgent | soon | watch.

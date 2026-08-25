@@ -60,6 +60,12 @@ export interface GardenAction {
   source?: 'engine' | 'task'
   /** Renseigné quand `source: 'task'` — sert à acquitter la tâche nommément. */
   taskId?: string
+  /**
+   * Consigne détaillée, affichée sous le titre de la carte. Les actions du
+   * moteur n'en ont pas : leur `label` répète le `shortLabel` avec le nom de la
+   * plante, déjà affiché à côté.
+   */
+  detail?: string
 }
 
 // ─── Alerts ────────────────────────────────────────────────────────────────

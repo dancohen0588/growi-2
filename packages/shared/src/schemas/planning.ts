@@ -74,6 +74,15 @@ export const gardenActionSchema = z.object({
   source: z.enum(['engine', 'task']).optional(),
   /** Renseigné quand `source: 'task'` : ce que le front renvoie pour l'acquitter. */
   taskId: z.string().optional(),
+  /**
+   * Consigne détaillée, quand le titre ne suffit pas à agir.
+   *
+   * Les actions du moteur n'en ont pas : leur `label` ne fait que reprendre le
+   * `shortLabel` avec le nom de la plante, déjà affiché à côté. Une
+   * recommandation de diagnostic, elle, porte une vraie consigne — dosage,
+   * moment de la journée — qu'on ne peut pas résumer sans la perdre.
+   */
+  detail: z.string().optional(),
 })
 
 export type GardenAction = z.infer<typeof gardenActionSchema>

@@ -42,7 +42,10 @@ async function withTasks(
   const tasks = await listOpenTasksAsActions(userId, { gardenId })
   if (tasks.length === 0) return advice
 
-  return { ...advice, actions: [...advice.actions, ...tasks] }
+  // En tête de liste : ce sont des actions que l'utilisateur a lui-même
+  // validées depuis un diagnostic, là où le reste est proposé par le moteur.
+  // Les écrans regroupent ensuite par échéance sans retrier, l'ordre tient.
+  return { ...advice, actions: [...tasks, ...advice.actions] }
 }
 
 /** Conseils du jardin. @throws ServiceError('NOT_FOUND') si le jardin n'est pas à l'utilisateur. */
@@ -62,7 +65,7 @@ export async function getPlantAdvice(
   const advice = await computePlantAdvice(plantInstanceId, userId)
   const tasks = await listOpenTasksAsActions(userId, { plantInstanceId })
 
-  return tasks.length > 0 ? { ...advice, tasks: [...advice.tasks, ...tasks] } : advice
+  return tasks.length > 0 ? { ...advice, tasks: [...tasks, ...advice.tasks] } : advice
 }
 
 /**

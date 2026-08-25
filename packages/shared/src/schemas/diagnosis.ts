@@ -58,8 +58,16 @@ export const diagnosisCauseSchema = z.object({
 export type DiagnosisCause = z.infer<typeof diagnosisCauseSchema>
 
 export const diagnosisRecommendationSchema = z.object({
-  /** À l'impératif : « Arrose abondamment ce soir ». */
+  /** À l'impératif, en détail : « Arrose abondamment ce soir, au pied ». */
   action: z.string(),
+  /**
+   * Le même geste en trois ou quatre mots — « Arroser au pied ».
+   *
+   * C'est lui qui titre la carte du planning ; `action` devient le détail.
+   * Facultatif comme les deux champs suivants : les diagnostics antérieurs
+   * n'en ont pas, et la planification sait alors abréger `action` elle-même.
+   */
+  shortAction: z.string().optional(),
   priority: diagnosisPrioritySchema,
   /** « aujourd'hui », « cette semaine »… */
   timeframe: z.string(),
