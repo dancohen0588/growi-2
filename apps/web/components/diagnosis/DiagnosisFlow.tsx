@@ -45,6 +45,8 @@ export interface DiagnosisFlowProps {
   onStatusApplied?: (status: HealthStatus, note: string) => void
   /** Appelé après un diagnostic réussi, pour rafraîchir l'historique. */
   onDiagnosed?: () => void
+  /** Appelé après une planification, pour rafraîchir calendrier et historique. */
+  onPlanned?: () => void
 }
 
 export function DiagnosisFlow({
@@ -55,6 +57,7 @@ export function DiagnosisFlow({
   onOpenChange,
   onStatusApplied,
   onDiagnosed,
+  onPlanned,
 }: DiagnosisFlowProps) {
   const [step, setStep] = useState<Step>('photo')
   const [preview, setPreview] = useState<string | null>(null)
@@ -66,6 +69,10 @@ export function DiagnosisFlow({
   const [applied, setApplied] = useState(false)
   const [applyError, setApplyError] = useState<string | null>(null)
   const [applyDismissed, setApplyDismissed] = useState(false)
+
+  const [isPlanning, setIsPlanning] = useState(false)
+  const [plannedAt, setPlannedAt] = useState<string | null>(null)
+  const [planError, setPlanError] = useState<string | null>(null)
 
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
@@ -87,6 +94,8 @@ export function DiagnosisFlow({
     setApplied(false)
     setApplyError(null)
     setApplyDismissed(false)
+    setPlannedAt(null)
+    setPlanError(null)
     if (cameraInputRef.current) cameraInputRef.current.value = ''
     if (galleryInputRef.current) galleryInputRef.current.value = ''
   }, [])
@@ -159,6 +168,27 @@ export function DiagnosisFlow({
       setIsApplying(false)
     }
   }, [plantId, response, onStatusApplied])
+
+  const handlePlan = useCallback(async () => {
+    if (!response?.diagnosed || !response.diagnosisId) return
+    setIsPlanning(true)
+    setPlanError(null)
+    try {
+      const res = await fetch(
+        `/api/v1/plants/${encodeURIComponent(plantId)}/diagnoses/${encodeURIComponent(response.diagnosisId)}/plan`,
+        { method: 'POST' },
+      )
+      if (!res.ok) throw new Error("Les actions n'ont pas pu être planifiées.")
+
+      const payload = (await res.json()) as { data: { tasksPlannedAt: string } }
+      setPlannedAt(payload.data.tasksPlannedAt)
+      onPlanned?.()
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : 'Erreur inconnue')
+    } finally {
+      setIsPlanning(false)
+    }
+  }, [plantId, response, onPlanned])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -291,6 +321,10 @@ export function DiagnosisFlow({
                 isApplying={isApplying}
                 applied={applied}
                 applyError={applyError}
+                onPlan={handlePlan}
+                isPlanning={isPlanning}
+                tasksPlannedAt={plannedAt ?? response.tasksPlannedAt}
+                planError={planError}
               />
             ) : (
               <div className="py-6 flex flex-col items-center gap-4 text-center">
