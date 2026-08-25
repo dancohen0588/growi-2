@@ -7,7 +7,7 @@ import {
 } from '@growi/shared'
 
 import { api } from '@/lib/api'
-import { gardenKeys, planningKeys, plantKeys, summaryKeys } from '@/lib/queries/keys'
+import { diagnosisKeys, gardenKeys, planningKeys, plantKeys, summaryKeys } from '@/lib/queries/keys'
 
 export { planningKeys }
 
@@ -99,6 +99,9 @@ export function useMarkActionDone() {
         gardenId: input.gardenId,
         actionType: input.actionType,
         plantId: input.plantId,
+        // Renseigné pour une tâche planifiée : elle s'acquitte nommément, là
+        // où une action du moteur se contente du geste au journal.
+        taskId: input.taskId,
       }),
 
     onMutate: async ({ actionId }) => {
@@ -129,6 +132,8 @@ export function useMarkActionDone() {
     onSettled: (_data, _error, { plantId }) => {
       void queryClient.invalidateQueries({ queryKey: planningKeys.today() })
       void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
+      // Une tâche cochée disparaît de l'historique ouvert des diagnostics.
+      void queryClient.invalidateQueries({ queryKey: diagnosisKeys.all })
       // Le geste noté apparaît aussi dans l'historique de la plante.
       if (plantId) {
         void queryClient.invalidateQueries({ queryKey: plantKeys.detail(plantId) })

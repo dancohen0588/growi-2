@@ -12,6 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import {
+  CalendarCheck,
+  CalendarPlus,
   Camera,
   Check,
   ChevronLeft,
@@ -34,7 +36,11 @@ import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
 import { errorMessage } from '@/lib/errors'
 import { PermissionDeniedError, pickPhoto, takePhoto, type Photo } from '@/lib/photo'
-import { useApplyDiagnosis, useDiagnosePlant } from '@/lib/queries/diagnosis'
+import {
+  useApplyDiagnosis,
+  useDiagnosePlant,
+  usePlanDiagnosisActions,
+} from '@/lib/queries/diagnosis'
 import { usePlant } from '@/lib/queries/plants'
 
 /** Les mêmes étapes que sur le web : photo, analyse, résultat. */
@@ -77,17 +83,20 @@ export function DiagnosisScreen({ plantId }: { plantId: string }) {
   const plant = usePlant(plantId)
   const diagnose = useDiagnosePlant(plantId)
   const applyStatus = useApplyDiagnosis(plantId)
+  const planActions = usePlanDiagnosisActions(plantId)
 
   const [photo, setPhoto] = useState<Photo | null>(null)
   const [response, setResponse] = useState<DiagnoseApiResponse | null>(null)
   const [applied, setApplied] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [plannedAt, setPlannedAt] = useState<string | null>(null)
 
   const reset = () => {
     setPhoto(null)
     setResponse(null)
     setApplied(false)
     setDismissed(false)
+    setPlannedAt(null)
     diagnose.reset()
   }
 
@@ -128,6 +137,18 @@ export function DiagnosisScreen({ plantId }: { plantId: string }) {
       onSuccess: () => {
         setApplied(true)
         toast('État de la plante mis à jour 🌿')
+      },
+      onError: (error) => toast(errorMessage(error), 'error'),
+    })
+  }
+
+  const plan = () => {
+    if (!response?.diagnosed || !response.diagnosisId) return
+
+    planActions.mutate(response.diagnosisId, {
+      onSuccess: (result) => {
+        setPlannedAt(result.tasksPlannedAt)
+        toast('Actions planifiées — retrouve-les dans ton calendrier 📅')
       },
       onError: (error) => toast(errorMessage(error), 'error'),
     })
@@ -211,6 +232,32 @@ export function DiagnosisScreen({ plantId }: { plantId: string }) {
                     icon={<X size={18} color="#1E5631" />}
                   />
                 </View>
+              ) : null}
+
+              {result.recommendations.length > 0 ? (
+                plannedAt ?? response.tasksPlannedAt ? (
+                  <View className="flex-row items-center gap-2 rounded-xl bg-lime/30 p-4">
+                    <CalendarCheck size={18} color="#1E5631" />
+                    <Text className="flex-1 font-raleway text-secondary text-forest">
+                      {result.recommendations.length} action
+                      {result.recommendations.length > 1 ? 's' : ''} planifiée
+                      {result.recommendations.length > 1 ? 's' : ''}
+                    </Text>
+                  </View>
+                ) : (
+                  <View className="gap-2 rounded-2xl bg-card p-4">
+                    <Button
+                      label="Planifier ces actions"
+                      size="lg"
+                      loading={planActions.isPending}
+                      onPress={plan}
+                      icon={<CalendarPlus size={20} color="#1E5631" />}
+                    />
+                    <Text className="font-raleway text-caption text-muted-foreground text-center">
+                      Elles s&apos;ajouteront à ton calendrier et à ta liste du jour.
+                    </Text>
+                  </View>
+                )
               ) : null}
 
               <Button

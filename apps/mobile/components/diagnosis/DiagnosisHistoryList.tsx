@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
-import { ChevronDown } from 'lucide-react-native'
+import { CalendarPlus, ChevronDown } from 'lucide-react-native'
 import {
   HEALTH_STATUS_LABELS,
   type DiagnosisListItem,
@@ -8,8 +8,11 @@ import {
 } from '@growi/shared'
 
 import { DiagnosisResult } from '@/components/diagnosis/DiagnosisResult'
+import { Button } from '@/components/ui/Button'
+import { useToast } from '@/components/ui/Toast'
 import { formatLogDate } from '@/lib/dates'
-import { useDiagnosis } from '@/lib/queries/diagnosis'
+import { errorMessage } from '@/lib/errors'
+import { useDiagnosis, usePlanDiagnosisActions } from '@/lib/queries/diagnosis'
 
 /**
  * Historique des diagnostics d'une plante, sur sa fiche.
@@ -26,8 +29,19 @@ const STATUS_TONE: Record<HealthStatus, string> = {
 }
 
 /** Le détail n'est lu qu'à l'ouverture : la liste porte déjà l'essentiel. */
-function DiagnosisDetail({ plantId, diagnosisId }: { plantId: string; diagnosisId: string }) {
+function DiagnosisDetail({
+  plantId,
+  diagnosisId,
+  tasksPlannedAt,
+}: {
+  plantId: string
+  diagnosisId: string
+  tasksPlannedAt: string | null | undefined
+}) {
   const detail = useDiagnosis(plantId, diagnosisId)
+  const planActions = usePlanDiagnosisActions(plantId)
+  const toast = useToast()
+  const [plannedAt, setPlannedAt] = useState<string | null>(null)
 
   if (detail.isPending) {
     return (
@@ -45,9 +59,31 @@ function DiagnosisDetail({ plantId, diagnosisId }: { plantId: string; diagnosisI
     )
   }
 
+  const planned = plannedAt ?? tasksPlannedAt
+  const recommendations = detail.data.result.recommendations
+
   return (
-    <View className="pt-3">
+    <View className="gap-4 pt-3">
       <DiagnosisResult result={detail.data.result} photoUri={detail.data.photoUrl} />
+
+      {/* Un diagnostic relu se planifie aussi bien qu'un diagnostic frais :
+          on repense souvent à une recommandation après coup. */}
+      {recommendations.length > 0 && !planned ? (
+        <Button
+          label="Planifier ces actions"
+          loading={planActions.isPending}
+          onPress={() =>
+            planActions.mutate(diagnosisId, {
+              onSuccess: (result) => {
+                setPlannedAt(result.tasksPlannedAt)
+                toast('Actions planifiées — retrouve-les dans ton calendrier 📅')
+              },
+              onError: (error) => toast(errorMessage(error), 'error'),
+            })
+          }
+          icon={<CalendarPlus size={18} color="#1E5631" />}
+        />
+      ) : null}
     </View>
   )
 }
@@ -87,6 +123,7 @@ export function DiagnosisHistoryList({
                 <Text className="font-raleway-medium text-secondary text-forest">
                   {HEALTH_STATUS_LABELS[item.status]}
                   {item.statusApplied ? ' · appliqué' : ''}
+                  {item.tasksPlannedAt ? ' · planifié' : ''}
                 </Text>
                 <Text
                   className="font-raleway text-caption text-muted-foreground"
@@ -106,7 +143,13 @@ export function DiagnosisHistoryList({
               />
             </Pressable>
 
-            {open ? <DiagnosisDetail plantId={plantId} diagnosisId={item.id} /> : null}
+            {open ? (
+              <DiagnosisDetail
+                plantId={plantId}
+                diagnosisId={item.id}
+                tasksPlannedAt={item.tasksPlannedAt}
+              />
+            ) : null}
           </View>
         )
       })}

@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native'
 import { Image } from 'expo-image'
-import { Check, Clock } from 'lucide-react-native'
+import { Check, Clock, Stethoscope } from 'lucide-react-native'
 import type { GardenAction } from '@growi/shared'
 
 import { ActionIcon } from '@/components/plants/CareIcon'
@@ -73,10 +73,24 @@ export function TaskCard({ action, late, gardenName, onDone, onOpenPlant }: Task
         <View className="gap-1">
           <View className="flex-row items-center gap-2">
             <ActionIcon type={action.type} size={16} />
-            <Text className="font-poppins text-body text-forest" numberOfLines={1}>
+            <Text className="flex-shrink font-poppins text-body text-forest" numberOfLines={1}>
               {action.shortLabel}
             </Text>
+            {action.source === 'task' ? (
+              <View className="shrink-0 flex-row items-center gap-1 rounded-full bg-lime/40 px-2 py-0.5">
+                <Stethoscope size={11} color="#1E5631" />
+                <Text className="font-raleway-medium text-caption text-forest">Diagnostic</Text>
+              </View>
+            ) : null}
           </View>
+
+          {/* La consigne complète d'une recommandation : le titre seul ne
+              suffit pas à agir (dosage, moment de la journée). */}
+          {action.detail ? (
+            <Text className="font-raleway text-caption text-muted-foreground" numberOfLines={3}>
+              {action.detail}
+            </Text>
+          ) : null}
 
           {late ? (
             <View className="flex-row items-center gap-1.5">

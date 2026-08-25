@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native'
 import { Image } from 'expo-image'
-import { Check, ChevronRight } from 'lucide-react-native'
+import { Check, ChevronRight, Stethoscope } from 'lucide-react-native'
 import type { GardenAction } from '@growi/shared'
 
 import { ActionIcon, CareIconBadge } from '@/components/plants/CareIcon'
@@ -64,9 +64,20 @@ export function TaskRow({
         className="flex-1 flex-row items-center gap-1"
       >
         <View className="flex-1 gap-0.5 overflow-hidden">
-          <Text className="font-poppins text-body text-forest" numberOfLines={1}>
-            {action.shortLabel}
-          </Text>
+          <View className="flex-row items-center gap-1.5">
+            <Text className="flex-shrink font-poppins text-body text-forest" numberOfLines={1}>
+              {action.shortLabel}
+            </Text>
+            {/* Le planning mêle ce que le moteur calcule et ce que
+                l'utilisateur a validé depuis un diagnostic : savoir d'où vient
+                une tâche est ce qui rend le planning digne de confiance. */}
+            {action.source === 'task' ? (
+              <View className="shrink-0 flex-row items-center gap-1 rounded-full bg-lime/40 px-2 py-0.5">
+                <Stethoscope size={11} color="#1E5631" />
+                <Text className="font-raleway-medium text-caption text-forest">Diagnostic</Text>
+              </View>
+            ) : null}
+          </View>
           <Text
             className={[
               'font-raleway text-caption',

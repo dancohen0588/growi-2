@@ -57,6 +57,28 @@ export function useApplyDiagnosis(plantId: string) {
   })
 }
 
+/**
+ * Transforme les recommandations d'un diagnostic en tâches du planning.
+ *
+ * Idempotent côté serveur : rejouer l'appel rend l'état existant sans créer de
+ * doublon. L'Accueil, le Calendrier et la fiche doivent tous être relus — les
+ * tâches y arrivent fusionnées aux actions du moteur.
+ */
+export function usePlanDiagnosisActions(plantId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (diagnosisId: string) => api.diagnosis.planActions(plantId, diagnosisId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: diagnosisKeys.list(plantId) })
+      void queryClient.invalidateQueries({ queryKey: plantKeys.detail(plantId) })
+      void queryClient.invalidateQueries({ queryKey: planningKeys.all })
+      void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
+      void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
+    },
+  })
+}
+
 /** Historique des diagnostics d'une plante, du plus récent au plus ancien. */
 export function useDiagnoses(plantId: string) {
   return useQuery({
