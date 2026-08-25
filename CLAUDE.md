@@ -394,7 +394,7 @@ Ombres custom : `shadow-card`, `shadow-card-hover`, `shadow-cta`.
 ### Couche services et API v1
 
 Depuis l'étape 2.1 du plan mobile, la logique métier vit dans `apps/web/lib/services/` :
-`garden`, `plant`, `log`, `user`, `weather`, `advice`, `planning`, `identify`, `diagnosis`.
+`garden`, `plant`, `log`, `user`, `weather`, `advice`, `planning`, `identify`, `diagnosis`, `task`.
 La mécanique Gemini elle-même (repli entre modèles, validation d'image) est partagée par
 `identify` et `diagnosis` dans `lib/services/gemini.ts`.
 
@@ -420,7 +420,7 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/identify` | POST |
 | `/api/v1/plants/[id]/diagnose` | POST |
 | `/api/v1/plants/[id]/diagnoses` · `/diagnoses/[diagnosisId]` | GET |
-| `/api/v1/plants/[id]/diagnoses/[diagnosisId]/apply` | POST |
+| `/api/v1/plants/[id]/diagnoses/[diagnosisId]/apply` · `/plan` | POST |
 | `/api/v1/blog` · `/blog/[slug]` | GET — **publiques**, sans jeton, mises en cache |
 | `/api/v1/auth/register` · `/login` · `/refresh` · `/logout` | POST |
 
@@ -487,10 +487,24 @@ pnpm exec prisma migrate diff --from-url "$DIRECT_URL" --to-schema-datamodel pri
   --script > prisma/migrations/<horodatage>_<nom>/migration.sql
 # 2. relire le SQL — vérifier l'absence de DROP inattendu — puis appliquer
 pnpm exec prisma migrate deploy
+# 3. régénérer le client, puis REDÉMARRER le serveur de dev
+pnpm exec prisma generate
 ```
 
 `DIRECT_URL` doit pointer sur le **pooler en mode session** (port 5432) : l'hôte direct
 `db.<ref>.supabase.co` n'a qu'un enregistrement IPv6 et reste injoignable depuis un réseau IPv4.
+
+Trois pièges, tous rencontrés :
+
+- **Le serveur de dev garde son client Prisma en mémoire.** Un `next dev` lancé avant la migration
+  ignore les nouveaux modèles : `prisma.plantTask` y vaut `undefined`, et la route répond 500 avec
+  un message générique. Le code n'est pas en cause — il faut redémarrer.
+- **`migrate diff` propose des colonnes `NOT NULL` sans défaut**, ce qui échoue dès que la table a
+  des lignes. Écrire alors la migration à la main en trois temps : colonne nullable, remplissage,
+  puis contrainte. Voir `20260825170000_task_short_label`.
+- **Le build Vercel ne réinstalle pas.** Son cache restaure `node_modules`, pnpm conclut « Already
+  up to date » et n'exécute aucun `postinstall` : c'est pourquoi `apps/web` génère le client dans
+  son script `build` et non seulement en `postinstall`. Ne pas retirer ce `prisma generate`.
 
 L'historique antérieur (migrations SQLite, scripts SQL manuels) est archivé dans `prisma/legacy/`.
 
@@ -634,6 +648,55 @@ distinguer de l'identification, qui part d'une photo inconnue.
   n'existe.
 - Pas de rate limit en v1 (décision produit) ; l'appel est prêt en commentaire
   dans `app/api/v1/plants/[id]/diagnose/route.ts`.
+- Le prompt demande aussi, pour chaque recommandation, un `shortAction`, un
+  `actionType` et un `dueInDays` : ils servent à la planifier (section
+  suivante). Les trois sont **facultatifs** dans le schéma — les diagnostics
+  antérieurs n'en ont pas, et doivent rester lisibles et planifiables.
+
+### Tâches du planning et planification d'un diagnostic
+
+Le planning est **calculé** : les `GardenAction` viennent des règles r1–r12 de
+`lib/recommendation/`, mises en cache six heures dans `GardenAdviceCache`. Une
+recommandation de diagnostic acceptée par l'utilisateur ne peut pas suivre ce
+chemin — elle doit être figée à sa date d'acceptation puis acquittée
+individuellement. D'où une **seconde source** de tâches, persistées.
+
+| Élément | Rôle |
+|---|---|
+| Modèle `PlantTask` | Tâche figée ; `source` prépare les tâches saisies à la main |
+| `lib/services/task.service.ts` | Planification, présentation en actions, acquittement |
+| `POST …/diagnoses/[id]/plan` | Transforme les recommandations en tâches |
+| `Diagnosis.tasksPlannedAt` | État du bouton **et** verrou d'idempotence |
+
+- **La fusion est faite dans `advice.service`, après lecture du cache** — les
+  tâches ne transitent pas par `GardenAdviceCache`, donc rien à invalider et
+  pas six heures d'attente avant qu'une tâche planifiée n'apparaisse. Elle
+  couvre les **quatre** portes d'entrée : `getGardenAdvice`,
+  `getCurrentGardenAdvice` (le calendrier web), `getGardensAdvice` (l'Accueil
+  mobile) et `getPlantAdvice`. En rater une, c'est une surface entière sans
+  tâches.
+- Les tâches sont placées **en tête** des actions ; les écrans regroupent par
+  échéance sans retrier, l'ordre tient.
+- `planDiagnosisActions` est **idempotent** plutôt qu'erreur sur second appel :
+  le bouton peut être tapé deux fois, et rouvrir un diagnostic depuis
+  l'historique ne doit pas échouer.
+- **Un geste noté clôt les tâches échues du même type**
+  (`completeTasksForGesture`, appelé depuis `logCare`). Sans cela, arroser
+  depuis la fiche masquait la tâche « Arrose ce soir » — le moteur écarte ce
+  qui a été fait aujourd'hui — sans jamais la clore : elle revenait le
+  lendemain. Arroser aujourd'hui n'accomplit pas un arrosage prévu la semaine
+  prochaine, d'où le filtre sur l'échéance.
+- On acquitte **par `taskId`**, jamais par type de geste seul : deux tâches
+  « autre » issues de deux diagnostics seraient sinon cochées d'un coup.
+- Côté affichage, `shortLabel` titre la carte et `detail` porte la consigne
+  complète (modale « Voir le détail » sur le web). Les actions du moteur n'ont
+  pas de `detail` : leur `label` répète le `shortLabel` avec le nom de la
+  plante, déjà affiché à côté.
+
+> `GardenAction` a été défini trois fois — schéma partagé, `lib/recommendation/
+> types.ts` et `lib/mock-actions.ts`. Les copies ont divergé au premier champ
+> ajouté ; le type canonique est celui du moteur, réexporté par `mock-actions`.
+> Ne pas en recréer une quatrième.
 
 ### Routing principal
 
@@ -643,7 +706,7 @@ distinguer de l'identification, qui part d'une photo inconnue.
 | `/fonctionnalites`, `/pro`, `/tarifs` | Pages marketing |
 | `/blog`, `/blog/[slug]` | Blog (articles MDX du dépôt) |
 | `/login`, `/register` | Auth (custom pages) |
-| `/dashboard/plantes` | Catalogue perso + fiches plantes |
+| `/dashboard/plantes` | Catalogue perso + fiches plantes (gestes rapides, tâches, entretien, diagnostic, journal — parité avec la fiche mobile) |
 | `/dashboard/catalogue` | Encyclopédie de plantes |
 | `/dashboard/jardin` | Canvas du jardin (Konva) |
 | `/dashboard/calendrier` | Calendrier + alertes météo |
