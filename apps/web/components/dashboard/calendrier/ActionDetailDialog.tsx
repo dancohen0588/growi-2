@@ -2,10 +2,24 @@
 
 import { useState } from 'react'
 import { Stethoscope } from 'lucide-react'
+import { ACTION_TYPE_LABELS } from '@growi/shared'
 import type { GardenAction } from '@/lib/mock-actions'
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ActionIcon } from './ActionIcon'
+
+/**
+ * Titre de la modale.
+ *
+ * Le titre court des tâches planifiées avant l'arrivée de `shortAction` est
+ * une simple troncature du libellé — le reprendre ici afficherait une version
+ * coupée du texte qui suit immédiatement. Dans ce cas seulement, on titre par
+ * le geste, qui reste juste et se lit d'un trait.
+ */
+function dialogTitle(action: GardenAction): string {
+  const isTruncated = action.shortLabel.endsWith('…')
+  return isTruncated ? ACTION_TYPE_LABELS[action.type] : action.shortLabel
+}
 
 /**
  * La consigne entière d'une action, quand la carte ne peut pas la porter.
@@ -39,7 +53,7 @@ export function ActionDetail({ action }: { action: GardenAction }) {
           <DialogHeader>
             <DialogTitle className="font-poppins text-forest flex items-center gap-2">
               <ActionIcon type={action.type} size={18} className="shrink-0 text-forest" />
-              {action.shortLabel}
+              {dialogTitle(action)}
             </DialogTitle>
           </DialogHeader>
 

@@ -25,6 +25,18 @@ export const ACTION_TYPES = [
 export const actionTypeSchema = z.enum(ACTION_TYPES)
 export type ActionType = z.infer<typeof actionTypeSchema>
 
+/** Nom du geste, pour titrer ou étiqueter une action. */
+export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
+  arrosage: 'Arrosage',
+  taille: 'Taille',
+  semis: 'Semis',
+  rempotage: 'Rempotage',
+  fertilisation: 'Fertilisation',
+  traitement: 'Traitement',
+  recolte: 'Récolte',
+  autre: 'À faire',
+}
+
 /**
  * Geste du journal qui accomplit chaque tâche du planning.
  *
