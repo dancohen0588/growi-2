@@ -460,6 +460,38 @@ describe('diagnostic', () => {
     expect(applied.healthStatus).toBe('WARNING')
   })
 
+  it('planifie les recommandations sans corps', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ data: { tasksCreated: 3, tasksPlannedAt: '2026-08-25T09:00:00.000Z' } }),
+    )
+
+    const planned = await makeClient().diagnosis.planActions('p1', 'diag_1')
+
+    const { url, init } = callArgs()
+    expect(url).toBe('https://growi.test/api/v1/plants/p1/diagnoses/diag_1/plan')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBeUndefined()
+    expect(planned.tasksCreated).toBe(3)
+  })
+
+  it('transmet le taskId quand on coche une tâche planifiée', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+
+    await makeClient().planning.markDone({
+      gardenId: 'g1',
+      actionType: 'traitement',
+      plantId: 'p1',
+      taskId: 't1',
+    })
+
+    expect(JSON.parse(callArgs().init.body as string)).toEqual({
+      gardenId: 'g1',
+      actionType: 'traitement',
+      plantId: 'p1',
+      taskId: 't1',
+    })
+  })
+
   it('liste l’historique d’une plante', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
 

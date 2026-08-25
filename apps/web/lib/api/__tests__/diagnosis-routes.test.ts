@@ -12,9 +12,11 @@ const diagnosisService = vi.hoisted(() => ({
   listDiagnoses: vi.fn(),
   getDiagnosis: vi.fn(),
 }))
+const taskService = vi.hoisted(() => ({ planDiagnosisActions: vi.fn() }))
 
 vi.mock('@/lib/api/auth-context', () => ({ requireUserId, getUserId: vi.fn() }))
 vi.mock('@/lib/services/diagnosis.service', () => diagnosisService)
+vi.mock('@/lib/services/task.service', () => taskService)
 
 const { POST: diagnose } = await import('@/app/api/v1/plants/[id]/diagnose/route')
 const { GET: listDiagnoses } = await import('@/app/api/v1/plants/[id]/diagnoses/route')
@@ -23,6 +25,9 @@ const { GET: getDiagnosis } = await import(
 )
 const { POST: applyStatus } = await import(
   '@/app/api/v1/plants/[id]/diagnoses/[diagnosisId]/apply/route'
+)
+const { POST: planActions } = await import(
+  '@/app/api/v1/plants/[id]/diagnoses/[diagnosisId]/plan/route'
 )
 
 const USER_ID = 'user_1'
@@ -195,6 +200,48 @@ describe('POST …/diagnoses/[diagnosisId]/apply', () => {
     )
 
     const res = await applyStatus(jsonRequest({ apply: true }), DIAGNOSIS)
+
+    expect(res.status).toBe(404)
+  })
+})
+
+describe('POST …/diagnoses/[diagnosisId]/plan', () => {
+  const PLANNED = { tasksCreated: 3, tasksPlannedAt: '2026-08-25T09:00:00.000Z' }
+
+  it('planifie les recommandations et rend le compte', async () => {
+    taskService.planDiagnosisActions.mockResolvedValue(PLANNED)
+
+    const res = await planActions(new Request('http://localhost', { method: 'POST' }), DIAGNOSIS)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(taskService.planDiagnosisActions).toHaveBeenCalledWith(USER_ID, 'plant_1', 'diag_1')
+    expect(body.data).toEqual(PLANNED)
+  })
+
+  it('aboutit sans corps — la route n’exécute que ce que le diagnostic contient', async () => {
+    taskService.planDiagnosisActions.mockResolvedValue(PLANNED)
+
+    const res = await planActions(new Request('http://localhost', { method: 'POST' }), DIAGNOSIS)
+
+    expect(res.status).toBe(200)
+  })
+
+  it('répond 401 sur une requête anonyme', async () => {
+    requireUserId.mockRejectedValue(new ServiceError('UNAUTHENTICATED', 'Authentification requise'))
+
+    const res = await planActions(new Request('http://localhost', { method: 'POST' }), DIAGNOSIS)
+
+    expect(res.status).toBe(401)
+    expect(taskService.planDiagnosisActions).not.toHaveBeenCalled()
+  })
+
+  it('traduit un diagnostic d’un autre compte en 404', async () => {
+    taskService.planDiagnosisActions.mockRejectedValue(
+      new ServiceError('NOT_FOUND', 'Diagnostic introuvable'),
+    )
+
+    const res = await planActions(new Request('http://localhost', { method: 'POST' }), DIAGNOSIS)
 
     expect(res.status).toBe(404)
   })

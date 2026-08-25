@@ -29,11 +29,13 @@ export async function markActionDoneAction(
   gardenId: string,
   actionType?: string,
   plantId?: string,
+  /** Renseigné pour une tâche planifiée, absent pour une action du moteur. */
+  taskId?: string,
 ): Promise<void> {
   const session = await auth()
   if (!session?.user?.id) throw new Error('Non authentifié')
 
-  await adviceService.markActionDone(session.user.id, { gardenId, actionType, plantId })
+  await adviceService.markActionDone(session.user.id, { gardenId, actionType, plantId, taskId })
 
   revalidatePath('/dashboard/plantes')
   revalidatePath('/dashboard/calendrier')

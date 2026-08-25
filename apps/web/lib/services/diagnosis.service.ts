@@ -64,7 +64,9 @@ Schéma JSON attendu :
     {
       "action": "Action concrète à l'impératif, 2e personne du singulier",
       "priority": "urgent" | "soon" | "watch",
-      "timeframe": "aujourd'hui" | "cette semaine" | "ce mois-ci"
+      "timeframe": "aujourd'hui" | "cette semaine" | "ce mois-ci",
+      "actionType": "arrosage" | "taille" | "semis" | "rempotage" | "fertilisation" | "traitement" | "recolte" | "autre",
+      "dueInDays": 0
     }
   ],
   "followUp": "Phrase de suivi, ou null"
@@ -82,6 +84,8 @@ Règles :
 - 2 à 4 observations, 2 à 5 recommandations.
 - "probableCauses" explique un PROBLÈME : 1 à 3 causes quand la plante en a un. Si "status" vaut "HEALTHY", laisse le tableau VIDE — « arrosage optimal » n'est pas une cause, et remplir cette section sur une plante saine ne fait qu'inquiéter pour rien.
 - Accorde "priority" et "timeframe" : "urgent" va avec « aujourd'hui », "soon" avec « cette semaine », "watch" avec « ce mois-ci ». Pas d'action urgente renvoyée à la semaine prochaine.
+- "actionType" range la recommandation parmi les gestes du planning, pour qu'elle puisse devenir une tâche datée. Prends "autre" dès qu'aucun geste ne correspond vraiment — une observation à mener, une aération, un déplacement. Exemples : « Arrose abondamment ce soir » → "arrosage" ; « Retire les feuilles atteintes » → "taille" ; « Pulvérise une solution au bicarbonate » → "traitement" ; « Surveille l'apparition de nouvelles taches » → "autre".
+- "dueInDays" est le délai en jours, cohérent avec "timeframe" : 0 pour aujourd'hui, 2 à 3 pour cette semaine, 7 à 30 pour ce mois-ci. Entier positif ou nul.
 - CROISE la photo et le contexte : le même jaunissement ne se lit pas pareil après trois jours à 34 °C ou après deux semaines de pluie. Cite le contexte dans "explanation" quand il éclaire vraiment la cause.
 - N'invente JAMAIS une maladie : en cas de doute, confidence "low" et causes en "possible".
 - Une plante en bonne santé est un diagnostic valable : status "HEALTHY", et des recommandations d'entretien courant.

@@ -10,24 +10,13 @@ export type ActionType =
 
 export type ActionPriority = 'high' | 'medium' | 'low'
 
-export interface GardenAction {
-  id: string
-  type: ActionType
-  label: string
-  shortLabel: string
-  plantId?: string
-  plantName?: string
-  plantEmoji?: string
-  /** Photo de la plante, ajoutée par le moteur. */
-  plantPhotoUrl?: string | null
-  dueDate: string          // ISO date string "YYYY-MM-DD"
-  done: boolean
-  doneAt?: string
-  priority: ActionPriority
-  notes?: string
-  estimatedMinutes?: number
-  recurringDays?: number
-}
+// Ce module redéfinissait `GardenAction` à l'identique du moteur. Les deux
+// copies ont divergé dès qu'un champ a été ajouté d'un seul côté : le type
+// canonique vit désormais dans `lib/recommendation/types.ts`, et il est
+// simplement réexporté ici pour les dix écrans du calendrier qui l'importent.
+import type { GardenAction } from '@/lib/recommendation/types'
+
+export type { GardenAction }
 
 // Lucide icon name per type — used in card/row components
 export const actionTypeIcon: Record<ActionType, string> = {
