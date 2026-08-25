@@ -32,6 +32,7 @@ model User {
   latitude       Float?
   longitude      Float?
   accounts       Account[]
+  diagnoses      Diagnosis[]
   gardens        Garden[]
   plantInstances PlantInstance[]
   pushTokens     PushToken[]
@@ -210,6 +211,7 @@ model PlantInstance {
   customWateringAdjFactor Float?
   alertsEnabled           Boolean       @default(true)
   careLogs                CareLog[]
+  diagnoses               Diagnosis[]
   catalogPlant            PlantCatalog? @relation(fields: [catalogPlantId], references: [id])
   garden                  Garden?       @relation(fields: [gardenId], references: [id])
   user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -247,6 +249,39 @@ model CareLog {
   @@index([plantInstanceId, occurredAt])
   @@index([type])
   @@map("care_logs")
+}
+
+/// Diagnostic IA d'une plante : photo + résultat structuré, historisé.
+///
+/// Le résultat complet est conservé en Json plutôt qu'éclaté en colonnes : le
+/// schéma de sortie du modèle bougera plus vite que la table. Les trois champs
+/// promus (status, confidence, summary) suffisent aux listes et aux filtres
+/// sans avoir à désérialiser le payload.
+model Diagnosis {
+  id              String   @id @default(cuid())
+  plantInstanceId String
+  userId          String
+  photoUrl        String
+  /// Statut estimé par l'IA — voir HEALTH_STATUSES dans @growi/shared.
+  status          String
+  /// Confiance du modèle : high | medium | low.
+  confidence      String
+  /// Résumé en une phrase, pour les listes.
+  summary         String
+  /// `DiagnosisSuccess` sérialisé.
+  payload         Json
+  /// L'utilisateur a-t-il appliqué le statut proposé à sa plante ?
+  statusApplied   Boolean  @default(false)
+  /// Modèle Gemini ayant répondu — le repli change de modèle en silence, et la
+  /// qualité d'un diagnostic ne se relit pas sans savoir qui l'a produit.
+  model           String?
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+
+  plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([plantInstanceId, createdAt])
+  @@map("diagnoses")
 }
 
 model GardenAdviceCache {

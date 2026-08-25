@@ -3,9 +3,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
+// `diagnostic` a sa propre page depuis que la fonctionnalité existe.
 const validFeatures = [
   'calendrier',
-  'diagnostic',
   'meteo',
   'marketplace',
 ] as const
@@ -14,7 +14,6 @@ type Feature = (typeof validFeatures)[number]
 
 const featureLabels: Record<Feature, string> = {
   calendrier:  'Calendrier',
-  diagnostic:  'Diagnostic IA',
   meteo:       'Météo locale',
   marketplace: 'Marketplace',
 }

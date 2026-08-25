@@ -158,6 +158,40 @@ test.describe('API v1', () => {
     ).toBe(404)
   })
 
+  test('E2E-APIV1-14 — Les routes de diagnostic sont fermées et isolées', async ({
+    page,
+  }) => {
+    // Le parcours complet (avec Gemini simulé) est couvert par les e2e du
+    // diagnostic ; ici on vérifie seulement que les quatre routes existent,
+    // exigent un compte et ne débordent pas d'un compte à l'autre.
+    const anonymous = await page.request.get(`/api/v1/plants/inconnue/diagnoses`)
+    expect(anonymous.status()).toBe(401)
+
+    await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
+    const api = page.request
+
+    // Historique et diagnostic d'une plante qui n'est pas à nous → 404,
+    // jamais 500 ni fuite du contenu.
+    expect((await api.get('/api/v1/plants/plante-inconnue/diagnoses')).status()).toBe(404)
+    expect(
+      (await api.get('/api/v1/plants/plante-inconnue/diagnoses/diag-inconnu')).status(),
+    ).toBe(404)
+    expect(
+      (
+        await api.post('/api/v1/plants/plante-inconnue/diagnoses/diag-inconnu/apply', {
+          data: { apply: true },
+        })
+      ).status(),
+    ).toBe(404)
+
+    // Un corps qui donne les deux sources de photo est refusé avant le modèle.
+    const ambiguous = await api.post('/api/v1/plants/plante-inconnue/diagnose', {
+      data: { imageBase64: 'data:image/jpeg;base64,QUJD', useExistingPhoto: true },
+    })
+    expect(ambiguous.status()).toBe(400)
+    expect((await ambiguous.json()).error.code).toBe('INVALID_INPUT')
+  })
+
   test('E2E-APIV1-06 — Une plante ne peut pas être déplacée chez un autre', async ({
     page,
   }) => {

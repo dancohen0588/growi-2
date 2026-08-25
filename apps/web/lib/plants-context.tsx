@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useTransition } from 'react'
-import type { Plant } from '@/lib/plant-types'
+import type { HealthStatus, Plant } from '@/lib/plant-types'
 import type { PlantFormValues } from '@/lib/plant-schemas'
 import {
   addPlantToMyGarden,
@@ -15,6 +15,11 @@ interface PlantsContextValue {
   addPlant:    (data: PlantFormValues, catalogPlantId?: string) => Promise<Plant | undefined>
   updatePlant: (id: string, data: PlantFormValues) => Promise<void>
   deletePlant: (id: string) => Promise<void>
+  /**
+   * Reflète un état de santé déjà écrit côté serveur — par le diagnostic IA,
+   * qui appelle l'API v1 directement. Purement local : rien n'est envoyé.
+   */
+  setPlantHealth: (id: string, status: HealthStatus, note?: string) => void
   isPending:   boolean
 }
 
@@ -97,8 +102,18 @@ export function PlantsProvider({
     })
   }
 
+  function setPlantHealth(id: string, status: HealthStatus, note?: string): void {
+    startTransition(() => {
+      setPlants(prev =>
+        prev.map(p => (p.id === id ? { ...p, healthStatus: status, healthNote: note ?? p.healthNote } : p)),
+      )
+    })
+  }
+
   return (
-    <PlantsContext.Provider value={{ plants, addPlant, updatePlant, deletePlant, isPending }}>
+    <PlantsContext.Provider
+      value={{ plants, addPlant, updatePlant, deletePlant, setPlantHealth, isPending }}
+    >
       {children}
     </PlantsContext.Provider>
   )

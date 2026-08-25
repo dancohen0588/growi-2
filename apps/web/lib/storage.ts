@@ -13,6 +13,8 @@
 
 import { randomUUID } from 'node:crypto'
 
+import type { PhotoKind } from '@growi/shared'
+
 import { ServiceError } from '@/lib/services/errors'
 
 const BUCKET = 'plant-photos'
@@ -67,7 +69,9 @@ function config(): { url: string; key: string } {
   return { url: url.replace(/\/$/, ''), key }
 }
 
-export type PhotoKind = 'plant' | 'care-log'
+// Le domaine des kinds appartient à @growi/shared : le redéclarer ici laissait
+// les deux listes diverger en silence (le chemin de rangement en dépend).
+export type { PhotoKind } from '@growi/shared'
 
 /**
  * Dépose une image et renvoie son URL publique.

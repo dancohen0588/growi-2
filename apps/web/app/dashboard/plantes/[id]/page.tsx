@@ -10,7 +10,9 @@ import { PlantDetailHero } from '@/components/dashboard/plantes/PlantDetailHero'
 import { PlantInfoGrid } from '@/components/dashboard/plantes/PlantInfoGrid'
 import { PlantCareTipsSection } from '@/components/dashboard/plantes/PlantCareTipsSection'
 import { PlantAdviceTimeline } from '@/components/dashboard/plantes/PlantAdviceTimeline'
+import { DiagnosisSection } from '@/components/diagnosis/DiagnosisSection'
 import { getPlantAdviceAction } from '@/app/actions/advice.actions'
+import { toPresentationHealth } from '@/lib/plant-mapper'
 import type { PlantAdvice } from '@/lib/recommendation/types'
 
 interface PageProps {
@@ -18,7 +20,7 @@ interface PageProps {
 }
 
 export default function PlantDetailPage({ params }: PageProps) {
-  const { plants } = usePlants()
+  const { plants, setPlantHealth } = usePlants()
   const plant = plants.find(p => p.id === params.id)
   const [advice, setAdvice] = useState<PlantAdvice | null>(null)
 
@@ -58,6 +60,16 @@ export default function PlantDetailPage({ params }: PageProps) {
         </h2>
         <PlantInfoGrid plant={plant} />
       </section>
+
+      {/* Diagnostic IA — CTA, parcours et historique */}
+      <DiagnosisSection
+        plantId={plant.id}
+        plantName={plant.name}
+        plantPhotoUrl={plant.photoUrl}
+        onStatusApplied={(status, note) =>
+          setPlantHealth(plant.id, toPresentationHealth(status), note)
+        }
+      />
 
       {/* Advice timeline */}
       <PlantAdviceTimeline advice={advice} />
