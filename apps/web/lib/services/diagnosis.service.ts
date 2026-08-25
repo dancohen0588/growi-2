@@ -292,6 +292,8 @@ function failure(reason: string, plant: { healthStatus: string }): DiagnoseApiRe
     diagnosisId: null,
     photoUrl: null,
     currentHealthStatus: plant.healthStatus as HealthStatus,
+    // Rien n'a été écrit, donc rien à planifier.
+    tasksPlannedAt: null,
   }
 }
 
@@ -380,6 +382,7 @@ export async function diagnosePlant(
     diagnosisId: saved.id,
     photoUrl,
     currentHealthStatus: plant.healthStatus as HealthStatus,
+    tasksPlannedAt: saved.tasksPlannedAt?.toISOString() ?? null,
   }
 }
 
@@ -430,6 +433,7 @@ function toListItem(diagnosis: Diagnosis): DiagnosisListItem {
     confidence: diagnosis.confidence as DiagnosisListItem['confidence'],
     summary: diagnosis.summary,
     statusApplied: diagnosis.statusApplied,
+    tasksPlannedAt: diagnosis.tasksPlannedAt?.toISOString() ?? null,
   }
 }
 

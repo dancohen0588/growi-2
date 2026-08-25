@@ -426,6 +426,7 @@ describe('historique', () => {
     statusApplied: false,
     payload: RESULT,
     model: 'gemini-2.5-flash',
+    tasksPlannedAt: null,
     createdAt: new Date('2026-08-24T09:00:00Z'),
   }
 
@@ -441,6 +442,7 @@ describe('historique', () => {
         confidence: 'medium',
         summary: 'Un stress hydrique probable.',
         statusApplied: false,
+        tasksPlannedAt: null,
       },
     ])
     expect(prismaMock.diagnosis.findMany).toHaveBeenCalledWith({
