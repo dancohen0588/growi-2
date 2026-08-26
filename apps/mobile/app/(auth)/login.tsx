@@ -6,6 +6,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { loginSchema, type LoginInput } from '@growi/shared'
 
+import { SocialSignIn } from '@/components/auth/SocialSignIn'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { authErrorMessage, useSession } from '@/store/session'
@@ -106,6 +107,8 @@ export default function LoginScreen() {
             loading={isSubmitting}
             onPress={handleSubmit(onSubmit)}
           />
+
+          <SocialSignIn onError={setFormError} onStart={() => setFormError(null)} />
 
           <View className="flex-row justify-center gap-1">
             <Text className="font-raleway text-secondary text-muted-foreground">

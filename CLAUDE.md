@@ -423,6 +423,7 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/plants/[id]/diagnoses/[diagnosisId]/apply` · `/plan` | POST |
 | `/api/v1/blog` · `/blog/[slug]` | GET — **publiques**, sans jeton, mises en cache |
 | `/api/v1/auth/register` · `/login` · `/refresh` · `/logout` | POST |
+| `/api/v1/auth/apple` · `/google` | POST — jeton d'identité du fournisseur |
 
 Chaque route suit le même squelette, à respecter pour toute nouvelle route :
 
@@ -473,6 +474,39 @@ Le web garde sa session NextAuth par cookies. Le mobile utilise des jetons, serv
 > ⚠️ Le rate limiting (`lib/api/rate-limit.ts`) est **en mémoire**, donc partiel sur Vercel où
 > chaque instance a la sienne. Il freine le bourrage naïf ; un verrou partagé (Upstash Redis ou la
 > couche Vercel) reste à mettre en place avant l'ouverture publique.
+
+### Connexion Apple et Google
+
+L'app remet un **jeton d'identité** OIDC ; `lib/auth/social-identity.ts` le
+vérifie et `auth.service.loginWithProvider` ouvre la session. Il n'y a pas
+d'inscription séparée : le premier passage crée le compte.
+
+| Élément | Détail |
+|---|---|
+| Vérification | Signature (JWKS du fournisseur), émetteur, **audience** |
+| Audiences | `APPLE_CLIENT_IDS` et `GOOGLE_CLIENT_IDS`, en clair, séparées par des virgules |
+| Rattachement | Par `Account(provider, providerAccountId)` d'abord, par email **vérifié** ensuite |
+| Nonce | Émis par le client, réinscrit par le fournisseur ; la valeur brute et son SHA-256 sont acceptées |
+| Mobile | `lib/social-auth.ts` (récolte du jeton) et `components/auth/SocialSignIn.tsx` (les deux boutons) |
+
+- **L'audience est le contrôle qui compte.** Sans elle, n'importe quelle app
+  tierce ferait ouvrir une session Growi avec les jetons qu'elle obtient pour
+  elle-même. Une variable vide rend la route indisponible (503), jamais
+  permissive.
+- **Un email non vérifié ne rattache rien.** Il ne sert même pas à chercher un
+  compte : déclarer l'adresse d'un tiers suffirait sinon à entrer dans son
+  jardin. Si l'adresse est déjà prise, on refuse en 409 avec la marche à suivre.
+- **Apple ne donne le nom qu'à la première autorisation**, et jamais dans le
+  jeton : le client le fait suivre dans le corps de la requête. Ne pas le
+  retenir ce jour-là, c'est le perdre définitivement.
+- Le bouton Apple est **celui d'Apple** (`AppleAuthenticationButton`) — la revue
+  App Store le vérifie. Chaque bouton ne s'affiche que là où il peut aboutir :
+  Apple sur iOS, Google si le build porte un identifiant client.
+- Le retour de Google passe par un schéma d'URL propre à iOS, l'identifiant
+  client écrit à l'envers, à déclarer dans `app.json`. Sans lui, la feuille de
+  connexion se referme sans rien remettre.
+- Ces comptes n'ont **pas de mot de passe** (`User.password` est nullable) ;
+  `changePassword` le refuse déjà explicitement.
 
 ### Migrations Prisma — procédure imposée
 
