@@ -27,6 +27,33 @@ export const mobileRegisterSchema = z.object({
 
 export type MobileRegisterInput = z.infer<typeof mobileRegisterSchema>
 
+// ─── Connexion par un fournisseur d'identité ───────────────────────────────
+
+/** Fournisseurs acceptés par `/api/v1/auth/apple` et `/api/v1/auth/google`. */
+export const SOCIAL_PROVIDERS = ['apple', 'google'] as const
+export const socialProviderSchema = z.enum(SOCIAL_PROVIDERS)
+export type SocialProvider = z.infer<typeof socialProviderSchema>
+
+export const socialLoginSchema = z.object({
+  /** Jeton d'identité OIDC signé par le fournisseur. */
+  identityToken: z.string().min(1, "Jeton d'identité requis"),
+  /**
+   * Valeur à usage unique transmise au fournisseur, qu'il réinscrit dans le
+   * jeton : la retrouver prouve que ce jeton répond bien à *notre* demande et
+   * n'est pas rejoué.
+   */
+  nonce: z.string().min(1).max(200).optional(),
+  /**
+   * Apple ne communique le nom qu'à la toute première autorisation, et jamais
+   * dans le jeton. Ne pas le retenir ce jour-là, c'est le perdre pour de bon.
+   */
+  firstName: nullish(z.string().max(100)),
+  lastName: nullish(z.string().max(100)),
+  deviceInfo: deviceInfoSchema,
+})
+
+export type SocialLoginInput = z.infer<typeof socialLoginSchema>
+
 export const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1, 'Jeton de rafraîchissement requis'),
 })

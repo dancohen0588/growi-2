@@ -5,7 +5,10 @@
     "owner": "growi-plant",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "growi",
+    "scheme": [
+      "growi",
+      "com.googleusercontent.apps.915460104635-hapl3pp67fv7jlsohakep5445cm75drv"
+    ],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F9F7E8",
@@ -13,6 +16,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "app.growi.mobile",
       "buildNumber": "1",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -41,6 +45,7 @@
       "expo-font",
       "expo-secure-store",
       "expo-web-browser",
+      "expo-apple-authentication",
       [
         "expo-location",
         {

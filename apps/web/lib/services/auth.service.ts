@@ -6,7 +6,9 @@
  * consommés par `/api/v1/auth/*`.
  */
 
-import type { AuthTokens, AuthUser } from '@growi/shared'
+import { randomUUID } from 'node:crypto'
+import { Prisma } from '@prisma/client'
+import type { AuthTokens, AuthUser, SocialLoginInput, SocialProvider } from '@growi/shared'
 
 import { prisma } from '@/lib/prisma'
 import {
@@ -16,10 +18,14 @@ import {
   refreshTokenExpiry,
   signAccessToken,
 } from '@/lib/auth/tokens'
+import { verifySocialIdentity } from '@/lib/auth/social-identity'
 import { ServiceError } from '@/lib/services/errors'
 import { createUser, verifyCredentials } from '@/lib/services/user.service'
 
 type UserRow = { id: string; email: string; firstName: string | null; name: string | null }
+
+/** Les seuls champs dont l'émission de jetons a besoin. */
+const USER_FIELDS = { id: true, email: true, firstName: true, name: true } as const
 
 function toAuthUser(user: UserRow): AuthUser {
   return {
@@ -91,6 +97,110 @@ export async function login(input: {
     throw new ServiceError('UNAUTHENTICATED', 'Email ou mot de passe incorrect')
   }
   return issueTokens(user, input.deviceInfo)
+}
+
+/**
+ * Ouvre une session à partir d'un jeton Apple ou Google.
+ *
+ * Trois chemins, dans cet ordre :
+ * 1. l'identité est déjà rattachée à un compte — on le reconnaît ;
+ * 2. l'email est **vérifié** et correspond à un compte existant — on rattache,
+ *    ce qui évite un doublon à qui s'était inscrit par mot de passe ;
+ * 3. sinon, on crée un compte sans mot de passe.
+ *
+ * Le rattachement par email n'est tenté que si le fournisseur atteste
+ * l'adresse : accepter une adresse non vérifiée reviendrait à laisser prendre
+ * le compte de quelqu'un en la déclarant.
+ *
+ * @throws ServiceError('UNAUTHENTICATED') si le jeton ne vaut rien.
+ */
+export async function loginWithProvider(
+  provider: SocialProvider,
+  input: SocialLoginInput,
+): Promise<AuthTokens> {
+  const identity = await verifySocialIdentity(provider, input.identityToken, input.nonce)
+
+  const linked = await prisma.account.findUnique({
+    where: { provider_providerAccountId: { provider, providerAccountId: identity.subject } },
+    select: { user: { select: USER_FIELDS } },
+  })
+
+  if (linked) return issueTokens(linked.user, input.deviceInfo)
+
+  const label = provider === 'apple' ? 'Apple' : 'Google'
+
+  if (!identity.email) {
+    // Apple laisse masquer l'adresse, mais fournit alors un relais. Sans email
+    // du tout, on n'a pas de quoi tenir un compte.
+    throw new ServiceError(
+      'UNAUTHENTICATED',
+      `Connexion ${label} refusée : aucune adresse email transmise.`,
+    )
+  }
+
+  if (identity.emailVerified) {
+    const existing = await prisma.user.findUnique({
+      where: { email: identity.email },
+      select: USER_FIELDS,
+    })
+
+    if (existing) {
+      await linkAccount(existing.id, provider, identity.subject)
+      return issueTokens(existing, input.deviceInfo)
+    }
+  }
+
+  const displayName = [input.firstName, input.lastName]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' ')
+
+  let created: UserRow
+  try {
+    created = await prisma.user.create({
+      data: {
+        email: identity.email,
+        // Pas de mot de passe : ce compte n'a d'autre porte que son
+        // fournisseur, tant que son porteur n'en définit pas un.
+        name: displayName || null,
+        firstName: input.firstName?.trim() || null,
+        lastName: input.lastName?.trim() || null,
+        // L'adresse ne compte pour vérifiée que si le fournisseur l'atteste.
+        emailVerified: identity.emailVerified ? new Date() : null,
+      },
+      select: USER_FIELDS,
+    })
+  } catch (err) {
+    // L'adresse est déjà prise et le fournisseur ne la garantit pas : on
+    // refuse plutôt que de rattacher. Déclarer l'adresse d'un tiers suffirait
+    // sinon à entrer dans son jardin.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      throw new ServiceError(
+        'CONFLICT',
+        `Un compte existe déjà avec cette adresse. Connecte-toi avec ton mot de passe, ${label} pourra être rattaché ensuite.`,
+      )
+    }
+    throw err
+  }
+
+  await linkAccount(created.id, provider, identity.subject)
+  return issueTokens(created, input.deviceInfo)
+}
+
+/**
+ * Rattache l'identité au compte.
+ *
+ * `Account` vient de NextAuth, dont l'adaptateur fournit lui-même la clé
+ * primaire : le modèle n'a pas de valeur par défaut, il faut donc l'écrire.
+ */
+async function linkAccount(
+  userId: string,
+  provider: SocialProvider,
+  providerAccountId: string,
+): Promise<void> {
+  await prisma.account.create({
+    data: { id: randomUUID(), userId, type: 'oidc', provider, providerAccountId },
+  })
 }
 
 /**

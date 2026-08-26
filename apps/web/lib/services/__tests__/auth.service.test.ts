@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Prisma } from '@prisma/client'
 
 import { hashRefreshToken, verifyAccessToken } from '@/lib/auth/tokens'
+import { ServiceError } from '@/lib/services/errors'
 
 // ─── Doublures ─────────────────────────────────────────────────────────────
 
@@ -12,16 +14,19 @@ const prismaMock = vi.hoisted(() => ({
     updateMany: vi.fn(),
     deleteMany: vi.fn(),
   },
-  user: { findUniqueOrThrow: vi.fn() },
+  user: { findUniqueOrThrow: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
+  account: { findUnique: vi.fn(), create: vi.fn() },
   $transaction: vi.fn(async (ops: unknown[]) => ops),
 }))
 const userService = vi.hoisted(() => ({
   createUser: vi.fn(),
   verifyCredentials: vi.fn(),
 }))
+const socialIdentity = vi.hoisted(() => ({ verifySocialIdentity: vi.fn() }))
 
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/services/user.service', () => userService)
+vi.mock('@/lib/auth/social-identity', () => socialIdentity)
 
 const authService = await import('../auth.service')
 
@@ -103,6 +108,123 @@ describe('login', () => {
       message: 'Email ou mot de passe incorrect',
     })
     expect(prismaMock.refreshToken.create).not.toHaveBeenCalled()
+  })
+})
+
+// ─── Connexion par un fournisseur ──────────────────────────────────────────
+
+describe('loginWithProvider', () => {
+  const identity = (overrides: Record<string, unknown> = {}) => ({
+    provider: 'apple',
+    subject: 'apple_sub_1',
+    email: USER.email,
+    emailVerified: true,
+    ...overrides,
+  })
+
+  const input = { identityToken: 'jeton.apple.signé', deviceInfo: 'iPhone 15' }
+
+  it('reconnaît une identité déjà rattachée, sans toucher aux comptes', async () => {
+    socialIdentity.verifySocialIdentity.mockResolvedValue(identity())
+    prismaMock.account.findUnique.mockResolvedValue({ user: USER })
+
+    const tokens = await authService.loginWithProvider('apple', input)
+
+    expect(tokens.user.id).toBe(USER.id)
+    await expect(verifyAccessToken(tokens.accessToken)).resolves.toBe(USER.id)
+    expect(prismaMock.user.create).not.toHaveBeenCalled()
+    expect(prismaMock.account.create).not.toHaveBeenCalled()
+  })
+
+  it('rattache le compte existant quand le fournisseur atteste l\'email', async () => {
+    socialIdentity.verifySocialIdentity.mockResolvedValue(identity())
+    prismaMock.account.findUnique.mockResolvedValue(null)
+    prismaMock.user.findUnique.mockResolvedValue(USER)
+
+    const tokens = await authService.loginWithProvider('apple', input)
+
+    expect(tokens.user.id).toBe(USER.id)
+    expect(prismaMock.user.create).not.toHaveBeenCalled()
+    expect(prismaMock.account.create.mock.calls[0][0].data).toMatchObject({
+      userId: USER.id,
+      provider: 'apple',
+      providerAccountId: 'apple_sub_1',
+      type: 'oidc',
+    })
+  })
+
+  it('ne rattache jamais sur un email non vérifié', async () => {
+    socialIdentity.verifySocialIdentity.mockResolvedValue(identity({ emailVerified: false }))
+    prismaMock.account.findUnique.mockResolvedValue(null)
+    prismaMock.user.create.mockResolvedValue({ ...USER, id: 'user_2' })
+
+    await authService.loginWithProvider('google', input)
+
+    // Le compte homonyme n'est même pas cherché : on ne s'en approche pas.
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled()
+    expect(prismaMock.user.create.mock.calls[0][0].data.emailVerified).toBeNull()
+  })
+
+  it('refuse plutôt que de rattacher quand l\'adresse est déjà prise', async () => {
+    socialIdentity.verifySocialIdentity.mockResolvedValue(identity({ emailVerified: false }))
+    prismaMock.account.findUnique.mockResolvedValue(null)
+    prismaMock.user.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('doublon', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    )
+
+    await expect(authService.loginWithProvider('google', input)).rejects.toMatchObject({
+      code: 'CONFLICT',
+    })
+    expect(prismaMock.account.create).not.toHaveBeenCalled()
+  })
+
+  it('crée un compte sans mot de passe, et retient le nom qu\'Apple ne donne qu\'une fois', async () => {
+    socialIdentity.verifySocialIdentity.mockResolvedValue(identity({ email: 'neuf@growi.fr' }))
+    prismaMock.account.findUnique.mockResolvedValue(null)
+    prismaMock.user.findUnique.mockResolvedValue(null)
+    prismaMock.user.create.mockResolvedValue({
+      id: 'user_9',
+      email: 'neuf@growi.fr',
+      firstName: 'Dan',
+      name: 'Dan Cohen',
+    })
+
+    await authService.loginWithProvider('apple', {
+      ...input,
+      firstName: 'Dan',
+      lastName: 'Cohen',
+    })
+
+    const { data } = prismaMock.user.create.mock.calls[0][0]
+    expect(data).toMatchObject({ email: 'neuf@growi.fr', firstName: 'Dan', lastName: 'Cohen' })
+    expect(data.name).toBe('Dan Cohen')
+    expect(data.password).toBeUndefined()
+  })
+
+  it('refuse un jeton sans adresse email', async () => {
+    socialIdentity.verifySocialIdentity.mockResolvedValue(
+      identity({ email: null, emailVerified: false }),
+    )
+    prismaMock.account.findUnique.mockResolvedValue(null)
+
+    await expect(authService.loginWithProvider('apple', input)).rejects.toMatchObject({
+      code: 'UNAUTHENTICATED',
+    })
+    expect(prismaMock.user.create).not.toHaveBeenCalled()
+  })
+
+  it('laisse remonter le refus de vérification du jeton', async () => {
+    socialIdentity.verifySocialIdentity.mockRejectedValue(
+      new ServiceError('UNAUTHENTICATED', 'Connexion Apple refusée.'),
+    )
+
+    await expect(authService.loginWithProvider('apple', input)).rejects.toMatchObject({
+      code: 'UNAUTHENTICATED',
+    })
+    expect(prismaMock.account.findUnique).not.toHaveBeenCalled()
   })
 })
 

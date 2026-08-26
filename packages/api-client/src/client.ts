@@ -37,6 +37,8 @@ import type {
   PhotoKind,
   PlantInstanceWithRelations,
   RegisterPushTokenInput,
+  SocialLoginInput,
+  SocialProvider,
   TodayPlanning,
   UpdateAlertConfigInput,
   UpdateGardenInput,
@@ -88,6 +90,21 @@ export class GrowiApiClient {
 
     login: (input: MobileLoginInput, options?: CallOptions): Promise<AuthTokens> =>
       this.http.request('/api/v1/auth/login', { ...options, method: 'POST', body: input }),
+
+    /**
+     * Ouvre une session à partir d'un jeton d'identité Apple ou Google. Le
+     * serveur crée le compte au besoin : il n'y a pas d'inscription séparée.
+     */
+    social: (
+      provider: SocialProvider,
+      input: SocialLoginInput,
+      options?: CallOptions,
+    ): Promise<AuthTokens> =>
+      this.http.request(`/api/v1/auth/${provider}`, {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
 
     /** Échange le jeton présenté contre un nouveau couple ; l'ancien est révoqué. */
     refresh: (refreshToken: string, options?: CallOptions): Promise<AuthTokens> =>
