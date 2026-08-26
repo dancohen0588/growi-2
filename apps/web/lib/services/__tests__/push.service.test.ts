@@ -132,6 +132,22 @@ describe('sendDailyReminders', () => {
     expect(result).toMatchObject({ considered: 1, notified: 1, sent: 2 })
   })
 
+  it('sépare le geste de la plante, et s\'en passe quand il n\'y en a pas', async () => {
+    prismaMock.user.findMany.mockResolvedValue([userWithToken])
+    planningService.getTodayPlanning.mockResolvedValue(
+      planning([
+        action({ plantName: 'Basilic ' }),
+        action({ id: 'a2', shortLabel: 'Pailler le massif', plantName: null }),
+      ]),
+    )
+    expoPush.sendPushMessages.mockResolvedValue({ sent: 1, invalidTokens: [], failed: 0 })
+
+    await sendDailyReminders(NOW)
+
+    const [messages] = expoPush.sendPushMessages.mock.calls[0]
+    expect(messages[0].body).toBe('Arroser — Basilic, Pailler le massif.')
+  })
+
   it('ne dérange personne quand il n\'y a rien à faire', async () => {
     prismaMock.user.findMany.mockResolvedValue([userWithToken])
     planningService.getTodayPlanning.mockResolvedValue(planning([]))

@@ -190,7 +190,15 @@ export async function sendDailyReminders(
     const alerts = planning.gardens.flatMap((garden) => garden.alerts).length
     const { title, body } = composeReminder(
       dueToday.length,
-      dueToday.map((action) => `${action.shortLabel} ${action.plantName ?? ''}`.trim()),
+      // Le tiret sépare le geste de la plante : accolés, « Tailler les feuilles
+      // abîmées Monstera » se lit comme une seule phrase et il faut s'y
+      // reprendre à deux fois pour voir où finit l'action.
+      dueToday.map((action) => {
+        // Les noms sont saisis à la main : une espace finale y traîne vite, et
+        // elle se verrait juste avant la virgule de la liste.
+        const plant = action.plantName?.trim()
+        return plant ? `${action.shortLabel} — ${plant}` : action.shortLabel
+      }),
       alerts,
     )
 
