@@ -1,6 +1,7 @@
 import { Redirect, Tabs } from 'expo-router'
 import { CalendarDays, Camera, Leaf, LayoutDashboard, Map } from 'lucide-react-native'
 
+import { usePushNotifications } from '@/lib/use-push'
 import { useSession } from '@/store/session'
 
 /**
@@ -14,6 +15,10 @@ import { useSession } from '@/store/session'
  */
 export default function TabsLayout() {
   const status = useSession((s) => s.status)
+
+  // Les notifications se branchent ici : c'est le premier écran qu'on ne voit
+  // qu'une fois connecté, et il reste monté tant que la session dure.
+  usePushNotifications(status === 'authenticated')
 
   // Session perdue en cours de route (jeton révoqué, rafraîchissement refusé) :
   // on repart vers la connexion sans laisser d'écran vide derrière.

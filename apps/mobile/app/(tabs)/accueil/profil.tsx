@@ -14,8 +14,9 @@ import { useRouter } from 'expo-router'
 import * as Location from 'expo-location'
 import * as WebBrowser from 'expo-web-browser'
 import { ExternalLink, LocateFixed, LogOut, Map } from 'lucide-react-native'
-import type { UserProfile } from '@growi/shared'
+import type { UpdateAlertConfigInput, UserProfile } from '@growi/shared'
 
+import { PushSection } from '@/components/profil/PushSection'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Toggle } from '@/components/ui/Toggle'
@@ -51,6 +52,9 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
 
   const alerts = profile.alertConfig
   const hasCoordinates = profile.latitude != null && profile.longitude != null
+
+  // `both` couvre le jour où l'email s'ajoutera : le push y est compris.
+  const pushEnabled = alerts.channel === 'push' || alerts.channel === 'both'
 
   const saveCity = async () => {
     const trimmed = city.trim()
@@ -109,11 +113,8 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
     }
   }
 
-  const toggleAlert = (key: keyof typeof alerts, value: boolean) => {
-    updateAlerts.mutate(
-      { [key]: value },
-      { onError: (error) => toast(errorMessage(error), 'error') },
-    )
+  const saveAlerts = (patch: UpdateAlertConfigInput) => {
+    updateAlerts.mutate(patch, { onError: (error) => toast(errorMessage(error), 'error') })
   }
 
   const confirmSignOut = () => {
@@ -177,6 +178,15 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
         />
       </View>
 
+      {/* Notifications */}
+      <View className="gap-3">
+        <SectionTitle>Mes notifications</SectionTitle>
+        <PushSection
+          enabled={pushEnabled}
+          onChange={(value) => saveAlerts({ channel: value ? 'push' : 'none' })}
+        />
+      </View>
+
       {/* Alertes */}
       <View className="gap-1">
         <SectionTitle>Mes alertes</SectionTitle>
@@ -189,30 +199,26 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
             label="Gel"
             hint={`En dessous de ${alerts.frostThreshold} °C`}
             value={alerts.frostAlert}
-            onChange={(v) => toggleAlert('frostAlert', v)}
+            onChange={(v) => saveAlerts({ frostAlert: v })}
           />
           <Toggle
             label="Canicule"
             hint="Fortes chaleurs annoncées"
             value={alerts.heatAlert}
-            onChange={(v) => toggleAlert('heatAlert', v)}
+            onChange={(v) => saveAlerts({ heatAlert: v })}
           />
           <Toggle
             label="Rappels d'arrosage"
             value={alerts.wateringReminder}
-            onChange={(v) => toggleAlert('wateringReminder', v)}
+            onChange={(v) => saveAlerts({ wateringReminder: v })}
           />
           <Toggle
             label="Semis et récoltes"
             hint="Aux périodes propices"
             value={alerts.seedingAlerts}
-            onChange={(v) => toggleAlert('seedingAlerts', v)}
+            onChange={(v) => saveAlerts({ seedingAlerts: v })}
           />
         </View>
-
-        <Text className="font-raleway text-caption text-muted-foreground mt-1">
-          Les notifications push arrivent bientôt : ces réglages les attendent.
-        </Text>
       </View>
 
       {/* Vers le web */}

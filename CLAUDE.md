@@ -510,8 +510,8 @@ L'historique antérieur (migrations SQLite, scripts SQL manuels) est archivé da
 
 ### Notifications push
 
-Le serveur est en place ; le branchement de l'app attend un *development
-build* (les push ne fonctionnent pas dans Expo Go sur iOS).
+Serveur et app sont branchés. **Les push ne fonctionnent pas dans Expo Go** :
+tout essai demande un *development build* ou un build interne EAS.
 
 | Élément | Détail |
 |---|---|
@@ -524,6 +524,24 @@ build* (les push ne fonctionnent pas dans Expo Go sur iOS).
 
 Un compte sans rien à faire ne reçoit rien : une notification quotidienne vide
 est le meilleur moyen de les faire couper.
+
+Côté mobile, `lib/push.ts` porte la permission, le jeton et le canal Android ;
+`lib/use-push.ts` branche le tout depuis `app/(tabs)/_layout.tsx`, le premier
+écran qu'on n'atteint que connecté. Quatre points s'y jouent :
+
+- **Deux autorisations se superposent** : celle du téléphone, et
+  `alertConfig.channel` côté compte. `PushSection` (onglet Profil) montre
+  laquelle manque — sans quoi on bascule un interrupteur sans jamais rien
+  recevoir. Un `channel` à `none` empêche aussi de *demander* la permission
+  système : la question a déjà reçu sa réponse.
+- **Rien ne lève.** Un jeton qu'on n'a pas pu enregistrer est un agrément en
+  moins, jamais une interruption ; la tentative est refaite à chaque ouverture.
+- **Le jeton est retiré à la déconnexion**, avant l'effacement des jetons
+  d'accès — sinon l'appareil continuerait de recevoir les rappels d'un compte
+  dont il est sorti.
+- **`aps-environment` reste à `development`** dans la config : Xcode le bascule
+  en `production` à l'archivage. Ne pas poser `mode: 'production'` dans le
+  plugin, cela casserait les push des development builds.
 
 ### Stockage des photos
 

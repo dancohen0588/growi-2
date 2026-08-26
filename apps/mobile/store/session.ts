@@ -4,6 +4,7 @@ import { isApiError } from '@growi/api-client'
 
 import { api, publicApi, setSessionLostHandler } from '@/lib/api'
 import { clearTokens, getRefreshToken, saveTokens } from '@/lib/auth-storage'
+import { forgetDeviceForPush } from '@/lib/push'
 
 /**
  * Session de l'utilisateur.
@@ -97,6 +98,10 @@ export const useSession = create<SessionState>((set) => ({
    * tous les cas.
    */
   signOut: async () => {
+    // Avant de perdre l'accès à l'API : sans cela, l'appareil continuerait de
+    // recevoir les rappels d'un compte dont il est sorti.
+    await forgetDeviceForPush()
+
     const refreshToken = await getRefreshToken()
     if (refreshToken) {
       await publicApi.auth.logout(refreshToken).catch(() => {})

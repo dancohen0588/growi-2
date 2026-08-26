@@ -4,10 +4,16 @@ import type { UpdateAlertConfigInput, UpdateProfileInput, UserProfile } from '@g
 import { api } from '@/lib/api'
 import { meKeys, planningKeys, summaryKeys, weatherKeys } from '@/lib/queries/keys'
 
-export function useProfile() {
+/**
+ * @param options.enabled à passer à faux quand la session n'est pas encore
+ * établie : l'appel est authentifié, et un 401 déclencherait un
+ * rafraîchissement inutile.
+ */
+export function useProfile(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: meKeys.profile(),
     queryFn: () => api.me.get(),
+    enabled: options?.enabled ?? true,
   })
 }
 
