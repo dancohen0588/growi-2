@@ -9,7 +9,15 @@ import {
   type DiagnosisSuccess,
   type HealthStatus,
 } from '@growi/shared'
-import { CalendarClock, Check, Loader2, Sparkles, X } from 'lucide-react'
+import {
+  CalendarCheck,
+  CalendarClock,
+  CalendarPlus,
+  Check,
+  Loader2,
+  Sparkles,
+  X,
+} from 'lucide-react'
 
 /**
  * Affichage d'un diagnostic abouti.
@@ -44,6 +52,12 @@ export interface DiagnosisResultProps {
   /** Passe à `true` une fois le statut appliqué, ou si le diagnostic l'était déjà. */
   applied?: boolean
   applyError?: string | null
+  /** Absent en lecture seule ; la planification reste possible depuis l'historique. */
+  onPlan?: () => void
+  isPlanning?: boolean
+  /** Date de planification — non nulle, le bouton cède la place à son état accompli. */
+  tasksPlannedAt?: string | null
+  planError?: string | null
 }
 
 export function DiagnosisResult({
@@ -55,6 +69,10 @@ export function DiagnosisResult({
   isApplying = false,
   applied = false,
   applyError = null,
+  onPlan,
+  isPlanning = false,
+  tasksPlannedAt = null,
+  planError = null,
 }: DiagnosisResultProps) {
   const status = STATUS_STYLES[result.status]
   // On ne propose la mise à jour que si elle change vraiment quelque chose.
@@ -203,6 +221,40 @@ export function DiagnosisResult({
           </div>
         )
       )}
+
+      {/* Planification — après la mise à jour du statut, dans le même bloc
+          d'actions : on constate d'abord, on agit ensuite. */}
+      {result.recommendations.length > 0 &&
+        (tasksPlannedAt ? (
+          <p className="rounded-xl bg-lime/20 border border-lime/40 px-4 py-3 font-raleway text-sm text-forest inline-flex items-center gap-2">
+            <CalendarCheck size={16} aria-hidden />
+            {result.recommendations.length} action
+            {result.recommendations.length > 1 ? 's' : ''} planifiée
+            {result.recommendations.length > 1 ? 's' : ''}
+          </p>
+        ) : (
+          onPlan && (
+            <div className="rounded-2xl border border-forest/15 bg-white p-4 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={onPlan}
+                disabled={isPlanning}
+                className="rounded-xl bg-lime text-forest font-poppins font-semibold text-sm px-4 py-2.5 hover:bg-lime/80 transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isPlanning ? (
+                  <Loader2 size={16} className="animate-spin" aria-hidden />
+                ) : (
+                  <CalendarPlus size={16} aria-hidden />
+                )}
+                {isPlanning ? 'Planification…' : 'Planifier ces actions'}
+              </button>
+              <p className="font-raleway text-xs text-forest/55 text-center">
+                Elles s&apos;ajouteront à ton calendrier et à ta liste du jour.
+              </p>
+              {planError && <p className="font-raleway text-sm text-red-700">{planError}</p>}
+            </div>
+          )
+        ))}
 
       <p className="font-raleway text-xs text-forest/45 flex items-center gap-1.5">
         <Sparkles size={12} aria-hidden />

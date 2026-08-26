@@ -32,6 +32,7 @@ import type {
   MarkActionDoneInput,
   MobileLoginInput,
   MobileRegisterInput,
+  PlanDiagnosisResponse,
   PlantCatalog,
   PhotoKind,
   PlantInstanceWithRelations,
@@ -379,6 +380,22 @@ export class GrowiApiClient {
         method: 'POST',
         body,
       }),
+
+    /**
+     * Transforme les recommandations en tâches du planning.
+     *
+     * Idempotent : rejouer l'appel renvoie l'état existant sans créer de
+     * doublon, ce qui rend le bouton sûr à retaper.
+     */
+    planActions: (
+      plantId: string,
+      diagnosisId: string,
+      options?: CallOptions,
+    ): Promise<PlanDiagnosisResponse> =>
+      this.http.request(
+        `/api/v1/plants/${encodeURIComponent(plantId)}/diagnoses/${encodeURIComponent(diagnosisId)}/plan`,
+        { ...options, method: 'POST' },
+      ),
 
     /** Applique le statut proposé — sur accord explicite de l'utilisateur. */
     applyStatus: (

@@ -25,6 +25,9 @@ export interface Plant {
   wateringFrequencyDays: number
   lastWateredDate?: string
   nextWateringDate?: string
+  /** Derniers gestes notés, tels que la fiche mobile les affiche. */
+  lastPrunedDate?: string
+  lastFertilizedDate?: string
   sunExposure: SunExposure
   soilType?: string
   wateringDifficulty: WateringDifficulty
@@ -43,6 +46,8 @@ export interface Plant {
   funFact?: string
   notes?: string
   catalogPlantId?: string | null
+  /** Jardin d'appartenance — le planning raisonne par jardin. */
+  gardenId?: string | null
   catalogPlant?: { imageUrl: string | null; commonName: string } | null
   growthStage?: string
   harvestWindow?: { start: string; end: string }

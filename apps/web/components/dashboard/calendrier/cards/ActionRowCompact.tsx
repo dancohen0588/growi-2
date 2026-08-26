@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { GardenAction } from '@/lib/mock-actions'
 import { formatDueDate } from '@/lib/calendar-utils'
 import { ActionIcon } from '../ActionIcon'
+import { DiagnosisBadge } from '../DiagnosisBadge'
 import { DoneButton } from '../DoneButton'
 
 interface ActionRowCompactProps {
@@ -34,6 +35,8 @@ export function ActionRowCompact({ action, onDone }: ActionRowCompactProps) {
           <span className="font-raleway text-sm text-forest/60"> · {action.plantName}</span>
         )}
       </div>
+
+      <DiagnosisBadge action={action} />
 
       <span className="shrink-0 font-raleway text-xs capitalize text-forest/40">{due.label}</span>
 

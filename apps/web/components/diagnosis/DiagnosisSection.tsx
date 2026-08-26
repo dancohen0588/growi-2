@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Stethoscope } from 'lucide-react'
 import type { HealthStatus } from '@growi/shared'
 
@@ -33,6 +34,7 @@ export function DiagnosisSection({
   const [open, setOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const { toast } = useToast()
+  const router = useRouter()
 
   return (
     <div className="flex flex-col gap-6">
@@ -52,6 +54,14 @@ export function DiagnosisSection({
         open={open}
         onOpenChange={setOpen}
         onDiagnosed={() => setRefreshKey((k) => k + 1)}
+        onPlanned={() => {
+          setRefreshKey((k) => k + 1)
+          // Le calendrier et le tableau de bord sont rendus côté serveur :
+          // sans revalidation, les tâches n'y apparaîtraient qu'au prochain
+          // chargement complet.
+          router.refresh()
+          toast('Actions planifiées — retrouve-les dans ton calendrier.')
+        }}
         onStatusApplied={(status, note) => {
           setRefreshKey((k) => k + 1)
           onStatusApplied?.(status, note)
@@ -59,7 +69,14 @@ export function DiagnosisSection({
         }}
       />
 
-      <DiagnosisHistory plantId={plantId} refreshKey={refreshKey} />
+      <DiagnosisHistory
+        plantId={plantId}
+        refreshKey={refreshKey}
+        onPlanned={() => {
+          router.refresh()
+          toast('Actions planifiées — retrouve-les dans ton calendrier.')
+        }}
+      />
     </div>
   )
 }

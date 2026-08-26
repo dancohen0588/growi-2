@@ -37,9 +37,15 @@ export interface DiagnosisHistoryProps {
   plantId: string
   /** Incrémenté par la fiche après un nouveau diagnostic, pour relire la liste. */
   refreshKey?: number
+  /** Remonté quand une planification a lieu depuis l'historique. */
+  onPlanned?: () => void
 }
 
-export function DiagnosisHistory({ plantId, refreshKey = 0 }: DiagnosisHistoryProps) {
+export function DiagnosisHistory({
+  plantId,
+  refreshKey = 0,
+  onPlanned,
+}: DiagnosisHistoryProps) {
   const [items, setItems] = useState<DiagnosisListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -93,6 +99,11 @@ export function DiagnosisHistory({ plantId, refreshKey = 0 }: DiagnosisHistoryPr
                       appliqué à la fiche
                     </span>
                   )}
+                  {item.tasksPlannedAt && (
+                    <span className="ml-2 font-raleway text-[11px] font-normal text-forest/50">
+                      · actions planifiées
+                    </span>
+                  )}
                 </span>
                 <span className="font-raleway text-xs text-forest/60 truncate">
                   {item.summary}
@@ -110,7 +121,11 @@ export function DiagnosisHistory({ plantId, refreshKey = 0 }: DiagnosisHistoryPr
 
             {openId === item.id && (
               <div className="px-3 pb-3">
-                <DiagnosisDetailView plantId={plantId} diagnosisId={item.id} />
+                <DiagnosisDetailView
+                  plantId={plantId}
+                  diagnosisId={item.id}
+                  onPlanned={onPlanned}
+                />
               </div>
             )}
           </li>
@@ -124,12 +139,17 @@ export function DiagnosisHistory({ plantId, refreshKey = 0 }: DiagnosisHistoryPr
 function DiagnosisDetailView({
   plantId,
   diagnosisId,
+  onPlanned,
 }: {
   plantId: string
   diagnosisId: string
+  onPlanned?: () => void
 }) {
   const [detail, setDetail] = useState<DiagnosisDetail | null>(null)
   const [failed, setFailed] = useState(false)
+  const [isPlanning, setIsPlanning] = useState(false)
+  const [plannedAt, setPlannedAt] = useState<string | null>(null)
+  const [planError, setPlanError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -147,6 +167,28 @@ function DiagnosisDetailView({
   useEffect(() => {
     load()
   }, [load])
+
+  // Un diagnostic relu se planifie aussi bien qu'un diagnostic frais : on
+  // repense souvent à une recommandation après coup.
+  const plan = useCallback(async () => {
+    setIsPlanning(true)
+    setPlanError(null)
+    try {
+      const res = await fetch(
+        `/api/v1/plants/${encodeURIComponent(plantId)}/diagnoses/${encodeURIComponent(diagnosisId)}/plan`,
+        { method: 'POST' },
+      )
+      if (!res.ok) throw new Error("Les actions n'ont pas pu être planifiées.")
+
+      const payload = (await res.json()) as { data: { tasksPlannedAt: string } }
+      setPlannedAt(payload.data.tasksPlannedAt)
+      onPlanned?.()
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : 'Erreur inconnue')
+    } finally {
+      setIsPlanning(false)
+    }
+  }, [plantId, diagnosisId, onPlanned])
 
   if (failed) {
     return (
@@ -171,6 +213,10 @@ function DiagnosisDetailView({
       // En relecture, la comparaison n'a plus de sens : on masque la
       // proposition de mise à jour en donnant le statut du diagnostic lui-même.
       currentHealthStatus={detail.status}
+      onPlan={plan}
+      isPlanning={isPlanning}
+      tasksPlannedAt={plannedAt ?? detail.tasksPlannedAt}
+      planError={planError}
     />
   )
 }

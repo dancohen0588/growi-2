@@ -33,6 +33,7 @@ model User {
   longitude      Float?
   accounts       Account[]
   diagnoses      Diagnosis[]
+  tasks          PlantTask[]
   gardens        Garden[]
   plantInstances PlantInstance[]
   pushTokens     PushToken[]
@@ -212,6 +213,7 @@ model PlantInstance {
   alertsEnabled           Boolean       @default(true)
   careLogs                CareLog[]
   diagnoses               Diagnosis[]
+  tasks                   PlantTask[]
   catalogPlant            PlantCatalog? @relation(fields: [catalogPlantId], references: [id])
   garden                  Garden?       @relation(fields: [gardenId], references: [id])
   user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -258,7 +260,7 @@ model CareLog {
 /// promus (status, confidence, summary) suffisent aux listes et aux filtres
 /// sans avoir à désérialiser le payload.
 model Diagnosis {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   plantInstanceId String
   userId          String
   photoUrl        String
@@ -271,17 +273,59 @@ model Diagnosis {
   /// `DiagnosisSuccess` sérialisé.
   payload         Json
   /// L'utilisateur a-t-il appliqué le statut proposé à sa plante ?
-  statusApplied   Boolean  @default(false)
+  statusApplied   Boolean   @default(false)
   /// Modèle Gemini ayant répondu — le repli change de modèle en silence, et la
   /// qualité d'un diagnostic ne se relit pas sans savoir qui l'a produit.
   model           String?
-  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  /// Quand les recommandations ont été transformées en tâches, `null` sinon.
+  /// Fait aussi office de verrou d'idempotence : on ne planifie qu'une fois.
+  tasksPlannedAt  DateTime? @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
 
   plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks         PlantTask[]
 
   @@index([plantInstanceId, createdAt])
   @@map("diagnoses")
+}
+
+/// Tâche persistée du planning — v1 : issue d'un diagnostic accepté.
+///
+/// Les actions du planning sont normalement *calculées* par le moteur de
+/// règles à chaque évaluation. Une recommandation acceptée, elle, doit être
+/// figée à sa date d'acceptation puis acquittée individuellement : elle ne
+/// peut donc pas être une règle, d'où cette table. `source` prépare les
+/// tâches saisies à la main, qui viendront s'y ranger sans migration.
+model PlantTask {
+  id              String    @id @default(cuid())
+  userId          String
+  plantInstanceId String
+  diagnosisId     String?
+  source          String    @default("DIAGNOSIS")
+  /// ActionType de @growi/shared : arrosage | taille | … | autre.
+  type            String
+  /// Consigne détaillée — l'action de la recommandation, telle quelle.
+  label           String
+  /// Titre court de la carte du planning ; `label` en devient le détail.
+  /// Abrégé depuis `label` pour les diagnostics d'avant son introduction.
+  shortLabel      String
+  /// Échéance `YYYY-MM-DD`, figée à la planification.
+  dueDate         String
+  /// high | medium | low, mappé depuis urgent | soon | watch.
+  priority        String
+  doneAt          DateTime? @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+
+  plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// La tâche survit à la suppression de son diagnostic : elle a été acceptée
+  /// pour elle-même, et la retirer du planning surprendrait l'utilisateur.
+  diagnosis     Diagnosis?    @relation(fields: [diagnosisId], references: [id], onDelete: SetNull)
+
+  @@index([userId, doneAt, dueDate])
+  @@index([plantInstanceId])
+  @@map("plant_tasks")
 }
 
 model GardenAdviceCache {

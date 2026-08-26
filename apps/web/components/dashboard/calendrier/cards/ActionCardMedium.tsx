@@ -4,6 +4,8 @@ import { GardenAction } from '@/lib/mock-actions'
 import { formatDueDate } from '@/lib/calendar-utils'
 import { ActionIcon } from '../ActionIcon'
 import { DoneButton } from '../DoneButton'
+import { ActionDetail } from '../ActionDetailDialog'
+import { DiagnosisBadge } from '../DiagnosisBadge'
 
 interface ActionCardMediumProps {
   action: GardenAction
@@ -46,13 +48,20 @@ export function ActionCardMedium({ action, onDone }: ActionCardMediumProps) {
         <p className="truncate font-poppins font-semibold text-forest text-sm">
           {action.shortLabel}
         </p>
-        <p
-          className={`truncate font-raleway text-xs ${
-            due.late ? 'font-semibold text-destructive' : 'text-forest/60'
-          }`}
-        >
-          {meta}
-        </p>
+        <div className="flex items-center gap-2">
+          <p
+            className={`truncate font-raleway text-xs ${
+              due.late ? 'font-semibold text-destructive' : 'text-forest/60'
+            }`}
+          >
+            {meta}
+          </p>
+          <DiagnosisBadge action={action} />
+        </div>
+
+        <div className="mt-1 flex flex-col gap-0.5">
+          <ActionDetail action={action} />
+        </div>
       </div>
 
       <DoneButton

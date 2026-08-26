@@ -45,7 +45,9 @@ function CalendrierContent({ initialActions, alerts, gardenId }: CalendrierPageI
       toast('✓ Action notée comme faite ! Ton jardin te remercie 🌱')
 
       // Persist to database
-      markActionDoneAction(id, gardenId, action?.type, action?.plantId).catch(() => {
+      // `taskId` n'est renseigné que pour une tâche planifiée : il l'acquitte
+      // nommément, là où le moteur se contente du geste au journal.
+      markActionDoneAction(id, gardenId, action?.type, action?.plantId, action?.taskId).catch(() => {
         // Revert on failure
         setActions(prev =>
           prev.map(a =>

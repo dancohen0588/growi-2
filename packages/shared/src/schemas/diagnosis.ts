@@ -1,7 +1,8 @@
 import { z } from 'zod'
 
 import { healthStatusSchema } from '../constants/enums'
-import { idSchema, isoDateTimeSchema } from './common'
+import { idSchema, isoDateTimeSchema, nullish } from './common'
+import { actionTypeSchema } from './planning'
 
 /**
  * Contrats du diagnostic IA — `POST /api/v1/plants/[id]/diagnose` et les
@@ -57,11 +58,30 @@ export const diagnosisCauseSchema = z.object({
 export type DiagnosisCause = z.infer<typeof diagnosisCauseSchema>
 
 export const diagnosisRecommendationSchema = z.object({
-  /** À l'impératif : « Arrose abondamment ce soir ». */
+  /** À l'impératif, en détail : « Arrose abondamment ce soir, au pied ». */
   action: z.string(),
+  /**
+   * Le même geste en trois ou quatre mots — « Arroser au pied ».
+   *
+   * C'est lui qui titre la carte du planning ; `action` devient le détail.
+   * Facultatif comme les deux champs suivants : les diagnostics antérieurs
+   * n'en ont pas, et la planification sait alors abréger `action` elle-même.
+   */
+  shortAction: z.string().optional(),
   priority: diagnosisPrioritySchema,
   /** « aujourd'hui », « cette semaine »… */
   timeframe: z.string(),
+  /**
+   * Geste du planning correspondant, quand la recommandation en désigne un.
+   *
+   * Ces deux champs sont **facultatifs** : les diagnostics déjà en base ont été
+   * écrits avant qu'on les demande au modèle, et leur payload doit rester
+   * lisible. La planification a ses replis (priorité → échéance, `autre` par
+   * défaut) pour les traiter comme les autres.
+   */
+  actionType: actionTypeSchema.optional(),
+  /** Échéance en jours à partir d'aujourd'hui — 0 = aujourd'hui. */
+  dueInDays: z.number().int().min(0).optional(),
 })
 
 export type DiagnosisRecommendation = z.infer<typeof diagnosisRecommendationSchema>
@@ -115,6 +135,8 @@ export type DiagnoseApiResponse = DiagnosisResult & {
   diagnosisId: string | null
   photoUrl: string | null
   currentHealthStatus: z.infer<typeof healthStatusSchema>
+  /** Date de planification des recommandations, `null` tant qu'elle n'a pas eu lieu. */
+  tasksPlannedAt: string | null
 }
 
 /** Entrée de l'historique des diagnostics d'une plante. */
@@ -127,6 +149,14 @@ export const diagnosisListItemSchema = z.object({
   summary: z.string(),
   /** L'utilisateur a-t-il appliqué le statut proposé à sa plante ? */
   statusApplied: z.boolean(),
+  /**
+   * Quand les recommandations ont été planifiées, `null` sinon.
+   *
+   * C'est cette date qui décide de l'état du bouton « Planifier ces actions »,
+   * y compris en relecture d'historique : sans elle, rouvrir un diagnostic
+   * reproposerait de planifier ce qui l'est déjà.
+   */
+  tasksPlannedAt: nullish(isoDateTimeSchema),
 })
 
 export type DiagnosisListItem = z.infer<typeof diagnosisListItemSchema>
@@ -165,3 +195,11 @@ export type DiagnoseRequest = z.infer<typeof diagnoseRequestSchema>
 export const applyDiagnosisSchema = z.object({ apply: z.literal(true) })
 
 export type ApplyDiagnosis = z.infer<typeof applyDiagnosisSchema>
+
+/** Réponse de `POST …/plan` — planification des recommandations en tâches. */
+export const planDiagnosisResponseSchema = z.object({
+  tasksCreated: z.number().int().min(0),
+  tasksPlannedAt: isoDateTimeSchema,
+})
+
+export type PlanDiagnosisResponse = z.infer<typeof planDiagnosisResponseSchema>

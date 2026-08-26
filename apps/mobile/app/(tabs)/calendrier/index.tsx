@@ -41,7 +41,13 @@ export default function CalendrierScreen() {
 
   const completeTask = ({ action, gardenId }: PlanningTask) => {
     markDone.mutate(
-      { actionId: action.id, gardenId, actionType: action.type, plantId: action.plantId },
+      {
+        actionId: action.id,
+        gardenId,
+        actionType: action.type,
+        plantId: action.plantId,
+        taskId: action.taskId,
+      },
       {
         onSuccess: () => toast('Bien noté, ton jardin te remercie 🌱'),
         onError: (error) => toast(errorMessage(error), 'error'),

@@ -13,6 +13,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 import { assertPlantOwned } from '@/lib/services/plant.service'
+import { completeTasksForGesture } from '@/lib/services/task.service'
 
 /**
  * Date de la plante à faire avancer selon le geste.
@@ -108,6 +109,12 @@ export async function logCare(
       data: plantUpdate,
     }),
   ])
+
+  // Le geste accomplit de fait les tâches échues du même type : sans cela,
+  // arroser depuis la fiche masquerait la tâche « Arrose ce soir » du planning
+  // — le moteur écarte ce qui a été fait aujourd'hui — sans jamais la clore.
+  // Elle reviendrait le lendemain, alors que l'utilisateur a bien arrosé.
+  await completeTasksForGesture(userId, plantInstanceId, input.type, occurredAt)
 
   if (gardenId) await invalidateGardenAdviceCache(gardenId)
   return log

@@ -5,6 +5,8 @@ import { GardenAction } from '@/lib/mock-actions'
 import { formatDueDate } from '@/lib/calendar-utils'
 import { ActionIcon } from '../ActionIcon'
 import { DoneButton } from '../DoneButton'
+import { ActionDetail } from '../ActionDetailDialog'
+import { DiagnosisBadge } from '../DiagnosisBadge'
 
 interface ActionCardLargeProps {
   action: GardenAction
@@ -50,6 +52,7 @@ export function ActionCardLarge({ action, onDone }: ActionCardLargeProps) {
             <h3 className="font-poppins font-semibold text-forest leading-snug">
               {action.shortLabel}
             </h3>
+            <DiagnosisBadge action={action} />
           </div>
 
           <div
@@ -62,6 +65,10 @@ export function ActionCardLarge({ action, onDone }: ActionCardLargeProps) {
               {due.label}
               {action.estimatedMinutes ? ` · ~${action.estimatedMinutes} min` : ''}
             </span>
+          </div>
+
+          <div className="mt-2 flex flex-col gap-1">
+            <ActionDetail action={action} />
           </div>
 
           {action.notes && (

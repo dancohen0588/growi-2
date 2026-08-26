@@ -25,6 +25,18 @@ export const ACTION_TYPES = [
 export const actionTypeSchema = z.enum(ACTION_TYPES)
 export type ActionType = z.infer<typeof actionTypeSchema>
 
+/** Nom du geste, pour titrer ou étiqueter une action. */
+export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
+  arrosage: 'Arrosage',
+  taille: 'Taille',
+  semis: 'Semis',
+  rempotage: 'Rempotage',
+  fertilisation: 'Fertilisation',
+  traitement: 'Traitement',
+  recolte: 'Récolte',
+  autre: 'À faire',
+}
+
 /**
  * Geste du journal qui accomplit chaque tâche du planning.
  *
@@ -66,6 +78,23 @@ export const gardenActionSchema = z.object({
   notes: z.string().optional(),
   estimatedMinutes: z.number().optional(),
   recurringDays: z.number().optional(),
+  /**
+   * D'où vient la tâche : calculée par le moteur de règles, ou figée à
+   * l'acceptation d'un diagnostic. Absent vaut `engine` — les actions du
+   * moteur, largement majoritaires, n'ont pas à porter le champ.
+   */
+  source: z.enum(['engine', 'task']).optional(),
+  /** Renseigné quand `source: 'task'` : ce que le front renvoie pour l'acquitter. */
+  taskId: z.string().optional(),
+  /**
+   * Consigne détaillée, quand le titre ne suffit pas à agir.
+   *
+   * Les actions du moteur n'en ont pas : leur `label` ne fait que reprendre le
+   * `shortLabel` avec le nom de la plante, déjà affiché à côté. Une
+   * recommandation de diagnostic, elle, porte une vraie consigne — dosage,
+   * moment de la journée — qu'on ne peut pas résumer sans la perdre.
+   */
+  detail: z.string().optional(),
 })
 
 export type GardenAction = z.infer<typeof gardenActionSchema>
@@ -220,8 +249,16 @@ export type TodayPlanning = z.infer<typeof todayPlanningSchema>
  */
 export const markActionDoneSchema = z.object({
   gardenId: idSchema,
+  /** Sert à écrire le geste au journal — requis même pour une tâche. */
   actionType: actionTypeSchema,
   plantId: idSchema.optional(),
+  /**
+   * Tâche persistée à acquitter, quand l'action en est une.
+   *
+   * On acquitte par identifiant et non par type de geste : deux tâches
+   * « autre » issues de deux diagnostics seraient sinon cochées d'un coup.
+   */
+  taskId: idSchema.optional(),
 })
 
 export type MarkActionDoneInput = z.infer<typeof markActionDoneSchema>

@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest'
 import {
   PHOTO_KINDS,
   applyDiagnosisSchema,
+  markActionDoneSchema,
+  gardenActionSchema,
+  planDiagnosisResponseSchema,
   diagnoseRequestSchema,
   diagnosisDetailSchema,
   diagnosisListItemSchema,
@@ -112,10 +115,18 @@ describe('historique', () => {
     confidence: 'medium',
     summary: 'Un stress hydrique probable.',
     statusApplied: false,
+    tasksPlannedAt: null,
   }
 
   it('accepte une entrée de liste', () => {
     expect(diagnosisListItemSchema.safeParse(ITEM).success).toBe(true)
+  })
+
+  it('porte la date de planification quand elle a eu lieu', () => {
+    expect(
+      diagnosisListItemSchema.safeParse({ ...ITEM, tasksPlannedAt: '2026-08-25T09:00:00.000Z' })
+        .success,
+    ).toBe(true)
   })
 
   it('refuse une date qui n’est pas ISO', () => {
@@ -129,6 +140,97 @@ describe('historique', () => {
       diagnosisDetailSchema.safeParse({ ...ITEM, plantInstanceId: 'plant_1', result: SUCCESS })
         .success,
     ).toBe(true)
+  })
+})
+
+describe('recommandation planifiable', () => {
+  const BASE = { action: 'Arrose ce soir', priority: 'urgent', timeframe: "aujourd'hui" }
+
+  it('accepte le geste et le délai quand le modèle les fournit', () => {
+    const parsed = diagnosisSuccessSchema.safeParse({
+      ...SUCCESS,
+      recommendations: [{ ...BASE, actionType: 'arrosage', dueInDays: 0 }],
+    })
+    expect(parsed.success).toBe(true)
+  })
+
+  it('reste valide sans eux — les diagnostics déjà en base n’en ont pas', () => {
+    // Rétrocompatibilité : un payload écrit avant cette évolution doit
+    // continuer à se relire, sinon tout l'historique devient illisible.
+    expect(diagnosisSuccessSchema.safeParse(SUCCESS).success).toBe(true)
+  })
+
+  it('refuse un geste hors du domaine du planning', () => {
+    const parsed = diagnosisSuccessSchema.safeParse({
+      ...SUCCESS,
+      recommendations: [{ ...BASE, actionType: 'desherbage' }],
+    })
+    expect(parsed.success).toBe(false)
+  })
+
+  it('refuse un délai négatif ou fractionnaire', () => {
+    for (const dueInDays of [-1, 2.5]) {
+      const parsed = diagnosisSuccessSchema.safeParse({
+        ...SUCCESS,
+        recommendations: [{ ...BASE, dueInDays }],
+      })
+      expect(parsed.success).toBe(false)
+    }
+  })
+})
+
+describe('acquittement d’une tâche', () => {
+  const BASE = { gardenId: 'g1', actionType: 'arrosage' }
+
+  it('accepte un identifiant de tâche', () => {
+    expect(markActionDoneSchema.safeParse({ ...BASE, taskId: 'task_1' }).success).toBe(true)
+  })
+
+  it('reste valide sans lui — les actions du moteur n’en ont pas', () => {
+    expect(markActionDoneSchema.safeParse(BASE).success).toBe(true)
+  })
+
+  it('exige toujours le geste, qui alimente le journal', () => {
+    expect(markActionDoneSchema.safeParse({ gardenId: 'g1', taskId: 'task_1' }).success).toBe(false)
+  })
+})
+
+describe('provenance d’une action du planning', () => {
+  const ACTION = {
+    id: 'a1', type: 'arrosage', label: 'Arroser le basilic', shortLabel: 'Arroser',
+    dueDate: '2026-08-25', done: false, priority: 'high',
+  }
+
+  it('accepte une action issue d’une tâche', () => {
+    expect(gardenActionSchema.safeParse({ ...ACTION, source: 'task', taskId: 't1' }).success).toBe(
+      true,
+    )
+  })
+
+  it('reste valide sans provenance — le moteur est le cas par défaut', () => {
+    expect(gardenActionSchema.safeParse(ACTION).success).toBe(true)
+  })
+
+  it('refuse une provenance inventée', () => {
+    expect(gardenActionSchema.safeParse({ ...ACTION, source: 'manuel' }).success).toBe(false)
+  })
+})
+
+describe('réponse de planification', () => {
+  it('porte le nombre de tâches créées et la date', () => {
+    expect(
+      planDiagnosisResponseSchema.safeParse({
+        tasksCreated: 3,
+        tasksPlannedAt: '2026-08-25T09:00:00.000Z',
+      }).success,
+    ).toBe(true)
+  })
+
+  it('refuse un compte négatif', () => {
+    expect(
+      planDiagnosisResponseSchema.safeParse({ tasksCreated: -1, tasksPlannedAt: '2026-08-25T09:00:00.000Z' })
+        .success,
+    ).toBe(false)
   })
 })
 
