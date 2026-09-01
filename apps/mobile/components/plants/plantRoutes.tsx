@@ -45,11 +45,17 @@ export function plantDiagnosisRoute() {
   }
 }
 
-/** Édition d'une plante — la même quelle que soit la pile. */
-export function plantEditorRoute() {
+/**
+ * Édition d'une plante.
+ *
+ * `afterDeleteHref` est la liste vers laquelle revenir après une suppression :
+ * la fiche de la plante, juste au-dessous dans la pile, n'existe plus. Elle
+ * diffère d'un onglet à l'autre, d'où le paramètre.
+ */
+export function plantEditorRoute(afterDeleteHref: Href) {
   return function ModifierPlanteScreen() {
     const { plantId } = useLocalSearchParams<{ plantId: string }>()
 
-    return <PlantEditor plantId={plantId} />
+    return <PlantEditor plantId={plantId} afterDeleteHref={afterDeleteHref} />
   }
 }

@@ -723,10 +723,9 @@ individuellement. D'où une **seconde source** de tâches, persistées.
 - **La fusion est faite dans `advice.service`, après lecture du cache** — les
   tâches ne transitent pas par `GardenAdviceCache`, donc rien à invalider et
   pas six heures d'attente avant qu'une tâche planifiée n'apparaisse. Elle
-  couvre les **quatre** portes d'entrée : `getGardenAdvice`,
-  `getCurrentGardenAdvice` (le calendrier web), `getGardensAdvice` (l'Accueil
-  mobile) et `getPlantAdvice`. En rater une, c'est une surface entière sans
-  tâches.
+  couvre les **trois** portes d'entrée : `getGardenAdvice`, `getGardensAdvice`
+  (l'Accueil mobile **et** le calendrier web) et `getPlantAdvice`. En rater
+  une, c'est une surface entière sans tâches.
 - Les tâches sont placées **en tête** des actions ; les écrans regroupent par
   échéance sans retrier, l'ordre tient.
 - `planDiagnosisActions` est **idempotent** plutôt qu'erreur sur second appel :
@@ -750,6 +749,32 @@ individuellement. D'où une **seconde source** de tâches, persistées.
 > ajouté ; le type canonique est celui du moteur, réexporté par `mock-actions`.
 > Ne pas en recréer une quatrième.
 
+### Plusieurs jardins par compte
+
+L'app liste tous les jardins ; le web s'en tenait à un seul, et lisait leur nom
+au mauvais endroit. Trois règles en découlent, à tenir des deux côtés :
+
+- **Le nom d'un jardin est la colonne `gardens.name`**, jamais celui recopié
+  dans `canvasData`. Le plan dessiné en garde une copie par commodité, mais
+  l'éditeur l'écrase au chargement et renomme via `renameGarden`. Écrire le nom
+  dans le seul canevas, c'est le rendre invisible à l'API v1 et au mobile.
+- **Le jardin courant est le plus récent** (`findLatestGarden`) : c'est déjà ce
+  que retiennent le calendrier et les plantes ajoutées sans jardin.
+  `getOrCreateCurrentGarden` accepte en plus un identifiant — celui que
+  l'éditeur mémorise dans `localStorage` — et retombe sans erreur sur le jardin
+  courant s'il ne vaut plus rien (jardin supprimé, autre compte).
+- **Un écran qui agrège doit passer par `getGardensAdvice`** et dédoublonner
+  par identifiant : le moteur rattache une plante sans jardin à chacun d'eux.
+
+> Supprimer un jardin **supprime ses plantes**, avec leurs photos, leurs gestes
+> et leurs diagnostics. La cascade est faite dans `garden.service.deleteGarden`
+> et non par la base : `plant_instances.gardenId` est en `SET NULL` (les
+> plantes y survivraient, détachées) et surtout **aucune cascade SQL n'efface
+> les fichiers du bucket** — leurs URL sont relevées avant la suppression des
+> lignes, comme le fait déjà `deletePlantInstance`. Une suppression écrite
+> ailleurs qu'ici laisserait donc des photos orphelines. Les deux surfaces
+> demandent confirmation en annonçant le nombre de plantes perdues.
+
 ### Routing principal
 
 | Route | Description |
@@ -760,7 +785,7 @@ individuellement. D'où une **seconde source** de tâches, persistées.
 | `/login`, `/register` | Auth (custom pages) |
 | `/dashboard/plantes` | Catalogue perso + fiches plantes (gestes rapides, tâches, entretien, diagnostic, journal — parité avec la fiche mobile) |
 | `/dashboard/catalogue` | Encyclopédie de plantes |
-| `/dashboard/jardin` | Canvas du jardin (Konva) |
+| `/dashboard/jardin` | Canvas du jardin (Konva), avec sélecteur de jardin |
 | `/dashboard/calendrier` | Calendrier + alertes météo |
 | `/dashboard/meteo` | Météo locale |
 | `/dashboard/identifier` | Identification photo (Gemini) |

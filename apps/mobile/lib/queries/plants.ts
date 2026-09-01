@@ -158,6 +158,9 @@ export function useDeletePlant() {
     mutationFn: (plantId: string) => api.plants.remove(plantId),
     onSuccess: (_data, plantId) => {
       queryClient.removeQueries({ queryKey: plantKeys.detail(plantId) })
+      // La liste « Mes plantes » aussi : c'est l'écran sur lequel on revient
+      // après la suppression, il y montrerait sinon une fiche disparue.
+      void queryClient.invalidateQueries({ queryKey: plantKeys.all })
       void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
       void queryClient.invalidateQueries({ queryKey: planningKeys.all })
       void queryClient.invalidateQueries({ queryKey: summaryKeys.all })

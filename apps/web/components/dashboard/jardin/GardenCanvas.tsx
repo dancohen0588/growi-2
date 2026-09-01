@@ -10,6 +10,7 @@ import { Layers, SlidersHorizontal, Sprout, ScanSearch, Wand2 } from 'lucide-rea
 import type { PlantCatalog } from '@prisma/client'
 
 import { useGarden } from '@/hooks/useGarden'
+import { useGardenList } from '@/hooks/useGardenList'
 import type { GardenElement, GardenPoint } from '@/lib/garden/types'
 import { effectivePoints, isSurfaceType } from '@/lib/garden/types'
 import type { PaletteItem } from '@/lib/garden/palette'
@@ -314,7 +315,16 @@ function CanvasDropZone({ children, onDrop, zoom, pan }: {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function GardenCanvas() {
-  const garden = useGarden()
+  const {
+    gardens,
+    currentGardenId,
+    selectGarden,
+    createGarden: createNewGarden,
+    deleteGarden: deleteCurrentGarden,
+    onGardenLoaded,
+    onGardenRenamed,
+  } = useGardenList()
+  const garden = useGarden(currentGardenId)
   const containerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
@@ -336,6 +346,23 @@ export function GardenCanvas() {
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false)
   const [addPlantOpen, setAddPlantOpen] = useState(false)
   const { toast } = useToast()
+
+  // Le serveur a le dernier mot sur le jardin ouvert : au premier affichage,
+  // ou quand le jardin mémorisé n'existe plus, il en renvoie un autre.
+  const loadedGardenId = garden.gardenId
+  useEffect(() => {
+    if (loadedGardenId) onGardenLoaded(loadedGardenId)
+  }, [loadedGardenId, onGardenLoaded])
+
+  const handleDeleteGarden = useCallback(async () => {
+    if (!loadedGardenId) return
+    await deleteCurrentGarden(loadedGardenId)
+  }, [deleteCurrentGarden, loadedGardenId])
+
+  const handleRename = useCallback((name: string) => {
+    garden.updateName(name)
+    if (loadedGardenId) onGardenRenamed(loadedGardenId, name)
+  }, [garden, loadedGardenId, onGardenRenamed])
 
   useEffect(() => {
     const container = containerRef.current
@@ -429,19 +456,23 @@ export function GardenCanvas() {
       const elementToLocation: Record<string, 'OUTDOOR' | 'INDOOR' | 'GREENHOUSE' | 'BALCONY'> = {
         serre: 'GREENHOUSE',
       }
+      // Le jardin ouvert, pas le plus récent : la plante doit rejoindre celui
+      // dont on est en train de dessiner le plan.
       await addPlantToMyGarden({
         catalogPlantId: catalogPlant.id,
+        gardenId:       loadedGardenId ?? undefined,
         location:       elementToLocation[element.type] ?? 'OUTDOOR',
         notes:          `Zone : ${element.label}`,
       })
     },
-    [],
+    [loadedGardenId],
   )
 
   const handleAddPlantFromCatalog = useCallback(
     async (catalogPlant: PlantCatalog) => {
       const result = await addPlantToMyGarden({
         catalogPlantId: catalogPlant.id,
+        gardenId:       loadedGardenId ?? undefined,
         location:       'OUTDOOR',
       })
       if (!result.success) {
@@ -491,7 +522,7 @@ export function GardenCanvas() {
       garden.saveGarden()
       toast(`🌿 ${label} a été ajoutée à ton jardin !`)
     },
-    [stageSize.width, stageSize.height, stagePos.x, stagePos.y, garden, toast],
+    [stageSize.width, stageSize.height, stagePos.x, stagePos.y, garden, loadedGardenId, toast],
   )
 
   // Handle drag-and-drop from palette — create PlantInstance for catalog plants
@@ -574,7 +605,12 @@ export function GardenCanvas() {
       <div className="flex flex-col h-full">
         <GardenToolbar
           name={garden.garden.name}
-          onNameChange={garden.updateName}
+          onNameChange={handleRename}
+          gardens={gardens}
+          currentGardenId={loadedGardenId}
+          onSelectGarden={selectGarden}
+          onCreateGarden={createNewGarden}
+          onDeleteGarden={handleDeleteGarden}
           onSave={garden.saveGarden}
           onExport={handleExport}
           onClear={garden.clearCanvas}

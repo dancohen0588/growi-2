@@ -65,18 +65,27 @@ export default function JardinDetailScreen() {
     }
   }, [garden, plants])
 
-  // Suppression en cascade côté serveur : on prévient de ce qui sera perdu.
+  // Suppression en cascade côté serveur : on prévient de ce qui sera perdu,
+  // dans les mêmes termes que la fenêtre du web.
   const confirmDelete = () => {
     const count = plants.data?.length ?? 0
+    const plantLoss =
+      count === 0
+        ? ''
+        : count === 1
+          ? ' Sa plante, ses photos et son historique d’entretien seront supprimés.'
+          : ` Ses ${count} plantes, leurs photos et leur historique d’entretien seront supprimés.`
+
     Alert.alert(
-      'Supprimer ce jardin ?',
-      count > 0
-        ? `Ses ${count} plante${count > 1 ? 's' : ''} et leur historique d'entretien seront supprimés. Cette action est définitive.`
-        : 'Cette action est définitive.',
+      `Supprimer « ${garden.data?.name ?? 'ce jardin'} » ?`,
+      `Son plan, ses zones et son planning seront perdus.${plantLoss} Cette action est définitive.\n\n` +
+        (count > 0
+          ? 'Confirmes-tu la suppression du jardin et de ses plantes ?'
+          : 'Confirmes-tu la suppression de ce jardin ?'),
       [
         { text: 'Annuler', style: 'cancel' },
         {
-          text: 'Supprimer',
+          text: count > 0 ? 'Supprimer le jardin et ses plantes' : 'Supprimer le jardin',
           style: 'destructive',
           onPress: async () => {
             try {

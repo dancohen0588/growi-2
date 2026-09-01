@@ -18,10 +18,13 @@ import { fadeIn } from '@/lib/animations'
 interface CalendrierPageInnerProps {
   initialActions: GardenAction[]
   alerts: PlantAlert[]
-  gardenId: string
+  /** Jardin d'origine de chaque action : le calendrier les réunit tous. */
+  actionGardenIds: Record<string, string>
+  /** Jardin à acquitter pour une action dont l'origine s'est perdue. */
+  fallbackGardenId: string
 }
 
-function CalendrierContent({ initialActions, alerts, gardenId }: CalendrierPageInnerProps) {
+function CalendrierContent({ initialActions, alerts, actionGardenIds, fallbackGardenId }: CalendrierPageInnerProps) {
   const searchParams = useSearchParams()
   const activeView = (searchParams.get('vue') as ActiveView) ?? 'todo'
   const { toast } = useToast()
@@ -47,6 +50,7 @@ function CalendrierContent({ initialActions, alerts, gardenId }: CalendrierPageI
       // Persist to database
       // `taskId` n'est renseigné que pour une tâche planifiée : il l'acquitte
       // nommément, là où le moteur se contente du geste au journal.
+      const gardenId = actionGardenIds[id] ?? fallbackGardenId
       markActionDoneAction(id, gardenId, action?.type, action?.plantId, action?.taskId).catch(() => {
         // Revert on failure
         setActions(prev =>
@@ -57,7 +61,7 @@ function CalendrierContent({ initialActions, alerts, gardenId }: CalendrierPageI
         toast('Erreur lors de la sauvegarde. Réessaie.')
       })
     },
-    [actions, gardenId, toast],
+    [actions, actionGardenIds, fallbackGardenId, toast],
   )
 
   // Undo: mark action as not done

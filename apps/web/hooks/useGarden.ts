@@ -5,7 +5,7 @@ import type { Garden, GardenElement, GardenConfig, GardenAnnotation, LayerOrder 
 import { isSurfaceType, isZoneType, rectPoints } from '@/lib/garden/types'
 import type { PaletteItem } from '@/lib/garden/palette'
 import { createDefaultGarden } from '@/lib/garden/defaults'
-import { getOrCreateDefaultGarden } from '@/lib/actions/garden.actions'
+import { loadGardenForEditor, renameGarden } from '@/lib/actions/garden.actions'
 import {
   saveGardenToDB,
   loadGardenFromLocalStorage,
@@ -18,6 +18,8 @@ const HISTORY_LIMIT = 50
 
 export interface UseGardenReturn {
   garden: Garden
+  /** Identifiant en base du jardin ouvert — celui demandé, ou le jardin courant. */
+  gardenId: string | null
   selectedId: string | null
   zoom: number
   isSaving: boolean
@@ -49,8 +51,16 @@ export interface UseGardenReturn {
   exportPNG: (containerId: string) => Promise<void>
 }
 
-export function useGarden(): UseGardenReturn {
+/**
+ * État de l'éditeur de plan pour un jardin.
+ *
+ * @param requestedGardenId Jardin à ouvrir. `null` ouvre le jardin courant
+ * (le plus récent), créé au besoin — c'est le cas au premier affichage, avant
+ * que l'utilisateur n'ait choisi.
+ */
+export function useGarden(requestedGardenId: string | null = null): UseGardenReturn {
   const [garden, setGarden] = useState<Garden>(createDefaultGarden)
+  const [gardenId, setGardenId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [isSaving, setIsSaving] = useState(false)
@@ -65,13 +75,30 @@ export function useGarden(): UseGardenReturn {
   const historyRef = useRef<Garden[]>([])
   const redoRef = useRef<Garden[]>([])
 
-  // Load from DB on mount (with one-time localStorage migration fallback)
+  // Chargement depuis la base — au montage, puis à chaque changement de jardin.
+  // Tout est remis à zéro : sans cela, le plan du jardin précédent resterait
+  // affiché (et finirait enregistré) sous le nouveau.
   useEffect(() => {
-    async function init() {
-      const dbGarden = await getOrCreateDefaultGarden()
-      if (!dbGarden) return
-      gardenDbIdRef.current = dbGarden.id
+    // Le jardin déjà ouvert : c'est le cas quand l'appelant se contente de
+    // nommer celui que le serveur venait de choisir. Recharger ferait
+    // clignoter le plan pour rien.
+    if (requestedGardenId && requestedGardenId === gardenDbIdRef.current) return
 
+    let cancelled = false
+
+    setIsLoaded(false)
+    setSelectedId(null)
+    historyRef.current = []
+    redoRef.current = []
+
+    async function init() {
+      const dbGarden = await loadGardenForEditor(requestedGardenId)
+      if (!dbGarden || cancelled) return
+      gardenDbIdRef.current = dbGarden.id
+      setGardenId(dbGarden.id)
+
+      // Le nom fait foi en base : le canevas en garde une copie, mais c'est
+      // celui de la colonne `name` que voient l'API v1 et l'app mobile.
       if (dbGarden.canvasData) {
         try {
           const parsed: unknown = JSON.parse(dbGarden.canvasData)
@@ -81,7 +108,7 @@ export function useGarden(): UseGardenReturn {
             'elements' in parsed &&
             Array.isArray((parsed as any).elements)
           ) {
-            setGarden(parsed as Garden)
+            setGarden({ ...(parsed as Garden), name: dbGarden.name })
             return
           }
         } catch {
@@ -92,13 +119,24 @@ export function useGarden(): UseGardenReturn {
       // One-time migration: import from localStorage if DB canvas is empty
       const local = loadGardenFromLocalStorage()
       if (local) {
-        setGarden(local)
+        const migrated = { ...local, name: dbGarden.name }
+        setGarden(migrated)
         clearLocalStorageGarden()
-        await saveGardenToDB(dbGarden.id, local)
+        await saveGardenToDB(dbGarden.id, migrated)
+        return
       }
+
+      setGarden({ ...createDefaultGarden(), name: dbGarden.name })
     }
-    init().finally(() => setIsLoaded(true))
-  }, [])
+
+    init().finally(() => {
+      if (!cancelled) setIsLoaded(true)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [requestedGardenId])
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
@@ -108,12 +146,20 @@ export function useGarden(): UseGardenReturn {
     }
   }, [])
 
-  // Auto-save with debounce on every garden change
+  // Auto-save with debounce on every garden change.
+  // Le jardin cible est figé à la programmation : si l'utilisateur en change
+  // entre-temps, l'enregistrement en attente doit partir dans le jardin où le
+  // dessin a été fait, pas dans celui qu'on vient d'ouvrir.
   const scheduleAutoSave = useCallback((updated: Garden) => {
+    const targetId = gardenDbIdRef.current
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      if (gardenDbIdRef.current) {
-        saveGardenToDB(gardenDbIdRef.current, updated)
+      if (targetId) {
+        // Le jardin peut avoir été supprimé entre-temps : un enregistrement
+        // qui échoue ne doit pas remonter en rejet non traité.
+        saveGardenToDB(targetId, updated).catch(err => {
+          console.error('[useGarden] enregistrement automatique :', err)
+        })
       }
     }, 1500)
   }, [])
@@ -287,9 +333,23 @@ export function useGarden(): UseGardenReturn {
     updateGarden(prev => ({ ...prev, config: { ...prev.config, ...patch } }))
   }, [updateGarden])
 
+  /**
+   * Renomme le jardin en base, et non dans le seul plan dessiné : c'est la
+   * colonne `name` que servent l'API v1 et l'app mobile. Le renommage ne passe
+   * donc pas par la pile d'annulation — annuler un trait de crayon ne doit pas
+   * défaire un renommage déjà enregistré.
+   */
   const updateName = useCallback((name: string) => {
-    updateGarden(prev => ({ ...prev, name }))
-  }, [updateGarden])
+    const id = gardenDbIdRef.current
+    if (!id) return
+
+    const previous = gardenRef.current.name
+    setGarden(prev => ({ ...prev, name }))
+
+    renameGarden(id, name).catch(() => {
+      setGarden(prev => (prev.name === name ? { ...prev, name: previous } : prev))
+    })
+  }, [])
 
   // Marque l'assistant de création comme terminé (P4).
   const completeOnboarding = useCallback(() => {
@@ -299,9 +359,11 @@ export function useGarden(): UseGardenReturn {
   const saveGarden = useCallback(() => {
     if (!gardenDbIdRef.current) return
     setIsSaving(true)
-    saveGardenToDB(gardenDbIdRef.current, garden).then(() => {
-      savingTimerRef.current = setTimeout(() => setIsSaving(false), 800)
-    })
+    saveGardenToDB(gardenDbIdRef.current, garden)
+      .catch(err => console.error('[useGarden] enregistrement :', err))
+      .finally(() => {
+        savingTimerRef.current = setTimeout(() => setIsSaving(false), 800)
+      })
   }, [garden])
 
   const exportPNG = useCallback(async (containerId: string) => {
@@ -318,6 +380,7 @@ export function useGarden(): UseGardenReturn {
 
   return {
     garden,
+    gardenId,
     selectedId,
     zoom,
     isSaving,

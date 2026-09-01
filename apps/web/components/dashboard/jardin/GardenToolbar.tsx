@@ -1,8 +1,10 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Save, Camera, Trash2, Undo2, Redo2, Ruler, MessageSquarePlus, Eye, EyeOff, Tag } from 'lucide-react'
+import { Save, Camera, Trash2, Undo2, Redo2, Ruler, MessageSquarePlus, Eye, EyeOff, Tag, Pencil } from 'lucide-react'
+import type { CreateGardenInput } from '@growi/shared'
 import { cn } from '@/lib/utils'
+import { GardenSwitcher, type GardenSwitcherItem } from './GardenSwitcher'
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
@@ -12,6 +14,12 @@ import { useToast } from '@/components/ui/toast'
 interface GardenToolbarProps {
   name: string
   onNameChange: (name: string) => void
+  /** Tous les jardins du compte — les mêmes que ceux listés par l'app mobile. */
+  gardens: GardenSwitcherItem[]
+  currentGardenId: string | null
+  onSelectGarden: (gardenId: string) => void
+  onCreateGarden: (input: CreateGardenInput) => Promise<void>
+  onDeleteGarden: () => Promise<void>
   onSave: () => void
   onExport: () => void
   onClear: () => void
@@ -31,12 +39,41 @@ interface GardenToolbarProps {
   isSaving: boolean
 }
 
-export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, onUndo, onRedo, canUndo, canRedo, cotesOn, onToggleCotes, labelsOn, onToggleLabels, commentMode, onToggleComment, commentsVisible, onToggleCommentsVisible, hasComments, isSaving }: GardenToolbarProps) {
+export function GardenToolbar({ name, onNameChange, gardens, currentGardenId, onSelectGarden, onCreateGarden, onDeleteGarden, onSave, onExport, onClear, onUndo, onRedo, canUndo, canRedo, cotesOn, onToggleCotes, labelsOn, onToggleLabels, commentMode, onToggleComment, commentsVisible, onToggleCommentsVisible, hasComments, isSaving }: GardenToolbarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const [clearOpen, setClearOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+
+  const plantCount = gardens.find(g => g.id === currentGardenId)?.plantCount ?? 0
+
+  // Les plantes du jardin s'en vont avec lui — l'annoncer nommément est le
+  // seul moyen pour l'utilisateur de mesurer ce qu'il perd.
+  const plantsAfterDelete =
+    plantCount === 0
+      ? ''
+      : plantCount === 1
+        ? ' Sa plante, ses photos et son historique d’entretien seront supprimés.'
+        : ` Ses ${plantCount} plantes, leurs photos et leur historique d’entretien seront supprimés.`
+
+  async function handleDeleteGarden() {
+    // Le nom d'avant : à la fin de l'attente, la barre affiche déjà le jardin
+    // sur lequel on vient de basculer.
+    const deletedName = name
+    setDeleting(true)
+    try {
+      await onDeleteGarden()
+      setDeleteOpen(false)
+      toast(`🗑️ ${deletedName} a été supprimé`)
+    } catch {
+      toast('❌ Le jardin n’a pas pu être supprimé')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   function commitName() {
     setEditing(false)
@@ -57,10 +94,9 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, o
   return (
     <>
       <div className="flex items-center justify-between px-4 h-[52px] shrink-0 bg-white border-b border-forest/10">
-        {/* Left: breadcrumb + name */}
+        {/* Left: jardin courant + renommage */}
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-lg shrink-0" aria-hidden>🌱</span>
-          <span className="font-raleway text-xs text-forest/40 hidden sm:block shrink-0">Mon jardin /</span>
           {editing ? (
             <input
               ref={inputRef}
@@ -73,13 +109,31 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, o
               autoFocus
             />
           ) : (
-            <button
-              onDoubleClick={() => { setDraft(name); setEditing(true) }}
-              className="font-poppins font-semibold text-sm text-forest hover:text-forest/70 truncate max-w-[180px]"
-              title="Double-clic pour renommer"
-            >
-              {name}
-            </button>
+            <>
+              <GardenSwitcher
+                gardens={gardens}
+                currentId={currentGardenId}
+                onSelect={onSelectGarden}
+                onCreate={onCreateGarden}
+              />
+              <button
+                onClick={() => { setDraft(name); setEditing(true) }}
+                className="p-1.5 rounded-lg text-forest/60 hover:bg-sand hover:text-forest transition-colors shrink-0"
+                title="Renommer ce jardin"
+                aria-label="Renommer ce jardin"
+              >
+                <Pencil size={14} aria-hidden />
+              </button>
+              <button
+                onClick={() => setDeleteOpen(true)}
+                disabled={!currentGardenId}
+                className="p-1.5 rounded-lg text-forest/60 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Supprimer ce jardin"
+                aria-label="Supprimer ce jardin"
+              >
+                <Trash2 size={14} aria-hidden />
+              </button>
+            </>
           )}
 
           {/* Annuler / Rétablir */}
@@ -219,6 +273,40 @@ export function GardenToolbar({ name, onNameChange, onSave, onExport, onClear, o
               className="px-4 py-2 rounded-lg font-poppins font-semibold text-sm bg-red-500 text-white hover:bg-red-600 transition-colors"
             >
               Effacer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Suppression du jardin lui-même — à ne pas confondre avec « Effacer »,
+          qui ne vide que le plan. */}
+      <AlertDialog open={deleteOpen} onOpenChange={open => !deleting && setDeleteOpen(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer « {name} » ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {`Son plan, ses zones et son planning seront perdus.${plantsAfterDelete} Cette action est définitive.`}
+            </AlertDialogDescription>
+            <p className="mt-2 font-raleway text-sm font-semibold text-forest">
+              {plantCount > 0
+                ? 'Confirmes-tu la suppression du jardin et de ses plantes ?'
+                : 'Confirmes-tu la suppression de ce jardin ?'}
+            </p>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={deleting}
+              onClick={() => setDeleteOpen(false)}
+              className="px-4 py-2 rounded-lg font-raleway text-sm text-forest/70 hover:bg-sand transition-colors"
+            >
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={e => { e.preventDefault(); void handleDeleteGarden() }}
+              className="px-4 py-2 rounded-lg font-poppins font-semibold text-sm bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-60"
+            >
+              {deleting ? 'Suppression…' : 'Supprimer le jardin'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
