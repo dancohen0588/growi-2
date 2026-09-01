@@ -1,6 +1,6 @@
-import { Text, View } from 'react-native'
+import { Pressable, Text, View } from 'react-native'
 import { Image } from 'expo-image'
-import { CalendarClock, Sparkles } from 'lucide-react-native'
+import { CalendarClock, MessageCircle, Sparkles } from 'lucide-react-native'
 import {
   DIAGNOSIS_CONFIDENCE_LABELS,
   DIAGNOSIS_LIKELIHOOD_LABELS,
@@ -37,9 +37,15 @@ export interface DiagnosisResultProps {
   result: DiagnosisSuccess
   /** URI locale de la photo prise, ou URL de celle déjà stockée. */
   photoUri?: string | null
+  /**
+   * Ouvre le fil de discussion sur ce diagnostic, avec une question déjà
+   * écrite quand elle porte sur une recommandation précise. Absent là où le
+   * fil n'est pas joignable — le résultat reste alors lisible tel quel.
+   */
+  onAsk?: (draft?: string) => void
 }
 
-export function DiagnosisResult({ result, photoUri }: DiagnosisResultProps) {
+export function DiagnosisResult({ result, photoUri, onAsk }: DiagnosisResultProps) {
   const status = STATUS_TONE[result.status]
 
   return (
@@ -122,6 +128,27 @@ export function DiagnosisResult({ result, photoUri }: DiagnosisResultProps) {
                 <Text className="font-raleway text-caption text-muted-foreground">
                   {reco.timeframe}
                 </Text>
+
+                {/* « Pulvérise une solution au bicarbonate » ne dit rien à qui
+                    n'a jamais pulvérisé quoi que ce soit. */}
+                {onAsk ? (
+                  <Pressable
+                    onPress={() =>
+                      onAsk(
+                        `Peux-tu m'expliquer : « ${reco.shortAction ?? reco.action} » ?`,
+                      )
+                    }
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Demander des précisions sur : ${reco.shortAction ?? reco.action}`}
+                    className="mt-1 flex-row items-center gap-1.5"
+                  >
+                    <MessageCircle size={13} color="#1E5631" />
+                    <Text className="font-raleway-medium text-caption text-forest">
+                      Pas clair&nbsp;? Demande à Growi
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             </View>
           ))}
@@ -135,6 +162,21 @@ export function DiagnosisResult({ result, photoUri }: DiagnosisResultProps) {
             {result.followUp}
           </Text>
         </View>
+      ) : null}
+
+      {onAsk ? (
+        <Pressable
+          onPress={() => onAsk()}
+          accessibilityRole="button"
+          accessibilityLabel="Discuter de ce diagnostic"
+          className="min-h-11 flex-row items-center justify-center gap-2 rounded-xl border border-forest px-4 py-3"
+          style={({ pressed }) => (pressed ? { opacity: 0.8 } : null)}
+        >
+          <MessageCircle size={18} color="#1E5631" />
+          <Text className="font-raleway-semibold text-body text-forest">
+            Discuter de ce diagnostic
+          </Text>
+        </Pressable>
       ) : null}
 
       <View className="flex-row items-start gap-2">

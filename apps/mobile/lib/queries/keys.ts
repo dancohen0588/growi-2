@@ -29,6 +29,17 @@ export const diagnosisKeys = {
     [...diagnosisKeys.all, 'detail', plantId, diagnosisId] as const,
 }
 
+/**
+ * Les fils sont mis en cache par **ancrage** et non par identifiant : l'écran
+ * s'ouvre depuis une plante ou un diagnostic, sans savoir si une conversation
+ * existe déjà — c'est le serveur qui le dit.
+ */
+export const chatKeys = {
+  all: ['chat'] as const,
+  thread: (anchorKey: string) => [...chatKeys.all, 'thread', anchorKey] as const,
+  forPlant: (plantInstanceId: string) => [...chatKeys.all, 'plante', plantInstanceId] as const,
+}
+
 export const planningKeys = {
   all: ['planning'] as const,
   today: () => [...planningKeys.all, 'today'] as const,

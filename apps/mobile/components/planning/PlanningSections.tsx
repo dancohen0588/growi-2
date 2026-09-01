@@ -26,6 +26,8 @@ export interface PlanningSectionsProps {
   showGardenNames: boolean
   onDone: (task: PlanningTask) => void
   onOpenPlant: (task: PlanningTask) => (() => void) | undefined
+  /** Ouvre le fil de discussion sur la tâche — absent si la pile n'y mène pas. */
+  onAsk?: (task: PlanningTask) => (() => void) | undefined
 }
 
 /**
@@ -43,6 +45,7 @@ export function PlanningSections({
   showGardenNames,
   onDone,
   onOpenPlant,
+  onAsk,
 }: PlanningSectionsProps) {
   return (
     <>
@@ -71,6 +74,7 @@ export function PlanningSections({
                     gardenName={showGardenNames ? task.gardenName : undefined}
                     onDone={() => onDone(task)}
                     onOpenPlant={onOpenPlant(task)}
+                    onAsk={onAsk?.(task)}
                   />
                 ))}
               </ScrollView>
@@ -83,6 +87,7 @@ export function PlanningSections({
                     subtitle={showGardenNames ? task.gardenName : undefined}
                     onDone={() => onDone(task)}
                     onOpenPlant={onOpenPlant(task)}
+                    onAsk={onAsk?.(task)}
                   />
                 ))}
               </View>

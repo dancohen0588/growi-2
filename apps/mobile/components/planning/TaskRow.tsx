@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native'
 import { Image } from 'expo-image'
-import { Check, ChevronRight, Stethoscope } from 'lucide-react-native'
+import { Check, ChevronRight, MessageCircle, Stethoscope } from 'lucide-react-native'
 import type { GardenAction } from '@growi/shared'
 
 import { ActionIcon, CareIconBadge } from '@/components/plants/CareIcon'
@@ -16,6 +16,8 @@ export interface TaskRowProps {
   showPlantName?: boolean
   /** Précision supplémentaire : le jardin, quand l'utilisateur en a plusieurs. */
   subtitle?: string
+  /** Ouvre le fil de discussion sur cette tâche — « Comment faire ? ». */
+  onAsk?: () => void
 }
 
 export function TaskRow({
@@ -24,6 +26,7 @@ export function TaskRow({
   onOpenPlant,
   showPlantName = true,
   subtitle,
+  onAsk,
 }: TaskRowProps) {
   const due = formatDueDate(action.dueDate)
 
@@ -94,6 +97,18 @@ export function TaskRow({
 
       {/* Valider est l'action principale de la ligne : un vrai bouton lime,
           pas une case à cocher qu'on cherche du regard. */}
+      {onAsk ? (
+        <Pressable
+          onPress={onAsk}
+          accessibilityRole="button"
+          accessibilityLabel={`Comment faire : ${action.shortLabel}`}
+          className="h-11 w-11 items-center justify-center rounded-lg bg-sand-dark"
+          style={({ pressed }) => (pressed ? { opacity: 0.8 } : null)}
+        >
+          <MessageCircle size={18} color="#1E5631" />
+        </Pressable>
+      ) : null}
+
       <Pressable
         onPress={onDone}
         accessibilityRole="button"

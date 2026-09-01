@@ -1,4 +1,5 @@
 import { createGrowiApiClient } from '@growi/api-client'
+import { fetch as expoFetch } from 'expo/fetch'
 
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from './auth-storage'
 
@@ -92,3 +93,23 @@ export const api = createGrowiApiClient({
 
 /** Client sans rafraîchissement — pour la connexion et l'inscription. */
 export const publicApi = bareClient
+
+/**
+ * Client du fil de discussion, sur le `fetch` d'Expo.
+ *
+ * Celui du moteur ne donne pas de `response.body` : la réponse n'arriverait
+ * qu'une fois complète, et le streaming disparaîtrait sans qu'aucune erreur ne
+ * le signale. `expo/fetch` l'expose en `ReadableStream`.
+ *
+ * C'est un second client plutôt qu'un changement du principal : une seule
+ * route a besoin de lire un flux, et faire passer tous les appels — dont les
+ * envois `multipart/form-data` de photos — par une autre pile HTTP pour la
+ * servir serait un risque sans contrepartie. Les deux partagent le même verrou
+ * de rafraîchissement, qui vit dans ce module.
+ */
+export const chatApi = createGrowiApiClient({
+  baseUrl: API_BASE_URL,
+  getAccessToken,
+  onUnauthorized: refreshSession,
+  fetch: expoFetch as unknown as typeof fetch,
+})

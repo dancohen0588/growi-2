@@ -7,6 +7,7 @@ import {
   type HealthStatus,
 } from '@growi/shared'
 
+import { diagnosisChatQuery } from '@/components/chat/links'
 import { DiagnosisResult } from '@/components/diagnosis/DiagnosisResult'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
@@ -33,10 +34,12 @@ function DiagnosisDetail({
   plantId,
   diagnosisId,
   tasksPlannedAt,
+  onChat,
 }: {
   plantId: string
   diagnosisId: string
   tasksPlannedAt: string | null | undefined
+  onChat?: (query: string) => void
 }) {
   const detail = useDiagnosis(plantId, diagnosisId)
   const planActions = usePlanDiagnosisActions(plantId)
@@ -64,7 +67,11 @@ function DiagnosisDetail({
 
   return (
     <View className="gap-4 pt-3">
-      <DiagnosisResult result={detail.data.result} photoUri={detail.data.photoUrl} />
+      <DiagnosisResult
+        result={detail.data.result}
+        photoUri={detail.data.photoUrl}
+        onAsk={onChat ? (draft) => onChat(diagnosisChatQuery(diagnosisId, draft)) : undefined}
+      />
 
       {/* Un diagnostic relu se planifie aussi bien qu'un diagnostic frais :
           on repense souvent à une recommandation après coup. */}
@@ -91,9 +98,12 @@ function DiagnosisDetail({
 export function DiagnosisHistoryList({
   plantId,
   items,
+  onChat,
 }: {
   plantId: string
   items: DiagnosisListItem[]
+  /** Ouvre le fil sur un diagnostic passé — on y revient souvent après coup. */
+  onChat?: (query: string) => void
 }) {
   const [openId, setOpenId] = useState<string | null>(null)
 
@@ -148,6 +158,7 @@ export function DiagnosisHistoryList({
                 plantId={plantId}
                 diagnosisId={item.id}
                 tasksPlannedAt={item.tasksPlannedAt}
+                onChat={onChat}
               />
             ) : null}
           </View>

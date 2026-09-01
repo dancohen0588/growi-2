@@ -16,6 +16,7 @@ import {
   Camera,
   ChevronLeft,
   Droplets,
+  MessageCircle,
   Pencil,
   Plus,
   Scissors,
@@ -34,6 +35,7 @@ import {
   type SunExposure,
 } from '@growi/shared'
 
+import { actionChatQuery } from '@/components/chat/links'
 import { DiagnosisHistoryList } from '@/components/diagnosis/DiagnosisHistoryList'
 import { CareHistory } from '@/components/plants/CareHistory'
 import { CareLogSheet } from '@/components/plants/CareLogSheet'
@@ -104,6 +106,11 @@ export interface PlantDetailProps {
   onEdit: () => void
   /** Ouvre le diagnostic dans la pile courante, même raison. */
   onDiagnose: () => void
+  /**
+   * Ouvre le fil de discussion. Reçoit la chaîne de requête à coller au
+   * chemin — l'ancrage change d'un point d'entrée à l'autre.
+   */
+  onChat: (query: string) => void
 }
 
 /**
@@ -113,7 +120,7 @@ export interface PlantDetailProps {
  * navigation, pour que le retour ramène là d'où l'on vient, mais l'écran doit
  * rester le même.
  */
-export function PlantDetail({ plantId, onEdit, onDiagnose }: PlantDetailProps) {
+export function PlantDetail({ plantId, onEdit, onDiagnose, onChat }: PlantDetailProps) {
   const router = useRouter()
   const toast = useToast()
 
@@ -356,14 +363,23 @@ export function PlantDetail({ plantId, onEdit, onDiagnose }: PlantDetailProps) {
           />
         </View>
 
-        {/* Le diagnostic mérite sa propre place : il ouvre un écran, là où les
-            gestes rapides s'exécutent sur-le-champ. */}
-        <Button
-          label="Diagnostiquer ma plante"
-          size="lg"
-          onPress={onDiagnose}
-          icon={<Stethoscope size={20} color="#1E5631" />}
-        />
+        {/* Diagnostic et discussion ouvrent chacun un écran, là où les gestes
+            rapides s'exécutent sur-le-champ. Le diagnostic part d'une photo,
+            la discussion d'une question : deux entrées, pas une. */}
+        <View className="gap-2">
+          <Button
+            label="Diagnostiquer ma plante"
+            size="lg"
+            onPress={onDiagnose}
+            icon={<Stethoscope size={20} color="#1E5631" />}
+          />
+          <Button
+            label="Poser une question"
+            variant="outline"
+            onPress={() => onChat('?kind=plant')}
+            icon={<MessageCircle size={20} color="#1E5631" />}
+          />
+        </View>
 
         {/* Ce que le moteur conseille aujourd'hui pour cette plante, validable
             sans repasser par le calendrier. */}
@@ -376,6 +392,7 @@ export function PlantDetail({ plantId, onEdit, onDiagnose }: PlantDetailProps) {
                 action={action}
                 showPlantName={false}
                 onDone={() => completeTask(gardenId, action)}
+                onAsk={() => onChat(actionChatQuery(action))}
               />
             ))}
           </View>
@@ -416,7 +433,7 @@ export function PlantDetail({ plantId, onEdit, onDiagnose }: PlantDetailProps) {
 
         {/* Diagnostics passés — rien ne s'affiche tant qu'il n'y en a pas. */}
         {diagnoses.data ? (
-          <DiagnosisHistoryList plantId={plantId} items={diagnoses.data} />
+          <DiagnosisHistoryList plantId={plantId} items={diagnoses.data} onChat={onChat} />
         ) : null}
 
         {/* Historique */}
