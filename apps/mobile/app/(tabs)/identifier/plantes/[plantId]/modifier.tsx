@@ -1,3 +1,3 @@
 import { plantEditorRoute } from '@/components/plants/plantRoutes'
 
-export default plantEditorRoute()
+export default plantEditorRoute('/(tabs)/identifier')

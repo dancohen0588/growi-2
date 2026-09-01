@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
+import { useRouter, type Href } from 'expo-router'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -58,7 +58,13 @@ function displayName(plant: PlantInstanceWithRelations): string {
 }
 
 /** Monté une fois la plante chargée, pour que les valeurs par défaut soient justes. */
-function PlantForm({ plant }: { plant: PlantInstanceWithRelations }) {
+function PlantForm({
+  plant,
+  afterDeleteHref,
+}: {
+  plant: PlantInstanceWithRelations
+  afterDeleteHref: Href
+}) {
   const router = useRouter()
   const updatePlant = useUpdatePlant(plant.id)
   const deletePlant = useDeletePlant()
@@ -111,7 +117,11 @@ function PlantForm({ plant }: { plant: PlantInstanceWithRelations }) {
           onPress: async () => {
             try {
               await deletePlant.mutateAsync(plant.id)
-              router.back()
+              // `back()` ramènerait sur la fiche de la plante, qui vient
+              // d'être supprimée : l'écran n'y afficherait plus que « Cet
+              // élément n'existe plus ». On dépile jusqu'à la liste d'où l'on
+              // vient, en retirant la fiche au passage.
+              router.dismissTo(afterDeleteHref)
             } catch (error) {
               Alert.alert('Suppression impossible', errorMessage(error))
             }
@@ -255,7 +265,14 @@ function PlantForm({ plant }: { plant: PlantInstanceWithRelations }) {
  * Édition d'une plante, partagée par les piles de chaque onglet —
  * `router.back()` referme la modale quelle que soit la pile.
  */
-export function PlantEditor({ plantId }: { plantId: string }) {
+export function PlantEditor({
+  plantId,
+  afterDeleteHref,
+}: {
+  plantId: string
+  /** Où revenir quand la plante a été supprimée — voir `PlantForm`. */
+  afterDeleteHref: Href
+}) {
   const router = useRouter()
   const plant = usePlant(plantId)
 
@@ -287,7 +304,7 @@ export function PlantEditor({ plantId }: { plantId: string }) {
         ) : plant.isError ? (
           <ErrorState message={errorMessage(plant.error)} onRetry={() => void plant.refetch()} />
         ) : (
-          <PlantForm plant={plant.data} />
+          <PlantForm plant={plant.data} afterDeleteHref={afterDeleteHref} />
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
