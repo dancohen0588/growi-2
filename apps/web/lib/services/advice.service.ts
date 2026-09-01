@@ -15,11 +15,7 @@ import {
   invalidateGardenAdviceCache,
 } from '@/lib/recommendation/garden-advice-service'
 import type { GardenAdviceResult, PlantAdvice } from '@/lib/recommendation/types'
-import {
-  assertGardenOwned,
-  findLatestGarden,
-  listGardens,
-} from '@/lib/services/garden.service'
+import { assertGardenOwned, listGardens } from '@/lib/services/garden.service'
 import { logCare } from '@/lib/services/log.service'
 import { completeTask, listOpenTasksAsActions } from '@/lib/services/task.service'
 
@@ -69,32 +65,13 @@ export async function getPlantAdvice(
 }
 
 /**
- * Conseils du jardin courant (le plus récent), ou `null` si l'utilisateur n'a
- * pas encore de jardin. Une erreur du moteur n'est pas fatale : l'écran doit
- * s'afficher même sans recommandation.
- */
-export async function getCurrentGardenAdvice(userId: string): Promise<{
-  gardenId: string
-  advice: GardenAdviceResult | null
-} | null> {
-  const garden = await findLatestGarden(userId)
-  if (!garden) return null
-
-  try {
-    const advice = await computeGardenAdvice(garden.id, userId)
-    return { gardenId: garden.id, advice: await withTasks(advice, userId, garden.id) }
-  } catch (err) {
-    console.error('[advice.service] getCurrentGardenAdvice:', err)
-    return { gardenId: garden.id, advice: null }
-  }
-}
-
-/**
  * Conseils de tous les jardins de l'utilisateur, du plus récent au plus ancien.
  *
- * L'écran d'accueil du mobile les présente en sections : ne retenir que le
- * dernier jardin reviendrait à taire le travail à faire dans les autres. Une
- * erreur du moteur sur un jardin n'en fait pas disparaître les autres.
+ * L'écran d'accueil du mobile les présente en sections, le calendrier web les
+ * réunit en une liste : ne retenir que le dernier jardin reviendrait à taire
+ * le travail à faire dans les autres — c'est exactement ce que faisait le web,
+ * qui semblait alors avoir perdu les jardins créés depuis l'app. Une erreur du
+ * moteur sur un jardin n'en fait pas disparaître les autres.
  */
 export async function getGardensAdvice(userId: string): Promise<
   Array<{ garden: { id: string; name: string }; advice: GardenAdviceResult | null }>

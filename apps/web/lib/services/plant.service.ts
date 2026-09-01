@@ -255,13 +255,18 @@ export async function deletePlantInstance(plantInstanceId: string, userId: strin
 
   // Les photos déposées par l'utilisateur s'en vont avec la plante : les logs
   // partent en cascade côté base, mais leurs fichiers, eux, resteraient.
-  const [plant, logs] = await Promise.all([
+  const [plant, logs, diagnoses] = await Promise.all([
     prisma.plantInstance.findUnique({
       where: { id: plantInstanceId },
       select: { photoUrl: true },
     }),
     prisma.careLog.findMany({
       where: { plantInstanceId, photoUrl: { not: null } },
+      select: { photoUrl: true },
+    }),
+    // Les photos de diagnostic aussi : elles vivent sur le même bucket.
+    prisma.diagnosis.findMany({
+      where: { plantInstanceId },
       select: { photoUrl: true },
     }),
   ])
@@ -273,6 +278,7 @@ export async function deletePlantInstance(plantInstanceId: string, userId: strin
   await Promise.all([
     deletePhotoByUrl(plant?.photoUrl),
     ...logs.map((log) => deletePhotoByUrl(log.photoUrl)),
+    ...diagnoses.map((diagnosis) => deletePhotoByUrl(diagnosis.photoUrl)),
   ])
 
   if (gardenId) await invalidateGardenAdviceCache(gardenId)

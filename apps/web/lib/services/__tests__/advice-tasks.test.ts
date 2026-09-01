@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// La fusion des tâches planifiées avec les actions du moteur, sur les quatre
+// La fusion des tâches planifiées avec les actions du moteur, sur les trois
 // portes d'entrée du service. En rater une, c'est une surface entière — le
 // calendrier web, l'Accueil mobile — où les tâches n'apparaîtraient jamais.
 
@@ -11,7 +11,6 @@ const engine = vi.hoisted(() => ({
 }))
 const gardenService = vi.hoisted(() => ({
   assertGardenOwned: vi.fn(),
-  findLatestGarden: vi.fn(),
   listGardens: vi.fn(),
 }))
 const logService = vi.hoisted(() => ({ logCare: vi.fn() }))
@@ -26,7 +25,6 @@ vi.mock('@/lib/services/log.service', () => logService)
 vi.mock('@/lib/services/task.service', () => taskService)
 
 const {
-  getCurrentGardenAdvice,
   getGardenAdvice,
   getGardensAdvice,
   getPlantAdvice,
@@ -51,12 +49,11 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {})
   engine.getGardenAdvice.mockResolvedValue(advice())
   gardenService.assertGardenOwned.mockResolvedValue(undefined)
-  gardenService.findLatestGarden.mockResolvedValue({ id: GARDEN, name: 'Potager' })
   gardenService.listGardens.mockResolvedValue([{ id: GARDEN, name: 'Potager' }])
   taskService.listOpenTasksAsActions.mockResolvedValue([taskAction])
 })
 
-describe('fusion sur les quatre portes d’entrée', () => {
+describe('fusion sur les trois portes d’entrée', () => {
   it('getGardenAdvice ajoute les tâches aux actions du moteur', async () => {
     const result = await getGardenAdvice(GARDEN, USER)
 
@@ -65,13 +62,7 @@ describe('fusion sur les quatre portes d’entrée', () => {
     expect(taskService.listOpenTasksAsActions).toHaveBeenCalledWith(USER, { gardenId: GARDEN })
   })
 
-  it('getCurrentGardenAdvice aussi — c’est par là que passe le calendrier web', async () => {
-    const result = await getCurrentGardenAdvice(USER)
-
-    expect(result?.advice?.actions).toEqual([taskAction, engineAction])
-  })
-
-  it('getGardensAdvice aussi — c’est par là que passe l’Accueil mobile', async () => {
+  it('getGardensAdvice aussi — c’est par là que passent l’Accueil mobile et le calendrier web', async () => {
     const [first] = await getGardensAdvice(USER)
 
     expect(first.advice?.actions).toEqual([taskAction, engineAction])
