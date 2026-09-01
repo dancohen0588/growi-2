@@ -7,6 +7,8 @@
  */
 
 import type {
+  AcceptProposalInput,
+  AcceptProposalResponse,
   AddIdentifiedPlantInput,
   AlertConfig,
   AuthTokens,
@@ -15,6 +17,9 @@ import type {
   BlogTag,
   CareLog,
   CareLogs,
+  ChatStreamEvent,
+  Conversation,
+  ConversationDetail,
   CreateCareLogInput,
   CreateGardenInput,
   CreatePlantInstanceInput,
@@ -32,11 +37,13 @@ import type {
   MarkActionDoneInput,
   MobileLoginInput,
   MobileRegisterInput,
+  OpenConversationInput,
   PlanDiagnosisResponse,
   PlantCatalog,
   PhotoKind,
   PlantInstanceWithRelations,
   RegisterPushTokenInput,
+  SendMessageInput,
   SocialLoginInput,
   SocialProvider,
   TodayPlanning,
@@ -48,6 +55,9 @@ import type {
   UserProfile,
 } from '@growi/shared'
 
+import { chatStreamEventSchema } from '@growi/shared'
+
+import { ApiError, CLIENT_ERROR_CODES } from './errors'
 import { HttpClient, type ApiClientOptions, type RequestOptions } from './http'
 
 /**
@@ -439,7 +449,96 @@ export class GrowiApiClient {
         { ...options },
       ),
   }
+
+  // ─── Agent conversationnel ───────────────────────────────────────────────
+
+  readonly chat = {
+    /**
+     * Ouvre le fil d'un ancrage, ou retrouve le sien.
+     *
+     * Un même point d'entrée rouvert rend la conversation existante avec ses
+     * messages : l'écran n'a pas à distinguer les deux cas.
+     */
+    open: (input: OpenConversationInput, options?: CallOptions): Promise<ConversationDetail> =>
+      this.http.request('/api/v1/conversations', { ...options, method: 'POST', body: input }),
+
+    get: (conversationId: string, options?: CallOptions): Promise<ConversationDetail> =>
+      this.http.request(`/api/v1/conversations/${encodeURIComponent(conversationId)}`, {
+        ...options,
+      }),
+
+    listForPlant: (plantInstanceId: string, options?: CallOptions): Promise<Conversation[]> =>
+      this.http.request('/api/v1/conversations', { ...options, query: { plantInstanceId } }),
+
+    /**
+     * Envoie un message et rend la réponse au fil de l'eau.
+     *
+     * Un refus — quota atteint, image illisible — lève une `ApiError` avant le
+     * premier événement : l'appelant peut donc l'attraper autour de la boucle.
+     *
+     * En React Native, il faut le `fetch` d'`expo/fetch` : celui du moteur ne
+     * donne pas de `response.body`, et la réponse n'arriverait qu'une fois
+     * complète.
+     */
+    send: (
+      conversationId: string,
+      input: SendMessageInput,
+      options?: CallOptions,
+    ): AsyncGenerator<ChatStreamEvent> => this.streamMessage(conversationId, input, options),
+
+    /**
+     * Confirme une proposition. Idempotent : reconfirmer rend le message tel
+     * quel, le bouton peut donc être retapé sans risque.
+     */
+    acceptProposal: (
+      conversationId: string,
+      input: AcceptProposalInput,
+      options?: CallOptions,
+    ): Promise<AcceptProposalResponse> =>
+      this.http.request(
+        `/api/v1/conversations/${encodeURIComponent(conversationId)}/proposals/accept`,
+        { ...options, method: 'POST', body: input },
+      ),
+  }
+
+  /**
+   * Le flux d'une réponse, validé événement par événement.
+   *
+   * Un nom d'événement inconnu est **ignoré** : un serveur plus récent doit
+   * pouvoir en ajouter sans casser les apps déjà installées. Un événement
+   * connu dont les données ne tiennent pas est en revanche une vraie
+   * incohérence, et lève.
+   */
+  private async *streamMessage(
+    conversationId: string,
+    input: SendMessageInput,
+    options?: CallOptions,
+  ): AsyncGenerator<ChatStreamEvent> {
+    const stream = this.http.stream(
+      `/api/v1/conversations/${encodeURIComponent(conversationId)}/messages`,
+      { ...options, method: 'POST', body: input },
+    )
+
+    for await (const raw of stream) {
+      if (!CHAT_STREAM_EVENTS.has(raw.event)) continue
+
+      const parsed = chatStreamEventSchema.safeParse(raw)
+      if (!parsed.success) {
+        throw new ApiError(
+          200,
+          CLIENT_ERROR_CODES.INVALID_RESPONSE,
+          `Événement « ${raw.event} » illisible dans la réponse.`,
+          raw,
+        )
+      }
+
+      yield parsed.data
+    }
+  }
 }
+
+/** Les événements que cette version du client sait lire. */
+const CHAT_STREAM_EVENTS = new Set(['meta', 'text', 'proposals', 'done', 'error'])
 
 /** Fabrique du client, à préférer au constructeur dans le code applicatif. */
 export function createGrowiApiClient(options: ApiClientOptions): GrowiApiClient {
