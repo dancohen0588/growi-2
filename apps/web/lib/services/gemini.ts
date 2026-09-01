@@ -220,7 +220,7 @@ export type ChatPart = { text: string } | { inlineData: GeminiImage }
 
 export type ChatTurn = { role: 'user' | 'model'; parts: ChatPart[] }
 
-export type ChatStreamEvent =
+export type GeminiChatEvent =
   | { type: 'text'; delta: string }
   | { type: 'functionCall'; name: string; args: unknown }
   | { type: 'done'; model: string }
@@ -252,7 +252,7 @@ export async function* streamChat(input: {
   maxOutputTokens: number
   /** Préfixe des logs, ex. `chat`. */
   logLabel: string
-}): AsyncGenerator<ChatStreamEvent> {
+}): AsyncGenerator<GeminiChatEvent> {
   const genAI = new GoogleGenerativeAI(input.apiKey)
   let lastStatus: number | null = null
 

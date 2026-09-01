@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ChatStreamEvent } from '../gemini'
+import type { GeminiChatEvent } from '../gemini'
 
 // Socle partagé par l'identification et le diagnostic : ce qu'il refuse (image
 // trop lourde, format inconnu) et son repli d'un modèle à l'autre valent pour
@@ -254,8 +254,8 @@ describe('streamChat', () => {
     }
   }
 
-  async function collect(events: AsyncGenerator<ChatStreamEvent>): Promise<ChatStreamEvent[]> {
-    const out: ChatStreamEvent[] = []
+  async function collect(events: AsyncGenerator<GeminiChatEvent>): Promise<GeminiChatEvent[]> {
+    const out: GeminiChatEvent[] = []
     for await (const event of events) out.push(event)
     return out
   }

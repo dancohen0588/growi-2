@@ -8,7 +8,7 @@ import { z } from 'zod'
  */
 
 /** À quoi la photo est destinée — le serveur en tire le chemin de rangement. */
-export const PHOTO_KINDS = ['plant', 'care-log', 'diagnosis'] as const
+export const PHOTO_KINDS = ['plant', 'care-log', 'diagnosis', 'chat'] as const
 export const photoKindSchema = z.enum(PHOTO_KINDS)
 export type PhotoKind = z.infer<typeof photoKindSchema>
 

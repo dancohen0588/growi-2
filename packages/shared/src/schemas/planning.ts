@@ -60,6 +60,17 @@ export const ACTION_PRIORITIES = ['high', 'medium', 'low'] as const
 export const actionPrioritySchema = z.enum(ACTION_PRIORITIES)
 export type ActionPriority = z.infer<typeof actionPrioritySchema>
 
+/**
+ * D'où vient une tâche persistée (`PlantTask.source`).
+ *
+ * Une tâche n'est jamais créée d'office : elle vient d'une recommandation de
+ * diagnostic acceptée, ou d'une proposition du chat confirmée. Savoir laquelle
+ * est ce qui permettra un jour de dire à l'utilisateur pourquoi elle est là.
+ */
+export const TASK_SOURCES = ['DIAGNOSIS', 'CHAT'] as const
+export const taskSourceSchema = z.enum(TASK_SOURCES)
+export type TaskSource = z.infer<typeof taskSourceSchema>
+
 export const gardenActionSchema = z.object({
   id: z.string(),
   type: actionTypeSchema,
