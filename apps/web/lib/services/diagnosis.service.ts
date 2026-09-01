@@ -33,6 +33,7 @@ import {
   parseImagePayload,
   requireGeminiKey,
   stripFence,
+  toArrayBuffer,
   type GeminiImage,
 } from '@/lib/services/gemini'
 import { logHealth } from '@/lib/services/log.service'
@@ -150,19 +151,6 @@ async function fetchExistingPhoto(photoUrl: string | null): Promise<GeminiImage>
   const bytes = Buffer.from(await response.arrayBuffer())
   const mimeType = response.headers.get('content-type') ?? 'image/jpeg'
   return { mimeType, data: bytes.toString('base64') }
-}
-
-/**
- * Décode du base64 en `ArrayBuffer` **autonome**.
- *
- * `Buffer.from(…).buffer` ne convient pas : Node alloue les petits tampons
- * dans un pool partagé de 8 Ko, et l'`ArrayBuffer` sous-jacent est alors ce
- * pool entier — avec, autour de notre image, les octets d'autres traitements
- * en cours. On recopie donc la seule tranche qui nous appartient.
- */
-function toArrayBuffer(base64: string): ArrayBuffer {
-  const bytes = Buffer.from(base64, 'base64')
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
 }
 
 // ─── Diagnostic ────────────────────────────────────────────────────────────

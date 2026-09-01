@@ -72,6 +72,19 @@ export function parseImagePayload(imageBase64: unknown): GeminiImage {
   return parsed
 }
 
+/**
+ * Décode une charge base64 en `ArrayBuffer` **autonome**, prêt pour le dépôt.
+ *
+ * `Buffer.from(…).buffer` ne convient pas : Node alloue les petits tampons
+ * dans un pool partagé de 8 Ko, et l'`ArrayBuffer` sous-jacent est alors ce
+ * pool entier — avec, autour de notre image, les octets d'autres traitements
+ * en cours. On recopie donc la seule tranche qui nous appartient.
+ */
+export function toArrayBuffer(base64: string): ArrayBuffer {
+  const bytes = Buffer.from(base64, 'base64')
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+}
+
 /** @throws ServiceError('UNAVAILABLE') si `GEMINI_API_KEY` n'est pas configurée. */
 export function requireGeminiKey(message: string): string {
   const key = process.env.GEMINI_API_KEY

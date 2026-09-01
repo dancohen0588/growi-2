@@ -34,7 +34,8 @@ const DUE_IN_DAYS_BY_PRIORITY: Record<DiagnosisPriority, number> = {
   watch: 7,
 }
 
-const PRIORITY_BY_DIAGNOSIS: Record<DiagnosisPriority, ActionPriority> = {
+/** Urgence d'une recommandation → priorité de la carte du planning. */
+export const PRIORITY_BY_DIAGNOSIS: Record<DiagnosisPriority, ActionPriority> = {
   urgent: 'high',
   soon: 'medium',
   watch: 'low',

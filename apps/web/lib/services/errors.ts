@@ -13,6 +13,12 @@ export type ServiceErrorCode =
   | 'CONFLICT'
   | 'INVALID_INPUT'
   | 'RATE_LIMITED'
+  /**
+   * Plafond d'usage d'un compte atteint — distinct de `RATE_LIMITED`, qui
+   * freine un débit. Le client en fait un message tout autre : « reviens
+   * demain », et non « réessaie dans un instant ».
+   */
+  | 'QUOTA_EXCEEDED'
   | 'UNAVAILABLE'
   | 'INTERNAL'
 
@@ -38,6 +44,7 @@ export const SERVICE_ERROR_STATUS: Record<ServiceErrorCode, number> = {
   CONFLICT: 409,
   INVALID_INPUT: 400,
   RATE_LIMITED: 429,
+  QUOTA_EXCEEDED: 429,
   UNAVAILABLE: 503,
   INTERNAL: 500,
 }
