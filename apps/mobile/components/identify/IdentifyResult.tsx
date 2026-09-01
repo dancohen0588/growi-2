@@ -4,7 +4,7 @@ import { AlertTriangle, Lightbulb } from 'lucide-react-native'
 import type { IdentifyConfidence, IdentifyDifficulty, IdentifySuccess } from '@growi/shared'
 
 /** Ce que vaut l'identification, dit franchement. */
-const CONFIDENCE: Record<IdentifyConfidence, { label: string; tone: string }> = {
+export const CONFIDENCE: Record<IdentifyConfidence, { label: string; tone: string }> = {
   high: { label: '✓ Identification certaine', tone: 'bg-lime' },
   medium: { label: '~ Identification probable', tone: 'bg-sun' },
   low: { label: '? Identification incertaine', tone: 'bg-destructive/20' },
