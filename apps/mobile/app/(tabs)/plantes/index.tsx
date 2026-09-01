@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import { Plus } from 'lucide-react-native'
 import type {
   HealthStatus,
   PlantInstanceWithRelations,
@@ -9,8 +10,10 @@ import type {
 } from '@growi/shared'
 
 import { PlantGridCard, wateringProgress } from '@/components/plants/PlantGridCard'
+import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
 import { errorMessage } from '@/lib/errors'
+import { useGardens } from '@/lib/queries/gardens'
 import { useAllPlants } from '@/lib/queries/plants'
 
 /** Filtres du web, mêmes libellés et mêmes emojis. */
@@ -84,6 +87,7 @@ function FilterRow<T extends string>({
 export default function MesPlantesScreen() {
   const router = useRouter()
   const plants = useAllPlants()
+  const gardens = useGardens()
 
   const [location, setLocation] = useState<'all' | PlantLocation>('all')
   const [health, setHealth] = useState<'all' | HealthStatus>('all')
@@ -113,10 +117,22 @@ export default function MesPlantesScreen() {
   // Comme sur le web : une plante dont le cycle est écoulé demande de l'eau.
   const overdue = useMemo(() => all.filter((p) => wateringProgress(p) >= 100).length, [all])
 
+  // L'ajout se fait toujours dans un jardin : avec un seul, on y va tout droit,
+  // sinon on laisse choisir dans la liste des jardins plutôt que de deviner.
+  const goToNewPlant = useCallback(() => {
+    const list = gardens.data ?? []
+    if (list.length === 1) {
+      router.push(`/(tabs)/jardins/${list[0].id}/plantes/nouvelle`)
+      return
+    }
+    router.push('/(tabs)/jardins')
+  }, [gardens.data, router])
+
   return (
     <SafeAreaView className="flex-1 bg-sand" edges={['top', 'left', 'right']}>
       <ScrollView
-        contentContainerClassName="pb-8 pt-2 gap-4"
+        className="flex-1"
+        contentContainerClassName="pb-4 pt-2 gap-4"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#B4DD7F" />
@@ -193,6 +209,18 @@ export default function MesPlantesScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Action principale en bas, dans la zone du pouce — comme sur la fiche
+          d'un jardin. L'état vide porte déjà son propre CTA. */}
+      {all.length > 0 ? (
+        <View className="px-4 pb-4 pt-2">
+          <Button
+            label="Ajouter une plante"
+            onPress={goToNewPlant}
+            icon={<Plus size={20} color="#1E5631" />}
+          />
+        </View>
+      ) : null}
     </SafeAreaView>
   )
 }
