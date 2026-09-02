@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 
 const productLinks = [
   { href: '/fonctionnalites', label: 'Fonctionnalités' },
+  { href: '/identifier',      label: 'Identifier une plante' },
   { href: '/encyclopedie',    label: 'Encyclopédie' },
   { href: '/blog',            label: 'Blog' },
   { href: '/#app-mobile',     label: 'App mobile' },

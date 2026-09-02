@@ -314,6 +314,16 @@ export async function getCatalogPlant(id: string): Promise<PlantCatalog | null> 
   return prisma.plantCatalog.findUnique({ where: { id } })
 }
 
+/**
+ * Fiche du catalogue par son slug d'encyclopédie.
+ *
+ * C'est la clé que porte une identification photo, et donc celle qui voyage
+ * dans `/register?plant=…` jusqu'au formulaire d'ajout.
+ */
+export async function getCatalogPlantBySlug(slug: string): Promise<PlantCatalog | null> {
+  return prisma.plantCatalog.findFirst({ where: { slug } })
+}
+
 export interface CatalogPaletteItem {
   id: string
   commonName: string
