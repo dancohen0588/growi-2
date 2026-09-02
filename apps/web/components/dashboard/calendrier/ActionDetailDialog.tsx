@@ -34,9 +34,7 @@ function dialogTitle(action: GardenAction): string {
  * qui rend le conseil applicable.
  */
 export function ActionDetail({ action }: { action: GardenAction }) {
-  const openChat = useChatPanel()
   const [open, setOpen] = useState(false)
-  const chatParams = actionChatParams(action)
 
   if (!action.detail) return null
 
@@ -81,24 +79,38 @@ export function ActionDetail({ action }: { action: GardenAction }) {
               </p>
             )}
 
-            {/* Sans plante rattachée, il n'y a rien à demander : l'agent ne
-                répond que sur une plante précise. */}
-            {chatParams && (
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false)
-                  openChat(chatParams)
-                }}
-                className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-forest/25 px-4 py-2.5 font-poppins text-sm font-semibold text-forest transition-colors hover:bg-forest/5"
-              >
-                <MessageCircle size={16} aria-hidden />
-                Comment faire&nbsp;?
-              </button>
-            )}
           </div>
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+/**
+ * « Comment faire ? » — le fil de discussion sur cette action.
+ *
+ * À côté de « Voir le détail » et non dedans : la modale ne s'ouvre que pour
+ * les actions qui portent une consigne, c'est-à-dire celles issues d'un
+ * diagnostic. Les actions du moteur — « Tailler — Rosier » — n'en ont pas, et
+ * ce sont précisément celles sur lesquelles on a besoin d'aide.
+ *
+ * Sans plante rattachée, rien à demander : l'agent ne répond que sur une
+ * plante précise.
+ */
+export function ActionAskLink({ action }: { action: GardenAction }) {
+  const openChat = useChatPanel()
+  const params = actionChatParams(action)
+
+  if (!params) return null
+
+  return (
+    <button
+      type="button"
+      onClick={() => openChat(params)}
+      className="inline-flex items-center gap-1.5 self-start font-raleway text-xs font-semibold text-forest/70 underline underline-offset-2 transition-colors hover:text-forest"
+    >
+      <MessageCircle size={13} aria-hidden />
+      Comment faire&nbsp;?
+    </button>
   )
 }
