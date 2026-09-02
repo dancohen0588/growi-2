@@ -62,6 +62,25 @@ describe('sendContactEmail', () => {
     })
   })
 
+  it('traite un refus de Resend comme un échec, pas comme un succès', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // Le SDK tient sa promesse et met le refus dans `error` : c'est ainsi
+    // qu'arrive un domaine d'expéditeur non vérifié.
+    send.mockResolvedValue({
+      data: null,
+      error: { name: 'validation_error', message: 'x' },
+    })
+
+    const result = await sendContactEmail(form())
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Une erreur est survenue. Réessaie dans quelques instants.',
+    })
+    expect(consoleError).toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+
   it('répond poliment quand la clé Resend manque, sans lever', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.stubEnv('RESEND_API_KEY', '')

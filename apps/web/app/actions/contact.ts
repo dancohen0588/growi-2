@@ -72,7 +72,11 @@ export async function sendContactEmail(data: ContactFormData) {
   const { from, to } = addresses()
 
   try {
-    await resend.emails.send({
+    // Le SDK ne lève que sur une panne de transport. Un refus de l'API —
+    // domaine d'expéditeur non vérifié, adresse malformée, quota — arrive dans
+    // `error` avec une promesse tenue. L'ignorer afficherait « message envoyé »
+    // alors que rien n'est parti.
+    const result = await resend.emails.send({
       from:    `Growi Contact <${from}>`,
       to,
       replyTo: email,
@@ -112,6 +116,12 @@ export async function sendContactEmail(data: ContactFormData) {
         </div>
       `,
     })
+
+    if (result.error) {
+      console.error('Resend error:', result.error)
+      return { success: false, error: GENERIC_ERROR }
+    }
+
     return { success: true }
   } catch (err) {
     console.error('Resend error:', err)
