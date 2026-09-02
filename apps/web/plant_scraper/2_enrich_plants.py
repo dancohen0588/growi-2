@@ -41,7 +41,7 @@ def fetch_wikidata_name(scientific_name: str) -> str:
     query   = WIKIDATA_QUERY.format(scientific_name=scientific_name)
     headers = {
         "Accept":     "application/sparql-results+json",
-        "User-Agent": "GrowiPlantBot/1.0 (https://growi.app)",
+        "User-Agent": "GrowiPlantBot/1.0 (https://growi-garden.fr)",
     }
     try:
         resp = httpx.get(

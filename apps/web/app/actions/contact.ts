@@ -4,14 +4,14 @@ import { Resend } from 'resend'
 import { contactSchema, type ContactFormData, CONTACT_SUBJECTS } from '@/lib/schemas/contact-schema'
 
 /** Adresse de la boîte de contact, et repli proposé au visiteur si l'envoi échoue. */
-const CONTACT_EMAIL = 'contact@growi.app'
+const CONTACT_EMAIL = 'info@growi-garden.fr'
 
 /**
- * Resend n'expédie que depuis un domaine vérifié chez lui. Tant que `growi.app`
- * ne l'est pas, `CONTACT_FROM_EMAIL` permet d'emprunter un domaine qui l'est —
- * sans quoi chaque envoi est refusé, clé valide ou non. Le destinataire, lui,
- * peut être n'importe quelle adresse : la vérification ne porte que sur
- * l'expéditeur.
+ * Resend n'expédie que depuis un domaine vérifié chez lui. Tant que
+ * `growi-garden.fr` ne l'est pas, `CONTACT_FROM_EMAIL` permet d'emprunter un
+ * domaine qui l'est — sans quoi chaque envoi est refusé, clé valide ou non. Le
+ * destinataire, lui, peut être n'importe quelle adresse : la vérification ne
+ * porte que sur l'expéditeur.
  *
  * Lu à l'appel, jamais au chargement : une variable d'environnement ajoutée
  * après coup doit être prise en compte au redémarrage suivant, pas au prochain

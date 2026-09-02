@@ -10,7 +10,7 @@ Le **nom du fichier est le slug** de l'article, en kebab-case, sans accent :
 
 ```
 content/blog/preparer-son-potager-en-septembre.mdx
-   →  https://growi.app/blog/preparer-son-potager-en-septembre
+   →  https://growi-garden.fr/blog/preparer-son-potager-en-septembre
 ```
 
 Choisis-le une fois pour toutes : le renommer casse les liens déjà partagés et

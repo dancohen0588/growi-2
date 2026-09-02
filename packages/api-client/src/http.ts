@@ -6,7 +6,7 @@
 import { ApiError, CLIENT_ERROR_CODES } from './errors'
 
 export interface ApiClientOptions {
-  /** Racine de l'API, avec ou sans `/` final (ex. `https://growi.app`). */
+  /** Racine de l'API, avec ou sans `/` final (ex. `https://growi-garden.fr`). */
   baseUrl: string
   /**
    * Jeton d'accès à placer dans l'en-tête `Authorization`.

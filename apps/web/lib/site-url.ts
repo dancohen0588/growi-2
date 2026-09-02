@@ -15,7 +15,7 @@ const CONFIGURED = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, '') || null
  * peut donc pas varier avec l'hôte par lequel on est arrivé.
  */
 export const SITE_URL =
-  CONFIGURED ?? process.env.NEXTAUTH_URL?.replace(/\/+$/, '') ?? 'https://growi.app'
+  CONFIGURED ?? process.env.NEXTAUTH_URL?.replace(/\/+$/, '') ?? 'https://growi-garden.fr'
 
 /**
  * Origine à utiliser pour absolutiser ce que renvoie une requête d'API.

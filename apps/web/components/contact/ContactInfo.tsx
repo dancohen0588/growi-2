@@ -12,10 +12,10 @@ export function ContactInfo() {
             <div>
               <p className="font-medium text-forest text-sm">Email</p>
               <a
-                href="mailto:contact@growi.app"
+                href="mailto:info@growi-garden.fr"
                 className="text-forest/70 text-sm hover:text-forest transition-colors"
               >
-                contact@growi.app
+                info@growi-garden.fr
               </a>
             </div>
           </div>
