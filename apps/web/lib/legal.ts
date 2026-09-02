@@ -24,7 +24,7 @@ export const EDITOR = {
   /** Directeur de la publication — la personne physique responsable. */
   publisher: LEGAL_TODO,
   /** Adresse de contact, aussi utilisée pour les demandes RGPD. */
-  email: 'contact@growi.app',
+  email: 'info@growi-garden.fr',
 } as const
 
 /**

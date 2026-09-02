@@ -44,7 +44,7 @@ describe('sendContactEmail', () => {
     expect(result).toEqual({ success: true })
     expect(send).toHaveBeenCalledTimes(1)
     expect(send.mock.calls[0][0]).toMatchObject({
-      to: 'contact@growi.app',
+      to: 'info@growi-garden.fr',
       replyTo: 'sophie@exemple.fr',
     })
   })
@@ -71,7 +71,7 @@ describe('sendContactEmail', () => {
     // Une configuration absente n'est pas la faute du visiteur : il repart
     // avec une adresse où écrire, pas avec une erreur de Server Action.
     expect(result.success).toBe(false)
-    expect(result.error).toContain('contact@growi.app')
+    expect(result.error).toContain('info@growi-garden.fr')
     expect(send).not.toHaveBeenCalled()
     consoleError.mockRestore()
   })

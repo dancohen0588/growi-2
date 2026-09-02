@@ -1071,7 +1071,7 @@ const raleway = Raleway({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://growi.app'),
+  metadataBase: new URL('https://growi-garden.fr'),
   title: {
     default: 'Growi — Ton assistant jardin intelligent',
     template: '%s | Growi',

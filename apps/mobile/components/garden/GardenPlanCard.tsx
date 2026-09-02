@@ -80,7 +80,7 @@ function EditNotice({ className = '' }: { className?: string }) {
     <View className={`flex-row items-center gap-2 px-4 py-3 ${className}`}>
       <Monitor size={16} color="hsl(139 20% 40%)" />
       <Text className="flex-1 font-raleway text-caption text-muted-foreground">
-        Le plan se modifie depuis un ordinateur, sur growi.app
+        Le plan se modifie depuis un ordinateur, sur growi-garden.fr
       </Text>
     </View>
   )

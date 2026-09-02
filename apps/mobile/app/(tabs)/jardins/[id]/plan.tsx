@@ -60,7 +60,7 @@ export default function GardenPlanScreen() {
       <View className="flex-row items-center gap-2 px-4 py-3">
         <Monitor size={16} color="hsl(139 20% 40%)" />
         <Text className="flex-1 font-raleway text-caption text-muted-foreground">
-          Consultation seule — le plan se modifie depuis un ordinateur, sur growi.app
+          Consultation seule — le plan se modifie depuis un ordinateur, sur growi-garden.fr
         </Text>
       </View>
     </SafeAreaView>

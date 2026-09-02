@@ -33,7 +33,7 @@ import httpx
 INATURALIST_SEARCH = "https://api.inaturalist.org/v1/taxa"
 INATURALIST_DETAIL = "https://api.inaturalist.org/v1/taxa/{taxon_id}"
 REQUEST_DELAY      = 0.8   # secondes entre chaque paire d'appels
-HEADERS            = {"User-Agent": "GrowiPlantBot/1.0 (contact@growi.app)"}
+HEADERS            = {"User-Agent": "GrowiPlantBot/1.0 (info@growi-garden.fr)"}
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
