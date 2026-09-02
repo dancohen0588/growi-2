@@ -73,6 +73,83 @@ export class HttpClient {
     return this.readBody<T>(response)
   }
 
+  /**
+   * Lit une réponse `text/event-stream` et rend ses événements au fil de l'eau.
+   *
+   * Le découpage du réseau n'a rien à voir avec celui des événements : un
+   * paquet peut couper une ligne en deux, ou en apporter cinq d'un coup. Le
+   * tampon ci-dessous est donc la seule chose qui garantit qu'on ne rend que
+   * des événements entiers.
+   *
+   * Un statut d'erreur est lu comme une réponse ordinaire et levé en
+   * `ApiError` — c'est ainsi que le 429 du quota arrive à l'appelant, avant
+   * tout événement.
+   */
+  async *stream(
+    path: string,
+    options: RequestOptions = {},
+  ): AsyncGenerator<{ event: string; data: unknown }> {
+    const streamOptions: RequestOptions = {
+      ...options,
+      headers: { accept: 'text/event-stream', ...options.headers },
+    }
+
+    let response = await this.send(path, streamOptions)
+
+    if (response.status === 401 && this.options.onUnauthorized) {
+      const refreshed = await this.options.onUnauthorized()
+      if (refreshed) response = await this.send(path, streamOptions)
+    }
+
+    // Lève sur tout ce qui n'est pas un 2xx, avec le code de l'API.
+    if (!response.ok) await this.readBody(response)
+
+    if (!response.body) {
+      throw new ApiError(
+        response.status,
+        CLIENT_ERROR_CODES.INVALID_RESPONSE,
+        'Le serveur n’a pas ouvert de flux.',
+      )
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    try {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        let separator = buffer.indexOf('\n\n')
+        while (separator !== -1) {
+          const block = buffer.slice(0, separator)
+          buffer = buffer.slice(separator + 2)
+          const parsed = parseSseBlock(block)
+          if (parsed) yield parsed
+          separator = buffer.indexOf('\n\n')
+        }
+      }
+
+      // Un dernier bloc que le serveur n'aurait pas terminé par une ligne vide.
+      const last = parseSseBlock(buffer + decoder.decode())
+      if (last) yield last
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new ApiError(0, CLIENT_ERROR_CODES.ABORTED, 'Requête annulée.')
+      }
+      throw new ApiError(
+        0,
+        CLIENT_ERROR_CODES.NETWORK,
+        'La connexion a été interrompue pendant la réponse.',
+      )
+    } finally {
+      reader.releaseLock()
+    }
+  }
+
   private async send(path: string, options: RequestOptions): Promise<Response> {
     const headers: Record<string, string> = {
       accept: 'application/json',
@@ -167,6 +244,39 @@ export class HttpClient {
     }
 
     return parsed.data as T
+  }
+}
+
+/**
+ * Un bloc SSE — les lignes séparées par une ligne vide — en événement.
+ *
+ * Rend `null` sur ce qui ne porte pas de données : ligne de commentaire
+ * (« : ping », que certains proxys insèrent pour garder la connexion), bloc
+ * vide, ou `data` illisible. Rien de tout cela n'est une panne.
+ */
+function parseSseBlock(block: string): { event: string; data: unknown } | null {
+  let event = 'message'
+  const dataLines: string[] = []
+
+  for (const rawLine of block.split('\n')) {
+    const line = rawLine.replace(/\r$/, '')
+    if (line === '' || line.startsWith(':')) continue
+
+    const colon = line.indexOf(':')
+    const field = colon === -1 ? line : line.slice(0, colon)
+    const value = colon === -1 ? '' : line.slice(colon + 1).replace(/^ /, '')
+
+    if (field === 'event') event = value
+    // La spec SSE autorise plusieurs lignes `data:` pour un même événement.
+    else if (field === 'data') dataLines.push(value)
+  }
+
+  if (dataLines.length === 0) return null
+
+  try {
+    return { event, data: JSON.parse(dataLines.join('\n')) }
+  } catch {
+    return null
   }
 }
 

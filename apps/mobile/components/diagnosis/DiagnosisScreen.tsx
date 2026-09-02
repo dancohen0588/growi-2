@@ -30,6 +30,7 @@ import {
   type DiagnosisSuccess,
 } from '@growi/shared'
 
+import { diagnosisChatQuery } from '@/components/chat/links'
 import { DiagnosisResult } from '@/components/diagnosis/DiagnosisResult'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
@@ -76,7 +77,16 @@ function LoadingStep() {
  * L'écran est poussé depuis la fiche plutôt qu'ouvert en modale : le résultat
  * se lit longuement, et le geste de retour doit ramener à la fiche.
  */
-export function DiagnosisScreen({ plantId }: { plantId: string }) {
+export interface DiagnosisScreenProps {
+  plantId: string
+  /**
+   * Ouvre le fil de discussion sur le diagnostic affiché. Reçoit la chaîne de
+   * requête à coller au chemin de la pile courante.
+   */
+  onChat?: (query: string) => void
+}
+
+export function DiagnosisScreen({ plantId, onChat }: DiagnosisScreenProps) {
   const router = useRouter()
   const toast = useToast()
 
@@ -200,7 +210,15 @@ export function DiagnosisScreen({ plantId }: { plantId: string }) {
         ) : response ? (
           result ? (
             <>
-              <DiagnosisResult result={result} photoUri={photo?.uri ?? response.photoUrl} />
+              <DiagnosisResult
+                result={result}
+                photoUri={photo?.uri ?? response.photoUrl}
+                onAsk={
+                  onChat && response.diagnosisId
+                    ? (draft) => onChat(diagnosisChatQuery(response.diagnosisId!, draft))
+                    : undefined
+                }
+              />
 
               {applied ? (
                 <View className="flex-row items-center gap-2 rounded-xl bg-lime/30 p-4">

@@ -159,6 +159,9 @@ importers:
       '@google/generative-ai':
         specifier: ^0.24.1
         version: 0.24.1
+      '@growi/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@growi/shared':
         specifier: workspace:*
         version: link:../../packages/shared

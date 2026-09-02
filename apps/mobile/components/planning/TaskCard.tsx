@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native'
 import { Image } from 'expo-image'
-import { Check, Clock, Stethoscope } from 'lucide-react-native'
+import { Check, Clock, MessageCircle, Stethoscope } from 'lucide-react-native'
 import type { GardenAction } from '@growi/shared'
 
 import { ActionIcon } from '@/components/plants/CareIcon'
@@ -16,6 +16,8 @@ export interface TaskCardProps {
   gardenName?: string
   onDone: () => void
   onOpenPlant?: () => void
+  /** Ouvre le fil de discussion sur cette tâche — « Comment faire ? ». */
+  onAsk?: () => void
 }
 
 /**
@@ -25,7 +27,7 @@ export interface TaskCardProps {
  * La photo fait le travail que le texte faisait mal — reconnaître la plante
  * avant de lire. À défaut, l'emoji tient la place sur le fond sable.
  */
-export function TaskCard({ action, late, gardenName, onDone, onOpenPlant }: TaskCardProps) {
+export function TaskCard({ action, late, gardenName, onDone, onOpenPlant, onAsk }: TaskCardProps) {
   const meta = [
     gardenName,
     action.estimatedMinutes ? `${action.estimatedMinutes} min` : null,
@@ -106,16 +108,32 @@ export function TaskCard({ action, late, gardenName, onDone, onOpenPlant }: Task
           ) : null}
         </View>
 
-        <Pressable
-          onPress={onDone}
-          accessibilityRole="button"
-          accessibilityLabel={`${action.shortLabel} : c'est fait`}
-          className="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-lime"
-          style={({ pressed }) => (pressed ? { backgroundColor: '#a2cf6b' } : null)}
-        >
-          <Check size={19} color="#1E5631" />
-          <Text className="font-raleway-semibold text-body text-forest">C'est fait</Text>
-        </Pressable>
+        {/* Valider reste l'action principale ; demander comment faire est
+            juste à côté, pour qui ne sait pas par où commencer. */}
+        <View className="flex-row gap-2">
+          <Pressable
+            onPress={onDone}
+            accessibilityRole="button"
+            accessibilityLabel={`${action.shortLabel} : c'est fait`}
+            className="h-12 flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-lime"
+            style={({ pressed }) => (pressed ? { backgroundColor: '#a2cf6b' } : null)}
+          >
+            <Check size={19} color="#1E5631" />
+            <Text className="font-raleway-semibold text-body text-forest">C'est fait</Text>
+          </Pressable>
+
+          {onAsk ? (
+            <Pressable
+              onPress={onAsk}
+              accessibilityRole="button"
+              accessibilityLabel={`Comment faire : ${action.shortLabel}`}
+              className="h-12 w-12 items-center justify-center rounded-xl bg-sand-dark"
+              style={({ pressed }) => (pressed ? { opacity: 0.8 } : null)}
+            >
+              <MessageCircle size={20} color="#1E5631" />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
     </View>
   )

@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router'
 import { ACTION_HORIZONS } from '@growi/shared'
 
 import { AlertCard } from '@/components/planning/AlertCard'
+import { actionChatQuery } from '@/components/chat/links'
 import { PlanningSections } from '@/components/planning/PlanningSections'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
@@ -58,6 +59,16 @@ export default function CalendrierScreen() {
   const openPlant = ({ action }: PlanningTask) =>
     action.plantId
       ? () => router.push(`/(tabs)/calendrier/plantes/${action.plantId}`)
+      : undefined
+
+  // Sans plante rattachée, il n'y a rien à demander : l'agent ne répond que
+  // sur une plante précise.
+  const askAbout = ({ action }: PlanningTask) =>
+    action.plantId
+      ? () =>
+          router.push(
+            `/(tabs)/calendrier/plantes/${action.plantId}/discussion${actionChatQuery(action)}`,
+          )
       : undefined
 
   return (
@@ -122,6 +133,7 @@ export default function CalendrierScreen() {
                 showGardenNames={planning.showGardenNames}
                 onDone={completeTask}
                 onOpenPlant={openPlant}
+                onAsk={askAbout}
               />
             )}
           </>

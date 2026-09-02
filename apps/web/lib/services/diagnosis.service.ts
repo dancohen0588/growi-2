@@ -4,9 +4,9 @@
  * Ce qui distingue le diagnostic de l'identification n'est pas le modèle mais
  * ce qu'on lui donne à lire : la photo arrive accompagnée de tout ce que Growi
  * sait déjà de cette plante-là — sa fiche catalogue, son jardin, la météo du
- * lieu, les derniers gestes notés. C'est l'assemblage de ce contexte, en §
- * « contexte » ci-dessous, qui fait la valeur du service ; l'appel au modèle,
- * lui, est celui de `lib/services/gemini.ts`.
+ * lieu, les derniers gestes notés. C'est l'assemblage de ce contexte, assuré
+ * par `lib/services/plant-context.ts`, qui fait la valeur du service ; l'appel
+ * au modèle, lui, est celui de `lib/services/gemini.ts`.
  *
  * Le statut de santé proposé n'est **jamais** appliqué d'office : il faut un
  * geste explicite de l'utilisateur (`applyDiagnosisStatus`). Une IA qui
@@ -24,7 +24,7 @@ import {
   type DiagnosisSuccess,
   type HealthStatus,
 } from '@growi/shared'
-import type { CareLog, Diagnosis, Garden, PlantCatalog, PlantInstance } from '@prisma/client'
+import type { Diagnosis } from '@prisma/client'
 
 import { prisma } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/errors'
@@ -33,14 +33,17 @@ import {
   parseImagePayload,
   requireGeminiKey,
   stripFence,
+  toArrayBuffer,
   type GeminiImage,
 } from '@/lib/services/gemini'
-import { getGardenWeather } from '@/lib/services/garden-weather.service'
 import { logHealth } from '@/lib/services/log.service'
+import {
+  buildPlantContextText,
+  contextBlock,
+  PLANT_CONTEXT_INCLUDE,
+  type PlantWithRelations,
+} from '@/lib/services/plant-context'
 import { uploadPhoto } from '@/lib/storage'
-
-/** Nombre de gestes récents soumis au modèle — au-delà, le prompt s'alourdit sans éclairer. */
-const RECENT_LOGS = 10
 
 const SYSTEM_PROMPT = `Tu es un expert botaniste de l'application Growi. Tu analyses la photo d'une plante que l'utilisateur possède déjà, en la croisant avec le CONTEXTE fourni, pour établir un diagnostic de santé.
 
@@ -98,144 +101,18 @@ Règles :
 
 // ─── Contexte ──────────────────────────────────────────────────────────────
 
-type PlantWithRelations = PlantInstance & {
-  catalogPlant: PlantCatalog | null
-  garden: Garden | null
-  careLogs: CareLog[]
-}
-
-/** Une ligne `- Clé : valeur`, ou rien du tout si la valeur est vide. */
-function line(label: string, value: unknown): string | null {
-  if (value === null || value === undefined || value === '') return null
-  return `- ${label} : ${value}`
-}
-
-function frenchDate(date: Date | null): string | null {
-  return date ? date.toISOString().slice(0, 10) : null
-}
-
-function daysSince(date: Date | null, now: Date): string | null {
-  if (!date) return null
-  const days = Math.floor((now.getTime() - date.getTime()) / 86_400_000)
-  return days <= 0 ? "aujourd'hui" : days === 1 ? 'hier' : `il y a ${days} jours`
-}
-
-function section(title: string, lines: Array<string | null>): string | null {
-  const kept = lines.filter((l): l is string => l !== null)
-  return kept.length > 0 ? `${title}\n${kept.join('\n')}` : null
-}
-
-function plantSection(plant: PlantWithRelations, now: Date): string | null {
-  return section('PLANTE', [
-    line('Nom', plant.customName ?? plant.catalogPlant?.commonName ?? 'sans nom'),
-    line('Espèce', plant.catalogPlant?.scientificName),
-    line('Emplacement', plant.location),
-    line('Stade', plant.growthStage),
-    line('Plantée le', frenchDate(plant.datePlanted)),
-    line('Exposition', plant.sunExposure),
-    line('Sol', plant.soilType),
-    line('Substrat', plant.substrateType),
-    line(
-      'Contenant',
-      plant.containerSizeLiters
-        ? `${plant.containerSizeLiters} L${plant.containerMaterial ? ` (${plant.containerMaterial})` : ''}`
-        : null,
-    ),
-    line('État de santé enregistré', plant.healthStatus),
-    line('Note de santé', plant.healthNote),
-    line('Dernier arrosage', daysSince(plant.lastWateredAt, now)),
-    line('Dernière fertilisation', daysSince(plant.lastFertilizedAt, now)),
-    line('Dernière taille', daysSince(plant.lastPrunedAt, now)),
-    line('Dernier traitement', daysSince(plant.lastTreatedAt, now)),
-    line('Dernier rempotage', daysSince(plant.lastRepottedAt, now)),
-  ])
-}
-
-function catalogSection(catalog: PlantCatalog | null): string | null {
-  if (!catalog) return null
-  return section('FICHE CATALOGUE', [
-    line('Exposition idéale', catalog.sunExposure),
-    line('Fréquence d’arrosage de référence', `tous les ${catalog.wateringFreqDays} jours`),
-    line('Températures tolérées',
-      catalog.minTempCelsius != null || catalog.maxTempCelsius != null
-        ? `${catalog.minTempCelsius ?? '?'} °C à ${catalog.maxTempCelsius ?? '?'} °C`
-        : null,
-    ),
-    line('Sensibilité au gel', catalog.frostSensitivity),
-    line('Seuil de stress thermique', catalog.heatStressThresholdC ? `${catalog.heatStressThresholdC} °C` : null),
-    line('Sols adaptés', catalog.soilTypes),
-    line('Maladies fréquentes', catalog.careTipDiseases),
-    line('Conseil arrosage', catalog.careTipWatering),
-  ])
-}
-
-function gardenSection(garden: Garden | null): string | null {
-  if (!garden) return null
-  return section('JARDIN', [
-    line('Type', garden.type),
-    line('Sol', garden.soilType),
-    line('Orientation', garden.orientation),
-    line('Zone climatique', garden.climateZone),
-    line('Surface', garden.surfaceM2 ? `${garden.surfaceM2} m²` : null),
-  ])
-}
-
 /**
- * Météo locale — jamais bloquante.
+ * Assemble le bloc CONTEXTE soumis au modèle. Exporté pour les tests.
  *
- * Un utilisateur sans adresse renseignée, ou Open-Meteo en panne, ne doit pas
- * empêcher un diagnostic : la photo reste lisible sans la météo.
+ * Les sections elles-mêmes vivent dans `plant-context.ts` : le chat les lit
+ * aussi, et deux copies auraient divergé au premier champ ajouté.
  */
-async function weatherSection(userId: string): Promise<string | null> {
-  try {
-    const weather = await getGardenWeather(userId)
-    const next3 = weather.forecast
-      .slice(0, 3)
-      .map((d) => `${d.date} ${Math.round(d.tempMin)}/${Math.round(d.tempMax)} °C, ${d.precipitationSum} mm`)
-      .join(' · ')
-
-    return section('MÉTÉO', [
-      line('Lieu', weather.locationName),
-      line('Maintenant', `${Math.round(weather.current.temperature)} °C, humidité ${weather.current.humidity} %`),
-      line('3 prochains jours', next3 || null),
-      line('Saison', weather.context?.gardenSeasonLabel),
-      line('Zone climatique', weather.context?.climateZoneLabel),
-      line('Risque de gel', weather.context?.frostRisk.label),
-      line(
-        'Indice d’arrosage',
-        weather.context ? `${weather.context.wateringIndex.score}/10 — ${weather.context.wateringIndex.reasoning}` : null,
-      ),
-    ])
-  } catch (err) {
-    console.error('[diagnosis] météo indisponible, diagnostic sans elle', err)
-    return null
-  }
-}
-
-function logsSection(logs: CareLog[]): string | null {
-  if (logs.length === 0) return null
-  const lines = logs.map((log) => {
-    const details = [log.note, log.productUsed].filter(Boolean).join(' — ')
-    return `- ${frenchDate(log.occurredAt)} ${log.type}${details ? ` : ${details}` : ''}`
-  })
-  return `JOURNAL D'ENTRETIEN (${logs.length} derniers gestes)\n${lines.join('\n')}`
-}
-
-/** Assemble le bloc CONTEXTE soumis au modèle. Exporté pour les tests. */
 export async function buildDiagnosisContext(
   userId: string,
   plant: PlantWithRelations,
   now: Date = new Date(),
 ): Promise<string> {
-  const sections = [
-    plantSection(plant, now),
-    catalogSection(plant.catalogPlant),
-    gardenSection(plant.garden),
-    await weatherSection(userId),
-    logsSection(plant.careLogs),
-  ].filter((s): s is string => s !== null)
-
-  return `CONTEXTE\nDate du jour : ${frenchDate(now)}\n\n${sections.join('\n\n')}`
+  return contextBlock(await buildPlantContextText(userId, plant, now), now)
 }
 
 // ─── Photo ─────────────────────────────────────────────────────────────────
@@ -276,19 +153,6 @@ async function fetchExistingPhoto(photoUrl: string | null): Promise<GeminiImage>
   return { mimeType, data: bytes.toString('base64') }
 }
 
-/**
- * Décode du base64 en `ArrayBuffer` **autonome**.
- *
- * `Buffer.from(…).buffer` ne convient pas : Node alloue les petits tampons
- * dans un pool partagé de 8 Ko, et l'`ArrayBuffer` sous-jacent est alors ce
- * pool entier — avec, autour de notre image, les octets d'autres traitements
- * en cours. On recopie donc la seule tranche qui nous appartient.
- */
-function toArrayBuffer(base64: string): ArrayBuffer {
-  const bytes = Buffer.from(base64, 'base64')
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
-}
-
 // ─── Diagnostic ────────────────────────────────────────────────────────────
 
 function failure(reason: string, plant: { healthStatus: string }): DiagnoseApiResponse {
@@ -323,11 +187,7 @@ export async function diagnosePlant(
 
   const plant = await prisma.plantInstance.findFirst({
     where: { id: plantInstanceId, userId },
-    include: {
-      catalogPlant: true,
-      garden: true,
-      careLogs: { orderBy: { occurredAt: 'desc' }, take: RECENT_LOGS },
-    },
+    include: PLANT_CONTEXT_INCLUDE,
   })
   if (!plant) throw new ServiceError('NOT_FOUND', 'Plante introuvable')
 

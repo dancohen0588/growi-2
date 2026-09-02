@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { GeminiChatEvent } from '../gemini'
+
 // Socle partagé par l'identification et le diagnostic : ce qu'il refuse (image
 // trop lourde, format inconnu) et son repli d'un modèle à l'autre valent pour
 // les deux features à la fois.
 
 const generateContent = vi.hoisted(() => vi.fn())
-const getGenerativeModel = vi.hoisted(() => vi.fn(() => ({ generateContent })))
+const sendMessageStream = vi.hoisted(() => vi.fn())
+const startChat = vi.hoisted(() => vi.fn(() => ({ sendMessageStream })))
+const getGenerativeModel = vi.hoisted(() => vi.fn(() => ({ generateContent, startChat })))
 
 vi.mock('@google/generative-ai', () => ({
   GoogleGenerativeAI: class {
@@ -14,12 +18,14 @@ vi.mock('@google/generative-ai', () => ({
 }))
 
 const {
+  CHAT_TEMPERATURE,
   GEMINI_MODELS,
   MAX_IMAGE_BYTES,
   estimateBase64Bytes,
   generateJson,
   parseDataUrl,
   parseImagePayload,
+  streamChat,
   stripFence,
 } = await import('../gemini')
 
@@ -220,5 +226,148 @@ describe('generateJson', () => {
     generateContent.mockRejectedValue(new Error('réseau coupé'))
 
     await expect(generateJson(parts, options)).resolves.toMatchObject({ ok: false })
+  })
+})
+
+describe('streamChat', () => {
+  const input = {
+    apiKey: 'clé',
+    systemInstruction: 'Tu es Growi.',
+    history: [{ role: 'user' as const, parts: [{ text: 'bonjour' }] }],
+    message: [{ text: 'et pour l’arrosage ?' }],
+    maxOutputTokens: 700,
+    logLabel: 'chat',
+  }
+
+  /** Un morceau de flux tel que le SDK le rend. */
+  function chunk(text: string, calls?: Array<{ name: string; args: unknown }>) {
+    return { text: () => text, functionCalls: () => calls }
+  }
+
+  /** Un flux qui rend ses morceaux, puis lève éventuellement. */
+  function streamOf(chunks: Array<ReturnType<typeof chunk>>, thrown?: unknown) {
+    return {
+      stream: (async function* () {
+        for (const c of chunks) yield c
+        if (thrown) throw thrown
+      })(),
+    }
+  }
+
+  async function collect(events: AsyncGenerator<GeminiChatEvent>): Promise<GeminiChatEvent[]> {
+    const out: GeminiChatEvent[] = []
+    for await (const event of events) out.push(event)
+    return out
+  }
+
+  it('rend les morceaux au fil de l’eau, puis le modèle qui a répondu', async () => {
+    sendMessageStream.mockResolvedValueOnce(streamOf([chunk('Arrose '), chunk('ce soir.')]))
+
+    await expect(collect(streamChat(input))).resolves.toEqual([
+      { type: 'text', delta: 'Arrose ' },
+      { type: 'text', delta: 'ce soir.' },
+      { type: 'done', model: GEMINI_MODELS[0] },
+    ])
+    expect(startChat).toHaveBeenCalledWith({ history: input.history })
+    expect(sendMessageStream).toHaveBeenCalledWith(input.message)
+  })
+
+  it('converse au lieu d’extraire : température relevée, aucun format imposé', async () => {
+    sendMessageStream.mockResolvedValueOnce(streamOf([chunk('ok')]))
+    await collect(streamChat(input))
+
+    // L'égalité est stricte, et c'est le point : `responseMimeType:
+    // 'application/json'` rendrait du JSON là où le fil attend du texte.
+    expect(getGenerativeModel).toHaveBeenCalledWith({
+      model: GEMINI_MODELS[0],
+      generationConfig: {
+        temperature: CHAT_TEMPERATURE,
+        maxOutputTokens: 700,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+      systemInstruction: 'Tu es Growi.',
+    })
+  })
+
+  it('déclare les outils au modèle et remonte leurs appels', async () => {
+    const tools = [{ name: 'proposePlanTask', description: 'Propose une tâche' }]
+    sendMessageStream.mockResolvedValueOnce(
+      streamOf([
+        chunk('Je te propose ça.'),
+        chunk('', [{ name: 'proposePlanTask', args: { dueInDays: 1 } }]),
+      ]),
+    )
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const events = await collect(streamChat({ ...input, tools: tools as any }))
+
+    expect(getGenerativeModel).toHaveBeenCalledWith(
+      expect.objectContaining({ tools: [{ functionDeclarations: tools }] }),
+    )
+    expect(events).toContainEqual({
+      type: 'functionCall',
+      name: 'proposePlanTask',
+      args: { dueInDays: 1 },
+    })
+  })
+
+  it('passe au modèle suivant tant qu’aucun mot n’est parti', async () => {
+    sendMessageStream
+      .mockRejectedValueOnce(httpError(503))
+      .mockResolvedValueOnce(streamOf([chunk('Bonjour.')]))
+
+    await expect(collect(streamChat(input))).resolves.toEqual([
+      { type: 'text', delta: 'Bonjour.' },
+      { type: 'done', model: GEMINI_MODELS[1] },
+    ])
+  })
+
+  it('ne rejoue pas un flux déjà commencé', async () => {
+    // L'utilisateur a lu ces mots : les faire remplacer par ceux d'un autre
+    // modèle donnerait une réponse qui se contredit sous ses yeux.
+    sendMessageStream.mockResolvedValueOnce(streamOf([chunk('Arrose ')], httpError(503)))
+
+    await expect(collect(streamChat(input))).resolves.toEqual([
+      { type: 'text', delta: 'Arrose ' },
+      {
+        type: 'error',
+        reason: 'Service Gemini momentanément surchargé. Veuillez réessayer dans quelques instants.',
+      },
+    ])
+    expect(sendMessageStream).toHaveBeenCalledOnce()
+  })
+
+  it('traite une réponse bloquée comme un échec', async () => {
+    // `text()` lève quand la réponse est coupée pour sécurité ou récitation.
+    const blocked = {
+      text: () => {
+        throw new Error('blocked: SAFETY')
+      },
+      functionCalls: () => undefined,
+    }
+    sendMessageStream.mockResolvedValue(streamOf([blocked]))
+
+    await expect(collect(streamChat(input))).resolves.toEqual([
+      { type: 'error', reason: "Erreur d'analyse, veuillez réessayer." },
+    ])
+    // Une réponse bloquée le sera pareillement sur le modèle suivant.
+    expect(sendMessageStream).toHaveBeenCalledOnce()
+  })
+
+  it('rend le message de quota quand tous les modèles sont saturés', async () => {
+    sendMessageStream.mockRejectedValue(httpError(429))
+
+    await expect(collect(streamChat(input))).resolves.toEqual([
+      { type: 'error', reason: 'Quota Gemini dépassé pour le moment. Veuillez réessayer plus tard.' },
+    ])
+    expect(sendMessageStream).toHaveBeenCalledTimes(GEMINI_MODELS.length)
+  })
+
+  it('ne lève jamais, même sur une erreur sans statut', async () => {
+    sendMessageStream.mockRejectedValue(new Error('réseau coupé'))
+
+    await expect(collect(streamChat(input))).resolves.toEqual([
+      { type: 'error', reason: "Erreur d'analyse, veuillez réessayer." },
+    ])
   })
 })

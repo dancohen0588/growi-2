@@ -1,10 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { Stethoscope } from 'lucide-react'
+import { MessageCircle, Stethoscope } from 'lucide-react'
 import { ACTION_TYPE_LABELS } from '@growi/shared'
 import type { GardenAction } from '@/lib/mock-actions'
 
+import {
+  actionChatParams,
+  useChatPanel,
+} from '@/components/dashboard/chat/ChatPanelProvider'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ActionIcon } from './ActionIcon'
 
@@ -74,9 +78,39 @@ export function ActionDetail({ action }: { action: GardenAction }) {
                 Issue d&apos;un diagnostic que tu as planifié
               </p>
             )}
+
           </div>
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+/**
+ * « Comment faire ? » — le fil de discussion sur cette action.
+ *
+ * À côté de « Voir le détail » et non dedans : la modale ne s'ouvre que pour
+ * les actions qui portent une consigne, c'est-à-dire celles issues d'un
+ * diagnostic. Les actions du moteur — « Tailler — Rosier » — n'en ont pas, et
+ * ce sont précisément celles sur lesquelles on a besoin d'aide.
+ *
+ * Sans plante rattachée, rien à demander : l'agent ne répond que sur une
+ * plante précise.
+ */
+export function ActionAskLink({ action }: { action: GardenAction }) {
+  const openChat = useChatPanel()
+  const params = actionChatParams(action)
+
+  if (!params) return null
+
+  return (
+    <button
+      type="button"
+      onClick={() => openChat(params)}
+      className="inline-flex items-center gap-1.5 self-start font-raleway text-xs font-semibold text-forest/70 underline underline-offset-2 transition-colors hover:text-forest"
+    >
+      <MessageCircle size={13} aria-hidden />
+      Comment faire&nbsp;?
+    </button>
   )
 }

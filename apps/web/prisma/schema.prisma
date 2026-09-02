@@ -32,6 +32,7 @@ model User {
   latitude       Float?
   longitude      Float?
   accounts       Account[]
+  conversations  Conversation[]
   diagnoses      Diagnosis[]
   tasks          PlantTask[]
   gardens        Garden[]
@@ -177,7 +178,7 @@ model PlantCatalog {
 }
 
 model PlantInstance {
-  id                      String        @id @default(cuid())
+  id                      String         @id @default(cuid())
   userId                  String
   gardenId                String?
   zoneId                  String?
@@ -185,20 +186,20 @@ model PlantInstance {
   customName              String?
   emoji                   String?
   photoUrl                String?
-  location                String        @default("OUTDOOR")
+  location                String         @default("OUTDOOR")
   positionX               Float?
   positionY               Float?
-  datePlanted             DateTime?     @db.Timestamptz(6)
-  dateAdded               DateTime      @default(now()) @db.Timestamptz(6)
+  datePlanted             DateTime?      @db.Timestamptz(6)
+  dateAdded               DateTime       @default(now()) @db.Timestamptz(6)
   wateringFreqDays        Int?
-  lastWateredAt           DateTime?     @db.Timestamptz(6)
-  lastFertilizedAt        DateTime?     @db.Timestamptz(6)
+  lastWateredAt           DateTime?      @db.Timestamptz(6)
+  lastFertilizedAt        DateTime?      @db.Timestamptz(6)
   soilType                String?
   sunExposure             String?
-  healthStatus            String        @default("HEALTHY")
+  healthStatus            String         @default("HEALTHY")
   healthNote              String?
   notes                   String?
-  updatedAt               DateTime      @default(now()) @updatedAt @db.Timestamptz(6)
+  updatedAt               DateTime       @default(now()) @updatedAt @db.Timestamptz(6)
   containerSizeLiters     Float?
   containerMaterial       String?
   substrateType           String?
@@ -210,14 +211,15 @@ model PlantInstance {
   isMultiYear             Boolean?
   expectedHarvestDate     DateTime?
   customWateringAdjFactor Float?
-  alertsEnabled           Boolean       @default(true)
+  alertsEnabled           Boolean        @default(true)
   careLogs                CareLog[]
+  conversations           Conversation[]
   diagnoses               Diagnosis[]
   tasks                   PlantTask[]
-  catalogPlant            PlantCatalog? @relation(fields: [catalogPlantId], references: [id])
-  garden                  Garden?       @relation(fields: [gardenId], references: [id])
-  user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  zone                    GardenZone?   @relation(fields: [zoneId], references: [id])
+  catalogPlant            PlantCatalog?  @relation(fields: [catalogPlantId], references: [id])
+  garden                  Garden?        @relation(fields: [gardenId], references: [id])
+  user                    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  zone                    GardenZone?    @relation(fields: [zoneId], references: [id])
 
   @@map("plant_instances")
 }
@@ -282,9 +284,10 @@ model Diagnosis {
   tasksPlannedAt  DateTime? @db.Timestamptz(6)
   createdAt       DateTime  @default(now()) @db.Timestamptz(6)
 
-  plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plantInstance PlantInstance  @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks         PlantTask[]
+  conversations Conversation[]
 
   @@index([plantInstanceId, createdAt])
   @@map("diagnoses")
@@ -302,6 +305,7 @@ model PlantTask {
   userId          String
   plantInstanceId String
   diagnosisId     String?
+  /// Voir TASK_SOURCES dans @growi/shared : DIAGNOSIS | CHAT.
   source          String    @default("DIAGNOSIS")
   /// ActionType de @growi/shared : arrosage | taille | … | autre.
   type            String
@@ -317,15 +321,89 @@ model PlantTask {
   doneAt          DateTime? @db.Timestamptz(6)
   createdAt       DateTime  @default(now()) @db.Timestamptz(6)
 
-  plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plantInstance PlantInstance  @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// La tâche survit à la suppression de son diagnostic : elle a été acceptée
   /// pour elle-même, et la retirer du planning surprendrait l'utilisateur.
-  diagnosis     Diagnosis?    @relation(fields: [diagnosisId], references: [id], onDelete: SetNull)
+  diagnosis     Diagnosis?     @relation(fields: [diagnosisId], references: [id], onDelete: SetNull)
+  conversations Conversation[]
 
   @@index([userId, doneAt, dueDate])
   @@index([plantInstanceId])
   @@map("plant_tasks")
+}
+
+/// Fil de discussion avec l'agent conversationnel, ancré sur une plante, un
+/// diagnostic ou une action du planning.
+///
+/// Un seul fil par ancrage : rouvrir le même point d'entrée doit retrouver la
+/// conversation, pas en ouvrir une nouvelle à côté.
+model Conversation {
+  id              String    @id @default(cuid())
+  userId          String
+  plantInstanceId String
+  /// Voir CONVERSATION_KINDS dans @growi/shared : plant | diagnosis | action.
+  kind            String
+  diagnosisId     String?
+  /// Tâche planifiée (`PlantTask.id`) quand l'action en vient.
+  taskId          String?
+  /// Id déterministe d'une action du moteur (`r1-watering-standard:<plantInstanceId>`).
+  actionKey       String?
+  /// L'action telle qu'elle était à l'ouverture. Les actions du moteur ne sont
+  /// pas persistées et peuvent disparaître d'une évaluation à l'autre ; sans
+  /// cette copie, le fil deviendrait illisible.
+  actionSnapshot  Json?
+  /// Clé d'unicité de l'ancrage : `plant:<id>`, `diagnosis:<id>`, `task:<id>`
+  /// ou `action:<key>`. Calculée plutôt que déduite de trois colonnes
+  /// optionnelles — Postgres tient deux NULL pour distincts, et un index
+  /// unique sur des colonnes nullables laisserait ouvrir autant de fils
+  /// « plante » qu'on veut.
+  anchorKey       String
+  /// En-tête du fil : nom de la plante, « Diagnostic du 3 sept. », « Tailler — Rosier ».
+  title           String
+  lastMessageAt   DateTime? @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
+  /// Le fil survit à la suppression de son diagnostic ou de sa tâche : ce qui
+  /// s'y est dit reste vrai, et `actionSnapshot` en garde le contexte.
+  diagnosis     Diagnosis?    @relation(fields: [diagnosisId], references: [id], onDelete: SetNull)
+  task          PlantTask?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  messages      Message[]
+
+  @@unique([userId, anchorKey])
+  @@index([userId, lastMessageAt])
+  @@index([plantInstanceId])
+  @@map("conversations")
+}
+
+/// Un tour de conversation.
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  /// Voir CHAT_ROLES dans @growi/shared : user | assistant.
+  role           String
+  content        String
+  photoUrl       String?
+  /// `ChatProposal[]` sérialisé — les propositions portées par ce message
+  /// (assistant uniquement), avec leur état d'acceptation. C'est cette copie
+  /// que le serveur relit pour exécuter une confirmation : le client n'envoie
+  /// jamais que des identifiants.
+  proposals      Json?
+  /// Modèle Gemini ayant répondu — le repli change de modèle en silence, et la
+  /// qualité d'une réponse ne se relit pas sans savoir qui l'a produite.
+  model          String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  /// Sert au quota journalier : messages `user` d'un compte sur une journée.
+  @@index([userId, role, createdAt])
+  @@map("messages")
 }
 
 model GardenAdviceCache {

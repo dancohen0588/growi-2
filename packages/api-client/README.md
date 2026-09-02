@@ -46,6 +46,37 @@ const post = await api.blog.get(posts[0].slug)   // post.html : MDX déjà compi
 - Le contenu ne change qu'au déploiement du site : un `staleTime` généreux
   côté client (une heure) est le bon réglage.
 
+## Agent conversationnel
+
+`api.chat` ouvre un fil ancré sur une plante, un diagnostic ou une action, puis
+lit la réponse au fil de l'eau.
+
+```ts
+const fil = await api.chat.open({ kind: 'plant', plantInstanceId })
+
+for await (const event of api.chat.send(fil.id, { content: 'Je la rentre cet hiver ?' })) {
+  if (event.event === 'text') append(event.data.delta)
+  if (event.event === 'proposals') showCards(event.data.proposals)
+  if (event.event === 'done') finish(event.data.assistantMessage, event.data.quota)
+  if (event.event === 'error') showRetry(event.data.message)
+}
+```
+
+- **En React Native, passer le `fetch` d'`expo/fetch`** à
+  `createGrowiApiClient` : celui du moteur ne donne pas de `response.body`, et
+  la réponse n'arriverait qu'une fois complète — le streaming disparaîtrait
+  sans qu'aucune erreur ne le signale.
+- Le flux se termine toujours par **exactement un** événement terminal, `done`
+  ou `error`. Une panne survenue en cours de route laisse le texte déjà reçu et
+  sort en `error` : ce texte est persisté côté serveur, rouvrir le fil le
+  retrouve.
+- Un refus — quota atteint (429), image illisible (400) — lève une `ApiError`
+  **avant le premier événement** : l'attraper autour de la boucle.
+- Un événement d'un nom inconnu est ignoré, pour qu'un serveur plus récent
+  n'empêche pas une app déjà installée de fonctionner.
+- `acceptProposal` n'envoie que deux identifiants : c'est la proposition écrite
+  en base qui est exécutée. Il est idempotent, le bouton peut être retapé.
+
 ## Erreurs
 
 Toute défaillance remonte en `ApiError`, avec un `code` stable et des
