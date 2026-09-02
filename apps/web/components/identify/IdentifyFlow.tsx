@@ -279,10 +279,10 @@ function UploadStep({
             </div>
             <div className="flex flex-col gap-1">
               <h2 className="font-poppins font-bold text-xl text-forest">
-                Identifiez votre plante
+                Identifie ta plante
               </h2>
               <p className="font-raleway text-sm text-forest/60">
-                Prenez ou importez une photo — l&apos;IA fait le reste en quelques
+                Prends ou importe une photo — l&apos;IA fait le reste en quelques
                 secondes
               </p>
             </div>
@@ -378,7 +378,7 @@ function ResultStep({ preview, result, onReset, renderActions }: ResultStepProps
           <Search className="text-forest" size={28} aria-hidden />
         </div>
         <h2 className="font-poppins font-bold text-xl text-forest">
-          Nous n&apos;avons pas pu identifier cette plante
+          Cette plante n&apos;a pas pu être identifiée
         </h2>
         <p className="font-raleway text-sm text-forest/60 max-w-md">
           {result.reason}
@@ -461,7 +461,7 @@ function ResultStep({ preview, result, onReset, renderActions }: ResultStepProps
 
         <div className="rounded-xl bg-sand p-4 font-raleway text-sm text-forest/80">
           <span className="font-poppins font-semibold text-forest">
-            💡 Le saviez-vous&nbsp;?
+            💡 Le savais-tu&nbsp;?
           </span>{' '}
           {result.funFact}
         </div>
