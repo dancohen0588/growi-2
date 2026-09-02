@@ -7,13 +7,13 @@ import { SectionCalendrier }    from './components/SectionCalendrier'
 import { CTABottom }            from './components/CTABottom'
 
 export const metadata: Metadata = {
-  title: 'Fonctionnalités — Cartographie, Assistant IA, Diagnostic, Calendrier',
+  title: 'Fonctionnalités — Cartographie, Assistant, Diagnostic, Calendrier',
   description:
-    "Découvre tout ce que Growi fait pour toi : carte de ton jardin, assistant météo, diagnostic IA et calendrier potager.",
+    "Cartographie, assistant météo, identification et diagnostic photo, calendrier des semis : découvre tout ce que Growi fait pour t'aider à jardiner.",
   openGraph: {
-    title: 'Fonctionnalités Growi — Tout pour bien jardiner',
+    title: 'Fonctionnalités Growi — Tout ce dont ton jardin a besoin, au bon moment',
     description:
-      "Cartographie, IA, calendrier potager : explore toutes les fonctionnalités de Growi.",
+      "Cartographie, assistant météo, identification et diagnostic photo, calendrier des semis : découvre tout ce que Growi fait pour t'aider à jardiner.",
   },
 }
 

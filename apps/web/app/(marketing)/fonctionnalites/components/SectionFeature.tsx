@@ -13,12 +13,14 @@ interface FeaturePoint {
 
 interface SectionFeatureProps {
   id: string
-  bg?: 'sand' | 'white'
+  bg?: 'sand' | 'white' | 'forest'
   eyebrow: string
   title: string
   description: string
   points: FeaturePoint[]
   visual: ReactNode
+  /** Sous les puces : boutons, encart « Pourquoi ça compte »… */
+  footer?: ReactNode
   reverse?: boolean
   'aria-label'?: string
 }
@@ -31,38 +33,71 @@ export function SectionFeature({
   description,
   points,
   visual,
+  footer,
   reverse = false,
   'aria-label': ariaLabel,
 }: SectionFeatureProps) {
   const shouldReduceMotion = useReducedMotion()
+  const onForest = bg === 'forest'
 
   const textCol = (
     <motion.div
       className="flex flex-col gap-6"
       variants={shouldReduceMotion ? undefined : fadeUp}
     >
-      <span className="inline-block font-poppins font-semibold text-sm text-lime bg-forest/90 px-3 py-1 rounded-full w-fit">
+      <span
+        className={cn(
+          'inline-block font-poppins font-semibold text-sm px-3 py-1 rounded-full w-fit',
+          onForest ? 'bg-lime/20 text-lime' : 'bg-forest/90 text-lime',
+        )}
+      >
         {eyebrow}
       </span>
-      <h2 className="font-poppins font-bold text-forest text-3xl md:text-4xl leading-tight">
+      <h2
+        className={cn(
+          'font-poppins font-bold text-3xl md:text-4xl leading-tight',
+          onForest ? 'text-white' : 'text-forest',
+        )}
+      >
         {title}
       </h2>
-      <p className="font-raleway text-forest/70 text-lg leading-relaxed">
+      <p
+        className={cn(
+          'font-raleway text-lg leading-relaxed',
+          onForest ? 'text-white/75' : 'text-forest/70',
+        )}
+      >
         {description}
       </p>
       <ul className="flex flex-col gap-3" aria-label="Points clés">
         {points.map((point) => {
           const Icon = point.icon
           return (
-            <li key={point.label} className="flex items-center gap-3">
-              <span className="w-8 h-8 rounded-lg bg-lime/20 flex items-center justify-center shrink-0">
-                <Icon className="w-4 h-4 text-forest" aria-hidden="true" />
+            <li key={point.label} className="flex items-start gap-3">
+              <span
+                className={cn(
+                  'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                  onForest ? 'bg-lime/20' : 'bg-lime/20',
+                )}
+              >
+                <Icon
+                  className={cn('w-4 h-4', onForest ? 'text-lime' : 'text-forest')}
+                  aria-hidden="true"
+                />
               </span>
-              <span className="font-raleway text-forest/80 text-base">{point.label}</span>
+              <span
+                className={cn(
+                  'font-raleway text-base pt-1.5',
+                  onForest ? 'text-white/85' : 'text-forest/80',
+                )}
+              >
+                {point.label}
+              </span>
             </li>
           )
         })}
       </ul>
+      {footer}
     </motion.div>
   )
 
@@ -78,7 +113,10 @@ export function SectionFeature({
     <section
       id={id}
       aria-label={ariaLabel ?? title}
-      className={cn('py-20 md:py-28', bg === 'sand' ? 'bg-sand' : 'bg-white')}
+      className={cn(
+        'py-20 md:py-28 scroll-mt-16',
+        bg === 'sand' ? 'bg-sand' : bg === 'forest' ? 'bg-forest' : 'bg-white',
+      )}
     >
       <motion.div
         className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"

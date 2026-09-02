@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button'
 
 const anchorLinks = [
   { href: '#cartographie', label: 'Cartographie' },
-  { href: '#assistant',    label: 'Assistant IA' },
-  { href: '#diagnostic',   label: 'Diagnostic' },
+  { href: '#assistant',    label: 'Assistant' },
+  { href: '#diagnostic',   label: 'Identification & diagnostic' },
   { href: '#calendrier',   label: 'Calendrier' },
 ]
 
@@ -24,11 +24,10 @@ export function HeroFonctionnalites() {
           Tout ce dont ton jardin a besoin, au bon moment
         </h1>
 
-        {/* La mise en relation avec des pros n'existe pas : la section
-            Marketplace a été retirée, cette phrase la suivait. */}
         <p className="font-raleway text-forest/70 text-xl max-w-2xl leading-relaxed">
-          De la cartographie de tes espaces au calendrier de tes semis,
-          Growi t&apos;accompagne à chaque saison — sans que tu aies à tout gérer seul.
+          Cartographie, assistant météo, identification et diagnostic photo,
+          calendrier des semis : découvre tout ce que Growi fait pour
+          t&apos;aider à jardiner.
         </p>
 
         <Button variant="primary" size="lg" asChild>
