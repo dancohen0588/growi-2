@@ -1,19 +1,16 @@
 import Link from 'next/link'
-import { Share2, Globe, Play } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 
 const productLinks = [
   { href: '/fonctionnalites', label: 'Fonctionnalités' },
-  { href: '/tarifs',          label: 'Premium' },
-  { href: '/',                label: 'App' },
-  { href: '/tarifs',          label: 'Tarifs' },
+  { href: '/encyclopedie',    label: 'Encyclopédie' },
+  { href: '/blog',            label: 'Blog' },
+  { href: '/#app-mobile',     label: 'App mobile' },
 ]
 
 const companyLinks = [
   { href: '/a-propos', label: 'À propos' },
-  { href: '/blog',     label: 'Blog' },
-  { href: '/pro',      label: 'Pro' },
   { href: '/contact',  label: 'Contact' },
 ]
 
@@ -35,31 +32,11 @@ export function Footer() {
               Growi 🌱
             </Link>
             <p className="font-raleway text-white/70 text-sm leading-relaxed">
-              Ton compagnon de croissance intelligent.
+              L&apos;assistant intelligent qui t&apos;aide à entretenir ton jardin
+              jour après jour, selon la météo et tes plantes.
             </p>
-            <div className="flex gap-4 mt-2">
-              <a
-                href="/"
-                aria-label="Instagram"
-                className="text-white/60 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center -ml-3"
-              >
-                <Share2 className="h-5 w-5" aria-hidden="true" />
-              </a>
-              <a
-                href="/"
-                aria-label="LinkedIn"
-                className="text-white/60 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-              >
-                <Globe className="h-5 w-5" aria-hidden="true" />
-              </a>
-              <a
-                href="/"
-                aria-label="YouTube"
-                className="text-white/60 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-              >
-                <Play className="h-5 w-5" aria-hidden="true" />
-              </a>
-            </div>
+            {/* Les trois icônes sociales pointaient toutes vers « / » : il n'y a
+                pas de comptes à lier. Elles reviendront quand il y en aura. */}
           </div>
 
           {/* Col 2: Product */}

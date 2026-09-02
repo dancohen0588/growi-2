@@ -2,8 +2,6 @@ import { HeroSection }  from '@/components/home/HeroSection'
 import { HowItWorks }   from '@/components/home/HowItWorks'
 import { AppPreview }   from '@/components/home/AppPreview'
 import { FeaturesGrid } from '@/components/home/FeaturesGrid'
-import { Testimonials } from '@/components/home/Testimonials'
-import { ProSection }   from '@/components/home/ProSection'
 import { FinalCTA }     from '@/components/home/FinalCTA'
 
 export const metadata = {
@@ -19,8 +17,6 @@ export default function HomePage() {
       <HowItWorks />
       <AppPreview />
       <FeaturesGrid />
-      <Testimonials />
-      <ProSection />
       <FinalCTA />
     </main>
   )

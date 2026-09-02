@@ -8,9 +8,7 @@ import {
   CalendarDays,
   Stethoscope,
   CloudSun,
-  ShoppingBag,
   UserCircle,
-  TrendingUp,
   Map,
   ScanSearch,
 } from 'lucide-react'
@@ -60,13 +58,6 @@ const featureCards = [
     title: 'Météo locale',
     description: 'Alertes gel, canicule et arrosage optimal.',
     icon: CloudSun,
-  },
-  {
-    href: '/dashboard/marketplace',
-    title: 'Marketplace',
-    description: 'Trouvez des pros et échangez avec voisins.',
-    icon: ShoppingBag,
-    badge: 'Bientôt',
   },
   {
     href: '/dashboard/compte',
@@ -134,24 +125,10 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Premium CTA banner */}
-      <div className="rounded-2xl bg-forest text-white p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <TrendingUp size={24} aria-hidden />
-          <div>
-            <p className="font-poppins font-semibold text-sm">Passer à Premium</p>
-            <p className="font-raleway text-xs text-white/70">
-              Diagnostics illimités, météo pro, multi-jardins.
-            </p>
-          </div>
-        </div>
-        <a
-          href="/tarifs"
-          className="shrink-0 rounded-lg bg-lime text-forest font-poppins font-semibold text-sm px-5 py-2.5 hover:bg-lime-hover transition-colors"
-        >
-          Voir les offres
-        </a>
-      </div>
+      {/* La bannière « Passer à Premium » menait à `/tarifs`, page supprimée.
+          Elle vendait une offre qui n'existe pas — ni paiement, ni diagnostics
+          limités, ni météo pro — à quelqu'un déjà inscrit : la rediriger vers
+          `/register` n'aurait eu aucun sens. Elle reviendra avec Stripe. */}
     </div>
   )
 }

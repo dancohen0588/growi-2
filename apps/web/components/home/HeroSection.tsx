@@ -49,7 +49,7 @@ export function HeroSection() {
             {/* CTAs */}
             <div className="flex flex-wrap gap-4">
               <Button variant="primary" size="lg" asChild>
-                <Link href="/tarifs">Essayer gratuitement</Link>
+                <Link href="/register">Créer mon jardin</Link>
               </Button>
               <Button variant="outline" size="lg" asChild>
                 <Link href="/fonctionnalites">Voir les fonctionnalités</Link>
@@ -57,8 +57,12 @@ export function HeroSection() {
             </div>
 
             {/* Identifier teaser CTA */}
+            {/* Menait à `/dashboard/identifier`, protégé par le middleware :
+                le visiteur cliquait sur « Gratuit » et tombait sur le login.
+                En attendant la page publique `/identifier`, il mène à
+                l'inscription — ce qu'il fallait faire de toute façon. */}
             <Link
-              href="/dashboard/identifier"
+              href="/register"
               className="group inline-flex items-center gap-3 rounded-2xl border border-forest/15 bg-white/80 backdrop-blur-sm p-3 pr-4 max-w-md hover:bg-white hover:border-forest/30 transition-colors shadow-card"
             >
               <span className="shrink-0 w-10 h-10 rounded-xl bg-forest text-white flex items-center justify-center">
@@ -69,7 +73,7 @@ export function HeroSection() {
                   Identifie ta plante en photo
                 </span>
                 <span className="font-raleway text-xs text-forest/60">
-                  Gratuit · L&apos;IA reconnaît {'>'}10 000 espèces en 2 secondes
+                  Gratuit · résultat en quelques secondes
                 </span>
               </span>
               <span className="ml-auto shrink-0 text-forest/40 group-hover:text-forest transition-colors text-lg">
@@ -90,10 +94,12 @@ export function HeroSection() {
               ))}
             </div>
 
-            {/* Social proof */}
-            <p className="text-sm text-forest/60 font-raleway" aria-label="Avis utilisateurs">
-              <span aria-hidden="true">⭐⭐⭐⭐⭐</span>
-              {' '}+12 000 jardiniers nous font confiance
+            {/* Ligne de confiance. Elle annonçait « +12 000 jardiniers » : le
+                chiffre était inventé, il n'y a pas de base installée. On ne
+                promet ici que ce qui est vérifiable. */}
+            <p className="text-sm text-forest/60 font-raleway">
+              Gratuit · Sans carte bancaire · Sur le web aujourd&apos;hui, sur
+              iPhone bientôt
             </p>
           </div>
 

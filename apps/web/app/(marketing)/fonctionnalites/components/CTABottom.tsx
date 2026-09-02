@@ -11,26 +11,17 @@ export function CTABottom() {
         <h2 className="font-poppins font-bold text-forest text-3xl md:text-4xl max-w-2xl leading-tight">
           Prêt à te (re)connecter à ton jardin ?
         </h2>
+        {/* « +12 000 jardiniers » et « 14 jours d'essai Premium » décrivaient
+            une base installée et une offre payante qui n'existent ni l'une ni
+            l'autre. Le second bouton menait à `/tarifs`, page supprimée. */}
         <p className="font-raleway text-forest/80 text-xl max-w-xl leading-relaxed">
-          Rejoins les +12 000 jardiniers qui utilisent Growi chaque semaine.
           Commence gratuitement, sans carte bancaire.
         </p>
         <div className="flex flex-wrap justify-center gap-4">
           <Button variant="forest" size="lg" asChild>
-            <Link href="/tarifs">Essaie gratuitement</Link>
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            asChild
-            className="border-forest/40 text-forest hover:bg-forest/10"
-          >
-            <Link href="/tarifs">Voir les tarifs</Link>
+            <Link href="/register">Créer mon jardin</Link>
           </Button>
         </div>
-        <p className="font-raleway text-sm text-forest/60">
-          14 jours d&apos;essai Premium offerts · Sans engagement · Résiliation en 1 clic
-        </p>
       </div>
     </section>
   )

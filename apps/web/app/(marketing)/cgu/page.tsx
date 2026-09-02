@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 
 import { LegalPage, LegalSection } from '@/components/legal/LegalPage'
 import { EDITOR } from '@/lib/legal'
@@ -74,11 +73,8 @@ export default function CguPage() {
       <LegalSection title="6. Abonnement">
         <p>
           Growi propose une offre gratuite et, à terme, une offre payante dont les
-          fonctionnalités et le prix seront détaillés sur la page{' '}
-          <Link href="/tarifs" className="text-forest underline underline-offset-2">
-            Tarifs
-          </Link>
-          . Un abonnement souscrit depuis l&apos;App Store ou Google Play est facturé et résilié
+          fonctionnalités et le prix seront détaillés sur une page dédiée. Un abonnement
+          souscrit depuis l&apos;App Store ou Google Play est facturé et résilié
           selon les règles de la boutique concernée.
         </p>
         <p>

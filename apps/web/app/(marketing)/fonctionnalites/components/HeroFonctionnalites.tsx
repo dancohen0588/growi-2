@@ -6,8 +6,6 @@ const anchorLinks = [
   { href: '#assistant',    label: 'Assistant IA' },
   { href: '#diagnostic',   label: 'Diagnostic' },
   { href: '#calendrier',   label: 'Calendrier' },
-  { href: '#marketplace',  label: 'Marketplace' },
-  { href: '#premium',      label: 'Premium' },
 ]
 
 export function HeroFonctionnalites() {
@@ -26,13 +24,15 @@ export function HeroFonctionnalites() {
           Tout ce dont ton jardin a besoin, au bon moment
         </h1>
 
+        {/* La mise en relation avec des pros n'existe pas : la section
+            Marketplace a été retirée, cette phrase la suivait. */}
         <p className="font-raleway text-forest/70 text-xl max-w-2xl leading-relaxed">
-          De la cartographie de tes espaces à la mise en relation avec des pros,
+          De la cartographie de tes espaces au calendrier de tes semis,
           Growi t&apos;accompagne à chaque saison — sans que tu aies à tout gérer seul.
         </p>
 
         <Button variant="primary" size="lg" asChild>
-          <Link href="/tarifs">Essaie gratuitement</Link>
+          <Link href="/register">Créer mon jardin</Link>
         </Button>
 
         <nav aria-label="Navigation rapide dans la page" className="flex flex-wrap justify-center gap-2 mt-2">

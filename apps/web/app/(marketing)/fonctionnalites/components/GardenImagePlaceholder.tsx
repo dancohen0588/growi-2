@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 
 interface GardenImagePlaceholderProps {
-  variant: 'cartographie' | 'assistant' | 'diagnostic' | 'calendrier' | 'marketplace'
+  variant: 'cartographie' | 'assistant' | 'diagnostic' | 'calendrier'
   className?: string
 }
 
@@ -36,13 +36,6 @@ const variantConfig: Record<
     icon: '📅',
     label: 'Aperçu calendrier potager',
     prompt: 'Calendrier potager avec tâches illustrées',
-  },
-  marketplace: {
-    bg: 'from-lime/10 to-sand',
-    accent: 'bg-lime',
-    icon: '🛍️',
-    label: 'Aperçu marketplace services',
-    prompt: 'Marketplace de services jardinage',
   },
 }
 

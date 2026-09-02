@@ -4,10 +4,11 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 // `diagnostic` a sa propre page depuis que la fonctionnalité existe.
+// `marketplace` est sortie de la liste : rien n'existe derrière, et la promesse
+// n'est plus faite nulle part sur le site.
 const validFeatures = [
   'calendrier',
   'meteo',
-  'marketplace',
 ] as const
 
 type Feature = (typeof validFeatures)[number]
@@ -15,7 +16,6 @@ type Feature = (typeof validFeatures)[number]
 const featureLabels: Record<Feature, string> = {
   calendrier:  'Calendrier',
   meteo:       'Météo locale',
-  marketplace: 'Marketplace',
 }
 
 export async function generateMetadata({

@@ -13,14 +13,14 @@ import {
 } from '@/components/ui/sheet'
 
 /**
- * Premium n'est volontairement pas ici : l'offre s'atteint depuis le footer et
- * depuis le cœur de la page Fonctionnalités, pas depuis la navigation globale.
+ * « Pro » occupait une place de premier niveau pour une page vide : la page a
+ * été retirée, l'entrée avec. L'encyclopédie, elle, est le contenu le plus
+ * riche du site et reste dans la navigation.
  */
 const navLinks = [
   { href: '/fonctionnalites', label: 'Fonctionnalités' },
   { href: '/encyclopedie',    label: 'Encyclopédie' },
   { href: '/blog',            label: 'Blog' },
-  { href: '/pro',             label: 'Pro' },
   { href: '/contact',         label: 'Contact' },
 ]
 
@@ -82,9 +82,14 @@ export function Header() {
               <div className="h-9 w-9 rounded-full bg-forest/10 animate-pulse" aria-hidden />
             )}
             {status === 'unauthenticated' && (
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/login">Connexion</Link>
-              </Button>
+              <>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/login">Connexion</Link>
+                </Button>
+                <Button variant="primary" size="sm" asChild>
+                  <Link href="/register">Créer mon jardin</Link>
+                </Button>
+              </>
             )}
             {status === 'authenticated' && <UserMenu />}
           </div>
@@ -136,9 +141,15 @@ export function Header() {
                     <UserMenu />
                   </div>
                 )}
-                <Button variant="primary" size="default" className="mt-4 w-full">
-                  Télécharger l&apos;app
-                </Button>
+                {/* Ce bouton n'avait ni href ni handler : il ne faisait rien.
+                    Il mène désormais là où le visiteur veut aller. */}
+                {status === 'unauthenticated' && (
+                  <Button variant="primary" size="default" className="mt-4 w-full" asChild>
+                    <Link href="/register" onClick={() => setOpen(false)}>
+                      Créer mon jardin
+                    </Link>
+                  </Button>
+                )}
               </nav>
             </SheetContent>
           </Sheet>

@@ -12,6 +12,16 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs', '@auth/prisma-adapter'],
   },
+  // `/tarifs` et `/pro` ont été retirées : rien n'existe derrière (ni paiement,
+  // ni offre B2B) et la première était la cible du CTA principal du site. Les
+  // deux URL sont indexées, d'où la redirection permanente plutôt qu'une 404 —
+  // vers ce que le visiteur cherchait : commencer, ou nous joindre.
+  async redirects() {
+    return [
+      { source: '/tarifs', destination: '/register', permanent: true },
+      { source: '/pro',    destination: '/contact',  permanent: true },
+    ]
+  },
   // En-têtes de sécurité appliqués à toutes les réponses. Vercel ajoute déjà
   // Strict-Transport-Security ; le reste manquait.
   async headers() {
