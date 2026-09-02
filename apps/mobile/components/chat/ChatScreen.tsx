@@ -9,9 +9,11 @@ import {
   Linking,
   Platform,
   Pressable,
+  StyleSheet,
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
@@ -106,6 +108,17 @@ function Bubble({
   children?: React.ReactNode
 }) {
   const mine = role === 'user'
+  const { width } = useWindowDimensions()
+
+  /**
+   * La photo est dimensionnée en points, pas en pourcentage.
+   *
+   * La bulle n'a pas de largeur définie — seulement un maximum — et Yoga n'a
+   * donc rien contre quoi résoudre un `width: '100%'` : l'image se retrouvait
+   * calculée à zéro, ne laissant qu'un vide à sa hauteur. On part donc d'une
+   * largeur connue, et `aspectRatio` en déduit la hauteur.
+   */
+  const mediaWidth = Math.min(260, Math.round(width * 0.6))
 
   return (
     <View className={mine ? 'items-end' : 'items-stretch'}>
@@ -116,12 +129,15 @@ function Bubble({
         ].join(' ')}
       >
         {photoUri ? (
-          <View className="h-40 w-full overflow-hidden rounded-xl bg-sand-dark">
+          <View
+            className="overflow-hidden rounded-xl bg-sand-dark"
+            style={{ width: mediaWidth, aspectRatio: 4 / 3 }}
+          >
             <Image
               source={photoUri}
               contentFit="cover"
               transition={150}
-              style={{ width: '100%', height: '100%' }}
+              style={StyleSheet.absoluteFill}
               accessibilityIgnoresInvertColors
             />
           </View>

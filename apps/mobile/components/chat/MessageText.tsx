@@ -4,20 +4,37 @@ import { Text, View } from 'react-native'
  * Le peu de mise en forme que l'agent a le droit d'employer : **gras**, puces
  * « - », paragraphes.
  *
- * Écrit à la main plutôt qu'avec une bibliothèque Markdown : le prompt
- * n'autorise que ces trois formes, et les bibliothèques du genre pèsent lourd,
- * traitent des tableaux qu'on n'aura jamais, et imposent leur propre
- * typographie là où la nôtre doit valoir.
+ * S'y ajoute l'italique simple, que le prompt n'autorise pas mais que le
+ * modèle emploie tout de même pour les noms d'espèces.
+ *
+ * Écrit à la main plutôt qu'avec une bibliothèque Markdown : les bibliothèques
+ * du genre pèsent lourd, traitent des tableaux qu'on n'aura jamais, et
+ * imposent leur propre typographie là où la nôtre doit valoir.
  */
 
-type Segment = { text: string; bold: boolean }
+type Segment = { text: string; emphasis: 'none' | 'bold' | 'italic' }
 
-/** Découpe une ligne sur ses `**…**`. Une paire non refermée reste du texte. */
+/**
+ * Découpe une ligne sur ses `**gras**` et ses `*italiques*`.
+ *
+ * L'italique n'est pas dans les formes autorisées par le prompt, mais le
+ * modèle en met tout de même pour les noms d'espèces — « *Cereus* ». Le rendre
+ * coûte moins cher que de laisser des astérisques à l'écran. Une paire non
+ * refermée reste du texte, telle quelle.
+ */
 function segments(line: string): Segment[] {
-  const parts = line.split(/\*\*(.+?)\*\*/g)
-  return parts
-    .map((text, index) => ({ text, bold: index % 2 === 1 }))
-    .filter((segment) => segment.text.length > 0)
+  return line
+    .split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g)
+    .filter((token) => token.length > 0)
+    .map((token) => {
+      if (token.startsWith('**') && token.endsWith('**')) {
+        return { text: token.slice(2, -2), emphasis: 'bold' as const }
+      }
+      if (token.startsWith('*') && token.endsWith('*') && token.length > 2) {
+        return { text: token.slice(1, -1), emphasis: 'italic' as const }
+      }
+      return { text: token, emphasis: 'none' as const }
+    })
 }
 
 function Line({ text, tone }: { text: string; tone: string }) {
@@ -26,7 +43,10 @@ function Line({ text, tone }: { text: string; tone: string }) {
       {segments(text).map((segment, index) => (
         <Text
           key={index}
-          className={segment.bold ? `font-raleway-semibold text-body ${tone}` : undefined}
+          className={
+            segment.emphasis === 'bold' ? `font-raleway-semibold text-body ${tone}` : undefined
+          }
+          style={segment.emphasis === 'italic' ? { fontStyle: 'italic' } : undefined}
         >
           {segment.text}
         </Text>
