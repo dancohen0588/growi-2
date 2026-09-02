@@ -4,7 +4,7 @@ import { prisma } from './fixtures'
 // Parcours d'authentification tel que l'app mobile le vivra : inscription,
 // appels porteurs de jeton, rotation, détection de rejeu, déconnexion.
 
-const EMAIL = 'test-e2e-mobile@growi.app'
+const EMAIL = 'test-e2e-mobile@growi-garden.fr'
 const PASSWORD = 'MotDePasseMobile123!'
 
 async function cleanup() {
@@ -138,7 +138,7 @@ test.describe('Auth mobile (JWT)', () => {
 
     // Compte inexistant : même message, pour ne pas révéler les emails connus.
     const inconnu = await request.post('/api/v1/auth/login', {
-      data: { email: 'personne@growi.app', password: PASSWORD },
+      data: { email: 'personne@growi-garden.fr', password: PASSWORD },
     })
     expect(inconnu.status()).toBe(401)
     expect((await inconnu.json()).error.message).toBe('Email ou mot de passe incorrect')

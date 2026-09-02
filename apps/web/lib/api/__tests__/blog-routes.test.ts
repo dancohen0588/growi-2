@@ -195,11 +195,11 @@ describe('sans NEXT_PUBLIC_SITE_URL configurée', () => {
   })
 
   it('mais l\'origine configurée l\'emporte quand elle existe', async () => {
-    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://growi.app')
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://growi-garden.fr')
     vi.resetModules()
     const { GET: list } = await import('@/app/api/v1/blog/route')
 
     const listed = await (await list(new Request('http://192.168.1.5:3000/api/v1/blog'))).json()
-    expect(listed.data.posts[0].coverImage).toBe(`https://growi.app${summary.coverImage}`)
+    expect(listed.data.posts[0].coverImage).toBe(`https://growi-garden.fr${summary.coverImage}`)
   })
 })

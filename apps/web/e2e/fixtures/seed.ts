@@ -3,8 +3,8 @@ import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
-const TEST_EMAIL = 'test-e2e@growi.app'
-const TEST_EMAIL_2 = 'test-e2e-2@growi.app'
+const TEST_EMAIL = 'test-e2e@growi-garden.fr'
+const TEST_EMAIL_2 = 'test-e2e-2@growi-garden.fr'
 const TEST_PASSWORD = 'TestPassword123!'
 const TEST_GARDEN_NAME = 'Jardin E2E'
 
