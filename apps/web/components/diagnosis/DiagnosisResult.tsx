@@ -15,6 +15,7 @@ import {
   CalendarPlus,
   Check,
   Loader2,
+  MessageCircle,
   Sparkles,
   X,
 } from 'lucide-react'
@@ -58,6 +59,12 @@ export interface DiagnosisResultProps {
   /** Date de planification — non nulle, le bouton cède la place à son état accompli. */
   tasksPlannedAt?: string | null
   planError?: string | null
+  /**
+   * Ouvre le fil de discussion sur ce diagnostic, avec une question déjà
+   * écrite quand elle porte sur une recommandation précise. Absent là où le
+   * panneau n'est pas joignable.
+   */
+  onAsk?: (draft?: string) => void
 }
 
 export function DiagnosisResult({
@@ -73,6 +80,7 @@ export function DiagnosisResult({
   isPlanning = false,
   tasksPlannedAt = null,
   planError = null,
+  onAsk,
 }: DiagnosisResultProps) {
   const status = STATUS_STYLES[result.status]
   // On ne propose la mise à jour que si elle change vraiment quelque chose.
@@ -157,14 +165,40 @@ export function DiagnosisResult({
                 >
                   {DIAGNOSIS_PRIORITY_LABELS[reco.priority]}
                 </span>
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col items-start gap-0.5">
                   <span className="font-raleway text-sm text-forest/85">{reco.action}</span>
                   <span className="font-raleway text-xs text-forest/50">{reco.timeframe}</span>
+
+                  {/* « Pulvérise une solution au bicarbonate » ne dit rien à
+                      qui n'a jamais pulvérisé quoi que ce soit. */}
+                  {onAsk && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onAsk(`Peux-tu m'expliquer : « ${reco.shortAction ?? reco.action} » ?`)
+                      }
+                      className="mt-1 inline-flex items-center gap-1.5 font-raleway text-xs font-semibold text-forest/70 underline underline-offset-2 transition-colors hover:text-forest"
+                    >
+                      <MessageCircle size={13} aria-hidden />
+                      Pas clair&nbsp;? Demande à Growi
+                    </button>
+                  )}
                 </div>
               </li>
             ))}
           </ul>
         </Section>
+      )}
+
+      {onAsk && (
+        <button
+          type="button"
+          onClick={() => onAsk()}
+          className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-forest/25 px-4 py-2.5 font-poppins text-sm font-semibold text-forest transition-colors hover:bg-forest/5"
+        >
+          <MessageCircle size={16} aria-hidden />
+          Discuter de ce diagnostic
+        </button>
       )}
 
       {result.followUp && (

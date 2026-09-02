@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Droplets, Loader2, Plus, Scissors, Sprout } from 'lucide-react'
+import { Droplets, Loader2, MessageCircle, Plus, Scissors, Sprout } from 'lucide-react'
 import {
   CARE_LOG_TYPES,
   CARE_LOG_TYPE_LABELS,
@@ -12,6 +12,10 @@ import {
   type HealthStatus,
 } from '@growi/shared'
 
+import {
+  plantChatParams,
+  useChatPanel,
+} from '@/components/dashboard/chat/ChatPanelProvider'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/toast'
 import { logCareAction } from '@/lib/actions/plant.actions'
@@ -37,6 +41,7 @@ export interface PlantQuickActionsProps {
 }
 
 export function PlantQuickActions({ plantId, onLogged }: PlantQuickActionsProps) {
+  const openChat = useChatPanel()
   const [isPending, startTransition] = useTransition()
   const [sheetOpen, setSheetOpen] = useState(false)
   const { toast } = useToast()
@@ -81,6 +86,17 @@ export function PlantQuickActions({ plantId, onLogged }: PlantQuickActionsProps)
           onClick={() => setSheetOpen(true)}
         />
       </section>
+
+      {/* Les gestes s'enregistrent d'un clic ; une question ouvre le fil, à
+          côté et non au milieu d'eux. */}
+      <button
+        type="button"
+        onClick={() => openChat(plantChatParams(plantId))}
+        className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-forest/25 px-4 py-2.5 font-poppins text-sm font-semibold text-forest transition-colors hover:bg-forest/5"
+      >
+        <MessageCircle size={16} aria-hidden />
+        Poser une question
+      </button>
 
       <CareLogDialog
         open={sheetOpen}

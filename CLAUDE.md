@@ -421,6 +421,10 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/plants/[id]/diagnose` | POST |
 | `/api/v1/plants/[id]/diagnoses` · `/diagnoses/[diagnosisId]` | GET |
 | `/api/v1/plants/[id]/diagnoses/[diagnosisId]/apply` · `/plan` | POST |
+| `/api/v1/conversations` | POST (ouvre ou retrouve un fil), GET (`?plantInstanceId=`) |
+| `/api/v1/conversations/[id]` | GET |
+| `/api/v1/conversations/[id]/messages` | POST — réponse en **SSE** |
+| `/api/v1/conversations/[id]/proposals/accept` | POST |
 | `/api/v1/blog` · `/blog/[slug]` | GET — **publiques**, sans jeton, mises en cache |
 | `/api/v1/auth/register` · `/login` · `/refresh` · `/logout` | POST |
 | `/api/v1/auth/apple` · `/google` | POST — jeton d'identité du fournisseur |
@@ -748,6 +752,60 @@ individuellement. D'où une **seconde source** de tâches, persistées.
 > types.ts` et `lib/mock-actions.ts`. Les copies ont divergé au premier champ
 > ajouté ; le type canonique est celui du moteur, réexporté par `mock-actions`.
 > Ne pas en recréer une quatrième.
+
+### Chat contextuel (agent conversationnel)
+
+Un fil de discussion avec « Growi », **toujours ancré** sur une plante, un
+diagnostic ou une action du planning. Pas de chat général en v1 : c'est
+l'ancrage qui permet une réponse sur *ce* cas-là plutôt que des généralités.
+
+| Élément | Rôle |
+|---|---|
+| `lib/services/plant-context.ts` | Le contexte plante/catalogue/jardin/météo/gestes, **partagé** avec le diagnostic |
+| `lib/services/chat-prompt.ts` · `chat-tools.ts` | Persona et règles ; les trois fonctions que le modèle peut appeler |
+| `lib/services/chat.service.ts` | Quota, historique, flux, propositions, confirmation |
+| `lib/api/sse.ts` | La réponse `text/event-stream` |
+| `app/api/v1/conversations/*` | Les quatre routes |
+| `packages/shared/src/schemas/chat.ts` | Ancrage, propositions, messages, quota, protocole SSE |
+| `apps/mobile/components/chat/` · `apps/web/components/dashboard/chat/` | Les deux UI |
+
+- **L'agent propose, il n'exécute pas.** Un appel d'outil devient une carte que
+  l'utilisateur confirme d'un tap. À la confirmation, le serveur relit **la
+  proposition écrite en base** : le client n'envoie que `{ messageId,
+  proposalId }`, il n'a rien à falsifier. Ne jamais accepter le contenu d'une
+  proposition depuis le client.
+- **Trois règles écartent les propositions absurdes** : `mark_done` seulement
+  si l'ancrage est une action non encore faite, `plan_task` refusée si la
+  plante a déjà une tâche ouverte de même type à la même date, et deux
+  propositions au plus par réponse.
+- **Exactement un événement terminal**, `done` ou `error`. Une panne avant le
+  premier mot n'écrit aucun message d'assistant ; survenue en route, elle
+  persiste le texte reçu — l'utilisateur le retrouve en rouvrant — puis sort en
+  `error`. Le repli d'un modèle Gemini à l'autre s'arrête dès qu'un mot est
+  parti : un flux à moitié lu ne se rejoue pas.
+- **Le quota se compte dans le fuseau de l'utilisateur** (`chatDayBounds`). En
+  UTC, un Français aurait vu son compteur repartir à 2 h du matin. Il est
+  vérifié **avant** l'ouverture du flux, seule fenêtre où la route peut encore
+  répondre 429 en JSON.
+- **Une conversation par ancrage**, via la colonne calculée
+  `Conversation.anchorKey` : Postgres tient deux NULL pour distincts, et un
+  index unique sur trois colonnes optionnelles aurait laissé ouvrir autant de
+  fils « plante » qu'on veut.
+- **`actionSnapshot` n'est pas une commodité** : les actions du moteur sont
+  recalculées à chaque évaluation et ne sont persistées nulle part. Sans cette
+  copie, le fil deviendrait illisible dès le lendemain.
+- **Mobile : le fil passe par `chatApi`**, un second client monté sur le
+  `fetch` d'`expo/fetch` (`lib/api.ts`). Celui du moteur ne donne pas de
+  `response.body` — la réponse n'arriverait qu'une fois complète, sans qu'aucune
+  erreur ne le signale. Les envois multipart, eux, restent sur le client
+  principal.
+- **Web : l'ouverture passe par l'URL** (`?chat=…&plantId=…`), gérée par
+  `ChatPanelProvider` monté dans `app/dashboard/layout.tsx`. Le panneau s'ouvre
+  donc depuis n'importe quelle page, le lien est partageable et « précédent »
+  le referme.
+- Le rendu Markdown est **écrit à la main** des deux côtés : le prompt
+  n'autorise que le gras, les puces et les paragraphes. Une bibliothèque
+  apporterait titres, tableaux et liens qu'on ne veut pas.
 
 ### Plusieurs jardins par compte
 

@@ -1,10 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { Stethoscope } from 'lucide-react'
+import { MessageCircle, Stethoscope } from 'lucide-react'
 import { ACTION_TYPE_LABELS } from '@growi/shared'
 import type { GardenAction } from '@/lib/mock-actions'
 
+import {
+  actionChatParams,
+  useChatPanel,
+} from '@/components/dashboard/chat/ChatPanelProvider'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ActionIcon } from './ActionIcon'
 
@@ -30,7 +34,9 @@ function dialogTitle(action: GardenAction): string {
  * qui rend le conseil applicable.
  */
 export function ActionDetail({ action }: { action: GardenAction }) {
+  const openChat = useChatPanel()
   const [open, setOpen] = useState(false)
+  const chatParams = actionChatParams(action)
 
   if (!action.detail) return null
 
@@ -73,6 +79,22 @@ export function ActionDetail({ action }: { action: GardenAction }) {
                 <Stethoscope size={12} aria-hidden />
                 Issue d&apos;un diagnostic que tu as planifié
               </p>
+            )}
+
+            {/* Sans plante rattachée, il n'y a rien à demander : l'agent ne
+                répond que sur une plante précise. */}
+            {chatParams && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  openChat(chatParams)
+                }}
+                className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-forest/25 px-4 py-2.5 font-poppins text-sm font-semibold text-forest transition-colors hover:bg-forest/5"
+              >
+                <MessageCircle size={16} aria-hidden />
+                Comment faire&nbsp;?
+              </button>
             )}
           </div>
         </DialogContent>

@@ -13,6 +13,10 @@ import {
 import type { DiagnoseApiResponse, DiagnosisSuccess, HealthStatus } from '@growi/shared'
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  diagnosisChatParams,
+  useChatPanel,
+} from '@/components/dashboard/chat/ChatPanelProvider'
 import { DiagnosisResult } from '@/components/diagnosis/DiagnosisResult'
 import { prepareImageFile } from '@/lib/image-compression'
 
@@ -59,6 +63,7 @@ export function DiagnosisFlow({
   onDiagnosed,
   onPlanned,
 }: DiagnosisFlowProps) {
+  const openChat = useChatPanel()
   const [step, setStep] = useState<Step>('photo')
   const [preview, setPreview] = useState<string | null>(null)
   const [response, setResponse] = useState<DiagnoseApiResponse | null>(null)
@@ -325,6 +330,12 @@ export function DiagnosisFlow({
                 isPlanning={isPlanning}
                 tasksPlannedAt={plannedAt ?? response.tasksPlannedAt}
                 planError={planError}
+                onAsk={
+                  response.diagnosisId
+                    ? (draft) =>
+                        openChat(diagnosisChatParams(plantId, response.diagnosisId!, draft))
+                    : undefined
+                }
               />
             ) : (
               <div className="py-6 flex flex-col items-center gap-4 text-center">

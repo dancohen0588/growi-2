@@ -9,6 +9,10 @@ import {
   type HealthStatus,
 } from '@growi/shared'
 
+import {
+  diagnosisChatParams,
+  useChatPanel,
+} from '@/components/dashboard/chat/ChatPanelProvider'
 import { DiagnosisResult } from '@/components/diagnosis/DiagnosisResult'
 
 /**
@@ -147,6 +151,7 @@ function DiagnosisDetailView({
 }) {
   const [detail, setDetail] = useState<DiagnosisDetail | null>(null)
   const [failed, setFailed] = useState(false)
+  const openChat = useChatPanel()
   const [isPlanning, setIsPlanning] = useState(false)
   const [plannedAt, setPlannedAt] = useState<string | null>(null)
   const [planError, setPlanError] = useState<string | null>(null)
@@ -217,6 +222,7 @@ function DiagnosisDetailView({
       isPlanning={isPlanning}
       tasksPlannedAt={plannedAt ?? detail.tasksPlannedAt}
       planError={planError}
+      onAsk={(draft) => openChat(diagnosisChatParams(plantId, detail.id, draft))}
     />
   )
 }
