@@ -64,6 +64,13 @@ export const parcelDetailSchema = z.object({
   /** Contour de la parcelle, en mètres. */
   outlineM: z.array(meterPointSchema),
   bboxM: z.object({ width: z.number(), height: z.number() }),
+  /**
+   * Coin nord-ouest de la parcelle, en degrés — l'origine du repère métrique
+   * ci-dessus. C'est la seule façon, pour un terrain sur plusieurs parcelles,
+   * de les poser les unes par rapport aux autres : chaque parcelle est servie
+   * dans son propre repère, et sans ce point elles se superposeraient.
+   */
+  originLonLat: z.object({ lon: z.number(), lat: z.number() }),
   /** `null` quand la BD TOPO n'a pas répondu — le bâti est alors inconnu. */
   buildings: z.array(parcelBuildingSchema).nullable(),
   builtM2: z.number().nullable(),

@@ -183,6 +183,9 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveC
               fill={element.customColor ?? fill}
               stroke={borderFill}
               strokeWidth={2}
+              // La limite cadastrale se lit comme une limite, pas comme le
+              // bord d'une zone plantée — même trait que dans le plan SVG.
+              dash={element.type === 'terrain' ? [10, 6] : undefined}
             />
             {useIllustration && sprite && (
               <Group clipFunc={polyClip} listening={false}>

@@ -691,6 +691,30 @@ function sPergola(w: number, h: number): string {
   return g
 }
 
+/**
+ * Contour de parcelle : un simple lavis, sans bord.
+ *
+ * Le trait pointillé est tracé par le calque qui porte le polygone (le plan
+ * SVG comme l'éditeur), et non ici : le sprite est découpé à la forme de
+ * l'élément, un bord dessiné dedans serait rogné avec elle.
+ */
+function sTerrain(w: number, h: number): string {
+  return `<rect width="${w}" height="${h}" fill="rgba(180,221,127,.10)"/>`
+}
+
+/** Maison : emprise sable, contour bois, toiture hachurée. */
+function sMaison(w: number, h: number): string {
+  let g = `<rect width="${w}" height="${h}" rx="3" fill="#F9F7E8"/>`
+  // Hachures de toiture, à 45°, du coin haut-gauche vers le bas-droit.
+  const step = Math.max(9, Math.round(Math.min(w, h) / 8))
+  for (let d = -h; d < w; d += step) {
+    g += `<line x1="${d.toFixed(1)}" y1="0" x2="${(d + h).toFixed(1)}" y2="${h}"`
+      + ` stroke="rgba(123,94,60,.35)" stroke-width="2"/>`
+  }
+  // Les hachures débordent de la boîte : le `viewBox` du sprite les y ramène.
+  return g + `<rect width="${w}" height="${h}" rx="3" fill="none" stroke="#7B5E3C" stroke-width="3"/>`
+}
+
 function sVeranda(w: number, h: number): string {
   let g = `<rect width="${w}" height="${h}" rx="10" fill="rgba(216,230,232,.62)"/>`
   // poutres de toiture (parallèles) + poutre maîtresse
@@ -712,6 +736,7 @@ const MOTIFS: Record<string, (r: Rng) => string> = {
   legume: (r) => aFruitFoliage(LEGUME_GENERIC, r),
 }
 const SURFACES: Record<string, (w: number, h: number, r: Rng) => string> = {
+  terrain: (w, h) => sTerrain(w, h), maison: (w, h) => sMaison(w, h),
   pelouse: sPelouse, massif: sMassif, potager: sPotager,
   serre: (w, h) => sSerre(w, h), allee: sAllee, rocaille: sRocaille, terrasse: sTerrasse,
   veranda: (w, h) => sVeranda(w, h),

@@ -1,6 +1,7 @@
 // growi-frontend/lib/garden/types.ts
 
 export type GardenElementType =
+  | 'terrain' | 'maison'
   | 'mur' | 'portail' | 'bordure' | 'cloture' | 'abri' | 'terrasse' | 'veranda'
   | 'massif' | 'pelouse' | 'potager' | 'serre' | 'allee' | 'rocaille'
   | 'plante' | 'arbre'
@@ -30,6 +31,7 @@ export interface GardenPoint {
 
 /** Types « surface » (structures + zones) — éditables en polygone à n côtés. */
 export const SURFACE_TYPES: GardenElementType[] = [
+  'terrain', 'maison',
   'mur', 'portail', 'bordure', 'cloture', 'abri', 'terrasse', 'veranda', 'pergola',
   'massif', 'pelouse', 'potager', 'serre', 'allee', 'rocaille',
 ]
@@ -38,8 +40,13 @@ export function isSurfaceType(type: GardenElementType): boolean {
   return SURFACE_TYPES.includes(type)
 }
 
-/** Types « zone » — placés par défaut sur le calque le plus en arrière. */
+/**
+ * Types « zone » — placés par défaut sur le calque le plus en arrière.
+ * Le contour du terrain en fait partie : c'est le fond du plan, tout se pose
+ * dessus.
+ */
 export const ZONE_TYPES: GardenElementType[] = [
+  'terrain',
   'massif', 'pelouse', 'potager', 'serre', 'allee', 'rocaille',
 ]
 
@@ -71,6 +78,23 @@ export interface GardenElement {
   points?: GardenPoint[]
 }
 
+/**
+ * Trace d'un import cadastral, gardée dans `canvasData` — aucune colonne en
+ * base n'est nécessaire en v1.
+ *
+ * `elementIds` sert à remplacer proprement un import précédent : on retire ce
+ * qu'il avait posé, sans toucher à ce que l'utilisateur a dessiné depuis.
+ */
+export interface GardenCadastreImport {
+  /** Identifiants IDU des parcelles retenues, ex. `['785512510A1948']`. */
+  parcelIds: string[]
+  contenanceM2: number
+  /** `null` quand la BD TOPO n'a pas répondu : le bâti est inconnu. */
+  builtM2: number | null
+  importedAt: string
+  elementIds: string[]
+}
+
 export interface GardenConfig {
   orientation: GardenOrientation
   compassDeg: number
@@ -83,6 +107,8 @@ export interface GardenConfig {
   climateZone: ClimateZone
   /** Échelle du plan : pixels du canevas par mètre réel (P2 — cotation). */
   pxPerMeter?: number
+  /** Import du terrain depuis le cadastre, quand il a eu lieu. */
+  cadastre?: GardenCadastreImport
 }
 
 /** Commentaire libre positionné sur le plan (P3). */

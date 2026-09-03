@@ -450,6 +450,7 @@ async function fetchParcelDetail(idu: string): Promise<ParcelDetail> {
       width: round2((bbox.lonMax - bbox.lonMin) * proj.metersPerLon),
       height: round2((bbox.latMax - bbox.latMin) * METERS_PER_DEGREE),
     },
+    originLonLat: { lon: bbox.lonMin, lat: bbox.latMax },
     buildings,
     builtM2,
     gardenM2: builtM2 === null ? contenanceM2 : Math.max(0, contenanceM2 - builtM2),

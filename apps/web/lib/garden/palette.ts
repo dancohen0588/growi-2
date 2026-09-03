@@ -54,6 +54,9 @@ export const FALLBACK_TREE_ITEMS: PaletteItem[] = [
 
 export const PALETTE_CATALOG: Record<string, PaletteItem[]> = {
   'Structures': [
+    // Une maison de 10 × 8 m à l'échelle par défaut (40 px/m). Le contour du
+    // terrain, lui, n'est pas proposé ici : il vient du cadastre.
+    { type: 'maison',   emoji: '🏠', label: 'Maison',    defaultWidth: 400, defaultHeight: 320 },
     { type: 'mur',      emoji: '🧱', label: 'Mur',       defaultWidth: 120, defaultHeight: 36 },
     { type: 'portail',  emoji: '🚪', label: 'Portail',   defaultWidth: 80,  defaultHeight: 50 },
     { type: 'bordure',  emoji: '〰️', label: 'Bordure',   defaultWidth: 120, defaultHeight: 28 },

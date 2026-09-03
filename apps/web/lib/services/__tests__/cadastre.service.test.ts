@@ -226,6 +226,11 @@ describe('getParcel', () => {
     }
     // Le sommet de fermeture n'est pas répété : le plan referme lui-même.
     expect(parcel.outlineM[0]).not.toEqual(parcel.outlineM[parcel.outlineM.length - 1])
+
+    // L'origine du repère est ce coin nord-ouest, en degrés : c'est elle qui
+    // permet de poser plusieurs parcelles les unes par rapport aux autres.
+    expect(parcel.originLonLat.lon).toBeCloseTo(2.06165554, 6)
+    expect(parcel.originLonLat.lat).toBeCloseTo(48.89211647, 6)
   })
 
   it('produit une aire cohérente avec la contenance officielle', async () => {
