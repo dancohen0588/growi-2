@@ -319,6 +319,23 @@ function CanvasDropZone({ children, onDrop, zoom, pan }: {
   )
 }
 
+/**
+ * Mémo d'une adresse hors de France : le cadastre français n'aura rien à en
+ * dire, inutile de reproposer le raccourci à chaque ouverture de la page.
+ * Le stockage de session suffit — l'utilisateur peut déménager, ou s'être
+ * trompé d'adresse.
+ */
+const CADASTRE_OUTSIDE_FRANCE_KEY = 'growi_cadastre_hors_france'
+
+function readOutsideFranceMemo(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return sessionStorage.getItem(CADASTRE_OUTSIDE_FRANCE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function GardenCanvas() {
@@ -353,6 +370,9 @@ export function GardenCanvas() {
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false)
   const [addPlantOpen, setAddPlantOpen] = useState(false)
   const [cadastreOpen, setCadastreOpen] = useState(false)
+  const [cadastreUnavailableHere, setCadastreUnavailableHere] = useState(
+    readOutsideFranceMemo,
+  )
   const { toast } = useToast()
   const { profile, updateProfile } = useUserProfile()
 
@@ -457,8 +477,20 @@ export function GardenCanvas() {
   // limite cadastrale à elle.
   const currentGardenType = gardens.find(g => g.id === loadedGardenId)?.type
   const cadastreAvailable =
-    currentGardenType === 'OUTDOOR' || currentGardenType === 'ALLOTMENT'
+    !cadastreUnavailableHere
+    && (currentGardenType === 'OUTDOOR' || currentGardenType === 'ALLOTMENT')
   const openCadastre = useCallback(() => setCadastreOpen(true), [])
+
+  // Une adresse hors de France ne le sera pas davantage au prochain clic :
+  // le raccourci disparaît pour la session plutôt que de promettre en vain.
+  const handleOutsideFrance = useCallback(() => {
+    setCadastreUnavailableHere(true)
+    try {
+      sessionStorage.setItem(CADASTRE_OUTSIDE_FRANCE_KEY, '1')
+    } catch {
+      // Navigation privée : le mémo ne survivra pas, sans conséquence.
+    }
+  }, [])
 
   const handleCadastreImport = useCallback(
     (parcels: ParcelDetail[], options: { withOutline: boolean; withBuildings: boolean }) => {
@@ -1009,6 +1041,7 @@ export function GardenCanvas() {
             }}
             hasElements={garden.garden.elements.length > 0}
             onImport={handleCadastreImport}
+            onOutsideFrance={handleOutsideFrance}
           />
         )}
       </div>

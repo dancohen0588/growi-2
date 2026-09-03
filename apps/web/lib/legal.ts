@@ -98,6 +98,14 @@ export const DATA_COLLECTED = [
       'Jusqu\'à la désactivation des rappels, à la déconnexion, ou à la désinstallation de l\'app.',
   },
   {
+    category: 'Terrain cadastral',
+    items:
+      'Si tu importes ton terrain depuis le cadastre, l\'identifiant de la parcelle est conservé avec le plan de ton jardin.',
+    why:
+      'Retrouver l\'import et le remplacer sans te faire rechoisir ta parcelle. Aucune photo aérienne n\'est conservée.',
+    retention: 'Jusqu\'à la suppression du jardin, ou son remplacement par un nouvel import.',
+  },
+  {
     category: 'Identification sans compte',
     items:
       'Une empreinte de ton adresse IP — l\'adresse elle-même n\'est pas conservée — et le nombre d\'identifications faites dans la journée.',
@@ -140,10 +148,18 @@ export const PROCESSORS = [
   },
   {
     name: 'Open-Meteo et OpenStreetMap (Nominatim)',
-    role: 'Météo, recherche d\'un lieu et conversion des coordonnées en nom de lieu',
+    role: 'Météo et conversion des coordonnées en nom de lieu',
+    data:
+      'Des coordonnées approximatives. Jamais d\'identifiant de compte.',
+    location: 'Union européenne',
+  },
+  {
+    name: 'IGN — Géoplateforme, API Carto et BD TOPO',
+    role:
+      'Recherche d\'adresse, et import du terrain depuis le plan cadastral quand tu le demandes',
     data:
       'Le texte que tu saisis pour situer ton jardin — code postal, ville ou adresse — puis des coordonnées approximatives. Jamais d\'identifiant de compte.',
-    location: 'Union européenne',
+    location: 'France',
   },
   {
     name: 'Expo (Expo Push, 650 Industries)',

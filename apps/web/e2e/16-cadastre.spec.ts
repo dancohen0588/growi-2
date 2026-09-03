@@ -199,6 +199,23 @@ test.describe('Import du terrain depuis le cadastre', () => {
     expect(garden?.canvasData ?? '').not.toContain('"type":"terrain"')
   })
 
+  test('E2E-CAD-05 — Échap ferme le dialogue sans rien écrire dans le plan', async ({ page }) => {
+    await stubCadastre(page)
+    await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
+    await page.goto('/dashboard/jardin')
+
+    await page.getByRole('button', { name: /Retrouver mon terrain sur le cadastre/ }).click()
+    await expect(page.getByText('Laquelle est ta parcelle ?')).toBeVisible()
+
+    await page.keyboard.press('Escape')
+
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    const plan = page.getByRole('table', { name: 'Éléments dans ton jardin' })
+    await expect(plan.getByRole('cell', { name: 'terrain', exact: true })).toHaveCount(0)
+    const garden = await prisma.garden.findUnique({ where: { id: gardenId } })
+    expect(garden?.canvasData ?? '').not.toContain('"type":"terrain"')
+  })
+
   test('E2E-CAD-04 — Un balcon n’a pas de parcelle : aucun bouton', async ({ page }) => {
     await prisma.garden.update({ where: { id: gardenId }, data: { type: 'BALCONY' } })
     await stubCadastre(page)

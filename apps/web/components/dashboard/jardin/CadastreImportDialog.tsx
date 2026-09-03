@@ -418,7 +418,11 @@ export function CadastreImportDialog({
 
 function CadastreLoading({ label }: { label: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 py-10 font-raleway text-sm text-forest/60">
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex items-center justify-center gap-2 py-10 font-raleway text-sm text-forest/60"
+    >
       <Loader2 size={16} className="animate-spin" aria-hidden />
       {label}
     </div>
@@ -450,13 +454,19 @@ function CadastreFailure({
         <DialogTitle>Le cadastre n&apos;a rien pu proposer</DialogTitle>
       </DialogHeader>
 
-      <p className="flex items-start gap-2 font-raleway text-sm text-forest/80">
+      {/* L'échec arrive après coup, sur un dialogue déjà ouvert : sans région
+          annoncée, un lecteur d'écran ne dirait rien de ce changement. */}
+      <p
+        role="status"
+        aria-live="polite"
+        className="flex items-start gap-2 font-raleway text-sm text-forest/80"
+      >
         <MapPin size={16} className="mt-0.5 shrink-0 text-forest/40" aria-hidden />
         {FAILURE_MESSAGES[failure]}
       </p>
 
       <DialogFooter>
-        <Button variant="ghost" onClick={onManual}>
+        <Button variant="ghost" onClick={onManual} autoFocus>
           Renseigner à la main
         </Button>
         {failure === 'unavailable' && onRetry && (
