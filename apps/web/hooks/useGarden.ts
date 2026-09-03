@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import type { ParcelDetail } from '@growi/shared'
 import type { Garden, GardenElement, GardenConfig, GardenAnnotation, LayerOrder } from '@/lib/garden/types'
-import { isSurfaceType, isZoneType, rectPoints } from '@/lib/garden/types'
+import { isSurfaceType, rectPoints } from '@/lib/garden/types'
+import { seedGardenFromParcels, type CadastreSeedOptions } from '@/lib/garden/cadastre-seed'
 import type { PaletteItem } from '@/lib/garden/palette'
 import { createDefaultGarden } from '@/lib/garden/defaults'
 import { loadGardenForEditor, renameGarden } from '@/lib/actions/garden.actions'
@@ -46,6 +48,10 @@ export interface UseGardenReturn {
   setZoom: (zoom: number) => void
   updateConfig: (patch: Partial<GardenConfig>) => void
   updateName: (name: string) => void
+  /** Pose un import cadastral en une seule entrée d'annulation. */
+  applyCadastreSeed: (parcels: ParcelDetail[], options: CadastreSeedOptions) => Garden
+  /** Écrit `Garden.surfaceM2` en base (API v1). */
+  setSurfaceM2: (surfaceM2: number) => Promise<void>
 
   saveGarden: () => void
   exportPNG: (containerId: string) => Promise<void>
@@ -211,13 +217,11 @@ export function useGarden(requestedGardenId: string | null = null): UseGardenRet
         : {}),
       ...extra,
     }
-    // RG : une zone est posée sur le calque le plus en arrière.
-    updateGarden(prev => ({
-      ...prev,
-      elements: isZoneType(newEl.type)
-        ? [newEl, ...prev.elements]
-        : [...prev.elements, newEl],
-    }))
+    // Un élément qu'on vient de poser passe au premier plan, quel que soit son
+    // type : le voir est la première chose qu'on en attend. Les zones étaient
+    // envoyées au fond, ce qui les faisait disparaître sous un plan déjà
+    // rempli — le panneau de propriétés permet de les y renvoyer.
+    updateGarden(prev => ({ ...prev, elements: [...prev.elements, newEl] }))
     setSelectedId(newEl.id)
     return newEl.id
   }, [updateGarden])
@@ -233,12 +237,7 @@ export function useGarden(requestedGardenId: string | null = null): UseGardenRet
       linkedPlantId: undefined,
       points: source.points ? source.points.map(p => ({ ...p })) : undefined,
     }
-    updateGarden(prev => ({
-      ...prev,
-      elements: isZoneType(clone.type)
-        ? [clone, ...prev.elements]
-        : [...prev.elements, clone],
-    }))
+    updateGarden(prev => ({ ...prev, elements: [...prev.elements, clone] }))
     setSelectedId(clone.id)
     return clone.id
   }, [updateGarden])
@@ -351,6 +350,45 @@ export function useGarden(requestedGardenId: string | null = null): UseGardenRet
     })
   }, [])
 
+  /**
+   * Pose un import cadastral : **un seul** `updateGarden`, donc une seule
+   * entrée dans la pile d'annulation — Ctrl+Z retire tout l'import d'un coup.
+   *
+   * L'état complet est calculé depuis le plan courant puis renvoyé, ce qui
+   * permet à l'appelant de recadrer la vue sur ce qui vient d'être posé sans
+   * attendre le prochain rendu.
+   */
+  const applyCadastreSeed = useCallback(
+    (parcels: ParcelDetail[], options: CadastreSeedOptions): Garden => {
+      const next = seedGardenFromParcels(gardenRef.current, parcels, options)
+      updateGarden(prev => ({ ...next, updatedAt: prev.updatedAt }))
+      return next
+    },
+    [updateGarden],
+  )
+
+  /**
+   * Écrit la surface du jardin en base — colonne `surfaceM2`, que lisent l'app
+   * mobile et le contexte du diagnostic. Elle vit à côté du canevas : une
+   * surface importée du cadastre n'aurait aucun effet si on la laissait dans
+   * le seul plan dessiné.
+   */
+  const setSurfaceM2 = useCallback(async (surfaceM2: number): Promise<void> => {
+    const id = gardenDbIdRef.current
+    if (!id) return
+    try {
+      await fetch(`/api/v1/gardens/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ surfaceM2 }),
+      })
+    } catch (err) {
+      // Le plan, lui, est posé : une surface non enregistrée se corrige dans
+      // l'onglet « Jardin », elle ne justifie pas de défaire l'import.
+      console.error('[useGarden] surface du jardin :', err)
+    }
+  }, [])
+
   // Marque l'assistant de création comme terminé (P4).
   const completeOnboarding = useCallback(() => {
     updateGarden(prev => ({ ...prev, onboarding: { completed: true } }))
@@ -404,6 +442,8 @@ export function useGarden(requestedGardenId: string | null = null): UseGardenRet
     setZoom,
     updateConfig,
     updateName,
+    applyCadastreSeed,
+    setSurfaceM2,
     saveGarden,
     exportPNG,
   }

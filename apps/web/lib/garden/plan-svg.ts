@@ -107,6 +107,11 @@ function fitSprite(svg: string, width: number, height: number): string {
 const escapeXml = (value: string): string =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+/** Le contour de parcelle, seul élément dessiné en limite et non en surface. */
+function isCadastralOutline(el: GardenElement): boolean {
+  return el.type === 'terrain'
+}
+
 function renderElement(el: GardenElement, index: number, withLabels: boolean): string {
   const prefix = `e${index}`
   const width = Math.max(8, Math.round(el.width))
@@ -121,20 +126,29 @@ function renderElement(el: GardenElement, index: number, withLabels: boolean): s
 
   if (polygon && polygon.length >= 3) {
     const points = polygon.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+    // La limite cadastrale se lit comme une limite : trait pointillé net, à ne
+    // pas confondre avec le bord d'une zone plantée.
+    const outline = isCadastralOutline(el)
+      ? `<polygon points="${points}" fill="none" stroke="${el.customBorder ?? '#1E5631'}"`
+        + ` stroke-width="2" stroke-dasharray="10 6"/>`
+      : `<polygon points="${points}" fill="none" stroke="${el.customBorder ?? 'rgba(30,86,49,.35)'}" stroke-width="2"/>`
     body =
       `<defs><clipPath id="${prefix}-shape"><polygon points="${points}"/></clipPath></defs>`
       + `<g clip-path="url(#${prefix}-shape)">${sprite}</g>`
-      + `<polygon points="${points}" fill="none" stroke="${el.customBorder ?? 'rgba(30,86,49,.35)'}" stroke-width="2"/>`
+      + outline
   }
 
   // Seules les zones et structures sont étiquetées. Nommer aussi chaque plante
   // rendait le plan illisible dès qu'un potager en serrait quelques-unes : les
   // étiquettes se chevauchaient. Une plante se reconnaît à son dessin, et son
   // nom se lit dans la liste des plantes du jardin.
+  // Le contour du terrain n'est pas étiqueté : il entoure tout le plan, son
+  // nom se poserait au milieu des éléments qu'il contient.
   if (
     withLabels
     && el.label
     && isSurfaceType(el.type)
+    && !isCadastralOutline(el)
     && Math.min(width, height) >= MIN_BOX_FOR_LABEL
   ) {
     // Une étiquette posée hors rotation ne suivrait plus l'élément.

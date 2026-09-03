@@ -175,3 +175,62 @@ describe('étiquettes', () => {
     expect(plan.svg).not.toContain('</text>')
   })
 })
+
+describe('terrain et maison (import cadastral)', () => {
+  const terrain = element({
+    id: 'terrain-1',
+    type: 'terrain',
+    emoji: '🗺️',
+    label: 'Limite de parcelle · 0A 1948',
+    x: 40,
+    y: 40,
+    width: 952,
+    height: 1159,
+    drawKind: 'terrain',
+    points: [
+      { x: 0, y: 490 },
+      { x: 270, y: 313 },
+      { x: 664, y: 104 },
+      { x: 952, y: 0 },
+      { x: 943, y: 1159 },
+      { x: 12, y: 900 },
+    ],
+  })
+  const maison = element({
+    id: 'maison-1',
+    type: 'maison',
+    emoji: '🏠',
+    label: 'Maison',
+    x: 300,
+    y: 400,
+    width: 400,
+    height: 320,
+    drawKind: 'maison',
+  })
+
+  it('trace la limite cadastrale en pointillé, pas en bord de zone', () => {
+    const plan = buildGardenPlan(canvas([terrain]))!
+
+    expect(plan.svg).toContain('stroke="#1E5631" stroke-width="2" stroke-dasharray="10 6"')
+  })
+
+  it('ne nomme pas le terrain : son étiquette tomberait au milieu du plan', () => {
+    const plan = buildGardenPlan(canvas([terrain]))!
+
+    expect(plan.svg).not.toContain('Limite de parcelle')
+  })
+
+  it('dessine la maison en emprise sable, contour bois, et la nomme', () => {
+    const plan = buildGardenPlan(canvas([maison]))!
+
+    expect(plan.svg).toContain('fill="#F9F7E8"')
+    expect(plan.svg).toContain('stroke="#7B5E3C"')
+    expect(plan.svg).toContain('>Maison</text>')
+  })
+
+  it('garde le terrain au fond, sous ce qui est posé dessus', () => {
+    const plan = buildGardenPlan(canvas([terrain, maison]))!
+
+    expect(plan.svg.indexOf('e0-')).toBeLessThan(plan.svg.indexOf('e1-'))
+  })
+})

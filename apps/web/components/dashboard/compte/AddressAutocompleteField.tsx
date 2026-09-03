@@ -5,27 +5,39 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { MapPin, Loader2 } from 'lucide-react'
 import { reverseGeocode } from '@/lib/weather-api'
 
-interface BANFeature {
+interface GeocodeFeature {
   properties: {
     label?: string
     name?: string
     postcode?: string
     city?: string
+    /** Code commune INSEE — absent hors de France. */
+    citycode?: string
   }
   geometry: {
     coordinates: [number, number] // [lon, lat]
   }
 }
 
-interface BANResponse {
-  features?: BANFeature[]
+interface GeocodeResponse {
+  features?: GeocodeFeature[]
 }
 
 type GeoStatus = 'idle' | 'loading' | 'denied' | 'unsupported'
 
 interface AddressAutocompleteFieldProps {
   value: string
-  onChange: (label: string, lat: number | null, lon: number | null) => void
+  /**
+   * `citycode` est le code commune INSEE de l'adresse choisie, `null` quand
+   * il n'y en a pas — c'est ce qui permet à l'import cadastral de reconnaître
+   * une adresse hors de France sans interroger l'IGN pour rien.
+   */
+  onChange: (
+    label: string,
+    lat: number | null,
+    lon: number | null,
+    citycode?: string | null,
+  ) => void
   id?: string
   placeholder?: string
   disabled?: boolean
@@ -38,18 +50,26 @@ export function AddressAutocompleteField({
   placeholder = 'Ex : 14 rue des Lilas, Lyon',
   disabled = false,
 }: AddressAutocompleteFieldProps) {
-  const [suggestions, setSuggestions] = useState<BANFeature[]>([])
+  const [suggestions, setSuggestions] = useState<GeocodeFeature[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [isFetching, setIsFetching] = useState(false)
   const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle')
   const containerRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /**
+   * Une valeur venue du compte n'a pas à être re-cherchée : sans ce garde, un
+   * champ pré-rempli ouvre sa liste de suggestions dès l'affichage, par-dessus
+   * ce qui suit — et interroge le géocodeur pour une adresse déjà choisie.
+   */
+  const typedRef = useRef(false)
 
-  // Debounced BAN fetch
+  // Recherche d'adresses, avec anti-rebond, sur le géocodeur de la Géoplateforme.
+  // `api-adresse.data.gouv.fr` a été transféré à l'IGN et redirige ici en
+  // attendant son extinction ; le format de réponse est identique.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
-    if (!value || value.trim().length < 3) {
+    if (!typedRef.current || !value || value.trim().length < 3) {
       setSuggestions([])
       setIsOpen(false)
       return
@@ -64,10 +84,10 @@ export function AddressAutocompleteField({
           autocomplete: '1',
         })
         const res = await fetch(
-          `https://api-adresse.data.gouv.fr/search/?${params.toString()}`,
+          `https://data.geopf.fr/geocodage/search?${params.toString()}`,
         )
-        if (!res.ok) throw new Error('BAN error')
-        const json = (await res.json()) as BANResponse
+        if (!res.ok) throw new Error('Géocodage indisponible')
+        const json = (await res.json()) as GeocodeResponse
         const feats = json.features ?? []
         setSuggestions(feats)
         setIsOpen(feats.length > 0)
@@ -98,22 +118,23 @@ export function AddressAutocompleteField({
     return () => document.removeEventListener('mousedown', handleMouseDown)
   }, [])
 
-  function getSuggestionLabel(feat: BANFeature): string {
+  function getSuggestionLabel(feat: GeocodeFeature): string {
     const p = feat.properties
     if (p.label) return p.label
     return [p.name, p.postcode, p.city].filter(Boolean).join(' ')
   }
 
-  function handleSelect(feat: BANFeature) {
+  function handleSelect(feat: GeocodeFeature) {
     const label = getSuggestionLabel(feat)
     const lon = feat.geometry.coordinates[0]
     const lat = feat.geometry.coordinates[1]
-    onChange(label, lat, lon)
+    onChange(label, lat, lon, feat.properties.citycode ?? null)
     setSuggestions([])
     setIsOpen(false)
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    typedRef.current = true
     // Manual typing: coords cleared to signal re-geocode needed
     onChange(e.target.value, null, null)
   }

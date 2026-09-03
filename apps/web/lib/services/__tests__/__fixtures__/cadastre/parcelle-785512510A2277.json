@@ -1,0 +1,79 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "parcelle.35217806",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                2.06196702,
+                48.89153101
+              ],
+              [
+                2.06195985,
+                48.89152772
+              ],
+              [
+                2.0616951,
+                48.89170318
+              ],
+              [
+                2.0618976,
+                48.89180351
+              ],
+              [
+                2.0619282,
+                48.89177803
+              ],
+              [
+                2.06197012,
+                48.89179815
+              ],
+              [
+                2.06203339,
+                48.89179172
+              ],
+              [
+                2.06218415,
+                48.89162993
+              ],
+              [
+                2.06196702,
+                48.89153101
+              ]
+            ]
+          ]
+        ]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "gid": 33334810,
+        "numero": "2277",
+        "feuille": 2,
+        "section": "0A",
+        "code_dep": "78",
+        "nom_com": "Saint-Germain-en-Laye",
+        "code_com": "551",
+        "com_abs": "251",
+        "code_arr": "000",
+        "idu": "785512510A2277",
+        "contenance": 612,
+        "code_insee": "78551"
+      }
+    }
+  ],
+  "totalFeatures": 1,
+  "numberMatched": 1,
+  "numberReturned": 1,
+  "timeStamp": "2026-09-03T09:23:17.191Z",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::4326"
+    }
+  }
+}

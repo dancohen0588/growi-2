@@ -2,6 +2,10 @@
 import type { GardenElementType } from './types'
 
 export const TYPE_COLORS: Record<string, { fill: string; stroke: string }> = {
+  // Le contour cadastral est une limite, pas une surface : à peine teinté,
+  // pour que tout ce qu'on pose dessus reste lisible.
+  terrain:        { fill: 'rgba(180,221,127,.10)', stroke: '#1E5631' },
+  maison:         { fill: 'rgba(249,247,232,.90)', stroke: '#7B5E3C' },
   mur:            { fill: 'rgba(180,221,127,.28)', stroke: '#5a8a4a' },
   portail:        { fill: 'rgba(246,196,69,.30)',  stroke: '#c49a10' },
   bordure:        { fill: 'rgba(30,86,49,.10)',    stroke: '#2d7a47' },

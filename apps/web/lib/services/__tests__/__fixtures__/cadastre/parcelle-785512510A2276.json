@@ -1,0 +1,95 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "parcelle.35215957",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                2.06165554,
+                48.89200631
+              ],
+              [
+                2.06183459,
+                48.89185626
+              ],
+              [
+                2.0618976,
+                48.89180351
+              ],
+              [
+                2.0616951,
+                48.89170318
+              ],
+              [
+                2.06158094,
+                48.89177882
+              ],
+              [
+                2.06145536,
+                48.89183728
+              ],
+              [
+                2.06144123,
+                48.8918494
+              ],
+              [
+                2.06143675,
+                48.89186313
+              ],
+              [
+                2.06144494,
+                48.89188576
+              ],
+              [
+                2.06145571,
+                48.89190123
+              ],
+              [
+                2.06146725,
+                48.89191166
+              ],
+              [
+                2.0614922,
+                48.89192724
+              ],
+              [
+                2.06165554,
+                48.89200631
+              ]
+            ]
+          ]
+        ]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "gid": 33332908,
+        "numero": "2276",
+        "feuille": 2,
+        "section": "0A",
+        "code_dep": "78",
+        "nom_com": "Saint-Germain-en-Laye",
+        "code_com": "551",
+        "com_abs": "251",
+        "code_arr": "000",
+        "idu": "785512510A2276",
+        "contenance": 612,
+        "code_insee": "78551"
+      }
+    }
+  ],
+  "totalFeatures": 1,
+  "numberMatched": 1,
+  "numberReturned": 1,
+  "timeStamp": "2026-09-03T09:23:16.677Z",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::4326"
+    }
+  }
+}
