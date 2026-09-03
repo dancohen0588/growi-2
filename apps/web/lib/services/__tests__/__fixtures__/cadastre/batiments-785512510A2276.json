@@ -1,0 +1,203 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "batiment.41438668",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                2.06161534,
+                48.89192092,
+                81.6
+              ],
+              [
+                2.06162367,
+                48.89191289,
+                81.6
+              ],
+              [
+                2.06158313,
+                48.89189188,
+                81.6
+              ],
+              [
+                2.0615748,
+                48.89189991,
+                81.6
+              ],
+              [
+                2.06154103,
+                48.89188166,
+                81.6
+              ],
+              [
+                2.06153765,
+                48.89184206,
+                81.6
+              ],
+              [
+                2.06160324,
+                48.89183538,
+                81.6
+              ],
+              [
+                2.06161433,
+                48.89182558,
+                81.6
+              ],
+              [
+                2.06165758,
+                48.8918475,
+                81.6
+              ],
+              [
+                2.06166865,
+                48.89183859,
+                81.6
+              ],
+              [
+                2.06173353,
+                48.89187148,
+                81.6
+              ],
+              [
+                2.06165318,
+                48.8919401,
+                81.6
+              ],
+              [
+                2.06161534,
+                48.89192092,
+                81.6
+              ]
+            ]
+          ]
+        ]
+      },
+      "geometry_name": "geometrie",
+      "properties": {
+        "cleabs": "BATIMENT0000002012519677",
+        "nature": "Indifférenciée",
+        "usage_1": "Résidentiel",
+        "usage_2": null,
+        "construction_legere": false,
+        "etat_de_l_objet": "En service",
+        "date_creation": "2018-08-23T05:47:08.176Z",
+        "date_modification": "2019-03-15T13:41:07.370Z",
+        "date_d_apparition": "2000-01-01Z",
+        "date_de_confirmation": null,
+        "sources": null,
+        "identifiants_sources": null,
+        "methode_d_acquisition_planimetrique": "BDParcellaire recalée",
+        "methode_d_acquisition_altimetrique": "Interpolation bâti BDTopo",
+        "precision_planimetrique": 3,
+        "precision_altimetrique": 2.5,
+        "nombre_de_logements": 1,
+        "nombre_d_etages": 2,
+        "materiaux_des_murs": "90",
+        "materiaux_de_la_toiture": "10",
+        "hauteur": 3.5,
+        "altitude_minimale_sol": 78.1,
+        "altitude_minimale_toit": 81.6,
+        "altitude_maximale_toit": null,
+        "altitude_maximale_sol": null,
+        "origine_du_batiment": "Cadastre",
+        "appariement_fichiers_fonciers": "A 1.0",
+        "identifiants_rnb": "YBKDQ87AHJ9B"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "batiment.41438667",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                2.06161534,
+                48.89192092,
+                81.2
+              ],
+              [
+                2.06160427,
+                48.89192982,
+                81.2
+              ],
+              [
+                2.06156371,
+                48.89190972,
+                81.2
+              ],
+              [
+                2.0615748,
+                48.89189991,
+                81.2
+              ],
+              [
+                2.06158313,
+                48.89189188,
+                81.2
+              ],
+              [
+                2.06162367,
+                48.89191289,
+                81.2
+              ],
+              [
+                2.06161534,
+                48.89192092,
+                81.2
+              ]
+            ]
+          ]
+        ]
+      },
+      "geometry_name": "geometrie",
+      "properties": {
+        "cleabs": "BATIMENT0000002012519676",
+        "nature": "Indifférenciée",
+        "usage_1": "Résidentiel",
+        "usage_2": null,
+        "construction_legere": true,
+        "etat_de_l_objet": "En service",
+        "date_creation": "2018-08-23T05:47:08.176Z",
+        "date_modification": "2018-12-14T12:16:30.581Z",
+        "date_d_apparition": null,
+        "date_de_confirmation": null,
+        "sources": null,
+        "identifiants_sources": null,
+        "methode_d_acquisition_planimetrique": "BDParcellaire recalée",
+        "methode_d_acquisition_altimetrique": "Interpolation bâti BDTopo",
+        "precision_planimetrique": 3,
+        "precision_altimetrique": 2.5,
+        "nombre_de_logements": null,
+        "nombre_d_etages": null,
+        "materiaux_des_murs": null,
+        "materiaux_de_la_toiture": null,
+        "hauteur": 3.1,
+        "altitude_minimale_sol": 78.1,
+        "altitude_minimale_toit": 81.2,
+        "altitude_maximale_toit": null,
+        "altitude_maximale_sol": null,
+        "origine_du_batiment": "Cadastre",
+        "appariement_fichiers_fonciers": null,
+        "identifiants_rnb": "Y5PDJFP9ME76"
+      }
+    }
+  ],
+  "totalFeatures": 2,
+  "numberMatched": 2,
+  "numberReturned": 2,
+  "timeStamp": "2026-09-03T09:23:24.927Z",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::4326"
+    }
+  }
+}

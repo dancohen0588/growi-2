@@ -1,0 +1,104 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "batiment.41438666",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                2.06199116,
+                48.89203088,
+                81
+              ],
+              [
+                2.06193934,
+                48.89203048,
+                81
+              ],
+              [
+                2.0619396,
+                48.89201609,
+                81
+              ],
+              [
+                2.06186049,
+                48.89201637,
+                81
+              ],
+              [
+                2.06186024,
+                48.89195431,
+                81
+              ],
+              [
+                2.06193934,
+                48.89195493,
+                81
+              ],
+              [
+                2.06193951,
+                48.89194504,
+                81
+              ],
+              [
+                2.06199406,
+                48.89194547,
+                81
+              ],
+              [
+                2.06199116,
+                48.89203088,
+                81
+              ]
+            ]
+          ]
+        ]
+      },
+      "geometry_name": "geometrie",
+      "properties": {
+        "cleabs": "BATIMENT0000002012519674",
+        "nature": "Indifférenciée",
+        "usage_1": "Résidentiel",
+        "usage_2": null,
+        "construction_legere": false,
+        "etat_de_l_objet": "En service",
+        "date_creation": "2018-08-23T05:47:08.176Z",
+        "date_modification": "2019-03-15T13:41:07.370Z",
+        "date_d_apparition": "1989-01-01Z",
+        "date_de_confirmation": null,
+        "sources": null,
+        "identifiants_sources": null,
+        "methode_d_acquisition_planimetrique": "BDParcellaire recalée",
+        "methode_d_acquisition_altimetrique": "Interpolation bâti BDTopo",
+        "precision_planimetrique": 3,
+        "precision_altimetrique": 2.5,
+        "nombre_de_logements": 1,
+        "nombre_d_etages": 2,
+        "materiaux_des_murs": "03",
+        "materiaux_de_la_toiture": "01",
+        "hauteur": 3.4,
+        "altitude_minimale_sol": 77.6,
+        "altitude_minimale_toit": 81,
+        "altitude_maximale_toit": null,
+        "altitude_maximale_sol": null,
+        "origine_du_batiment": "Cadastre",
+        "appariement_fichiers_fonciers": "A 1.0",
+        "identifiants_rnb": "FP3EVRVTR298"
+      }
+    }
+  ],
+  "totalFeatures": 1,
+  "numberMatched": 1,
+  "numberReturned": 1,
+  "timeStamp": "2026-09-03T09:23:24.817Z",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::4326"
+    }
+  }
+}

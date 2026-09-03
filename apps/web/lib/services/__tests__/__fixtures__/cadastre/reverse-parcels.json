@@ -1,0 +1,149 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.062004370966861,
+          48.891802311292004
+        ]
+      },
+      "properties": {
+        "id": "785512510A1925",
+        "departmentcode": "78",
+        "municipalitycode": "551",
+        "oldmunicipalitycode": "251",
+        "districtcode": "000",
+        "section": "0A",
+        "sheet": "02",
+        "number": "1925",
+        "city": "Saint-Germain-en-Laye",
+        "distance": 7,
+        "score": 0.9993,
+        "_type": "parcel"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.061881272294473,
+          48.89198812307504
+        ]
+      },
+      "properties": {
+        "id": "785512510A1948",
+        "departmentcode": "78",
+        "municipalitycode": "551",
+        "oldmunicipalitycode": "251",
+        "districtcode": "000",
+        "section": "0A",
+        "sheet": "02",
+        "number": "1948",
+        "city": "Saint-Germain-en-Laye",
+        "distance": 16,
+        "score": 0.9984,
+        "_type": "parcel"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.0619544289021037,
+          48.89169540630077
+        ]
+      },
+      "properties": {
+        "id": "785512510A2277",
+        "departmentcode": "78",
+        "municipalitycode": "551",
+        "oldmunicipalitycode": "251",
+        "districtcode": "000",
+        "section": "0A",
+        "sheet": "02",
+        "number": "2277",
+        "city": "Saint-Germain-en-Laye",
+        "distance": 17,
+        "score": 0.9983,
+        "_type": "parcel"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.062219751538258,
+          48.89188051623014
+        ]
+      },
+      "properties": {
+        "id": "785512510A1946",
+        "departmentcode": "78",
+        "municipalitycode": "551",
+        "oldmunicipalitycode": "251",
+        "districtcode": "000",
+        "section": "0A",
+        "sheet": "02",
+        "number": "1946",
+        "city": "Saint-Germain-en-Laye",
+        "distance": 20,
+        "score": 0.998,
+        "_type": "parcel"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.06211355556499,
+          48.89201433216493
+        ]
+      },
+      "properties": {
+        "id": "785512510A2226",
+        "departmentcode": "78",
+        "municipalitycode": "551",
+        "oldmunicipalitycode": "251",
+        "districtcode": "000",
+        "section": "0A",
+        "sheet": "02",
+        "number": "2226",
+        "city": "Saint-Germain-en-Laye",
+        "distance": 22,
+        "score": 0.9978,
+        "_type": "parcel"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.062312593491151,
+          48.891821828012596
+        ]
+      },
+      "properties": {
+        "id": "785512510A1945",
+        "departmentcode": "78",
+        "municipalitycode": "551",
+        "oldmunicipalitycode": "251",
+        "districtcode": "000",
+        "section": "0A",
+        "sheet": "02",
+        "number": "1945",
+        "city": "Saint-Germain-en-Laye",
+        "distance": 27,
+        "score": 0.9973,
+        "_type": "parcel"
+      }
+    }
+  ]
+}

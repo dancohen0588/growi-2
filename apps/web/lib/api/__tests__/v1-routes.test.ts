@@ -28,6 +28,10 @@ const userService = vi.hoisted(() => ({
   getAlertConfig: vi.fn(),
   updateAlertConfig: vi.fn(),
 }))
+const cadastreService = vi.hoisted(() => ({
+  findParcelsNear: vi.fn(),
+  getParcel: vi.fn(),
+}))
 
 vi.mock('@/lib/api/auth-context', () => ({ requireUserId, getUserId: vi.fn() }))
 vi.mock('@/lib/services/garden.service', () => gardenService)
@@ -37,6 +41,7 @@ vi.mock('@/lib/services/plant.service', () => plantService)
 vi.mock('@/lib/services/summary.service', () => summaryService)
 vi.mock('@/lib/services/garden-weather.service', () => gardenWeatherService)
 vi.mock('@/lib/services/user.service', () => userService)
+vi.mock('@/lib/services/cadastre.service', () => cadastreService)
 
 const { GET: listGardens, POST: createGarden } = await import('@/app/api/v1/gardens/route')
 const { GET: getGarden } = await import('@/app/api/v1/gardens/[id]/route')
@@ -46,6 +51,8 @@ const { GET: listPlants, POST: addIdentifiedPlant } = await import('@/app/api/v1
 const { GET: getSummary } = await import('@/app/api/v1/summary/route')
 const { GET: getWeather } = await import('@/app/api/v1/weather/route')
 const { PATCH: patchAlerts } = await import('@/app/api/v1/me/alerts/route')
+const { GET: searchParcels } = await import('@/app/api/v1/cadastre/parcels/route')
+const { GET: getParcelRoute } = await import('@/app/api/v1/cadastre/parcels/[idu]/route')
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -483,5 +490,108 @@ describe('POST /api/v1/planning/actions/done', () => {
 
     expect(res.status).toBe(404)
     expect((await res.json()).error.code).toBe('NOT_FOUND')
+  })
+})
+
+// ─── GET /api/v1/cadastre/parcels ──────────────────────────────────────────
+
+describe('GET /api/v1/cadastre/parcels', () => {
+  function searchRequest(query: string): Request {
+    return new Request(`http://localhost/api/v1/cadastre/parcels?${query}`)
+  }
+
+  const candidate = {
+    idu: '785512510A1948',
+    section: '0A',
+    numero: '1948',
+    communeName: 'Saint-Germain-en-Laye',
+    contenanceM2: 405,
+    distanceM: 16,
+    thumbnailUrl: 'https://data.geopf.fr/wms-r/wms?SERVICE=WMS',
+  }
+
+  it('renvoie les candidates dans une enveloppe { data }', async () => {
+    cadastreService.findParcelsNear.mockResolvedValue([candidate])
+
+    const res = await searchParcels(searchRequest('lat=48.891851&lon=2.061952'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(cadastreService.findParcelsNear).toHaveBeenCalledWith(48.891851, 2.061952)
+    expect(body.data).toEqual([candidate])
+  })
+
+  it('répond 401 sans session, sans interroger l’IGN', async () => {
+    requireUserId.mockRejectedValue(
+      new ServiceError('UNAUTHENTICATED', 'Authentification requise'),
+    )
+
+    const res = await searchParcels(searchRequest('lat=48.891851&lon=2.061952'))
+
+    expect(res.status).toBe(401)
+    expect(cadastreService.findParcelsNear).not.toHaveBeenCalled()
+  })
+
+  it('répond 400 sur des coordonnées absentes ou hors bornes', async () => {
+    const missing = await searchParcels(searchRequest('lat=48.891851'))
+    const outOfRange = await searchParcels(searchRequest('lat=120&lon=2.06'))
+
+    expect(missing.status).toBe(400)
+    expect((await missing.json()).error.code).toBe('INVALID_INPUT')
+    expect(outOfRange.status).toBe(400)
+    expect(cadastreService.findParcelsNear).not.toHaveBeenCalled()
+  })
+
+  it('traduit une panne de l’IGN en 503', async () => {
+    cadastreService.findParcelsNear.mockRejectedValue(
+      new ServiceError('UNAVAILABLE', 'Le cadastre ne répond pas'),
+    )
+
+    const res = await searchParcels(searchRequest('lat=48.891851&lon=2.061952'))
+
+    expect(res.status).toBe(503)
+    expect((await res.json()).error.code).toBe('UNAVAILABLE')
+  })
+})
+
+// ─── GET /api/v1/cadastre/parcels/[idu] ────────────────────────────────────
+
+describe('GET /api/v1/cadastre/parcels/[idu]', () => {
+  const context = { params: { idu: '785512510A1948' } }
+  const request = new Request('http://localhost/api/v1/cadastre/parcels/785512510A1948')
+
+  it('renvoie le détail de la parcelle', async () => {
+    cadastreService.getParcel.mockResolvedValue({ idu: '785512510A1948', gardenM2: 338 })
+
+    const res = await getParcelRoute(request, context)
+
+    expect(res.status).toBe(200)
+    expect(cadastreService.getParcel).toHaveBeenCalledWith('785512510A1948')
+    expect((await res.json()).data.gardenM2).toBe(338)
+  })
+
+  it('répond 404 sur un identifiant de parcelle inconnu', async () => {
+    cadastreService.getParcel.mockRejectedValue(
+      new ServiceError('NOT_FOUND', 'Parcelle introuvable'),
+    )
+
+    const res = await getParcelRoute(request, { params: { idu: '785512510A9999' } })
+
+    expect(res.status).toBe(404)
+    expect((await res.json()).error).toEqual({
+      code: 'NOT_FOUND',
+      message: 'Parcelle introuvable',
+    })
+  })
+
+  it('répond 401 sans session', async () => {
+    requireUserId.mockRejectedValue(
+      new ServiceError('UNAUTHENTICATED', 'Authentification requise'),
+    )
+
+    const res = await getParcelRoute(request, context)
+
+    expect(res.status).toBe(401)
+    expect(cadastreService.getParcel).not.toHaveBeenCalled()
   })
 })
