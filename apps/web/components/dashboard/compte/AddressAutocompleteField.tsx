@@ -11,6 +11,8 @@ interface GeocodeFeature {
     name?: string
     postcode?: string
     city?: string
+    /** Code commune INSEE — absent hors de France. */
+    citycode?: string
   }
   geometry: {
     coordinates: [number, number] // [lon, lat]
@@ -25,7 +27,17 @@ type GeoStatus = 'idle' | 'loading' | 'denied' | 'unsupported'
 
 interface AddressAutocompleteFieldProps {
   value: string
-  onChange: (label: string, lat: number | null, lon: number | null) => void
+  /**
+   * `citycode` est le code commune INSEE de l'adresse choisie, `null` quand
+   * il n'y en a pas — c'est ce qui permet à l'import cadastral de reconnaître
+   * une adresse hors de France sans interroger l'IGN pour rien.
+   */
+  onChange: (
+    label: string,
+    lat: number | null,
+    lon: number | null,
+    citycode?: string | null,
+  ) => void
   id?: string
   placeholder?: string
   disabled?: boolean
@@ -110,7 +122,7 @@ export function AddressAutocompleteField({
     const label = getSuggestionLabel(feat)
     const lon = feat.geometry.coordinates[0]
     const lat = feat.geometry.coordinates[1]
-    onChange(label, lat, lon)
+    onChange(label, lat, lon, feat.properties.citycode ?? null)
     setSuggestions([])
     setIsOpen(false)
   }

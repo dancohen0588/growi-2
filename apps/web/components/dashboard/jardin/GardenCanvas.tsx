@@ -11,8 +11,11 @@ import type { PlantCatalog } from '@prisma/client'
 
 import { useGarden } from '@/hooks/useGarden'
 import { useGardenList } from '@/hooks/useGardenList'
+import { useUserProfile } from '@/hooks/useUserProfile'
+import type { ParcelDetail } from '@growi/shared'
 import type { GardenElement, GardenPoint } from '@/lib/garden/types'
 import { effectivePoints, isSurfaceType } from '@/lib/garden/types'
+import { fitBox, surfaceFromSeed } from '@/lib/garden/cadastre-seed'
 import type { PaletteItem } from '@/lib/garden/palette'
 import { getTypeColors, snapToGrid } from '@/lib/garden/compute-sun'
 import { resolveDrawKind, getSpriteUrl, getSpriteImage } from '@/lib/garden/illustration'
@@ -32,6 +35,7 @@ import { GardenDimensions, type DimBox } from './GardenDimensions'
 import { GardenShapeEditor } from './GardenShapeEditor'
 import { GardenAnnotationLayer } from './GardenAnnotationLayer'
 import { GardenOnboarding } from './GardenOnboarding'
+import { CadastreImportDialog } from './CadastreImportDialog'
 import { DimensionEditor } from './DimensionEditor'
 import { AnnotationEditor } from './AnnotationEditor'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -348,7 +352,9 @@ export function GardenCanvas() {
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false)
   const [addPlantOpen, setAddPlantOpen] = useState(false)
+  const [cadastreOpen, setCadastreOpen] = useState(false)
   const { toast } = useToast()
+  const { profile, updateProfile } = useUserProfile()
 
   // Le serveur a le dernier mot sur le jardin ouvert : au premier affichage,
   // ou quand le jardin mémorisé n'existe plus, il en renvoie un autre.
@@ -443,6 +449,51 @@ export function GardenCanvas() {
       setOnboardingStep(1)
     }
   }, [garden.isLoaded])
+
+  // ─── Import du terrain depuis le cadastre ───────────────────────────────
+  //
+  // Le cadastre n'est proposé que pour un jardin en pleine terre : la parcelle
+  // d'un immeuble n'a rien à voir avec un balcon, et une serre n'a pas de
+  // limite cadastrale à elle.
+  const currentGardenType = gardens.find(g => g.id === loadedGardenId)?.type
+  const cadastreAvailable =
+    currentGardenType === 'OUTDOOR' || currentGardenType === 'ALLOTMENT'
+  const openCadastre = useCallback(() => setCadastreOpen(true), [])
+
+  const handleCadastreImport = useCallback(
+    (parcels: ParcelDetail[], options: { withOutline: boolean; withBuildings: boolean }) => {
+      const seeded = garden.applyCadastreSeed(parcels, options)
+
+      // La surface retenue part en base : c'est elle que lisent l'app mobile
+      // et le contexte du diagnostic, pas les dimensions du canevas.
+      void garden.setSurfaceM2(surfaceFromSeed(parcels, options.withBuildings))
+
+      // Recadrage sur ce qui vient d'être posé — sans quoi le terrain, souvent
+      // bien plus grand que la vue, apparaîtrait hors champ.
+      const posed = new Set(seeded.config.cadastre?.elementIds ?? [])
+      const box = fitBox(seeded.elements.filter(el => posed.has(el.id)))
+      if (box && box.width > 0 && box.height > 0) {
+        const scale = Math.min(
+          2,
+          Math.max(
+            0.4,
+            Math.min(
+              (stageSize.width * 0.8) / box.width,
+              (stageSize.height * 0.8) / box.height,
+            ),
+          ),
+        )
+        garden.setZoom(scale)
+        setStagePos({
+          x: stageSize.width / 2 - (box.x + box.width / 2) * scale,
+          y: stageSize.height / 2 - (box.y + box.height / 2) * scale,
+        })
+      }
+
+      toast('🗺️ Terrain importé — ajuste le contour si besoin')
+    },
+    [garden, stageSize.width, stageSize.height, toast],
+  )
 
   const handleExport = useCallback(() => {
     const stage = stageRef.current
@@ -649,7 +700,9 @@ export function GardenCanvas() {
                 </tbody>
               </table>
 
-              {garden.garden.elements.length === 0 && !onboardingActive && <GardenEmptyState />}
+              {garden.garden.elements.length === 0 && !onboardingActive && (
+                <GardenEmptyState onImportCadastre={cadastreAvailable ? openCadastre : undefined} />
+              )}
 
               <Stage
                 ref={stageRef}
@@ -844,6 +897,9 @@ export function GardenCanvas() {
                 }}
                 config={garden.garden.config}
                 onConfigChange={garden.updateConfig}
+                cadastreAvailable={cadastreAvailable}
+                addressLabel={profile?.address ?? null}
+                onOpenCadastre={openCadastre}
                 onActivateComments={() => setCommentMode(true)}
                 onClose={() => setOnboardingActive(false)}
                 onComplete={() => {
@@ -927,6 +983,7 @@ export function GardenCanvas() {
             onDeleteElement={id => garden.deleteElement(id)}
             config={garden.garden.config}
             onUpdateConfig={garden.updateConfig}
+            onImportCadastre={cadastreAvailable ? openCadastre : undefined}
             onAddPlant={handleAddPlantToZone}
             onReorder={garden.reorderElement}
           />
@@ -937,6 +994,23 @@ export function GardenCanvas() {
           onOpenChange={setAddPlantOpen}
           onPlantSelected={handleAddPlantFromCatalog}
         />
+
+        {/* Monté seulement à l'ouverture : le dialogue interroge l'IGN dès
+            qu'il s'affiche, il n'a rien à faire tant qu'on ne l'ouvre pas. */}
+        {cadastreOpen && (
+          <CadastreImportDialog
+            open
+            onOpenChange={setCadastreOpen}
+            latitude={profile?.latitude}
+            longitude={profile?.longitude}
+            address={profile?.address ?? null}
+            onSaveAddress={async (addr, lat, lon) => {
+              await updateProfile({ address: addr, latitude: lat, longitude: lon })
+            }}
+            hasElements={garden.garden.elements.length > 0}
+            onImport={handleCadastreImport}
+          />
+        )}
       </div>
     </DndContext>
   )

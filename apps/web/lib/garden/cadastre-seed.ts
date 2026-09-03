@@ -22,6 +22,8 @@ const METERS_PER_DEGREE = 111_320
 export interface CadastreSeedOptions {
   /** Poser aussi la maison et les annexes (case de l'écran récapitulatif). */
   withBuildings: boolean
+  /** Poser le contour de la parcelle (coché par défaut). */
+  withOutline?: boolean
   /** Injectés par les tests ; par défaut, un UUID et l'heure courante. */
   newId?: () => string
   now?: () => string
@@ -101,6 +103,17 @@ function polygonElement(
   }
 }
 
+/**
+ * Section et numéro d'une parcelle, tels que l'utilisateur les lit sur le
+ * cadastre : « 0A 1948 ». L'IDU seul (`785512510A1948`) ne parle à personne,
+ * et c'est la seule chose que `config.cadastre` garde d'un import.
+ */
+export function formatParcelId(idu: string): string {
+  const clean = idu.trim().toUpperCase()
+  if (clean.length !== 14) return clean
+  return `${clean.slice(8, 10)} ${clean.slice(10, 14)}`
+}
+
 /** Surface retenue pour le jardin : hors bâti si on pose le bâti, contenance sinon. */
 export function surfaceFromSeed(parcels: ParcelDetail[], withBuildings: boolean): number {
   return parcels.reduce(
@@ -134,15 +147,17 @@ export function seedGardenFromParcels(
   const buildings: GardenElement[] = []
 
   parcels.forEach((parcel, i) => {
-    outlines.push(
-      polygonElement(parcel.outlineM, offsets[i], pxPerMeter, {
-        id: newId(),
-        type: 'terrain',
-        emoji: '🗺️',
-        label: `Limite de parcelle · ${parcel.section} ${parcel.numero}`,
-        drawKind: 'terrain',
-      }),
-    )
+    if (options.withOutline !== false) {
+      outlines.push(
+        polygonElement(parcel.outlineM, offsets[i], pxPerMeter, {
+          id: newId(),
+          type: 'terrain',
+          emoji: '🗺️',
+          label: `Limite de parcelle · ${formatParcelId(parcel.idu)}`,
+          drawKind: 'terrain',
+        }),
+      )
+    }
 
     if (!options.withBuildings) return
     for (const building of parcel.buildings ?? []) {

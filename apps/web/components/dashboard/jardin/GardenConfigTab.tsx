@@ -4,11 +4,14 @@
 import { cn } from '@/lib/utils'
 import type { GardenConfig, SolType, GardenOrientation, MicroClimat, ClimateZone, SlopeDirection } from '@/lib/garden/types'
 import { SOL_INFOS, ORIENTATION_LABELS, ORIENTATION_TO_DEG } from '@/lib/garden/defaults'
+import { formatParcelId } from '@/lib/garden/cadastre-seed'
 import { generateReco } from '@/lib/garden/garden-reco'
 
 interface GardenConfigTabProps {
   config: GardenConfig
   onChange: (patch: Partial<GardenConfig>) => void
+  /** Absent pour un jardin où l'import n'a pas de sens (balcon, serre, intérieur). */
+  onImportCadastre?: () => void
 }
 
 // Generic chip group for mono- or multi-select
@@ -61,8 +64,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export function GardenConfigTab({ config, onChange }: GardenConfigTabProps) {
+export function GardenConfigTab({ config, onChange, onImportCadastre }: GardenConfigTabProps) {
   const reco = generateReco(config)
+  const imported = config.cadastre
 
   const slopeLabel =
     config.slopeDeg === 0 ? '✅ Terrain plat — drainage standard'
@@ -174,6 +178,38 @@ export function GardenConfigTab({ config, onChange }: GardenConfigTabProps) {
         <p className="font-raleway text-[10px] text-forest/50 font-semibold">
           📐 Surface : {config.widthMeters * config.heightMeters} m²
         </p>
+
+        {onImportCadastre && (
+          imported ? (
+            <div className="rounded-lg border border-lime/40 bg-lime/10 p-2">
+              <p className="font-poppins text-[11px] font-semibold text-forest">
+                🗺️ Terrain importé du cadastre
+              </p>
+              <p className="font-raleway text-[10px] text-forest/60">
+                Parcelle {imported.parcelIds.map(formatParcelId).join(' + ')} ·{' '}
+                {imported.contenanceM2} m²
+              </p>
+              <button
+                onClick={onImportCadastre}
+                className="mt-1 font-raleway text-[10px] text-forest/60 underline hover:text-forest"
+              >
+                Modifier l&apos;import
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onImportCadastre}
+              className="rounded-lg border border-forest/15 bg-white p-2 text-left transition-colors hover:border-lime hover:bg-lime/10"
+            >
+              <span className="block font-poppins text-[11px] font-semibold text-forest">
+                🗺️ Importer depuis le cadastre
+              </span>
+              <span className="block font-raleway text-[10px] text-forest/50">
+                Contour, dimensions et surface d&apos;après ton adresse
+              </span>
+            </button>
+          )
+        )}
       </Section>
 
       <Section title="🌍 Zone climatique">

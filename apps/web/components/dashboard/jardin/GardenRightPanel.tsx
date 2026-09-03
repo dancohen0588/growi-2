@@ -14,6 +14,8 @@ interface GardenRightPanelProps {
   onDeleteElement: (id: string) => void
   config: GardenConfig
   onUpdateConfig: (patch: Partial<GardenConfig>) => void
+  /** Absent pour un jardin où l'import cadastral n'a pas de sens. */
+  onImportCadastre?: () => void
   plants?: Plant[]
   onAddPlant?: (catalogPlant: PlantCatalog, element: GardenElement) => Promise<void>
   onReorder?: (id: string, mode: LayerOrder) => void
@@ -25,6 +27,7 @@ export function GardenRightPanel({
   onDeleteElement,
   config,
   onUpdateConfig,
+  onImportCadastre,
   plants = [],
   onAddPlant,
   onReorder,
@@ -62,7 +65,11 @@ export function GardenRightPanel({
         </TabsContent>
 
         <TabsContent value="config" className="flex-1 overflow-y-auto min-h-0">
-          <GardenConfigTab config={config} onChange={onUpdateConfig} />
+          <GardenConfigTab
+            config={config}
+            onChange={onUpdateConfig}
+            onImportCadastre={onImportCadastre}
+          />
         </TabsContent>
       </Tabs>
     </aside>

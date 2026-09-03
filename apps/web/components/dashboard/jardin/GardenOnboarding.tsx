@@ -3,9 +3,10 @@
 import { Fragment } from 'react'
 import {
   X, Check, ChevronLeft, ChevronRight, Wand2,
-  Ruler, Square, Sprout, MessageSquarePlus,
+  Ruler, Square, Sprout, MessageSquarePlus, Map,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatParcelId } from '@/lib/garden/cadastre-seed'
 import type { GardenConfig, GardenOrientation } from '@/lib/garden/types'
 
 // Assistant de création du jardin (P4) — carte flottante guidée en 4 étapes.
@@ -30,12 +31,26 @@ interface GardenOnboardingProps {
   onActivateComments: () => void
   onClose: () => void
   onComplete: () => void
+  /**
+   * L'import cadastral n'est proposé que là où il a un sens : un jardin en
+   * pleine terre, hors balcon, serre et intérieur.
+   */
+  cadastreAvailable?: boolean
+  /** Adresse du compte, affichée sous le bouton. */
+  addressLabel?: string | null
+  onOpenCadastre?: () => void
 }
 
 export function GardenOnboarding({
   step, onStepChange, config, onConfigChange, onActivateComments, onClose, onComplete,
+  cadastreAvailable = false, addressLabel, onOpenCadastre,
 }: GardenOnboardingProps) {
   const current = STEPS[step - 1]
+  const imported = config.cadastre
+  const horsBati =
+    imported && imported.builtM2 !== null
+      ? Math.max(0, imported.contenanceM2 - imported.builtM2)
+      : null
 
   return (
     <div className="absolute bottom-3 left-3 z-30 w-[300px] rounded-2xl border border-forest/10 bg-white shadow-card-hover overflow-hidden">
@@ -95,10 +110,44 @@ export function GardenOnboarding({
 
         {step === 1 && (
           <div className="flex flex-col gap-2">
-            <p className="font-raleway text-xs text-forest/70 leading-snug">
-              Renseigne les dimensions et l&apos;orientation de ton terrain. Le sol, la pente
-              et le climat s&apos;affinent dans l&apos;onglet « Jardin ».
-            </p>
+            {imported ? (
+              <div className="rounded-lg border border-lime/40 bg-lime/10 px-2.5 py-2">
+                <p className="font-poppins text-xs font-semibold text-forest">
+                  ✅ Terrain importé du cadastre
+                </p>
+                <p className="font-raleway text-[11px] text-forest/70">
+                  Parcelle {imported.parcelIds.map(formatParcelId).join(' + ')} ·{' '}
+                  {imported.contenanceM2} m²
+                  {horsBati !== null && <> · hors bâti ≈ {horsBati} m²</>}
+                </p>
+              </div>
+            ) : (
+              <>
+                {cadastreAvailable && (
+                  <>
+                    <button
+                      onClick={onOpenCadastre}
+                      className="flex flex-col items-center gap-0.5 rounded-lg bg-lime hover:bg-lime-hover px-2 py-2 shadow-cta transition-colors"
+                    >
+                      <span className="flex items-center gap-1.5 font-poppins font-semibold text-xs text-forest">
+                        <Map size={13} aria-hidden />
+                        Retrouver mon terrain sur le cadastre
+                      </span>
+                      <span className="font-raleway text-[10px] text-forest/70">
+                        {addressLabel || 'Indique ton adresse'}
+                      </span>
+                    </button>
+                    <p className="text-center font-raleway text-[10px] text-forest/40">
+                      ou renseigne-le à la main
+                    </p>
+                  </>
+                )}
+                <p className="font-raleway text-xs text-forest/70 leading-snug">
+                  Renseigne les dimensions et l&apos;orientation de ton terrain. Le sol, la pente
+                  et le climat s&apos;affinent dans l&apos;onglet « Jardin ».
+                </p>
+              </>
+            )}
             <div className="flex gap-2">
               <label className="flex-1 flex flex-col gap-0.5">
                 <span className="font-raleway text-[10px] text-forest/50">Largeur (m)</span>
@@ -131,18 +180,36 @@ export function GardenOnboarding({
                 ))}
               </select>
             </label>
-            <p className="font-raleway text-[11px] text-forest/50">
-              📐 Surface : <b className="text-forest">{config.widthMeters * config.heightMeters} m²</b>
-            </p>
+            {imported ? (
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-raleway text-[11px] text-forest/50">
+                  📐 Surface retenue :{' '}
+                  <b className="text-forest">{horsBati ?? imported.contenanceM2} m²</b>
+                </p>
+                <button
+                  onClick={onOpenCadastre}
+                  className="font-raleway text-[10px] text-forest/60 underline hover:text-forest"
+                >
+                  Modifier l&apos;import
+                </button>
+              </div>
+            ) : (
+              <p className="font-raleway text-[11px] text-forest/50">
+                📐 Surface : <b className="text-forest">{config.widthMeters * config.heightMeters} m²</b>
+              </p>
+            )}
           </div>
         )}
 
         {step === 2 && (
           <p className="font-raleway text-xs text-forest/70 leading-snug">
-            Pose les zones structurantes — <b className="text-forest">terrasse, potager,
-            point d&apos;eau, pelouse, allée</b> — depuis la palette de gauche. Les zones
-            passent automatiquement en arrière-plan, et tu peux déformer leur contour en
-            glissant les poignées (et les « + » pour ajouter un côté).
+            {imported
+              ? 'Ton terrain et ta maison sont en place. Pose maintenant les zones — '
+              : 'Pose les zones structurantes — '}
+            <b className="text-forest">terrasse, potager, point d&apos;eau, pelouse, allée</b>
+            {' '}— depuis la palette de gauche. Les zones passent automatiquement en
+            arrière-plan, et tu peux déformer leur contour en glissant les poignées
+            (et les « + » pour ajouter un côté).
           </p>
         )}
 
