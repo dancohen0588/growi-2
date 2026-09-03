@@ -35,7 +35,7 @@ const cards = [
         <p className="font-raleway text-[13px] leading-snug text-white/70">
           Gel, canicule, pluie abondante : prévenu la veille.
         </p>
-        <span className="mt-2 inline-block rounded-md bg-sun/25 px-2 py-0.5 font-poppins text-[11px] font-semibold text-sun">
+        <span className="mt-2 inline-block rounded-md bg-sun px-2 py-0.5 font-poppins text-[11px] font-semibold text-forest">
           Gel cette nuit · &minus;2 °C
         </span>
       </>
@@ -45,7 +45,7 @@ const cards = [
     icon: '💬',
     title: 'Tes questions, ses réponses',
     detail: (
-      <p className="mt-1 rounded-lg bg-lime/15 px-2.5 py-2 font-raleway text-[12.5px] leading-snug text-white/80">
+      <p className="mt-1 rounded-lg bg-lime/15 px-2.5 py-2 font-raleway text-[12.5px] leading-snug text-white">
         « Je taille la lavande maintenant ou après la floraison ? »
       </p>
     ),

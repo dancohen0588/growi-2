@@ -166,7 +166,7 @@ export function WeatherPageClient({
       <div>
         <h1 className="font-poppins font-bold text-2xl text-forest">Météo jardin</h1>
         <p className="font-raleway text-sm text-forest/60 mt-0.5">
-          Consultez la météo locale pour optimiser l&apos;entretien de votre jardin.
+          Consulte la météo locale pour ajuster l&apos;entretien de ton jardin.
         </p>
       </div>
 

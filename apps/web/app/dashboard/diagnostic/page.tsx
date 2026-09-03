@@ -27,8 +27,8 @@ export default async function DiagnosticPage() {
           <h1 className="font-poppins font-bold text-2xl text-forest">Diagnostic IA</h1>
         </div>
         <p className="font-raleway text-sm text-forest/60">
-          Choisissez une plante : l&apos;analyse croise votre photo avec sa fiche, son
-          jardin, la météo de chez vous et son journal d&apos;entretien.
+          Choisis une plante : l&apos;analyse croise ta photo avec sa fiche, son
+          jardin, la météo de chez toi et son journal d&apos;entretien.
         </p>
       </header>
 
@@ -41,7 +41,7 @@ export default async function DiagnosticPage() {
             Aucune plante à diagnostiquer
           </p>
           <p className="font-raleway text-sm text-forest/60 max-w-sm">
-            Ajoutez une plante à votre jardin pour pouvoir suivre son état de santé.
+            Ajoute une plante à ton jardin pour pouvoir suivre son état de santé.
           </p>
           <Link
             href="/dashboard/plantes/nouveau"

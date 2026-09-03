@@ -25,7 +25,7 @@ const featureCards = [
     href: '/dashboard/identifier',
     title: 'Identifier une plante',
     description:
-      'Photographiez n\'importe quelle plante pour obtenir sa fiche complète instantanément.',
+      'Photographie n\'importe quelle plante pour obtenir sa fiche complète instantanément.',
     icon: ScanSearch,
     badge: 'IA',
   },
@@ -38,7 +38,7 @@ const featureCards = [
   {
     href: '/dashboard/plantes',
     title: 'Mes plantes',
-    description: 'Gérez vos plantes et suivez leur entretien.',
+    description: 'Gère tes plantes et suis leur entretien.',
     icon: Leaf,
   },
   {
@@ -50,7 +50,7 @@ const featureCards = [
   {
     href: '/dashboard/diagnostic',
     title: 'Diagnostic IA',
-    description: 'Analysez la santé d\'une plante en photo.',
+    description: 'Analyse la santé d\'une plante en photo.',
     icon: Stethoscope,
   },
   {
@@ -62,7 +62,7 @@ const featureCards = [
   {
     href: '/dashboard/compte',
     title: 'Mon compte',
-    description: 'Gérez votre profil et votre abonnement.',
+    description: 'Gère ton profil et tes réglages.',
     icon: UserCircle,
   },
 ]
@@ -108,8 +108,8 @@ export default async function DashboardPage() {
             Identifier une plante en photo
           </h2>
           <p className="font-raleway text-sm text-forest/70">
-            Pointez votre caméra vers n&apos;importe quelle plante. L&apos;IA
-            l&apos;identifie et vous donne tous les conseils d&apos;entretien.
+            Pointe ta caméra vers n&apos;importe quelle plante. L&apos;IA
+            l&apos;identifie et te donne tous les conseils d&apos;entretien.
           </p>
         </div>
         <span className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-forest text-white font-poppins font-semibold text-sm px-4 py-2.5 group-hover:bg-forest/90 transition-colors">

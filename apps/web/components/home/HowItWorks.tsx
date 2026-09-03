@@ -44,7 +44,7 @@ export function HowItWorks() {
           <h2 className="font-poppins font-bold text-forest text-3xl md:text-4xl mb-4">
             Comment ça marche ?
           </h2>
-          <p className="font-raleway text-forest/60 text-lg max-w-xl mx-auto">
+          <p className="font-raleway text-forest/80 text-lg max-w-xl mx-auto">
             En trois étapes, ton jardin devient plus simple à gérer.
           </p>
         </div>
@@ -75,7 +75,7 @@ export function HowItWorks() {
                 <h3 className="font-poppins font-semibold text-forest text-xl">
                   {step.title}
                 </h3>
-                <p className="font-raleway text-forest/60 text-base leading-relaxed max-w-xs">
+                <p className="font-raleway text-forest/80 text-base leading-relaxed max-w-xs">
                   {step.description}
                 </p>
               </motion.div>

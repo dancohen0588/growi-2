@@ -26,7 +26,7 @@ export async function EncyclopediaAndBlog() {
           <h3 className="font-poppins text-2xl font-bold text-forest">
             plantes dans l&apos;encyclopédie
           </h3>
-          <p className="font-raleway leading-relaxed text-forest/70">
+          <p className="font-raleway leading-relaxed text-forest/80">
             Arrosage, exposition, toxicité, gestes de saison : tout ce que Growi
             sait sur chaque plante, en libre accès, sans compte.
           </p>
@@ -39,7 +39,7 @@ export async function EncyclopediaAndBlog() {
           <h3 className="font-poppins text-2xl font-bold text-forest">
             Conseils de saison
           </h3>
-          <p className="font-raleway leading-relaxed text-forest/70">
+          <p className="font-raleway leading-relaxed text-forest/80">
             Ce qu&apos;il y a à faire au jardin ce mois-ci, par l&apos;équipe Growi.
           </p>
           <ul className="mt-1 flex flex-col gap-2">
@@ -50,7 +50,7 @@ export async function EncyclopediaAndBlog() {
                   className="font-raleway text-forest hover:underline underline-offset-2"
                 >
                   {post.title}{' '}
-                  <span className="font-raleway text-sm text-forest/50">
+                  <span className="font-raleway text-sm text-forest/80">
                     · {post.readingTime} min
                   </span>
                 </Link>

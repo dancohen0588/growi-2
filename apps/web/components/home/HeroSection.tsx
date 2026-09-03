@@ -71,7 +71,7 @@ export function HeroSection() {
                 <span className="font-poppins text-sm font-semibold text-forest">
                   Identifie une plante en photo
                 </span>
-                <span className="font-raleway text-xs text-forest/60">
+                <span className="font-raleway text-xs text-forest/80">
                   Sans compte · gratuit · résultat en quelques secondes
                 </span>
               </span>
@@ -92,7 +92,7 @@ export function HeroSection() {
               ))}
             </div>
 
-            <p className="mt-4 font-raleway text-sm text-forest/60">
+            <p className="mt-4 font-raleway text-sm text-forest/80">
               Gratuit · Sans carte bancaire · Sur le web aujourd&apos;hui, sur
               iPhone bientôt
             </p>
@@ -114,7 +114,7 @@ export function HeroSection() {
             </div>
 
             <div className="mt-4 max-w-[260px] rounded-2xl bg-white p-4 shadow-card md:absolute md:-left-2 md:top-16 md:mt-0">
-              <p className="mb-1.5 flex items-center gap-1.5 font-poppins text-xs font-semibold uppercase tracking-wide text-forest/60">
+              <p className="mb-1.5 flex items-center gap-1.5 font-poppins text-xs font-semibold uppercase tracking-wide text-forest/80">
                 <span className="h-2 w-2 rounded-full bg-sun" aria-hidden />
                 Ce soir · alerte gel
               </p>

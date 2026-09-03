@@ -43,7 +43,7 @@ export function SectionDiagnostic() {
           </div>
           {/* Le diagnostic a besoin du contexte de la plante — jardin, météo,
               journal — donc d'un compte. L'identification, non. */}
-          <p className="font-raleway text-sm leading-relaxed text-forest/60">
+          <p className="font-raleway text-sm leading-relaxed text-forest/80">
             L&apos;identification reste accessible sans être connecté. Le
             diagnostic, lui, a besoin du contexte de la plante — son jardin, la
             météo, son journal — et reste réservé aux comptes.

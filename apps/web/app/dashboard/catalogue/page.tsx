@@ -16,7 +16,7 @@ export default async function CataloguePage() {
           Catalogue 🌱
         </h1>
         <p className="font-raleway text-forest/60 mt-1">
-          {plants.length} espèces disponibles — recherchez et ajoutez à vos plantes.
+          {plants.length} espèces disponibles — cherche et ajoute à tes plantes.
         </p>
       </div>
       <CatalogueClient initialPlants={plants} />

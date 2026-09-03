@@ -94,13 +94,13 @@ export default function ConfidentialitePage() {
             d&apos;entretien : sans ces données, le service ne peut pas fonctionner.
           </li>
           <li>
-            <strong>Consentement</strong> — localisation, accès à l&apos;appareil photo et,
-            à venir, notifications. Tu les autorises, et tu peux les retirer à tout moment
+            <strong>Consentement</strong> — localisation, accès à l&apos;appareil photo et
+            notifications de rappel. Tu les autorises, et tu peux les retirer à tout moment
             depuis les réglages de ton téléphone ou ton profil.
           </li>
           <li>
-            <strong>Intérêt légitime</strong> — sécurité des comptes, prévention des abus,
-            journaux techniques.
+            <strong>Intérêt légitime</strong> — sécurité des comptes, prévention des abus (dont
+            le plafond de l&apos;identification sans compte), journaux techniques.
           </li>
         </ul>
       </LegalSection>
@@ -115,6 +115,33 @@ export default function ConfidentialitePage() {
           Les photos que tu conserves sur tes plantes sont hébergées chez Supabase, dans un
           espace dont les adresses ne sont pas devinables. Elles sont supprimées lorsque tu
           supprimes la plante, le geste associé, ou lorsque tu les remplaces.
+        </p>
+        <p>
+          L&apos;identification est aussi accessible <strong>sans compte</strong>, depuis la
+          page{' '}
+          <Link href="/identifier" className="text-forest underline underline-offset-2">
+            Identifier une plante
+          </Link>
+          . Chaque analyse ayant un coût, le nombre d&apos;identifications quotidiennes y est
+          plafonné. Pour le compter sans compte à quoi le rattacher, une <em>empreinte</em> de
+          ton adresse IP est conservée avec un compteur : l&apos;adresse elle-même n&apos;est
+          jamais enregistrée, et les compteurs de la veille sont effacés. Cette empreinte ne
+          sert qu&apos;à ce plafond — ni à te reconnaître, ni à te suivre d&apos;une visite à
+          l&apos;autre.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Notifications">
+        <p>
+          Si tu actives les rappels dans l&apos;application mobile, ton téléphone remet un
+          jeton de notification que nous conservons pour t&apos;écrire. Les rappels transitent
+          par le service Expo Push, qui reçoit ce jeton et le texte du rappel — le nom de la
+          plante et le geste à faire.
+        </p>
+        <p>
+          Tu peux couper les rappels à tout moment, depuis ton profil ou les réglages de ton
+          téléphone. Le jeton est alors supprimé, comme il l&apos;est à la déconnexion ou
+          lorsque l&apos;appareil nous est signalé comme désinstallé.
         </p>
       </LegalSection>
 

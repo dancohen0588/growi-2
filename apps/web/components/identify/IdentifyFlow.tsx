@@ -150,7 +150,7 @@ export function IdentifyFlow({ title, intro, renderActions }: IdentifyFlowProps)
             {title}
           </h1>
         </div>
-        <p className="font-raleway text-sm text-forest/60">{intro}</p>
+        <p className="font-raleway text-sm text-forest/80">{intro}</p>
       </header>
 
       {step === 'upload' && (
@@ -198,7 +198,7 @@ export function IdentifyFlow({ title, intro, renderActions }: IdentifyFlowProps)
           <p className="font-poppins font-semibold text-forest">
             Une erreur est survenue
           </p>
-          <p className="font-raleway text-sm text-forest/60">
+          <p className="font-raleway text-sm text-forest/80">
             {errorMsg ?? 'Veuillez réessayer dans quelques instants.'}
           </p>
           <button
@@ -281,7 +281,7 @@ function UploadStep({
               <h2 className="font-poppins font-bold text-xl text-forest">
                 Identifie ta plante
               </h2>
-              <p className="font-raleway text-sm text-forest/60">
+              <p className="font-raleway text-sm text-forest/80">
                 Prends ou importe une photo — l&apos;IA fait le reste en quelques
                 secondes
               </p>
@@ -380,7 +380,7 @@ function ResultStep({ preview, result, onReset, renderActions }: ResultStepProps
         <h2 className="font-poppins font-bold text-xl text-forest">
           Cette plante n&apos;a pas pu être identifiée
         </h2>
-        <p className="font-raleway text-sm text-forest/60 max-w-md">
+        <p className="font-raleway text-sm text-forest/80 max-w-md">
           {result.reason}
         </p>
         <button
@@ -420,7 +420,7 @@ function ResultStep({ preview, result, onReset, renderActions }: ResultStepProps
               <span aria-hidden>{result.emoji}</span>
               {result.commonName}
             </h2>
-            <p className="font-raleway italic text-sm text-forest/60 mt-1">
+            <p className="font-raleway italic text-sm text-forest/80 mt-1">
               {result.scientificName}
               {result.family ? ` · ${result.family}` : ''}
             </p>

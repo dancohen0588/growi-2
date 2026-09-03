@@ -90,6 +90,21 @@ export const DATA_COLLECTED = [
     why: 'Adapter les rappels et l\'affichage.',
     retention: 'Jusqu\'à la suppression du compte.',
   },
+  {
+    category: 'Notifications',
+    items: 'Le jeton de notification de ton appareil, si tu actives les rappels.',
+    why: 'T\'envoyer les rappels d\'entretien du jour sur ton téléphone.',
+    retention:
+      'Jusqu\'à la désactivation des rappels, à la déconnexion, ou à la désinstallation de l\'app.',
+  },
+  {
+    category: 'Identification sans compte',
+    items:
+      'Une empreinte de ton adresse IP — l\'adresse elle-même n\'est pas conservée — et le nombre d\'identifications faites dans la journée.',
+    why:
+      'Plafonner l\'identification photo depuis la page publique : chaque analyse a un coût, et sans compte il n\'y a rien d\'autre à compter.',
+    retention: 'Au plus 24 h : les compteurs de la veille sont effacés.',
+  },
 ] as const
 
 /**
@@ -125,14 +140,22 @@ export const PROCESSORS = [
   },
   {
     name: 'Open-Meteo et OpenStreetMap (Nominatim)',
-    role: 'Météo et conversion des coordonnées en nom de lieu',
-    data: 'Des coordonnées approximatives, sans identifiant de compte.',
+    role: 'Météo, recherche d\'un lieu et conversion des coordonnées en nom de lieu',
+    data:
+      'Le texte que tu saisis pour situer ton jardin — code postal, ville ou adresse — puis des coordonnées approximatives. Jamais d\'identifiant de compte.',
     location: 'Union européenne',
+  },
+  {
+    name: 'Expo (Expo Push, 650 Industries)',
+    role: 'Acheminement des notifications de rappel vers ton téléphone',
+    data:
+      'Le jeton de notification de ton appareil et le texte du rappel — le nom de la plante et le geste à faire.',
+    location: 'États-Unis',
   },
 ] as const
 
 /** Dernière révision des textes légaux, affichée en tête de page. */
-export const LEGAL_UPDATED_AT = '2026-08-22'
+export const LEGAL_UPDATED_AT = '2026-09-03'
 
 /** Vrai tant que l'identité de l'éditeur n'est pas renseignée. */
 export function hasLegalPlaceholders(): boolean {

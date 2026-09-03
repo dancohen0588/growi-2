@@ -27,7 +27,7 @@ export function SectionCartographie() {
       visual={<MapVisual />}
       footer={
         <div className="rounded-2xl border-l-4 border-lime bg-sand p-4">
-          <p className="mb-1 font-poppins text-xs font-semibold uppercase tracking-wider text-forest/60">
+          <p className="mb-1 font-poppins text-xs font-semibold uppercase tracking-wider text-forest/80">
             Pourquoi ça compte
           </p>
           <p className="font-raleway leading-relaxed text-forest/75">

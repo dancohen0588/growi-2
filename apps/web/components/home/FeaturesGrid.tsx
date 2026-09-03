@@ -72,7 +72,7 @@ export function FeaturesGrid() {
           <h2 className="font-poppins font-bold text-forest text-3xl md:text-4xl mb-4">
             Tout pour bien jardiner
           </h2>
-          <p className="font-raleway text-forest/60 text-lg max-w-xl mx-auto">
+          <p className="font-raleway text-forest/80 text-lg max-w-xl mx-auto">
             Des fonctionnalités pensées pour chaque jardinier, du débutant au passionné.
           </p>
         </div>
