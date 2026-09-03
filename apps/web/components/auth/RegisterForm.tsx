@@ -2,6 +2,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Eye, EyeOff } from 'lucide-react'
@@ -36,6 +37,9 @@ const strengthColor: Record<number, string> = {
 }
 
 export function RegisterForm() {
+  // Posé par la page publique `/identifier` : le visiteur a reconnu une plante
+  // avant d'avoir un compte, on l'emmène droit à son ajout après inscription.
+  const plantSlug = useSearchParams().get('plant') ?? undefined
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -52,7 +56,7 @@ export function RegisterForm() {
 
   async function onSubmit(data: RegisterInput) {
     setServerError(null)
-    const result = await registerAction(data)
+    const result = await registerAction(data, plantSlug)
     if (result?.error) {
       setServerError(result.error)
     }

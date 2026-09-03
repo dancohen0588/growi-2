@@ -13,7 +13,9 @@ import {
 
 export const metadata: Metadata = {
   title: 'Contact — Growi',
-  description: "Une question sur tes plantes ou ton abonnement ? Écris-nous, on répond sous 48h.",
+  // « ton abonnement » a disparu : il n'y a pas d'offre payante, et donc
+  // personne pour poser cette question-là.
+  description: "Une question sur tes plantes ou sur l'app ? Écris-nous, on répond sous 48h.",
 }
 
 const FAQ_ITEMS = [
@@ -29,6 +31,18 @@ const FAQ_ITEMS = [
   },
   {
     id: 'q3',
+    question: "L'app est-elle disponible sur mobile ?",
+    answer:
+      "Growi fonctionne dès aujourd'hui sur le web, depuis un ordinateur comme depuis un téléphone. L'application iPhone est en bêta : écris-nous si tu veux en être.",
+  },
+  {
+    id: 'q4',
+    question: 'Growi est-il gratuit ?',
+    answer:
+      "Oui, entièrement, et sans carte bancaire. Des offres payantes pourront arriver plus tard ; tu en seras informé avant, et rien ne se déclenchera dans ton dos.",
+  },
+  {
+    id: 'q5',
     question: "Que faire si je n'ai pas reçu de réponse ?",
     answer: "Vérifie ton dossier spam, puis renvoie-nous un message — on ne laisse personne sans réponse !",
   },

@@ -27,6 +27,8 @@ interface PlantFormProps {
   onSubmit: (data: PlantFormValues, catalogPlant: PlantCatalog | null) => void | Promise<void>
   submitLabel?: string
   mode?: Mode
+  /** Fiche du catalogue déjà choisie — le formulaire s'ouvre pré-rempli. */
+  initialCatalogPlant?: PlantCatalog | null
 }
 
 // ── Catalog → form mappers ────────────────────────────────────────────────
@@ -72,10 +74,12 @@ export function PlantForm({
   onSubmit,
   submitLabel = 'Enregistrer',
   mode: initialMode = 'search',
+  initialCatalogPlant = null,
 }: PlantFormProps) {
   const router = useRouter()
   const [mode, setMode] = useState<Mode>(initialMode)
-  const [selectedCatalogPlant, setSelectedCatalogPlant] = useState<PlantCatalog | null>(null)
+  const [selectedCatalogPlant, setSelectedCatalogPlant] =
+    useState<PlantCatalog | null>(initialCatalogPlant)
 
   const {
     register,

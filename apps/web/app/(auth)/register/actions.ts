@@ -8,8 +8,24 @@ import { createUser } from '@/lib/services/user.service'
 
 // TODO: Add "mot de passe oublié" flow when email provider is set up.
 
+/**
+ * Slug d'encyclopédie rapporté par `/register?plant=…`, après une
+ * identification faite sans compte.
+ *
+ * Il vient de l'URL, donc du visiteur : on ne le recopie dans une redirection
+ * qu'après l'avoir validé sur sa forme. Un slug inconnu du catalogue est sans
+ * effet, le formulaire d'ajout s'ouvre alors vide.
+ */
+const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/
+
+function destinationFor(plantSlug: string | undefined): string {
+  if (!plantSlug || !SLUG_PATTERN.test(plantSlug)) return '/dashboard'
+  return `/dashboard/plantes/nouveau?plant=${plantSlug}`
+}
+
 export async function registerAction(
   formData: RegisterInput,
+  plantSlug?: string,
 ): Promise<{ error?: string }> {
   const parsed = registerSchema.safeParse(formData)
   if (!parsed.success) {
@@ -34,7 +50,7 @@ export async function registerAction(
     await signIn('credentials', {
       email: parsed.data.email,
       password: parsed.data.password,
-      redirectTo: '/dashboard',
+      redirectTo: destinationFor(plantSlug),
     })
   } catch (err) {
     // NextAuth throws NEXT_REDIRECT on success — let it bubble up.

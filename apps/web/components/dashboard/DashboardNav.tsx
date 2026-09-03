@@ -9,7 +9,6 @@ import {
   CalendarDays,
   Stethoscope,
   CloudSun,
-  ShoppingBag,
   UserCircle,
   Map,
 } from 'lucide-react'
@@ -30,7 +29,6 @@ const navItems = [
   { href: '/dashboard/calendrier',   label: 'Calendrier',    icon: CalendarDays },
   { href: '/dashboard/diagnostic',   label: 'Diagnostic IA', icon: Stethoscope },
   { href: '/dashboard/meteo',        label: 'Météo',         icon: CloudSun },
-  { href: '/dashboard/marketplace',  label: 'Marketplace',   icon: ShoppingBag },
   // « Mon compte » porte aussi les réglages : profil et alertes y sont réunis,
   // il n'y a plus d'entrée « Paramètres ».
   { href: '/dashboard/compte',       label: 'Mon compte',    icon: UserCircle },

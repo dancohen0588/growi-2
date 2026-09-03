@@ -1,6 +1,7 @@
 // growi-frontend/app/(auth)/register/page.tsx
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { RegisterForm } from '@/components/auth/RegisterForm'
 
 export const metadata: Metadata = {
@@ -31,7 +32,11 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      <RegisterForm />
+      {/* `RegisterForm` lit `?plant=…` : sans cette frontière, `useSearchParams`
+          empêcherait le prérendu statique de la page. */}
+      <Suspense fallback={<div className="h-[26rem]" aria-hidden />}>
+        <RegisterForm />
+      </Suspense>
 
       {/* Login link */}
       <p className="text-center font-raleway text-sm text-forest/60">

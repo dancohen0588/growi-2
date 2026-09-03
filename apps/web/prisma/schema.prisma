@@ -472,3 +472,26 @@ model VerificationToken {
   @@unique([identifier, token])
   @@map("verification_tokens")
 }
+
+/// Compteur d'identifications photo pour les visiteurs **non connectés**.
+///
+/// La page publique `/identifier` appelle Gemini sans compte : sans plafond,
+/// une boucle suffirait à faire grimper la facture. Le compteur est en base et
+/// non en mémoire — sur Vercel chaque instance a la sienne, et un plafond que
+/// l'on contourne en changeant d'instance n'en est pas un.
+///
+/// `ipHash` est une empreinte SHA-256 de l'adresse, pas l'adresse : c'est une
+/// pseudonymisation, pas un anonymat (une IPv4 se retrouve par force brute),
+/// mais une fuite de table ne livre pas directement des adresses. Deux clés
+/// réservées y cohabitent avec les empreintes : le plafond global du jour et
+/// le seau des requêtes dont l'adresse est inconnue.
+model IdentifyQuota {
+  ipHash String   @map("ip_hash")
+  /// Jour UTC au format `YYYY-MM-DD` : la remise à zéro est un changement de ligne.
+  day    String
+  count  Int      @default(0)
+
+  @@id([ipHash, day])
+  @@index([day])
+  @@map("identify_quotas")
+}

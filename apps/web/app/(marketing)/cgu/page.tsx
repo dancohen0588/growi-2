@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 
 import { LegalPage, LegalSection } from '@/components/legal/LegalPage'
 import { EDITOR } from '@/lib/legal'
@@ -7,7 +6,7 @@ import { EDITOR } from '@/lib/legal'
 export const metadata: Metadata = {
   title: "Conditions générales d'utilisation — Growi",
   description:
-    "Les règles d'usage de Growi : compte, contenus, abonnement, responsabilité et résiliation.",
+    "Les règles d'usage de Growi : compte, contenus, prix, responsabilité et résiliation.",
 }
 
 export default function CguPage() {
@@ -71,19 +70,19 @@ export default function CguPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="6. Abonnement">
+      {/* La section décrivait un abonnement, une facturation par les boutiques
+          et un droit de rétractation. Rien de tout cela n'existe : il n'y a ni
+          paiement, ni offre. Des conditions qui régissent une relation
+          commerciale inexistante n'engagent personne et brouillent le reste. */}
+      <LegalSection title="6. Prix">
         <p>
-          Growi propose une offre gratuite et, à terme, une offre payante dont les
-          fonctionnalités et le prix seront détaillés sur la page{' '}
-          <Link href="/tarifs" className="text-forest underline underline-offset-2">
-            Tarifs
-          </Link>
-          . Un abonnement souscrit depuis l&apos;App Store ou Google Play est facturé et résilié
-          selon les règles de la boutique concernée.
+          Le service est gratuit pendant la bêta. Aucun moyen de paiement n&apos;est
+          demandé, et aucune fonctionnalité n&apos;est réservée à une offre payante.
         </p>
         <p>
-          Le droit de rétractation de quatorze jours s&apos;applique aux consommateurs, sauf
-          renoncement exprès au début de l&apos;exécution du service.
+          Des offres payantes pourront être introduites par la suite. Elles feront
+          l&apos;objet d&apos;une information préalable et de conditions mises à jour ;
+          aucun paiement ne peut être déclenché sans ton accord exprès.
         </p>
       </LegalSection>
 

@@ -1,6 +1,7 @@
 'use server'
 
 import { Resend } from 'resend'
+import { z } from 'zod'
 import { contactSchema, type ContactFormData, CONTACT_SUBJECTS } from '@/lib/schemas/contact-schema'
 
 /** Adresse de la boîte de contact, et repli proposé au visiteur si l'envoi échoue. */
@@ -113,6 +114,57 @@ export async function sendContactEmail(data: ContactFormData) {
           <div style="margin-top: 20px; padding: 16px; background: #F9F7E8; border-radius: 8px; border-left: 4px solid #B4DD7F;">
             <p style="margin: 0; white-space: pre-line;">${escapeHtml(message)}</p>
           </div>
+        </div>
+      `,
+    })
+
+    if (result.error) {
+      console.error('Resend error:', result.error)
+      return { success: false, error: GENERIC_ERROR }
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error('Resend error:', err)
+    return { success: false, error: GENERIC_ERROR }
+  }
+}
+
+/**
+ * Liste d'attente de la bêta iPhone, depuis le CTA final de la home.
+ *
+ * Elle emprunte la plomberie du formulaire de contact — même clé, même
+ * expéditeur, même boîte — mais pas son schéma : celui-ci exige un nom, un
+ * sujet et vingt caractères de message. Les inventer pour faire passer une
+ * adresse e-mail seule reviendrait à écrire de faux messages dans la boîte.
+ */
+export async function subscribeToIosBeta(email: string) {
+  const parsed = z.string().trim().email().safeParse(email)
+  if (!parsed.success) {
+    return { success: false, error: 'Adresse e-mail invalide.' }
+  }
+
+  const resend = getResendClient()
+  if (!resend) {
+    console.error('[beta-ios] RESEND_API_KEY absente : l\'inscription ne peut pas être envoyée.')
+    return { success: false, error: NOT_CONFIGURED }
+  }
+
+  const { from, to } = addresses()
+  const address = parsed.data
+
+  try {
+    const result = await resend.emails.send({
+      from:    `Growi Bêta <${from}>`,
+      to,
+      replyTo: address,
+      subject: 'Bêta iOS',
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #1E5631;">
+          <h2 style="color: #1E5631; border-bottom: 2px solid #B4DD7F; padding-bottom: 12px;">
+            Inscription à la bêta iOS
+          </h2>
+          <p><a href="mailto:${escapeHtml(address)}" style="color: #1E5631;">${escapeHtml(address)}</a></p>
         </div>
       `,
     })

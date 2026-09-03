@@ -3,11 +3,9 @@ import { Button } from '@/components/ui/button'
 
 const anchorLinks = [
   { href: '#cartographie', label: 'Cartographie' },
-  { href: '#assistant',    label: 'Assistant IA' },
-  { href: '#diagnostic',   label: 'Diagnostic' },
+  { href: '#assistant',    label: 'Assistant' },
+  { href: '#diagnostic',   label: 'Identification & diagnostic' },
   { href: '#calendrier',   label: 'Calendrier' },
-  { href: '#marketplace',  label: 'Marketplace' },
-  { href: '#premium',      label: 'Premium' },
 ]
 
 export function HeroFonctionnalites() {
@@ -27,12 +25,13 @@ export function HeroFonctionnalites() {
         </h1>
 
         <p className="font-raleway text-forest/70 text-xl max-w-2xl leading-relaxed">
-          De la cartographie de tes espaces à la mise en relation avec des pros,
-          Growi t&apos;accompagne à chaque saison — sans que tu aies à tout gérer seul.
+          Cartographie, assistant météo, identification et diagnostic photo,
+          calendrier des semis : découvre tout ce que Growi fait pour
+          t&apos;aider à jardiner.
         </p>
 
         <Button variant="primary" size="lg" asChild>
-          <Link href="/tarifs">Essaie gratuitement</Link>
+          <Link href="/register">Créer mon jardin</Link>
         </Button>
 
         <nav aria-label="Navigation rapide dans la page" className="flex flex-wrap justify-center gap-2 mt-2">

@@ -1,29 +1,36 @@
 'use client'
 
 import { useReducedMotion, motion } from 'framer-motion'
-import { Sprout, Bell, Sun } from 'lucide-react'
+import { Sprout, Sun, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { staggerContainer, scaleIn } from '@/lib/animations'
 
+/**
+ * Le vrai parcours commence par décrire son jardin — c'est ce qui permet tout
+ * le reste. L'ancienne première étape sautait ce point d'entrée.
+ */
 const steps = [
   {
     number: '01',
     icon: Sprout,
-    title: 'Identifie tes plantes',
-    description: 'Prends une photo ou choisis dans la base de données.',
+    title: 'Ajoute tes plantes',
+    description:
+      "En photo, ou parmi les espèces de l'encyclopédie. Indique ton code postal et le type de ton jardin.",
   },
   {
     number: '02',
-    icon: Bell,
-    title: 'Reçois les bons rappels',
-    description: 'Arrosage, rempotage, taille, selon ton climat.',
+    icon: Sun,
+    title: 'Growi les suit selon ta météo',
+    description:
+      'Chaque jour, il croise les besoins de chaque plante avec la météo de chez toi : chaleur, pluie, gel annoncé.',
   },
   {
     number: '03',
-    icon: Sun,
-    title: 'Fais-les prospérer',
-    description: "Des conseils adaptés à la météo et au moment de l'année.",
+    icon: Bell,
+    title: 'Agis au bon moment',
+    description:
+      'Arrosage, taille, semis, protection du gel : les gestes utiles arrivent dans ton calendrier et sur ton téléphone. Tu coches, il enregistre.',
   },
 ]
 
@@ -37,8 +44,8 @@ export function HowItWorks() {
           <h2 className="font-poppins font-bold text-forest text-3xl md:text-4xl mb-4">
             Comment ça marche ?
           </h2>
-          <p className="font-raleway text-forest/60 text-lg max-w-xl mx-auto">
-            En 3 étapes, ton jardin devient plus simple à gérer.
+          <p className="font-raleway text-forest/80 text-lg max-w-xl mx-auto">
+            En trois étapes, ton jardin devient plus simple à gérer.
           </p>
         </div>
 
@@ -68,7 +75,7 @@ export function HowItWorks() {
                 <h3 className="font-poppins font-semibold text-forest text-xl">
                   {step.title}
                 </h3>
-                <p className="font-raleway text-forest/60 text-base leading-relaxed max-w-xs">
+                <p className="font-raleway text-forest/80 text-base leading-relaxed max-w-xs">
                   {step.description}
                 </p>
               </motion.div>
