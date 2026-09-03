@@ -56,6 +56,12 @@ export function AddressAutocompleteField({
   const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle')
   const containerRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /**
+   * Une valeur venue du compte n'a pas à être re-cherchée : sans ce garde, un
+   * champ pré-rempli ouvre sa liste de suggestions dès l'affichage, par-dessus
+   * ce qui suit — et interroge le géocodeur pour une adresse déjà choisie.
+   */
+  const typedRef = useRef(false)
 
   // Recherche d'adresses, avec anti-rebond, sur le géocodeur de la Géoplateforme.
   // `api-adresse.data.gouv.fr` a été transféré à l'IGN et redirige ici en
@@ -63,7 +69,7 @@ export function AddressAutocompleteField({
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
-    if (!value || value.trim().length < 3) {
+    if (!typedRef.current || !value || value.trim().length < 3) {
       setSuggestions([])
       setIsOpen(false)
       return
@@ -128,6 +134,7 @@ export function AddressAutocompleteField({
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    typedRef.current = true
     // Manual typing: coords cleared to signal re-geocode needed
     onChange(e.target.value, null, null)
   }

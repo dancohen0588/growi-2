@@ -73,6 +73,7 @@ export function CadastreImportDialog({
   const [saveToAccount, setSaveToAccount] = useState(true)
 
   // Écran B — candidates
+  const [searchedAddress, setSearchedAddress] = useState<string | null>(address ?? null)
   const [candidates, setCandidates] = useState<ParcelCandidate[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [multi, setMulti] = useState(false)
@@ -112,12 +113,13 @@ export function CadastreImportDialog({
     setWithOutline(true)
     setWithBuildings(true)
     if (hasAccountCoords) {
+      setSearchedAddress(address ?? null)
       setScreen('candidates')
       void search(latitude!, longitude!)
     } else {
       setScreen('address')
     }
-  }, [open, hasAccountCoords, latitude, longitude, search])
+  }, [open, hasAccountCoords, latitude, longitude, address, search])
 
   async function handleAddressSubmit() {
     if (draftOutsideFrance) {
@@ -126,6 +128,7 @@ export function CadastreImportDialog({
       return
     }
     if (!draftCoords) return
+    setSearchedAddress(draftAddress)
     if (saveToAccount && onSaveAddress) {
       await onSaveAddress(draftAddress, draftCoords.lat, draftCoords.lon).catch(() => {
         // Une adresse non enregistrée n'empêche pas l'import : elle aura servi
@@ -161,7 +164,9 @@ export function CadastreImportDialog({
 
   function backToAddress() {
     setFailure(null)
-    setDraftAddress(address ?? '')
+    // On repart de l'adresse qui vient d'être cherchée : la corriger est le
+    // cas courant, la retaper entièrement ne l'est pas.
+    setDraftAddress(searchedAddress ?? address ?? '')
     setDraftCoords(null)
     setDraftOutsideFrance(false)
     setScreen('address')
@@ -220,6 +225,14 @@ export function CadastreImportDialog({
                 Enregistrer cette adresse dans mon compte (elle sert aussi à la météo
                 et au calendrier)
               </label>
+              {/* Le bouton attend des coordonnées, qu'on n'a qu'en choisissant
+                  une suggestion : le dire, plutôt que de laisser un bouton
+                  grisé sans explication. */}
+              {!draftCoords && !draftOutsideFrance && draftAddress.trim().length > 0 && (
+                <p className="font-raleway text-xs text-forest/50">
+                  Choisis une adresse dans la liste pour continuer.
+                </p>
+              )}
             </div>
 
             <DialogFooter>
@@ -245,6 +258,21 @@ export function CadastreImportDialog({
                 reconnaître ton terrain.
               </DialogDescription>
             </DialogHeader>
+
+            {/* L'adresse cherchée, et de quoi en changer : sans elle, on ne
+                sait pas d'où viennent ces parcelles ni comment corriger. */}
+            {searchedAddress && (
+              <p className="flex flex-wrap items-center gap-x-2 font-raleway text-xs text-forest/60">
+                <MapPin size={13} className="shrink-0 text-forest/40" aria-hidden />
+                Autour de {searchedAddress}
+                <button
+                  onClick={backToAddress}
+                  className="underline hover:text-forest"
+                >
+                  Changer d&apos;adresse
+                </button>
+              </p>
+            )}
 
             {loading ? (
               <CadastreLoading label="Recherche des parcelles autour de ton adresse…" />
@@ -311,8 +339,13 @@ export function CadastreImportDialog({
             )}
 
             <DialogFooter>
-              <Button variant="ghost" onClick={backToAddress}>
+              {/* Deux sorties distinctes : aucune de ces parcelles n'est la
+                  bonne (saisie manuelle), ou ce n'est pas la bonne adresse. */}
+              <Button variant="ghost" onClick={() => onOpenChange(false)}>
                 Ce n&apos;est pas ici
+              </Button>
+              <Button variant="outline" onClick={backToAddress}>
+                Autre adresse
               </Button>
               <Button
                 variant="primary"

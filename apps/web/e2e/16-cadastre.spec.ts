@@ -199,6 +199,24 @@ test.describe('Import du terrain depuis le cadastre', () => {
     expect(garden?.canvasData ?? '').not.toContain('"type":"terrain"')
   })
 
+  test('E2E-CAD-06 — L’adresse cherchée est affichée, et modifiable', async ({ page }) => {
+    await stubCadastre(page)
+    await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
+    await page.goto('/dashboard/jardin')
+
+    await page.getByRole('button', { name: /Retrouver mon terrain sur le cadastre/ }).click()
+    await expect(page.getByText('Autour de 3 allée des Cerisiers')).toBeVisible()
+
+    await page.getByRole('button', { name: "Changer d'adresse" }).click()
+
+    await expect(page.getByText('Où est ton jardin ?')).toBeVisible()
+    // Le champ repart de l'adresse cherchée, prête à être corrigée…
+    await expect(page.getByRole('combobox')).toHaveValue('3 allée des Cerisiers')
+    // … et sa liste de suggestions ne s'ouvre pas d'elle-même par-dessus le
+    // pied du dialogue : elle attend une frappe.
+    await expect(page.getByRole('listbox')).toHaveCount(0)
+  })
+
   test('E2E-CAD-05 — Échap ferme le dialogue sans rien écrire dans le plan', async ({ page }) => {
     await stubCadastre(page)
     await loginAs(page, TEST_EMAIL, TEST_PASSWORD)
