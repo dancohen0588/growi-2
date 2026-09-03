@@ -30,12 +30,13 @@ import { useToast } from '@/components/ui/toast'
 import { GardenCompass } from './GardenCompass'
 import { GardenEmptyState } from './GardenEmptyState'
 import { GardenStatsBar } from './GardenStatsBar'
-import { GardenZoomControls } from './GardenZoomControls'
+import { GardenZoomControls, clampZoom } from './GardenZoomControls'
 import { GardenDimensions, type DimBox } from './GardenDimensions'
 import { GardenShapeEditor } from './GardenShapeEditor'
 import { GardenAnnotationLayer } from './GardenAnnotationLayer'
 import { GardenOnboarding } from './GardenOnboarding'
 import { CadastreImportDialog } from './CadastreImportDialog'
+import { PaletteAddProvider } from './palette-add-context'
 import { DimensionEditor } from './DimensionEditor'
 import { AnnotationEditor } from './AnnotationEditor'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -50,6 +51,8 @@ interface KonvaElementProps {
   onResize: (w: number, h: number, x: number, y: number, rotation: number, points?: GardenPoint[]) => void
   onLiveChange?: (id: string, box: DimBox | null) => void
   commentMode?: boolean
+  /** Mode déplacement : l'élément ne réagit plus, le glissé va au plan. */
+  panMode?: boolean
   /** Affiche le nom sous chaque élément. Si false, le nom n'apparaît qu'au survol. */
   showLabels?: boolean
 }
@@ -67,7 +70,7 @@ function useSpriteImage(url: string): HTMLImageElement | null {
   return img && img.complete && img.naturalWidth > 0 ? img : null
 }
 
-function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveChange, commentMode, showLabels = true }: KonvaElementProps) {
+function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveChange, commentMode, panMode, showLabels = true }: KonvaElementProps) {
   const groupRef = useRef<Konva.Group>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const [hovered, setHovered] = useState(false)
@@ -168,8 +171,10 @@ function KonvaElement({ element, isSelected, onSelect, onMove, onResize, onLiveC
         width={element.width}
         height={element.height}
         rotation={element.rotation}
-        listening={!commentMode}
-        draggable
+        // En mode déplacement, l'élément est sourd : le glissé traverse
+        // jusqu'à la scène, qui déplace la vue au lieu de l'élément.
+        listening={!commentMode && !panMode}
+        draggable={!panMode}
         onClick={onSelect}
         onTap={onSelect}
         onDragMove={reportLive}
@@ -285,6 +290,18 @@ function GridLayer() {
 
 const CANVAS_ID = 'garden-canvas-droppable'
 
+/**
+ * Position du pointeur pendant un glissé, en coordonnées écran.
+ *
+ * dnd-kit ne donne qu'un déplacement cumulé depuis le geste initial : la
+ * position se reconstruit à partir de l'événement qui a démarré le glissé.
+ */
+function pointerOf(event: DragMoveEvent | DragEndEvent): { x: number; y: number } | null {
+  const start = event.activatorEvent as PointerEvent | undefined
+  if (!start || typeof start.clientX !== 'number') return null
+  return { x: start.clientX + event.delta.x, y: start.clientY + event.delta.y }
+}
+
 function CanvasDropZone({ children, onDrop, zoom, pan }: {
   children: React.ReactNode
   onDrop: (item: PaletteItem, x: number, y: number) => void
@@ -292,12 +309,11 @@ function CanvasDropZone({ children, onDrop, zoom, pan }: {
   pan: { x: number; y: number }
 }) {
   const { setNodeRef } = useDroppable({ id: CANVAS_ID })
-  const dragPosRef = useRef({ x: 0, y: 0 })
+  const dragPosRef = useRef<{ x: number; y: number } | null>(null)
 
   useDndMonitor({
     onDragMove(event: DragMoveEvent) {
-      const init = event.activatorEvent as PointerEvent
-      dragPosRef.current = { x: init.clientX + event.delta.x, y: init.clientY + event.delta.y }
+      dragPosRef.current = pointerOf(event)
     },
     onDragEnd(event: DragEndEvent) {
       if (!event.over || event.over.id !== CANVAS_ID) return
@@ -305,9 +321,14 @@ function CanvasDropZone({ children, onDrop, zoom, pan }: {
       const el = document.getElementById(CANVAS_ID)
       if (!el) return
       const rect = el.getBoundingClientRect()
+      // Le pointeur de la fin du glissé, et non celui du dernier `onDragMove`
+      // reçu : lâcher juste après un déplacement rapide posait l'élément là où
+      // le pointeur se trouvait une image plus tôt.
+      const pointer = pointerOf(event) ?? dragPosRef.current
+      if (!pointer) return
       // Écran → coordonnées « monde » : tient compte du zoom et du pan.
-      const worldX = (dragPosRef.current.x - rect.left - pan.x) / zoom
-      const worldY = (dragPosRef.current.y - rect.top - pan.y) / zoom
+      const worldX = (pointer.x - rect.left - pan.x) / zoom
+      const worldY = (pointer.y - rect.top - pan.y) / zoom
       onDrop(item, worldX - item.defaultWidth / 2, worldY - item.defaultHeight / 2)
     },
   })
@@ -373,6 +394,9 @@ export function GardenCanvas() {
   const [cadastreUnavailableHere, setCadastreUnavailableHere] = useState(
     readOutsideFranceMemo,
   )
+  const [panMode, setPanMode] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
   const { profile, updateProfile } = useUserProfile()
 
@@ -470,6 +494,61 @@ export function GardenCanvas() {
     }
   }, [garden.isLoaded])
 
+  // ─── Navigation : recadrage, plein écran ────────────────────────────────
+
+  /** Centre la vue sur une boîte du monde, à 80 % du canevas. */
+  const focusOn = useCallback((box: { x: number; y: number; width: number; height: number }) => {
+    if (box.width <= 0 || box.height <= 0) return
+    // Jamais au-delà de la taille réelle : cadrer un plan minuscule ne doit
+    // pas le faire grossir à 250 %, seulement le ramener au centre.
+    const scale = clampZoom(
+      Math.min(
+        1,
+        (stageSize.width * 0.8) / box.width,
+        (stageSize.height * 0.8) / box.height,
+      ),
+    )
+    garden.setZoom(scale)
+    setStagePos({
+      x: stageSize.width / 2 - (box.x + box.width / 2) * scale,
+      y: stageSize.height / 2 - (box.y + box.height / 2) * scale,
+    })
+  }, [garden, stageSize.width, stageSize.height])
+
+  const elements = garden.garden.elements
+  const handleFit = useCallback(() => {
+    const box = fitBox(elements)
+    // Un plan vide n'a rien à cadrer : on revient à l'échelle 1, à l'origine.
+    if (!box) {
+      garden.setZoom(1)
+      setStagePos({ x: 0, y: 0 })
+      return
+    }
+    focusOn(box)
+  }, [elements, focusOn, garden])
+
+  /**
+   * Plein écran sur l'éditeur entier — barre d'outils, palette et panneau
+   * compris : sortir un canevas seul de son écran perdrait ses commandes.
+   */
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => {})
+      return
+    }
+    void rootRef.current?.requestFullscreen().catch(() => {
+      // Refusé (permission, navigateur) : l'éditeur reste utilisable tel quel.
+    })
+  }, [])
+
+  useEffect(() => {
+    function onChange() {
+      setFullscreen(Boolean(document.fullscreenElement))
+    }
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
   // ─── Import du terrain depuis le cadastre ───────────────────────────────
   //
   // Le cadastre n'est proposé que pour un jardin en pleine terre : la parcelle
@@ -504,28 +583,23 @@ export function GardenCanvas() {
       // bien plus grand que la vue, apparaîtrait hors champ.
       const posed = new Set(seeded.config.cadastre?.elementIds ?? [])
       const box = fitBox(seeded.elements.filter(el => posed.has(el.id)))
-      if (box && box.width > 0 && box.height > 0) {
-        const scale = Math.min(
-          2,
-          Math.max(
-            0.4,
-            Math.min(
-              (stageSize.width * 0.8) / box.width,
-              (stageSize.height * 0.8) / box.height,
-            ),
-          ),
-        )
-        garden.setZoom(scale)
-        setStagePos({
-          x: stageSize.width / 2 - (box.x + box.width / 2) * scale,
-          y: stageSize.height / 2 - (box.y + box.height / 2) * scale,
-        })
-      }
+      if (box) focusOn(box)
 
       toast('🗺️ Terrain importé — ajuste le contour si besoin')
     },
-    [garden, stageSize.width, stageSize.height, toast],
+    [garden, focusOn, toast],
   )
+
+  /**
+   * Double-clic dans la palette : l'élément est posé au centre de ce que
+   * l'utilisateur regarde. Le poser à une position fixe du monde le faisait
+   * apparaître hors de l'écran dès qu'on s'était déplacé — ajouté sans être vu.
+   */
+  const handleQuickAdd = useCallback((item: PaletteItem) => {
+    const centerX = (stageSize.width / 2 - stagePos.x) / garden.zoom
+    const centerY = (stageSize.height / 2 - stagePos.y) / garden.zoom
+    garden.addElement(item, centerX - item.defaultWidth / 2, centerY - item.defaultHeight / 2)
+  }, [garden, stageSize.width, stageSize.height, stagePos.x, stagePos.y])
 
   const handleExport = useCallback(() => {
     const stage = stageRef.current
@@ -688,7 +762,10 @@ export function GardenCanvas() {
 
   return (
     <DndContext>
-      <div className="flex flex-col h-full">
+     <PaletteAddProvider value={handleQuickAdd}>
+      {/* `bg-white` n'est pas décoratif : en plein écran, l'élément sorti est
+          seul à l'écran et le navigateur peint du noir derrière lui. */}
+      <div ref={rootRef} className="flex flex-col h-full bg-white">
         <GardenToolbar
           name={garden.garden.name}
           onNameChange={handleRename}
@@ -760,7 +837,7 @@ export function GardenCanvas() {
                   const worldX = (pointer.x - stage.x()) / oldScale
                   const worldY = (pointer.y - stage.y()) / oldScale
                   const dy = Math.max(-60, Math.min(60, e.evt.deltaY))
-                  const next = Math.min(2, Math.max(0.4, oldScale * Math.exp(-dy * 0.01)))
+                  const next = clampZoom(oldScale * Math.exp(-dy * 0.01))
                   const nx = pointer.x - worldX * next
                   const ny = pointer.y - worldY * next
                   stage.scale({ x: next, y: next })
@@ -804,6 +881,7 @@ export function GardenCanvas() {
                       onResize={(w, h, x, y, rotation, points) => garden.updateElement(el.id, { width: w, height: h, x, y, rotation, ...(points ? { points } : {}) })}
                       onLiveChange={handleLive}
                       commentMode={commentMode}
+                      panMode={panMode}
                       showLabels={showLabels}
                     />
                   ))}
@@ -828,7 +906,7 @@ export function GardenCanvas() {
                   })}
                 </Layer>
                 {/* Calque d'édition de forme — toujours actif pour zones & structures */}
-                {!commentMode && garden.selectedElement && isSurfaceType(garden.selectedElement.type) && (
+                {!commentMode && !panMode && garden.selectedElement && isSurfaceType(garden.selectedElement.type) && (
                   <Layer>
                     <GardenShapeEditor
                       element={garden.selectedElement}
@@ -917,7 +995,15 @@ export function GardenCanvas() {
               onRotate={deg => garden.updateConfig({ compassDeg: deg })}
             />
             <GardenStatsBar elements={garden.garden.elements} />
-            <GardenZoomControls zoom={garden.zoom} onZoom={garden.setZoom} />
+            <GardenZoomControls
+              zoom={garden.zoom}
+              onZoom={garden.setZoom}
+              onFit={handleFit}
+              panMode={panMode}
+              onTogglePanMode={() => setPanMode(v => !v)}
+              fullscreen={fullscreen}
+              onToggleFullscreen={toggleFullscreen}
+            />
 
             {/* Assistant de création (P4) */}
             {onboardingActive ? (
@@ -1045,6 +1131,7 @@ export function GardenCanvas() {
           />
         )}
       </div>
+     </PaletteAddProvider>
     </DndContext>
   )
 }

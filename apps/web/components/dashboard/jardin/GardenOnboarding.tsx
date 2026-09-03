@@ -207,9 +207,10 @@ export function GardenOnboarding({
               ? 'Ton terrain et ta maison sont en place. Pose maintenant les zones — '
               : 'Pose les zones structurantes — '}
             <b className="text-forest">terrasse, potager, point d&apos;eau, pelouse, allée</b>
-            {' '}— depuis la palette de gauche. Les zones passent automatiquement en
-            arrière-plan, et tu peux déformer leur contour en glissant les poignées
-            (et les « + » pour ajouter un côté).
+            {' '}— depuis la palette de gauche, par glisser-déposer ou en double-cliquant.
+            Tu peux déformer leur contour en glissant les poignées (et les « + » pour
+            ajouter un côté), et les renvoyer en arrière-plan depuis l&apos;onglet
+            « Élément ».
           </p>
         )}
 

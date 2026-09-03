@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { ParcelDetail } from '@growi/shared'
 import type { Garden, GardenElement, GardenConfig, GardenAnnotation, LayerOrder } from '@/lib/garden/types'
-import { isSurfaceType, isZoneType, rectPoints } from '@/lib/garden/types'
+import { isSurfaceType, rectPoints } from '@/lib/garden/types'
 import { seedGardenFromParcels, type CadastreSeedOptions } from '@/lib/garden/cadastre-seed'
 import type { PaletteItem } from '@/lib/garden/palette'
 import { createDefaultGarden } from '@/lib/garden/defaults'
@@ -217,13 +217,11 @@ export function useGarden(requestedGardenId: string | null = null): UseGardenRet
         : {}),
       ...extra,
     }
-    // RG : une zone est posée sur le calque le plus en arrière.
-    updateGarden(prev => ({
-      ...prev,
-      elements: isZoneType(newEl.type)
-        ? [newEl, ...prev.elements]
-        : [...prev.elements, newEl],
-    }))
+    // Un élément qu'on vient de poser passe au premier plan, quel que soit son
+    // type : le voir est la première chose qu'on en attend. Les zones étaient
+    // envoyées au fond, ce qui les faisait disparaître sous un plan déjà
+    // rempli — le panneau de propriétés permet de les y renvoyer.
+    updateGarden(prev => ({ ...prev, elements: [...prev.elements, newEl] }))
     setSelectedId(newEl.id)
     return newEl.id
   }, [updateGarden])
@@ -239,12 +237,7 @@ export function useGarden(requestedGardenId: string | null = null): UseGardenRet
       linkedPlantId: undefined,
       points: source.points ? source.points.map(p => ({ ...p })) : undefined,
     }
-    updateGarden(prev => ({
-      ...prev,
-      elements: isZoneType(clone.type)
-        ? [clone, ...prev.elements]
-        : [...prev.elements, clone],
-    }))
+    updateGarden(prev => ({ ...prev, elements: [...prev.elements, clone] }))
     setSelectedId(clone.id)
     return clone.id
   }, [updateGarden])
