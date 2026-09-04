@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Poppins, Raleway } from 'next/font/google'
 import { SessionProvider } from 'next-auth/react'
+import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 const poppins = Poppins({
@@ -48,6 +49,14 @@ export default function RootLayout({
     <html lang="fr" className={`${poppins.variable} ${raleway.variable}`}>
       <body className="min-h-screen flex flex-col antialiased">
         <SessionProvider>{children}</SessionProvider>
+        {/*
+          Trafic anonyme du site : Vercel Web Analytics, sans cookie et donc
+          sans bandeau de consentement. Il compte les *visiteurs* ; les
+          utilisateurs actifs, eux, se comptent en base (`user_activities`) et
+          s'affichent dans `/admin`. Reproduire ces courbes ici n'apporterait
+          rien : le tableau de bord Vercel les montre déjà.
+        */}
+        <Analytics />
       </body>
     </html>
   )

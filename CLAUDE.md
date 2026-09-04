@@ -848,9 +848,9 @@ au mauvais endroit. Trois règles en découlent, à tenir des deux côtés :
 
 Même application Next.js, derrière `/admin` — pas de second déploiement, pas de
 sous-domaine. La spec de référence est
-`/Users/dancohen/Growi/Documentation/spec/spec-portail-admin.md`. **Phases 1 à 4
+`/Users/dancohen/Growi/Documentation/spec/spec-portail-admin.md`. **Phases 1 à 5
 livrées** (rôles et accès · trace d'activité · journal d'audit · liste des
-utilisateurs · fiche et actions · messagerie de contact).
+utilisateurs · fiche et actions · messagerie de contact · tableau de bord).
 
 | Élément | Rôle |
 |---|---|
@@ -868,6 +868,7 @@ utilisateurs · fiche et actions · messagerie de contact).
 | `lib/services/admin-user-detail.service.ts` | Lectures de la fiche, un onglet à la fois |
 | `lib/services/admin-account.service.ts` | **Toutes** les écritures sur un compte tiers |
 | `lib/services/contact.service.ts` | Réception, lecture et réponse aux messages |
+| `lib/services/admin-stats.service.ts` | Séries et totaux du tableau de bord, en SQL brut |
 | `app/actions/admin/users.ts` · `messages.ts` | Server Actions — authentifier, valider, déléguer |
 
 - **Le JWT ne fait autorité pour rien.** Le rôle y est écrit à la connexion et
@@ -964,6 +965,41 @@ pnpm --filter web admin:promote dan0588@gmail.com
   client poste un formulaire, jamais l'identifiant du compte visé.
 - Le mot de passe n'est **ni affiché ni modifiable**, et `getUserDetail` ne le
   sélectionne même pas — seul son caractère renseigné remonte, via un `count`.
+
+#### Tableau de bord
+
+Les séries sont en **SQL brut** : Prisma ne sait pas grouper par semaine. Trois
+règles y reviennent partout, et une erreur sur l'une d'elles décale toute une
+courbe sans rien casser de visible.
+
+- **Tout se calcule en UTC** (`AT TIME ZONE 'UTC'`), comme `user_activities` et
+  `IdentifyQuota`. Laisser Postgres employer le fuseau de la session ferait
+  bouger les bornes de semaine selon l'endroit d'où l'on interroge.
+- **Semaines ISO, lundi** — ce que fait déjà `date_trunc('week', …)`.
+- **Chaque `COUNT` est casté en `::int`.** Postgres renvoie un `bigint`, que
+  Prisma remet en `BigInt` : non sérialisable vers un composant, et surprenant
+  en arithmétique.
+- Les séries creuses sont **complétées à zéro** (`lastWeeks` + `fillWeeks`) :
+  une semaine sans inscription n'apparaît pas dans le résultat SQL, et une
+  courbe qui saute ces semaines ment sur la forme de la croissance.
+- Les cohortes de **moins de cinq semaines sont exclues** de la rétention :
+  leur fenêtre d'observation n'est pas close, et les afficher ferait plonger la
+  courbe à droite pour une raison étrangère au produit.
+- **Ce SQL échappe au typecheck et aux tests unitaires**, qui doublent Prisma.
+  Seul le parcours e2e du tableau de bord l'atteste, en le faisant tourner
+  contre Postgres. Ne pas supprimer `22-admin-kpis.spec.ts` en pensant qu'il
+  fait double emploi.
+- Graphes **en SVG écrit à la main**, sans bibliothèque : quelques barres ne
+  valent pas les ~500 Ko de `recharts`, qui imposerait en plus un composant
+  client là où tout le reste de l'admin est rendu côté serveur.
+- ⚠️ **Le cache de dix minutes (`unstable_cache`) est écrit sur disque dans
+  `.next/cache` et survit au redémarrage du serveur.** Après une modification
+  du calcul, le tableau de bord continue donc à servir l'ancienne valeur — y
+  compris à un test qu'on vient de relancer, ce qui donne l'impression que le
+  correctif n'a pas pris. `rm -rf apps/web/.next/cache` pour trancher.
+- `@vercel/analytics` mesure le **trafic anonyme** du site ; les utilisateurs
+  actifs, eux, se comptent en base. Les deux ne mesurent pas la même chose et
+  le tableau de bord ne fait que pointer vers Vercel pour le premier.
 
 #### Messagerie de contact
 
