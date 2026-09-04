@@ -837,9 +837,9 @@ au mauvais endroit. Trois règles en découlent, à tenir des deux côtés :
 
 Même application Next.js, derrière `/admin` — pas de second déploiement, pas de
 sous-domaine. La spec de référence est
-`/Users/dancohen/Growi/Documentation/spec/spec-portail-admin.md`. **Phases 1 et 2
+`/Users/dancohen/Growi/Documentation/spec/spec-portail-admin.md`. **Phases 1 à 3
 livrées** (rôles et accès · trace d'activité · journal d'audit · liste des
-utilisateurs).
+utilisateurs · fiche et actions).
 
 | Élément | Rôle |
 |---|---|
@@ -854,6 +854,9 @@ utilisateurs).
 | `lib/admin/csv.ts` | Export CSV (BOM, neutralisation des formules) |
 | `lib/services/activity.service.ts` | `touchActivity(userId, surface)` |
 | `lib/services/admin-user.service.ts` · `admin-audit.service.ts` | Lectures paginées |
+| `lib/services/admin-user-detail.service.ts` | Lectures de la fiche, un onglet à la fois |
+| `lib/services/admin-account.service.ts` | **Toutes** les écritures sur un compte tiers |
+| `app/actions/admin/users.ts` | Server Actions — authentifier, valider, déléguer |
 
 - **Le JWT ne fait autorité pour rien.** Le rôle y est écrit à la connexion et
   n'y bouge plus : il ne sert qu'à l'affichage. `requireAdmin()` relit `role` et
@@ -926,6 +929,30 @@ pnpm --filter web admin:promote dan0588@gmail.com
   réponse HTTP. Il refait `requireAdmin()` — une route est un point d'entrée à
   part entière.
 
+#### Fiche utilisateur et actions
+
+- **Un seul onglet est rendu à la fois**, l'onglet vivant dans l'URL
+  (`?onglet=`). Charger les six pour n'en montrer qu'un rendrait la fiche d'un
+  compte fourni lente alors qu'on ne cherchait qu'un email.
+- **Les trois niveaux de réinitialisation ne s'emboîtent pas.** Le niveau 2
+  purge les tâches **ouvertes** (`doneAt IS NULL`) — les tâches faites sont des
+  faits ; le niveau 3 efface les cinq colonnes `last*At` des plantes, qui ne
+  sont que des **dérivés** des `CareLog` — aucun geste noté n'est perdu. Chacun
+  enchaîne sur le niveau 1, sans quoi l'effet n'apparaîtrait qu'après
+  l'expiration du cache, six heures plus tard.
+- **Désactiver ne se limite pas à poser `disabledAt`** : un access token vit
+  quinze minutes et un refresh token soixante jours. On révoque les jetons et on
+  supprime les `PushToken` dans la même transaction — continuer à notifier
+  quelqu'un qu'on vient de fermer dehors serait le comble.
+- **La liste blanche des champs éditables est écrite trois fois** — le
+  formulaire, le schéma de la Server Action (dérivé de `updateProfileSchema`) et
+  `EDITABLE_COLUMNS` dans le service. C'est délibéré : une seule barrière finit
+  toujours par être contournée.
+- **L'`userId` cible est lié côté serveur** (`action.bind(null, user.id)`) : le
+  client poste un formulaire, jamais l'identifiant du compte visé.
+- Le mot de passe n'est **ni affiché ni modifiable**, et `getUserDetail` ne le
+  sélectionne même pas — seul son caractère renseigné remonte, via un `count`.
+
 #### Trace d'activité
 
 `user_activities` (une ligne par utilisateur, par jour UTC et par surface) est
@@ -963,4 +990,5 @@ Bearer) et `app/dashboard/layout.tsx` (surface `web`).
 | `/dashboard/parametres` | Profil + adresse autocomplete |
 | `/admin` | Portail d'administration — réservé au rôle `ADMIN`, `noindex` |
 | `/admin/utilisateurs` | Liste des comptes (recherche, filtres, export CSV) |
+| `/admin/utilisateurs/[id]` | Fiche : profil · jardins · plantes · IA · activité · actions |
 | `/admin/journal` | Journal d'audit des actions d'administration |
