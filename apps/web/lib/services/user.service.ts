@@ -206,7 +206,8 @@ export async function changePassword(
 /**
  * Vérifie un couple email / mot de passe.
  * Renvoie l'utilisateur si les identifiants sont valides, `null` sinon —
- * jamais de distinction entre « compte inconnu » et « mot de passe faux ».
+ * jamais de distinction entre « compte inconnu », « mot de passe faux » et
+ * « compte désactivé ».
  */
 export async function verifyCredentials(email: string, password: string) {
   const user = await prisma.user.findUnique({ where: { email } })
@@ -219,6 +220,10 @@ export async function verifyCredentials(email: string, password: string) {
   const passwordsMatch = await bcrypt.compare(password, hash)
 
   if (!user?.password || !passwordsMatch) return null
+  // Un compte désactivé se comporte comme un mot de passe faux : lui répondre
+  // « votre compte est désactivé » indiquerait aussi que l'adresse existe et
+  // que le mot de passe présenté était le bon.
+  if (user.disabledAt) return null
   return user
 }
 

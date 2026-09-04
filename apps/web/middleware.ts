@@ -4,4 +4,4 @@ import { authConfig } from '@/auth.config'
 const { auth } = NextAuth(authConfig)
 export { auth as middleware }
 
-export const config = { matcher: ['/dashboard/:path*'] }
+export const config = { matcher: ['/dashboard/:path*', '/admin/:path*'] }

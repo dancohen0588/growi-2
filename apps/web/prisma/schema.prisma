@@ -31,7 +31,15 @@ model User {
   alertConfig    Json?
   latitude       Float?
   longitude      Float?
+  /// Droits du compte — voir USER_ROLES dans @growi/shared : USER | ADMIN.
+  role           String          @default("USER")
+  /// Compte désactivé par un administrateur : connexion refusée, données conservées.
+  disabledAt     DateTime?       @db.Timestamptz(6)
+  /// Dernière activité observée, toutes surfaces confondues.
+  /// Mise à jour au plus une fois par heure (voir activity.service.ts).
+  lastSeenAt     DateTime?       @db.Timestamptz(6)
   accounts       Account[]
+  activities     UserActivity[]
   conversations  Conversation[]
   diagnoses      Diagnosis[]
   tasks          PlantTask[]
@@ -41,7 +49,28 @@ model User {
   refreshTokens  RefreshToken[]
   sessions       Session[]
 
+  @@index([role])
+  @@index([createdAt])
   @@map("users")
+}
+
+/// Une ligne par utilisateur, par jour UTC et par surface — c'est la seule
+/// source des indicateurs d'actifs (DAU/WAU/MAU). Le web (session par cookies)
+/// ne laissait jusqu'ici aucune trace exploitable.
+///
+/// Volume : au plus 2 lignes par utilisateur et par jour, purgeable au-delà de
+/// 13 mois.
+model UserActivity {
+  userId  String
+  /// `YYYY-MM-DD` UTC, même convention que IdentifyQuota.
+  day     String
+  /// web | mobile — voir ACTIVITY_SURFACES dans @growi/shared.
+  surface String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, day, surface])
+  @@index([day, surface])
+  @@map("user_activities")
 }
 
 /// Jeton de rafraîchissement de l'app mobile.

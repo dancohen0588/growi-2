@@ -4,6 +4,12 @@ import { authConfig } from '@/auth.config'
 import { loginSchema } from '@/lib/auth-schemas'
 import { verifyCredentials } from '@/lib/services/user.service'
 
+/**
+ * Les callbacks `jwt`, `session` et `authorized` vivent dans `auth.config.ts`,
+ * que le middleware instancie de son côté. **Ne pas redéclarer `callbacks` ici** :
+ * la clé écraserait celle de la config partagée, et le middleware se
+ * retrouverait sans le rôle qu'il doit vérifier.
+ */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   session: { strategy: 'jwt' },
@@ -18,22 +24,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.name = user.name
-        token.firstName = user.name
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id as string
-        session.user.name = token.name as string | null
-        session.user.firstName = (token.firstName as string | null | undefined) ?? null
-      }
-      return session
-    },
-  },
 })

@@ -22,16 +22,43 @@ import { verifySocialIdentity } from '@/lib/auth/social-identity'
 import { ServiceError } from '@/lib/services/errors'
 import { createUser, verifyCredentials } from '@/lib/services/user.service'
 
-type UserRow = { id: string; email: string; firstName: string | null; name: string | null }
+type UserRow = {
+  id: string
+  email: string
+  firstName: string | null
+  name: string | null
+  disabledAt?: Date | null
+}
 
 /** Les seuls champs dont l'émission de jetons a besoin. */
-const USER_FIELDS = { id: true, email: true, firstName: true, name: true } as const
+const USER_FIELDS = {
+  id: true,
+  email: true,
+  firstName: true,
+  name: true,
+  disabledAt: true,
+} as const
 
 function toAuthUser(user: UserRow): AuthUser {
   return {
     id: user.id,
     email: user.email,
     firstName: user.firstName ?? user.name,
+  }
+}
+
+/**
+ * Barre la route à un compte désactivé par un administrateur.
+ *
+ * Le message est le même que pour des identifiants faux : une désactivation
+ * n'a pas à être annoncée à qui présente le jeton d'un tiers. L'intéressé,
+ * lui, l'apprend par le canal qui l'a désactivé.
+ *
+ * @throws ServiceError('UNAUTHENTICATED')
+ */
+function assertActive(user: { disabledAt?: Date | null }): void {
+  if (user.disabledAt) {
+    throw new ServiceError('UNAUTHENTICATED', 'Ce compte n’est pas accessible.')
   }
 }
 
@@ -73,10 +100,7 @@ export async function register(input: {
     firstName: input.firstName,
   })
 
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id },
-    select: { id: true, email: true, firstName: true, name: true },
-  })
+  const user = await prisma.user.findUniqueOrThrow({ where: { id }, select: USER_FIELDS })
 
   return issueTokens(user, input.deviceInfo)
 }
@@ -125,7 +149,10 @@ export async function loginWithProvider(
     select: { user: { select: USER_FIELDS } },
   })
 
-  if (linked) return issueTokens(linked.user, input.deviceInfo)
+  if (linked) {
+    assertActive(linked.user)
+    return issueTokens(linked.user, input.deviceInfo)
+  }
 
   const label = provider === 'apple' ? 'Apple' : 'Google'
 
@@ -145,6 +172,9 @@ export async function loginWithProvider(
     })
 
     if (existing) {
+      // Avant le rattachement : une identité Apple/Google ne doit pas devenir
+      // une porte dérobée sur un compte fermé.
+      assertActive(existing)
       await linkAccount(existing.id, provider, identity.subject)
       return issueTokens(existing, input.deviceInfo)
     }
@@ -221,9 +251,7 @@ export async function refresh(
 
   const stored = await prisma.refreshToken.findUnique({
     where: { tokenHash },
-    include: {
-      user: { select: { id: true, email: true, firstName: true, name: true } },
-    },
+    include: { user: { select: USER_FIELDS } },
   })
 
   if (!stored) {
@@ -239,6 +267,12 @@ export async function refresh(
   if (stored.expiresAt <= new Date()) {
     throw new ServiceError('UNAUTHENTICATED', 'Jeton de rafraîchissement expiré')
   }
+
+  // Après la détection de rejeu, pas avant : un jeton fuité doit faire couper
+  // toutes les sessions, y compris — et surtout — sur un compte désactivé.
+  // Une désactivation révoque déjà les jetons existants ; ce contrôle rattrape
+  // la course avec un rafraîchissement déjà en vol.
+  assertActive(stored.user)
 
   const newToken = generateRefreshToken()
 

@@ -196,6 +196,43 @@ export const CARE_LOG_ICONS: Record<CareLogType, string> = {
 
 export type CareIconName = (typeof CARE_LOG_ICONS)[CareLogType]
 
+// ─── Comptes et administration ─────────────────────────────────────────────
+
+/**
+ * `User.role` — droits du compte.
+ *
+ * Volontairement une chaîne et non un enum Postgres, comme le reste du schéma :
+ * ajouter un rôle intermédiaire (SUPPORT, EDITOR) ne demandera pas de migration.
+ * Ces valeurs ne sont **pas** exposées par l'API v1 : le rôle ne vit que dans
+ * la session NextAuth du web, seule surface où l'administration existe.
+ */
+export const USER_ROLES = ['USER', 'ADMIN'] as const
+export const userRoleSchema = z.enum(USER_ROLES)
+export type UserRole = z.infer<typeof userRoleSchema>
+
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  USER: 'Utilisateur',
+  ADMIN: 'Administrateur',
+}
+
+/** Valeur par défaut de `User.role` en base. */
+export const DEFAULT_USER_ROLE: UserRole = 'USER'
+
+/**
+ * `UserActivity.surface` — d'où vient la requête authentifiée.
+ *
+ * Déduit du mécanisme d'authentification, pas d'un en-tête déclaré par le
+ * client : un Bearer, c'est le mobile ; un cookie de session, c'est le web.
+ */
+export const ACTIVITY_SURFACES = ['web', 'mobile'] as const
+export const activitySurfaceSchema = z.enum(ACTIVITY_SURFACES)
+export type ActivitySurface = z.infer<typeof activitySurfaceSchema>
+
+export const ACTIVITY_SURFACE_LABELS: Record<ActivitySurface, string> = {
+  web: 'Site web',
+  mobile: 'Application mobile',
+}
+
 // ─── Notifications ─────────────────────────────────────────────────────────
 
 export const NOTIFICATION_CHANNELS = ['push', 'email', 'both', 'none'] as const

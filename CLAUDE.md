@@ -833,6 +833,79 @@ au mauvais endroit. Trois règles en découlent, à tenir des deux côtés :
 > ailleurs qu'ici laisserait donc des photos orphelines. Les deux surfaces
 > demandent confirmation en annonçant le nombre de plantes perdues.
 
+### Portail d'administration (`/admin`)
+
+Même application Next.js, derrière `/admin` — pas de second déploiement, pas de
+sous-domaine. La spec de référence est
+`/Users/dancohen/Growi/Documentation/spec/spec-portail-admin.md`. **Phase 1
+livrée** (rôles, accès, trace d'activité) ; les écrans viennent ensuite.
+
+| Élément | Rôle |
+|---|---|
+| `User.role` | `USER` \| `ADMIN` — voir `USER_ROLES` dans `@growi/shared`. Une chaîne, pas un enum Postgres : ajouter `SUPPORT` ne demandera pas de migration |
+| `User.disabledAt` | Compte désactivé par un administrateur : connexion refusée, données conservées |
+| `lib/admin/role.ts` | Prédicats purs (`isUserRole`, `isAdminRole`), **sans Prisma ni `auth`** |
+| `lib/admin/auth.ts` | `requireAdmin()` — le contrôle qui compte |
+| `lib/admin/roles.ts` | `promoteAdmin` / `demoteAdmin` |
+| `lib/services/activity.service.ts` | `touchActivity(userId, surface)` |
+
+- **Le JWT ne fait pas autorité pour une écriture.** Le rôle y voyage pour que
+  le middleware redirige sans requête SQL, mais `requireAdmin()` relit `role` et
+  `disabledAt` **en base** à chaque appel. Sans cela, une rétrogradation
+  resterait sans effet jusqu'à la prochaine connexion de l'intéressé.
+- **`requireAdmin()` dans le layout ne protège pas une Server Action.** Chaque
+  action admin est un point d'entrée à part entière et doit l'appeler
+  elle-même.
+- **Jamais de `prisma.*.update` direct depuis une action admin** : les écritures
+  passent par les services existants avec l'`userId` de la **cible**, jamais
+  celui de l'appelant. C'est ce qui garantit qu'un compte modifié depuis l'admin
+  reste indiscernable d'un compte modifié par son porteur (cascades, caches de
+  conseils, fichiers du bucket).
+- **Les callbacks `jwt`, `session` et `authorized` vivent tous dans
+  `auth.config.ts`.** Le middleware fait son propre `NextAuth(authConfig)` : un
+  callback déclaré dans `auth.ts` ne s'y exécute pas. Tant que `session` y
+  vivait, `auth.user` valait côté middleware ce que NextAuth déduit par défaut —
+  sans `id` ni `role` — et un vrai administrateur se faisait renvoyer de
+  `/admin`. Ne pas redéclarer `callbacks` dans `auth.ts` : la clé écraserait
+  celle de la config partagée.
+- `auth.config.ts` s'exécute dans le **runtime Edge** : ni Prisma, ni bcrypt.
+  C'est pourquoi les prédicats vivent dans `lib/admin/role.ts` et non dans
+  `lib/admin/auth.ts`, qui importe `auth` — les réunir ferait aussi un cycle
+  d'imports avec `auth.ts`.
+- **Un compte désactivé se comporte comme un mot de passe faux**, sur les trois
+  voies : `verifyCredentials` (web et mobile), `loginWithProvider`
+  (Apple/Google) et `refresh`. Répondre « ce compte est désactivé » révélerait
+  que l'adresse existe et que le mot de passe présenté était le bon.
+- **On ne retire pas le dernier administrateur**, et on ne se rétrograde pas
+  soi-même : `/admin` deviendrait inaccessible et il faudrait un accès à la base
+  de production pour en sortir.
+
+**Premier administrateur** — seule voie, volontairement manuelle (aucune règle
+« premier inscrit = admin ») :
+
+```bash
+pnpm --filter web admin:promote dan0588@gmail.com
+```
+
+#### Trace d'activité
+
+`user_activities` (une ligne par utilisateur, par jour UTC et par surface) est
+la **seule** source des indicateurs d'actifs. Le web s'authentifie par cookie et
+ne laissait jusqu'ici aucune trace ; les `RefreshToken` ne couvraient que le
+mobile. Deux points d'appel suffisent à couvrir toutes les requêtes
+authentifiées : `lib/api/auth-context.ts` (`getUserId`, surface `mobile` si
+Bearer) et `app/dashboard/layout.tsx` (surface `web`).
+
+- **`touchActivity` ne lève jamais et ne s'attend pas.** `after()` n'existe pas
+  en Next 14 : la promesse part sans `await`, ses erreurs sont attrapées et
+  journalisées. Une trace manquée est une barre d'histogramme en moins, jamais
+  une requête cassée.
+- **Au plus une écriture par heure et par utilisateur**, via un cache mémoire
+  par process. Sur Vercel chaque instance a le sien : au pire quelques écritures
+  redondantes par heure, qu'un `upsert` idempotent absorbe.
+- Le jour est en **UTC**, comme `IdentifyQuota`. Ne pas le passer dans le fuseau
+  de l'utilisateur : les séries hebdomadaires perdraient leur clé commune.
+
 ### Routing principal
 
 | Route | Description |
@@ -849,3 +922,4 @@ au mauvais endroit. Trois règles en découlent, à tenir des deux côtés :
 | `/dashboard/identifier` | Identification photo (Gemini) |
 | `/dashboard/diagnostic` | Choix de la plante à diagnostiquer (le parcours vit sur sa fiche) |
 | `/dashboard/parametres` | Profil + adresse autocomplete |
+| `/admin` | Portail d'administration — réservé au rôle `ADMIN`, `noindex` |

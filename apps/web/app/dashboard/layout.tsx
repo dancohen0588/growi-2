@@ -5,6 +5,7 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { DashboardLegalLinks } from '@/components/dashboard/DashboardLegalLinks'
 import { DashboardNav } from '@/components/dashboard/DashboardNav'
 import { ChatPanelProvider } from '@/components/dashboard/chat/ChatPanelProvider'
+import { touchActivity } from '@/lib/services/activity.service'
 
 export default async function DashboardLayout({
   children,
@@ -13,6 +14,11 @@ export default async function DashboardLayout({
 }) {
   const session = await auth()
   if (!session) redirect('/login')
+
+  // Le web s'authentifie par cookie et ne laissait donc aucune trace : ce
+  // layout est traversé par toute page du dashboard, c'est le pendant de
+  // `getUserId()` pour l'API. L'appel n'attend rien et ne lève jamais.
+  if (session.user?.id) touchActivity(session.user.id, 'web')
 
   return (
     // Le fil de discussion se pose par-dessus n'importe quelle page du
