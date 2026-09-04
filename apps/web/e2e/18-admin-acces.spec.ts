@@ -63,6 +63,36 @@ test.describe('Portail admin — accès', () => {
     expect(page.url()).toContain('/admin')
   })
 
+  test('E2E-ADMIN-06 — Promotion en cours de session : accès immédiat', async ({ page }) => {
+    // Le cas rencontré en vrai : on se connecte, *puis* on est promu. Le JWT
+    // du navigateur porte encore `USER`. Si le middleware jugeait sur ce
+    // jeton, le compte resterait dehors jusqu'à sa prochaine connexion —
+    // sans aucun moyen de s'en douter.
+    const email = 'test-e2e-admin-promu@growi-garden.fr'
+    await seedAccount(email, 'USER')
+
+    try {
+      await loginAs(page, email, TEST_PASSWORD)
+
+      await page.goto('/admin')
+      await page.waitForURL('**/dashboard**', { timeout: 15_000 })
+
+      await prisma.user.update({ where: { email }, data: { role: 'ADMIN' } })
+
+      // Même session, même cookie, aucune reconnexion.
+      await page.goto('/admin')
+      await expect(page.getByText('Admin Growi')).toBeVisible({ timeout: 15_000 })
+      expect(page.url()).toContain('/admin')
+
+      // Et la rétrogradation referme la porte, tout aussi vite.
+      await prisma.user.update({ where: { email }, data: { role: 'USER' } })
+      await page.goto('/admin')
+      await page.waitForURL('**/dashboard**', { timeout: 15_000 })
+    } finally {
+      await prisma.user.deleteMany({ where: { email } })
+    }
+  })
+
   test('E2E-ADMIN-04 — Compte désactivé : connexion refusée', async ({ page }) => {
     await prisma.user.update({
       where: { email: USER_EMAIL },

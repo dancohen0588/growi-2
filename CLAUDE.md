@@ -849,10 +849,14 @@ livrée** (rôles, accès, trace d'activité) ; les écrans viennent ensuite.
 | `lib/admin/roles.ts` | `promoteAdmin` / `demoteAdmin` |
 | `lib/services/activity.service.ts` | `touchActivity(userId, surface)` |
 
-- **Le JWT ne fait pas autorité pour une écriture.** Le rôle y voyage pour que
-  le middleware redirige sans requête SQL, mais `requireAdmin()` relit `role` et
-  `disabledAt` **en base** à chaque appel. Sans cela, une rétrogradation
-  resterait sans effet jusqu'à la prochaine connexion de l'intéressé.
+- **Le JWT ne fait autorité pour rien.** Le rôle y est écrit à la connexion et
+  n'y bouge plus : il ne sert qu'à l'affichage. `requireAdmin()` relit `role` et
+  `disabledAt` **en base** à chaque appel, et c'est le seul juge.
+- **Le middleware n'exige qu'une session sur `/admin`, jamais le rôle** —
+  `app/admin/layout.tsx` tranche. Tant que le middleware filtrait sur
+  `auth.user.role`, un compte promu en cours de session restait dehors jusqu'à
+  sa prochaine connexion, et `requireAdmin()` n'avait jamais l'occasion de lire
+  la base puisque le layout n'était pas atteint. Couvert par E2E-ADMIN-06.
 - **`requireAdmin()` dans le layout ne protège pas une Server Action.** Chaque
   action admin est un point d'entrée à part entière et doit l'appeler
   elle-même.
@@ -864,9 +868,8 @@ livrée** (rôles, accès, trace d'activité) ; les écrans viennent ensuite.
 - **Les callbacks `jwt`, `session` et `authorized` vivent tous dans
   `auth.config.ts`.** Le middleware fait son propre `NextAuth(authConfig)` : un
   callback déclaré dans `auth.ts` ne s'y exécute pas. Tant que `session` y
-  vivait, `auth.user` valait côté middleware ce que NextAuth déduit par défaut —
-  sans `id` ni `role` — et un vrai administrateur se faisait renvoyer de
-  `/admin`. Ne pas redéclarer `callbacks` dans `auth.ts` : la clé écraserait
+  vivait, `auth.user` valait côté middleware ce que NextAuth déduit par défaut,
+  sans `id`. Ne pas redéclarer `callbacks` dans `auth.ts` : la clé écraserait
   celle de la config partagée.
 - `auth.config.ts` s'exécute dans le **runtime Edge** : ni Prisma, ni bcrypt.
   C'est pourquoi les prédicats vivent dans `lib/admin/role.ts` et non dans

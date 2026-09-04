@@ -1,7 +1,6 @@
 import type { NextAuthConfig } from 'next-auth'
-import { NextResponse } from 'next/server'
 import { DEFAULT_USER_ROLE } from '@growi/shared'
-import { isAdminRole, isUserRole } from '@/lib/admin/role'
+import { isUserRole } from '@/lib/admin/role'
 
 /**
  * Configuration partagée par `auth.ts` et le middleware.
@@ -12,8 +11,11 @@ import { isAdminRole, isUserRole } from '@/lib/admin/role'
  * ⚠️ **Les trois callbacks doivent rester ici, ensemble.** Le middleware
  * instancie NextAuth avec ce seul objet : un `jwt` ou un `session` déclaré dans
  * `auth.ts` ne s'y exécuterait pas, et `auth.user` y serait réduit à ce que
- * NextAuth sait déduire par défaut — sans `id` ni `role`. `authorized` renverrait
- * alors tout le monde, y compris les administrateurs, hors de `/admin`.
+ * NextAuth sait déduire par défaut, sans `id`.
+ *
+ * Le `role` qu'on y pose sert à l'affichage (montrer ou non une entrée « Admin »).
+ * **Il ne décide de rien** : il date de la connexion et peut donc être périmé.
+ * Voir `authorized` et `lib/admin/auth.ts`.
  */
 export const authConfig = {
   pages: {
@@ -46,12 +48,17 @@ export const authConfig = {
 
       if (isOnAdmin) {
         // Anonyme : `false` renvoie vers /login avec le callback d'origine.
-        if (!isLoggedIn) return false
-        if (isAdminRole(auth?.user?.role)) return true
-        // Connecté mais sans les droits : on renvoie au dashboard plutôt que
-        // vers /login, qui ferait croire à une session expirée. `/admin` reste
-        // ainsi indistinguable d'une page inexistante pour un compte ordinaire.
-        return NextResponse.redirect(new URL('/dashboard', nextUrl))
+        //
+        // On s'arrête là : **le middleware ne juge pas du rôle**. Il ne dispose
+        // que du JWT, où `role` n'est écrit qu'à la connexion — un compte promu
+        // porterait son ancien rôle jusqu'à sa prochaine ouverture de session,
+        // et se verrait refuser l'entrée sans pouvoir rien y faire. Filtrer ici
+        // priverait en plus `requireAdmin()` de la seule occasion de lire la
+        // base, puisque le layout ne serait jamais atteint.
+        //
+        // C'est donc `app/admin/layout.tsx` qui tranche, sur l'état réel du
+        // compte, et qui renvoie un non-administrateur vers /dashboard.
+        return isLoggedIn
       }
 
       if (isOnDashboard) {

@@ -5,9 +5,12 @@ import { requireAdmin } from '@/lib/admin/auth'
 import { isServiceError } from '@/lib/services/errors'
 
 /**
- * Le middleware écarte déjà les non-administrateurs, mais un layout ne se
- * repose pas dessus : le JWT peut porter un rôle périmé, et une redirection
- * n'est pas un contrôle d'accès. `requireAdmin()` relit la base.
+ * **C'est ici, et nulle part ailleurs, que l'accès au portail se décide.**
+ *
+ * Le middleware se contente d'exiger une session : il ne dispose que du JWT,
+ * où le rôle est figé à la connexion. `requireAdmin()` relit l'état réel du
+ * compte, ce qui fait qu'une promotion comme une rétrogradation prend effet
+ * immédiatement, sans attendre que l'intéressé se reconnecte.
  */
 export const metadata: Metadata = {
   title: 'Administration — Growi',
