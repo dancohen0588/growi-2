@@ -20,8 +20,12 @@ export default function ConfidentialitePage() {
         <ul className="flex list-disc flex-col gap-2 pl-5">
           <li>Growi ne vend aucune donnée et n&apos;affiche aucune publicité.</li>
           <li>
-            Aucun traceur publicitaire, aucun outil de mesure d&apos;audience tiers : le seul
-            cookie déposé sert à te garder connecté.
+            Aucun traceur publicitaire, aucun profilage : le seul cookie déposé sert à te garder
+            connecté. La fréquentation du site est mesurée sans cookie et sans identifiant.
+          </li>
+          <li>
+            Une personne de l&apos;équipe Growi peut consulter ton compte pour te dépanner ; ces
+            accès sont tracés.
           </li>
           <li>
             Tes données de jardin vivent dans l&apos;Union européenne (Irlande). Quelques
@@ -188,13 +192,18 @@ export default function ConfidentialitePage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="Cookies">
+      <LegalSection title="Cookies et mesure d’audience">
         <p>
           Growi dépose un seul cookie, strictement nécessaire : celui de ta session, qui te
-          garde connecté d&apos;une page à l&apos;autre. Il n&apos;alimente aucune mesure
-          d&apos;audience et disparaît à la déconnexion. Aucun cookie publicitaire, aucun
-          traceur tiers — c&apos;est pourquoi aucune bannière de consentement ne t&apos;est
-          présentée.
+          garde connecté d&apos;une page à l&apos;autre. Il disparaît à la déconnexion. Aucun
+          cookie publicitaire, aucun traceur tiers.
+        </p>
+        <p>
+          La fréquentation des pages est mesurée avec Vercel Web Analytics, qui{' '}
+          <strong>ne dépose aucun cookie</strong>, ne crée aucun identifiant persistant et ne
+          permet pas de te reconnaître d&apos;une visite à l&apos;autre. Il compte des pages
+          vues, pas des personnes. C&apos;est pourquoi aucune bannière de consentement ne
+          t&apos;est présentée.
         </p>
         <p>
           Dans l&apos;application mobile, la session est conservée dans le trousseau sécurisé
@@ -224,6 +233,26 @@ export default function ConfidentialitePage() {
             cnil.fr
           </a>
           ).
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Qui, chez Growi, accède à tes données">
+        <p>
+          Un nombre restreint de personnes de l&apos;équipe disposent d&apos;un accès
+          d&apos;administration, réservé au support : répondre à un message, comprendre pourquoi
+          un rappel ne part pas, corriger une donnée à ta demande.
+        </p>
+        <p>
+          Cet accès permet de consulter ton profil, tes jardins, tes plantes, tes diagnostics et
+          tes échanges avec l&apos;assistant. Il ne donne <strong>jamais</strong> accès à ton mot
+          de passe, qui n&apos;est stocké que sous forme d&apos;empreinte et n&apos;est lisible
+          par personne — pas même par nous.
+        </p>
+        <p>
+          Chaque action d&apos;administration qui modifie un compte est inscrite dans un journal
+          interne inaltérable : qui, quoi, quand. Un administrateur peut désactiver un compte,
+          ce qui en bloque l&apos;accès sans rien supprimer. Pour demander la suppression de tes
+          données, écris à {EDITOR.email}.
         </p>
       </LegalSection>
 

@@ -42,8 +42,13 @@ test.describe('Calendrier', () => {
     const hasEmptyState =
       pageText?.includes('Crée d\u2019abord un jardin') ||
       pageText?.includes('Crée d\'abord un jardin') ||
-      pageText?.includes('0 à venir cette semaine')
-    expect(hasEmptyState).toBeTruthy()
+      // « 0 à venir cette semaine » a disparu le 21/08/2026 avec le passage du
+      // calendrier aux trois échéances (d79bb47) ; ce test échouait depuis,
+      // sans que rien ne soit cassé dans le produit.
+      pageText?.includes('Rien à faire aujourd’hui') ||
+      pageText?.includes("Rien à faire aujourd'hui") ||
+      pageText?.includes('Rien de prévu')
+    expect(hasEmptyState, `état vide introuvable dans : ${pageText?.slice(0, 300)}`).toBeTruthy()
 
     // No critical console errors (filter out Next.js dev warnings)
     const criticalErrors = consoleErrors.filter(

@@ -141,6 +141,14 @@ export const PROCESSORS = [
     location: 'États-Unis',
   },
   {
+    name: 'Vercel Web Analytics',
+    role: 'Mesure de fréquentation des pages',
+    data:
+      'Page consultée, provenance, type d\'appareil. Sans cookie et sans identifiant : '
+      + 'aucun rapprochement avec ton compte.',
+    location: 'États-Unis',
+  },
+  {
     name: 'Resend',
     role: 'Envoi des e-mails du formulaire de contact',
     data: 'Ton adresse e-mail et le contenu de ton message.',

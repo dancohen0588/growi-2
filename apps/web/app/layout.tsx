@@ -53,10 +53,14 @@ export default function RootLayout({
           Trafic anonyme du site : Vercel Web Analytics, sans cookie et donc
           sans bandeau de consentement. Il compte les *visiteurs* ; les
           utilisateurs actifs, eux, se comptent en base (`user_activities`) et
-          s'affichent dans `/admin`. Reproduire ces courbes ici n'apporterait
-          rien : le tableau de bord Vercel les montre déjà.
+          s'affichent dans `/admin`.
+
+          **Hors développement seulement.** Le script est servi par la
+          plateforme Vercel : en local il répond 404, ce qui inscrit une erreur
+          dans la console de chaque page — et fait échouer tous les tests e2e
+          qui exigent une console propre.
         */}
-        <Analytics />
+        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )

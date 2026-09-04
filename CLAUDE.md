@@ -848,9 +848,9 @@ au mauvais endroit. Trois règles en découlent, à tenir des deux côtés :
 
 Même application Next.js, derrière `/admin` — pas de second déploiement, pas de
 sous-domaine. La spec de référence est
-`/Users/dancohen/Growi/Documentation/spec/spec-portail-admin.md`. **Phases 1 à 5
-livrées** (rôles et accès · trace d'activité · journal d'audit · liste des
-utilisateurs · fiche et actions · messagerie de contact · tableau de bord).
+`/Users/dancohen/Growi/Documentation/spec/spec-portail-admin.md`. **v1 complète**
+(rôles et accès · trace d'activité · journal d'audit · liste des utilisateurs ·
+fiche et actions · messagerie de contact · tableau de bord · administrateurs).
 
 | Élément | Rôle |
 |---|---|
@@ -903,7 +903,25 @@ utilisateurs · fiche et actions · messagerie de contact · tableau de bord).
   que l'adresse existe et que le mot de passe présenté était le bon.
 - **On ne retire pas le dernier administrateur**, et on ne se rétrograde pas
   soi-même : `/admin` deviendrait inaccessible et il faudrait un accès à la base
-  de production pour en sortir.
+  de production pour en sortir. Ces deux règles vivent dans `lib/admin/roles.ts`,
+  pas dans la page : une garde qui protège l'accès au portail ne doit pas
+  dépendre de l'écran qui l'appelle.
+- **On promeut un compte existant, jamais une adresse.** Créer un compte au
+  passage donnerait des droits à quelqu'un qui n'a rien demandé. Un compte
+  désactivé est refusé : des droits inexerçables n'égarent que celui qui les lit.
+- « Promu le, par qui » se lit **dans le journal d'audit**, seul endroit qui le
+  porte — `User` ne garde qu'un rôle, sans mémoire de qui l'a posé. Le premier
+  administrateur, promu par script, n'a donc pas de trace : l'écran le dit
+  plutôt que d'inventer.
+- **L'admin doit rester utilisable sur un téléphone** — ne serait-ce que pour
+  répondre à un message. E2E-ADMIN-53 le vérifie en 390 px et refuse tout
+  débordement horizontal, qui ferait sortir la navigation de l'écran.
+
+**Page de confidentialité.** La section « Qui, chez Growi, accède à tes
+données » décrit l'accès d'administration et le journal ; elle doit suivre toute
+évolution du portail. Vercel Web Analytics y est déclaré comme prestataire :
+la page affirmait « aucun outil de mesure d'audience tiers », ce que son ajout
+a rendu faux.
 
 **Premier administrateur** — seule voie, volontairement manuelle (aucune règle
 « premier inscrit = admin ») :
@@ -1000,6 +1018,11 @@ courbe sans rien casser de visible.
 - `@vercel/analytics` mesure le **trafic anonyme** du site ; les utilisateurs
   actifs, eux, se comptent en base. Les deux ne mesurent pas la même chose et
   le tableau de bord ne fait que pointer vers Vercel pour le premier.
+- ⚠️ **`<Analytics />` n'est rendu qu'en production.** Son script est servi par
+  la plateforme Vercel : en local il répond 404, ce qui inscrit une erreur dans
+  la console de **chaque page** et fait échouer tous les tests e2e qui exigent
+  une console propre (`01-auth`, `02-calendrier`, `22-admin-kpis`…). Le retirer
+  de cette condition casserait la suite sans rapport apparent avec la cause.
 
 #### Messagerie de contact
 
@@ -1069,4 +1092,5 @@ Bearer) et `app/dashboard/layout.tsx` (surface `web`).
 | `/admin/utilisateurs` | Liste des comptes (recherche, filtres, export CSV) |
 | `/admin/utilisateurs/[id]` | Fiche : profil · jardins · plantes · IA · activité · actions |
 | `/admin/messages` · `/admin/messages/[id]` | Boîte de réception et fil de réponse |
+| `/admin/administrateurs` | Comptes ayant accès au portail, promotion et retrait |
 | `/admin/journal` | Journal d'audit des actions d'administration |
