@@ -233,6 +233,40 @@ export const ACTIVITY_SURFACE_LABELS: Record<ActivitySurface, string> = {
   mobile: 'Application mobile',
 }
 
+// ─── Messagerie de contact ─────────────────────────────────────────────────
+
+/**
+ * `ContactMessage.status` — où en est le message.
+ *
+ * Un message archivé peut être rouvert : « archivé » range, il ne clôt pas.
+ */
+export const CONTACT_MESSAGE_STATUSES = ['new', 'answered', 'archived'] as const
+export const contactMessageStatusSchema = z.enum(CONTACT_MESSAGE_STATUSES)
+export type ContactMessageStatus = z.infer<typeof contactMessageStatusSchema>
+
+export const CONTACT_MESSAGE_STATUS_LABELS: Record<ContactMessageStatus, string> = {
+  new: 'Nouveau',
+  answered: 'Répondu',
+  archived: 'Archivé',
+}
+
+/**
+ * `ContactMessage.source` — d'où vient le message.
+ *
+ * `beta_ios` est une inscription à la liste d'attente, pas un vrai message :
+ * elle n'a ni nom ni sujet. `admin_outbound` est un envoi parti de l'admin,
+ * conservé pour garder trace de ce qu'on a écrit à quelqu'un.
+ */
+export const CONTACT_MESSAGE_SOURCES = ['contact', 'beta_ios', 'admin_outbound'] as const
+export const contactMessageSourceSchema = z.enum(CONTACT_MESSAGE_SOURCES)
+export type ContactMessageSource = z.infer<typeof contactMessageSourceSchema>
+
+export const CONTACT_MESSAGE_SOURCE_LABELS: Record<ContactMessageSource, string> = {
+  contact: 'Formulaire de contact',
+  beta_ios: 'Bêta iOS',
+  admin_outbound: "Envoi depuis l'admin",
+}
+
 // ─── Notifications ─────────────────────────────────────────────────────────
 
 export const NOTIFICATION_CHANNELS = ['push', 'email', 'both', 'none'] as const

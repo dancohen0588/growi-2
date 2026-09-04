@@ -348,6 +348,17 @@ pnpm typecheck              # Turborepo : tsc --noEmit partout
 Tests : Vitest (`vitest.config.ts`) et Playwright (`playwright.config.ts`, dossier `e2e/`),
 tous deux dans `apps/web`.
 
+> ⚠️ **Les tests unitaires doublent Prisma, ils ne parlent jamais à une base.**
+> `vitest.config.ts` force `DATABASE_URL` vers une adresse qui ne mène nulle
+> part : un fichier qui oublie `vi.mock('@/lib/prisma')` échoue bruyamment au
+> lieu d'écrire dans la base pointée par `.env` — c'est-à-dire la production.
+> Ne pas retirer ce garde-fou : la mésaventure a eu lieu.
+>
+> Playwright, lui, travaille sur la **vraie** base : chaque spec crée ses
+> comptes et les supprime dans `afterAll`. Une assertion à l'échelle d'un
+> tableau entier casse dès qu'une donnée voisine existe — viser la ligne.
+> `E2E_PORT` permet de faire tourner la suite à côté d'un `next dev` déjà lancé.
+
 > Note : `pnpm --filter web lint` remonte 11 erreurs ESLint pré-existantes
 > (`no-explicit-any`, variables inutilisées). Le build les ignore volontairement
 > (`eslint.ignoreDuringBuilds`). À traiter séparément, hors migration monorepo.
@@ -837,9 +848,9 @@ au mauvais endroit. Trois règles en découlent, à tenir des deux côtés :
 
 Même application Next.js, derrière `/admin` — pas de second déploiement, pas de
 sous-domaine. La spec de référence est
-`/Users/dancohen/Growi/Documentation/spec/spec-portail-admin.md`. **Phases 1 à 3
+`/Users/dancohen/Growi/Documentation/spec/spec-portail-admin.md`. **Phases 1 à 4
 livrées** (rôles et accès · trace d'activité · journal d'audit · liste des
-utilisateurs · fiche et actions).
+utilisateurs · fiche et actions · messagerie de contact).
 
 | Élément | Rôle |
 |---|---|
@@ -856,7 +867,8 @@ utilisateurs · fiche et actions).
 | `lib/services/admin-user.service.ts` · `admin-audit.service.ts` | Lectures paginées |
 | `lib/services/admin-user-detail.service.ts` | Lectures de la fiche, un onglet à la fois |
 | `lib/services/admin-account.service.ts` | **Toutes** les écritures sur un compte tiers |
-| `app/actions/admin/users.ts` | Server Actions — authentifier, valider, déléguer |
+| `lib/services/contact.service.ts` | Réception, lecture et réponse aux messages |
+| `app/actions/admin/users.ts` · `messages.ts` | Server Actions — authentifier, valider, déléguer |
 
 - **Le JWT ne fait autorité pour rien.** Le rôle y est écrit à la connexion et
   n'y bouge plus : il ne sert qu'à l'affichage. `requireAdmin()` relit `role` et
@@ -953,6 +965,35 @@ pnpm --filter web admin:promote dan0588@gmail.com
 - Le mot de passe n'est **ni affiché ni modifiable**, et `getUserDetail` ne le
   sélectionne même pas — seul son caractère renseigné remonte, via un `count`.
 
+#### Messagerie de contact
+
+Les messages du formulaire partaient en email et disparaissaient. Ils sont
+désormais **écrits d'abord, notifiés ensuite**, et cet ordre porte toute la
+logique de `contact.service.ts`.
+
+- **Le visiteur ne voit un échec que si l'écriture rate.** Un refus de Resend —
+  clé absente, domaine non vérifié, quota — ne perd plus rien : le message est
+  en base, l'admin le verra, et `notifiedAt` reste `null` pour dire que personne
+  n'a été alerté. C'est un **changement de comportement** : auparavant, une clé
+  absente perdait le message *et* affichait une erreur.
+- **La réponse suit l'ordre inverse : l'email part avant l'écriture.** Écrire
+  d'abord ferait afficher une réponse envoyée alors qu'elle ne l'est pas, sans
+  aucun moyen de s'en apercevoir. Si l'envoi échoue, rien n'est enregistré et
+  rien n'est journalisé.
+- **Le rattachement au compte est insensible à la casse** : qui écrit depuis
+  `Sophie@Exemple.fr` est la même personne que `sophie@exemple.fr`, et le
+  support a besoin de le voir.
+- `ContactMessage.userId` est en **`SetNull`**, pas en cascade : supprimer un
+  compte ne doit pas effacer l'historique du support.
+- La liste d'attente bêta iOS n'emprunte pas `contactSchema`, qui exige un nom,
+  un sujet et vingt caractères — les inventer écrirait de faux messages. Elle a
+  sa propre source `beta_ios`, et devient enfin exportable.
+- **Les réponses de l'utilisateur arrivent dans la boîte `info@`, pas dans
+  l'admin** : limite assumée en v1. Le webhook Resend entrant est en v2.
+- Le message d'origine est **cité sous la réponse** : `In-Reply-To` et
+  `References` ne sont pas disponibles, puisque ce qu'on répond n'était pas un
+  email.
+
 #### Trace d'activité
 
 `user_activities` (une ligne par utilisateur, par jour UTC et par surface) est
@@ -991,4 +1032,5 @@ Bearer) et `app/dashboard/layout.tsx` (surface `web`).
 | `/admin` | Portail d'administration — réservé au rôle `ADMIN`, `noindex` |
 | `/admin/utilisateurs` | Liste des comptes (recherche, filtres, export CSV) |
 | `/admin/utilisateurs/[id]` | Fiche : profil · jardins · plantes · IA · activité · actions |
+| `/admin/messages` · `/admin/messages/[id]` | Boîte de réception et fil de réponse |
 | `/admin/journal` | Journal d'audit des actions d'administration |

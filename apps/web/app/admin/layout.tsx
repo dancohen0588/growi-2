@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 
 import { AdminNav } from '@/components/admin/AdminShell'
 import { requireAdmin } from '@/lib/admin/auth'
+import { countNew } from '@/lib/services/contact.service'
 import { isServiceError } from '@/lib/services/errors'
 
 /**
@@ -32,6 +33,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     throw err
   }
 
+  // Le badge de la navigation. Un message non traité qui n'apparaît nulle part
+  // est un message oublié : le compteur est la seule chose qui le rappelle
+  // depuis n'importe quelle page de l'admin.
+  const newMessages = await countNew()
+
   return (
     <div className="flex min-h-screen flex-col bg-sand">
       <header className="border-b border-forest/10 bg-white">
@@ -47,7 +53,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </header>
 
       <div className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col md:flex-row">
-        <AdminNav />
+        <AdminNav counts={{ '/admin/messages': newMessages }} />
         <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>

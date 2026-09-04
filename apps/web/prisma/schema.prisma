@@ -38,10 +38,11 @@ model User {
   /// Dernière activité observée, toutes surfaces confondues.
   /// Mise à jour au plus une fois par heure (voir activity.service.ts).
   lastSeenAt     DateTime?       @db.Timestamptz(6)
-  accounts       Account[]
-  activities     UserActivity[]
-  adminActions   AdminAuditLog[] @relation("actor")
-  conversations  Conversation[]
+  accounts        Account[]
+  activities      UserActivity[]
+  adminActions    AdminAuditLog[]  @relation("actor")
+  contactMessages ContactMessage[]
+  conversations   Conversation[]
   diagnoses      Diagnosis[]
   tasks          PlantTask[]
   gardens        Garden[]
@@ -96,6 +97,61 @@ model AdminAuditLog {
   @@index([targetType, targetId])
   @@index([actorId, createdAt])
   @@map("admin_audit_logs")
+}
+
+/// Message reçu depuis le formulaire de contact ou la liste d'attente bêta iOS.
+///
+/// Ces messages partaient en email et disparaissaient : rien n'en restait, ni
+/// pour répondre, ni pour compter. Ils sont désormais **écrits avant l'envoi**,
+/// et conservés même si l'email ne part pas.
+model ContactMessage {
+  id           String    @id @default(cuid())
+  /// Voir CONTACT_MESSAGE_SOURCES dans @growi/shared.
+  source       String    @default("contact")
+  firstName    String?
+  lastName     String?
+  email        String
+  phone        String?
+  /// Valeur de CONTACT_SUBJECTS, ou `autre`.
+  subject      String?
+  otherSubject String?
+  body         String
+  /// Voir CONTACT_MESSAGE_STATUSES dans @growi/shared.
+  status       String    @default("new")
+  /// Compte Growi dont l'email correspond, rattaché à la réception.
+  userId       String?
+  /// Notes internes. Jamais envoyées à l'expéditeur.
+  internalNote String?
+  /// L'email de notification est-il parti ? `null` = pas envoyé.
+  notifiedAt   DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  /// `SetNull` et non `Cascade` : supprimer un compte ne doit pas effacer
+  /// l'historique du support, qui vaut aussi pour ceux qui restent.
+  user    User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  replies ContactReply[]
+
+  @@index([status, createdAt])
+  @@index([email])
+  @@index([userId])
+  @@map("contact_messages")
+}
+
+/// Réponse envoyée depuis l'admin, conservée telle qu'expédiée.
+model ContactReply {
+  id         String   @id @default(cuid())
+  messageId  String
+  authorId   String
+  body       String
+  /// Identifiant renvoyé par Resend, pour recouper en cas de doute.
+  providerId String?
+  sentAt     DateTime @default(now()) @db.Timestamptz(6)
+
+  message ContactMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId, sentAt])
+  @@map("contact_replies")
 }
 
 /// Jeton de rafraîchissement de l'app mobile.
