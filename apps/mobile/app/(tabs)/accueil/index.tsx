@@ -184,7 +184,7 @@ export default function AccueilScreen() {
               Identifier une plante en photo
             </Text>
             <Text className="font-raleway text-caption text-muted-foreground">
-              L'IA la reconnaît et donne ses besoins.
+              Growi la reconnaît et donne ses besoins.
             </Text>
           </View>
           <ArrowRight size={20} color="#1E5631" />

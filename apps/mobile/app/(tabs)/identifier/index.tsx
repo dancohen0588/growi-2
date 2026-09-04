@@ -120,7 +120,7 @@ export default function IdentifierScreen() {
         <View className="gap-0.5">
           <Text className="font-poppins-bold text-screen text-forest">Identifier</Text>
           <Text className="font-raleway text-secondary text-muted-foreground">
-            Prends ou choisis une photo — l'IA fait le reste en quelques secondes.
+            Prends ou choisis une photo — Growi fait le reste en quelques secondes.
           </Text>
         </View>
 

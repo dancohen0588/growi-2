@@ -25,8 +25,12 @@ module.exports = {
       },
       fontFamily: {
         // Titres en Poppins, corps en Raleway — chargées dans app/_layout.tsx.
+        // Les deux graisses légères sont réservées à l'onboarding, qui est tout
+        // en Poppins (écart volontaire au design system).
         poppins: ['Poppins_600SemiBold'],
         'poppins-bold': ['Poppins_700Bold'],
+        'poppins-regular': ['Poppins_400Regular'],
+        'poppins-medium': ['Poppins_500Medium'],
         raleway: ['Raleway_400Regular'],
         'raleway-medium': ['Raleway_500Medium'],
         'raleway-semibold': ['Raleway_600SemiBold'],

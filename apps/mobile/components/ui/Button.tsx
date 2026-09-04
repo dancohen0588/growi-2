@@ -7,13 +7,27 @@ import {
   type PressableProps,
 } from 'react-native'
 
-export type ButtonVariant = 'primary' | 'forest' | 'outline' | 'ghost' | 'destructive'
+export type ButtonVariant =
+  | 'primary'
+  | 'forest'
+  | 'outline'
+  | 'ghost'
+  // `ghost` posé sur un fond sombre : même absence de surface, libellé sand.
+  | 'ghost-inverse'
+  | 'destructive'
 export type ButtonSize = 'default' | 'lg'
+/**
+ * Police du libellé. Raleway partout, sauf l'onboarding qui est entièrement en
+ * Poppins — la prop existe pour que ces écrans n'aient pas à styler le texte
+ * à la main.
+ */
+export type ButtonFont = 'raleway' | 'poppins'
 
 export interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> {
   label: string
   variant?: ButtonVariant
   size?: ButtonSize
+  font?: ButtonFont
   loading?: boolean
   /** Icône affichée avant le libellé (lucide-react-native, taille 20). */
   icon?: React.ReactNode
@@ -27,6 +41,7 @@ const CONTAINER: Record<ButtonVariant, string> = {
   forest: 'bg-forest',
   outline: 'bg-transparent border border-forest',
   ghost: 'bg-transparent',
+  'ghost-inverse': 'bg-transparent',
   destructive: 'bg-destructive',
 }
 
@@ -35,6 +50,7 @@ const PRESSED: Record<ButtonVariant, string> = {
   forest: 'bg-forest-light',
   outline: 'bg-sand-dark',
   ghost: 'bg-sand-dark',
+  'ghost-inverse': 'bg-forest-light',
   destructive: 'opacity-90',
 }
 
@@ -43,6 +59,7 @@ const LABEL: Record<ButtonVariant, string> = {
   forest: 'text-sand',
   outline: 'text-forest',
   ghost: 'text-forest',
+  'ghost-inverse': 'text-sand',
   destructive: 'text-sand',
 }
 
@@ -51,7 +68,13 @@ const SPINNER: Record<ButtonVariant, string> = {
   forest: '#F9F7E8',
   outline: '#1E5631',
   ghost: '#1E5631',
+  'ghost-inverse': '#F9F7E8',
   destructive: '#F9F7E8',
+}
+
+const FONT: Record<ButtonFont, string> = {
+  raleway: 'font-raleway-semibold',
+  poppins: 'font-poppins',
 }
 
 // 44 pt est la zone tactile minimale ; 56 pour un CTA principal.
@@ -65,6 +88,7 @@ export const Button = forwardRef<View, ButtonProps>(function Button(
     label,
     variant = 'primary',
     size = 'default',
+    font = 'raleway',
     loading = false,
     icon,
     fullWidth = true,
@@ -118,7 +142,7 @@ export const Button = forwardRef<View, ButtonProps>(function Button(
             icon
           )}
           <Text
-            className={`font-raleway-semibold text-body ${LABEL[variant]}`}
+            className={`${FONT[font]} text-body ${LABEL[variant]}`}
             numberOfLines={1}
           >
             {label}

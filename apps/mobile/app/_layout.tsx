@@ -7,6 +7,8 @@ import * as SplashScreen from 'expo-splash-screen'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { QueryClientProvider } from '@tanstack/react-query'
 import {
+  Poppins_400Regular,
+  Poppins_500Medium,
   Poppins_600SemiBold,
   Poppins_700Bold,
   useFonts,
@@ -29,6 +31,10 @@ SplashScreen.preventAutoHideAsync()
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
+    // Les graisses légères de Poppins ne servent qu'à l'onboarding, seul écran
+    // dont le corps de texte n'est pas en Raleway (décision produit).
+    Poppins_400Regular,
+    Poppins_500Medium,
     Poppins_600SemiBold,
     Poppins_700Bold,
     Raleway_400Regular,
@@ -66,6 +72,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="(auth)" />
+          <Stack.Screen name="onboarding" />
         </Stack>
         </ToastProvider>
       </QueryClientProvider>

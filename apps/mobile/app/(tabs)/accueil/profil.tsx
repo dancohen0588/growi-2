@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import * as Location from 'expo-location'
 import * as WebBrowser from 'expo-web-browser'
-import { ExternalLink, LocateFixed, LogOut, Map } from 'lucide-react-native'
+import { ChevronRight, ExternalLink, LocateFixed, LogOut, Map, Sparkles } from 'lucide-react-native'
 import type { UpdateAlertConfigInput, UserProfile } from '@growi/shared'
 
 import { PushSection } from '@/components/profil/PushSection'
@@ -41,6 +41,7 @@ async function openWeb(path: string) {
 
 /** Monté une fois le profil chargé, pour que les champs partent des bonnes valeurs. */
 function ProfilContent({ profile }: { profile: UserProfile }) {
+  const router = useRouter()
   const toast = useToast()
   const updateProfile = useUpdateProfile()
   const updateAlerts = useUpdateAlerts()
@@ -238,6 +239,28 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
             </Text>
           </View>
           <ExternalLink size={18} color="hsl(139 20% 40%)" />
+        </Pressable>
+      </View>
+
+      {/* À propos */}
+      <View className="gap-3">
+        <SectionTitle>À propos</SectionTitle>
+        <Pressable
+          onPress={() => router.push('/onboarding?from=profil')}
+          accessibilityRole="button"
+          className="flex-row items-center gap-3 rounded-xl bg-card p-4"
+          style={({ pressed }) => (pressed ? { transform: [{ scale: 0.99 }] } : null)}
+        >
+          <Sparkles size={22} color="#1E5631" />
+          <View className="flex-1">
+            <Text className="font-raleway-medium text-body text-forest">
+              Revoir la présentation
+            </Text>
+            <Text className="font-raleway text-caption text-muted-foreground">
+              Ce que Growi sait faire, en cinq écrans.
+            </Text>
+          </View>
+          <ChevronRight size={18} color="hsl(139 20% 40%)" />
         </Pressable>
       </View>
 

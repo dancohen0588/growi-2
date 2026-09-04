@@ -5,6 +5,7 @@ import type { SocialProvider } from '@growi/shared'
 
 import { api, publicApi, setSessionLostHandler } from '@/lib/api'
 import { clearTokens, getRefreshToken, saveTokens } from '@/lib/auth-storage'
+import { hasSeenOnboarding } from '@/lib/onboarding-storage'
 import { forgetDeviceForPush } from '@/lib/push'
 import { requestAppleIdentity, requestGoogleIdentity } from '@/lib/social-auth'
 
@@ -33,6 +34,13 @@ export interface SessionUser {
 interface SessionState {
   status: SessionStatus
   user: SessionUser | null
+  /**
+   * La présentation du premier lancement a déjà été vue sur cet appareil.
+   * Vrai par défaut : tant que la restauration n'a rien lu, on n'affiche
+   * jamais l'onboarding par erreur à quelqu'un qui l'a déjà passé.
+   */
+  onboardingSeen: boolean
+  setOnboardingSeen: (seen: boolean) => void
   restore: () => Promise<void>
   signIn: (input: { email: string; password: string }) => Promise<void>
   signUp: (input: { firstName: string; email: string; password: string }) => Promise<void>
@@ -56,15 +64,24 @@ function deviceInfo(): string {
 export const useSession = create<SessionState>((set) => ({
   status: 'restoring',
   user: null,
+  onboardingSeen: true,
+
+  setOnboardingSeen: (seen) => set({ onboardingSeen: seen }),
 
   /**
    * Au démarrage : s'il existe un jeton, on vérifie qu'il vaut encore quelque
    * chose en demandant le profil. Le client rafraîchit tout seul si l'access
    * token a expiré ; s'il n'y parvient pas, `setSessionLostHandler` remet la
    * session à zéro.
+   *
+   * Le drapeau d'onboarding est lu en parallèle et posé avant de sortir de
+   * `restoring` : l'aiguillage est ainsi connu au moment où l'écran de
+   * démarrage se lève, sans qu'on aperçoive le login au passage.
    */
   restore: async () => {
-    const refreshToken = await getRefreshToken()
+    const [refreshToken, seen] = await Promise.all([getRefreshToken(), hasSeenOnboarding()])
+    set({ onboardingSeen: seen })
+
     if (!refreshToken) {
       set({ status: 'unauthenticated', user: null })
       return
