@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { LayoutDashboard, Menu } from 'lucide-react'
+import { LayoutDashboard, Menu, ShieldCheck } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { UserMenu } from '@/components/auth/UserMenu'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 import {
   Sheet,
   SheetContent,
@@ -28,6 +29,8 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
   const { status } = useSession()
+  // Relu en base, pas dans le JWT : voir `useIsAdmin`.
+  const isAdmin = useIsAdmin()
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
@@ -74,6 +77,18 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
+            {/* Après « Contact », et seulement pour un administrateur. Le
+                fond `sun` le distingue des liens de navigation sans lui
+                disputer le vert du CTA « Tableau de bord ». */}
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-2 rounded-lg bg-sun px-3 py-1.5 font-poppins text-sm font-semibold text-forest transition-all duration-200 hover:bg-sun-hover active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2"
+              >
+                <ShieldCheck size={16} aria-hidden />
+                Admin
+              </Link>
+            )}
           </nav>
 
           {/* Desktop CTA */}
@@ -127,6 +142,16 @@ export function Header() {
                     {link.label}
                   </Link>
                 ))}
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setOpen(false)}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-sun px-4 py-3 font-poppins text-base font-semibold text-forest transition-colors hover:bg-sun-hover"
+                  >
+                    <ShieldCheck size={18} aria-hidden />
+                    Admin
+                  </Link>
+                )}
                 {status === 'unauthenticated' && (
                   <Link
                     href="/login"
