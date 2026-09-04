@@ -40,6 +40,7 @@ model User {
   lastSeenAt     DateTime?       @db.Timestamptz(6)
   accounts       Account[]
   activities     UserActivity[]
+  adminActions   AdminAuditLog[] @relation("actor")
   conversations  Conversation[]
   diagnoses      Diagnosis[]
   tasks          PlantTask[]
@@ -71,6 +72,30 @@ model UserActivity {
   @@id([userId, day, surface])
   @@index([day, surface])
   @@map("user_activities")
+}
+
+/// Journal des actions d'administration.
+///
+/// **Append-only** : aucune Server Action ne le modifie ni ne le supprime.
+/// Un journal qu'on peut réécrire ne prouve rien. Il devient indispensable dès
+/// qu'un compte peut éditer les données d'un autre.
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  /// Voir ADMIN_ACTIONS dans lib/admin/audit.ts.
+  action     String
+  /// Type de la cible : user | contact_message | garden | plant_instance.
+  targetType String
+  targetId   String
+  /// Avant/après ou paramètres. Jamais de mot de passe ni d'empreinte de jeton.
+  details    Json?
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  actor      User     @relation("actor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
+  @@index([actorId, createdAt])
+  @@map("admin_audit_logs")
 }
 
 /// Jeton de rafraîchissement de l'app mobile.

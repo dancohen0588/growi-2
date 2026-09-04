@@ -837,8 +837,9 @@ au mauvais endroit. Trois règles en découlent, à tenir des deux côtés :
 
 Même application Next.js, derrière `/admin` — pas de second déploiement, pas de
 sous-domaine. La spec de référence est
-`/Users/dancohen/Growi/Documentation/spec/spec-portail-admin.md`. **Phase 1
-livrée** (rôles, accès, trace d'activité) ; les écrans viennent ensuite.
+`/Users/dancohen/Growi/Documentation/spec/spec-portail-admin.md`. **Phases 1 et 2
+livrées** (rôles et accès · trace d'activité · journal d'audit · liste des
+utilisateurs).
 
 | Élément | Rôle |
 |---|---|
@@ -847,7 +848,12 @@ livrée** (rôles, accès, trace d'activité) ; les écrans viennent ensuite.
 | `lib/admin/role.ts` | Prédicats purs (`isUserRole`, `isAdminRole`), **sans Prisma ni `auth`** |
 | `lib/admin/auth.ts` | `requireAdmin()` — le contrôle qui compte |
 | `lib/admin/roles.ts` | `promoteAdmin` / `demoteAdmin` |
+| `lib/admin/audit.ts` | `ADMIN_ACTIONS`, `logAdminAction`, `auditWrite` |
+| `lib/admin/serializers.ts` | Vues admin — la barrière aux champs sensibles |
+| `lib/admin/search-params.ts` | Filtres et curseurs, lus depuis l'URL |
+| `lib/admin/csv.ts` | Export CSV (BOM, neutralisation des formules) |
 | `lib/services/activity.service.ts` | `touchActivity(userId, surface)` |
+| `lib/services/admin-user.service.ts` · `admin-audit.service.ts` | Lectures paginées |
 
 - **Le JWT ne fait autorité pour rien.** Le rôle y est écrit à la connexion et
   n'y bouge plus : il ne sert qu'à l'affichage. `requireAdmin()` relit `role` et
@@ -890,6 +896,36 @@ livrée** (rôles, accès, trace d'activité) ; les écrans viennent ensuite.
 pnpm --filter web admin:promote dan0588@gmail.com
 ```
 
+#### Journal d'audit et listes
+
+- **`admin_audit_logs` est append-only.** Rien dans l'application ne le modifie
+  ni ne l'efface : un journal réinscriptible ne prouve rien. Toute action qui
+  écrit en base passe par `auditWrite(write, entry)`, qui fait l'écriture **et**
+  sa trace dans une seule transaction — une action sans trace devient
+  impossible, pas seulement improbable.
+- **`details` ne porte jamais de secret.** `assertNoSecrets` refuse
+  récursivement `password`, `tokenHash`, `token`, `id_token`… Le journal est lu
+  à l'écran et exporté ; y recopier un condensat défairait tout le soin pris
+  ailleurs.
+- **Les sérialiseurs admin construisent leur résultat champ par champ**, jamais
+  par copie de la ligne Prisma allégée. Une colonne ajoutée demain au modèle
+  `User` n'apparaîtra donc pas toute seule à l'écran. Un test l'atteste en leur
+  passant une ligne délibérément polluée.
+- **L'URL porte l'état des listes** (filtres et curseur) : la vue est
+  partageable, « précédent » défait le dernier filtre, et les pages restent des
+  Server Components. Les lectures sont tolérantes — un paramètre absurde vaut
+  « pas de filtre », jamais une erreur.
+- **La pagination est par curseur `(createdAt, id)`**, pas par `OFFSET`. La date
+  seule ferait sauter l'un de deux comptes créés dans la même milliseconde.
+  L'ordre `orderBy` doit rester identique à celui du curseur.
+- **Le CSV commence par un BOM UTF-8** (sans lui Excel casse les accents des
+  noms) et **neutralise les cellules commençant par `=`, `+`, `-` ou `@`**,
+  qu'Excel exécuterait à l'ouverture. Séparateur `;`, pas `,`.
+- L'export est un **Route Handler** et non une Server Action (écart assumé avec
+  la spec) : un téléchargement demande un `Content-Disposition`, donc une vraie
+  réponse HTTP. Il refait `requireAdmin()` — une route est un point d'entrée à
+  part entière.
+
 #### Trace d'activité
 
 `user_activities` (une ligne par utilisateur, par jour UTC et par surface) est
@@ -926,3 +962,5 @@ Bearer) et `app/dashboard/layout.tsx` (surface `web`).
 | `/dashboard/diagnostic` | Choix de la plante à diagnostiquer (le parcours vit sur sa fiche) |
 | `/dashboard/parametres` | Profil + adresse autocomplete |
 | `/admin` | Portail d'administration — réservé au rôle `ADMIN`, `noindex` |
+| `/admin/utilisateurs` | Liste des comptes (recherche, filtres, export CSV) |
+| `/admin/journal` | Journal d'audit des actions d'administration |

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
+import { AdminNav } from '@/components/admin/AdminShell'
 import { requireAdmin } from '@/lib/admin/auth'
 import { isServiceError } from '@/lib/services/errors'
 
@@ -31,14 +33,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-screen bg-sand">
+    <div className="flex min-h-screen flex-col bg-sand">
       <header className="border-b border-forest/10 bg-white">
-        <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 px-6 py-4">
+        <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-6 py-4">
           <span className="font-poppins text-lg font-semibold text-forest">Admin Growi</span>
-          <span className="truncate text-sm text-forest/60">{admin.email}</span>
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="text-sm text-forest/60 hover:text-forest">
+              Retour à l’app
+            </Link>
+            <span className="hidden truncate text-sm text-forest/60 sm:inline">{admin.email}</span>
+          </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-screen-xl p-6">{children}</main>
+
+      <div className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col md:flex-row">
+        <AdminNav />
+        <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
+      </div>
     </div>
   )
 }
