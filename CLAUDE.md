@@ -260,6 +260,17 @@ pnpm --filter mobile typecheck
   Pour tester sur téléphone, y mettre l'IP du Mac sur le réseau local, pas `localhost`.
 - **Metro** : depuis le SDK 52, Expo configure seul le monorepo. Ne pas ajouter `watchFolders` ni
   `nodeModulesPaths`, cela entrerait en conflit avec sa détection.
+- **Cinq onglets, pas six** : Accueil, Mes plantes, Identifier, Calendrier, Communauté. Une barre
+  à six entrées ne tiendrait pas sur un iPhone SE.
+- **« Mon jardin » n'est plus un onglet.** Un jardin est un *classement*, pas une destination : on
+  l'ouvrait pour y retrouver ses plantes, ce que fait désormais le sélecteur de « Mes plantes »
+  (`components/plants/GardenPicker.tsx`, défaut « tous les jardins »). La pile `(tabs)/jardins`
+  reste **montée** mais retirée de la barre par `href: null` — la supprimer emporterait le plan du
+  jardin, sa création et la seule façon d'ajouter une plante. On y accède depuis le sélecteur.
+- Le blog (`accueil/conseils/*`) et le profil vivent dans la pile Accueil, faute de place.
+- **Les modales de création sont déclarées à la racine** (`app/publier.tsx`, `app/annonce.tsx`),
+  pas dans un onglet : un navigateur d'onglets ne sait pas présenter une modale. On y navigue par
+  chemin absolu depuis n'importe quelle pile — dont les quatre où vit la fiche plante.
 
 Trois réglages de `pnpm-workspace.yaml` existent uniquement pour faire cohabiter web et mobile,
 chacun commenté dans le fichier : `publicHoistPattern` pour `@babel/traverse` (que
@@ -294,7 +305,10 @@ Source de vérité du domaine, consommée par le web et (à venir) le mobile :
 | `schemas/garden.ts` | `gardenSchema`, `gardenZoneSchema` + DTOs de création/mise à jour |
 | `schemas/plant.ts` | `plantCatalogSchema`, `plantInstanceSchema` + DTOs (`createPlantInstanceSchema`, `addIdentifiedPlantSchema`) |
 | `schemas/logs.ts` | Les 4 types de logs d'entretien + `createCareLogSchema`, union discriminée par `type` pour l'endpoint unifié de l'API v1 |
-| `schemas/common.ts` | `idSchema`, `isoDateTimeSchema`, helper `nullish()`, enveloppes `{ data }` / `{ error }` de l'API v1 |
+| `schemas/common.ts` | `idSchema`, `isoDateTimeSchema`, helper `nullish()`, enveloppes `{ data }` / `{ error }` de l'API v1, `cursorPageSchema` (`{ items, nextCursor }`) |
+| `constants/community.ts` | Vocabulaire de la communauté : pseudos réservés, rayons, statuts de contenu, motifs de signalement, types d'annonce et catégories, plafonds anti-spam |
+| `constants/moderation.ts` | Liste noire de saisie (`BLOCKED_TERMS`, `findBlockedTerm`) |
+| `schemas/community.ts` | Profil public, publications, commentaires, fils, annonces, messages, notifications, signalements |
 
 Deux conventions à respecter :
 
@@ -358,6 +372,10 @@ tous deux dans `apps/web`.
 > comptes et les supprime dans `afterAll`. Une assertion à l'échelle d'un
 > tableau entier casse dès qu'une donnée voisine existe — viser la ligne.
 > `E2E_PORT` permet de faire tourner la suite à côté d'un `next dev` déjà lancé.
+>
+> Le **premier** passage d'une spec neuve peut être signalé « flaky » : c'est
+> `next dev` qui compile les routes à froid, pas le code. Relancer suffit à le
+> confirmer.
 
 > Note : `pnpm --filter web lint` remonte 11 erreurs ESLint pré-existantes
 > (`no-explicit-any`, variables inutilisées). Le build les ignore volontairement
@@ -439,6 +457,26 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/blog` · `/blog/[slug]` | GET — **publiques**, sans jeton, mises en cache |
 | `/api/v1/auth/register` · `/login` · `/refresh` · `/logout` | POST |
 | `/api/v1/auth/apple` · `/google` | POST — jeton d'identité du fournisseur |
+| `/api/v1/community/me` | GET, PATCH — active, modifie ou désactive le profil public |
+| `/api/v1/community/handles/check` | GET — `optionalUserId` |
+| `/api/v1/community/users/[handle]` | GET — `optionalUserId` |
+| `/api/v1/community/users/[handle]/posts` · `/followers` · `/following` | GET — `optionalUserId` |
+| `/api/v1/community/users/[handle]/follow` · `/block` | POST, DELETE |
+| `/api/v1/community/blocks` | GET |
+| `/api/v1/community/feed` | GET (`?scope=nearby\|following&radiusKm=&cursor=`) |
+| `/api/v1/community/home` | GET — la carte « Autour de toi », **séparée de `/summary`** |
+| `/api/v1/community/posts` | POST |
+| `/api/v1/community/posts/[id]` | GET (`optionalUserId`), PATCH (texte seul), DELETE |
+| `/api/v1/community/posts/[id]/like` | POST, DELETE |
+| `/api/v1/community/posts/[id]/comments` | GET, POST |
+| `/api/v1/community/comments/[id]` | DELETE |
+| `/api/v1/community/listings` · `/listings/mine` | GET, POST |
+| `/api/v1/community/listings/[id]` | GET, PATCH, DELETE |
+| `/api/v1/community/listings/[id]/interest` · `/threads` | POST · GET |
+| `/api/v1/community/threads` · `/threads/[id]` | GET — le détail **marque la lecture** |
+| `/api/v1/community/threads/[id]/messages` | GET, POST |
+| `/api/v1/community/notifications` · `/read` · `/unread-count` | GET · POST · GET |
+| `/api/v1/community/reports` | POST — idempotent |
 
 Chaque route suit le même squelette, à respecter pour toute nouvelle route :
 
@@ -604,7 +642,13 @@ pas de SDK Supabase dans le projet.
 | Lecture | Bucket **public**, chemin `users/{userId}/{kind}/{uuid}.ext` choisi par le serveur |
 | Cache | Aucun en-tête posé : Supabase sert `no-cache`, donc une photo supprimée cesse d'être servie presque aussitôt |
 | Contrôles | 5 Mo, JPEG/PNG/WebP vérifiés **sur les octets** (un `Content-Type` se déclare), 30 envois/heure/compte |
-| Suppression | À la suppression d'une plante — la sienne et celles de ses gestes — et au remplacement |
+| Suppression | À la suppression d'une plante — la sienne et celles de ses gestes —, d'une publication ou d'une annonce, et au remplacement |
+| Kinds | `plant`, `care-log`, `diagnosis`, `chat`, puis `post`, `listing`, `avatar` pour la communauté — les seuls dont la photo est vue par d'autres que son auteur |
+
+La photo d'une publication est une **copie** de celle de la plante, pas une
+référence (kind `post`, faite côté mobile par `preparePhotoFromUrl`) :
+supprimer la plante, ou changer sa photo, ne doit pas vider une publication que
+d'autres ont commentée.
 
 Le bucket a été créé par migration Supabase (`storage.buckets`), pas par
 Prisma : le schéma `storage` n'est pas dans le datamodel, et `migrate diff` ne
@@ -923,6 +967,22 @@ données » décrit l'accès d'administration et le journal ; elle doit suivre t
 la page affirmait « aucun outil de mesure d'audience tiers », ce que son ajout
 a rendu faux.
 
+**CGU et confidentialité.** Les deux pages couvrent la communauté : profil
+public et ce qu'il rend visible, position floutée, règles d'échange (pas
+d'argent, espèces protégées, plantes invasives, produits phytosanitaires),
+signalement, blocage et modération, rencontres en personne. Le tableau
+`DATA_COLLECTED` de `lib/legal.ts` porte cinq catégories de plus.
+
+> ⚠️ Une clause des CGU affirmait « **nous ne les publions nulle part** » à
+> propos des contenus déposés. C'était vrai tant que Growi était strictement
+> individuel ; la communauté l'a rendue fausse. La distinction contenus privés
+> (jardins, plantes, journal, diagnostics) / contenus publiés (publications,
+> commentaires, annonces, profil) est désormais la charnière de la section
+> « Tes contenus ». **Ne pas la reperdre** en réécrivant cette page.
+>
+> Ces textes n'ont **pas été relus par un juriste** : la relecture reste à
+> faire avant l'ouverture.
+
 **Premier administrateur** — seule voie, volontairement manuelle (aucune règle
 « premier inscrit = admin ») :
 
@@ -963,8 +1023,15 @@ pnpm --filter web admin:promote dan0588@gmail.com
 #### Fiche utilisateur et actions
 
 - **Un seul onglet est rendu à la fois**, l'onglet vivant dans l'URL
-  (`?onglet=`). Charger les six pour n'en montrer qu'un rendrait la fiche d'un
+  (`?onglet=`). Charger les sept pour n'en montrer qu'un rendrait la fiche d'un
   compte fourni lente alors qu'on ne cherchait qu'un email.
+- L'onglet **Communauté** montre le profil public, les signalements reçus, les
+  publications et les annonces. Les contenus **supprimés par leur auteur** en
+  sont exclus — ils n'existent plus pour personne, et les montrer ferait de
+  l'administration un endroit où l'on relit ce que quelqu'un a effacé. Ceux qui
+  sont **masqués** y figurent : c'est précisément ce qu'on vient vérifier. La
+  position affichée est la **floutée**, celle que voient les autres. Le contenu
+  des messages privés d'un fil d'annonce n'y est jamais lisible.
 - **Les trois niveaux de réinitialisation ne s'emboîtent pas.** Le niveau 2
   purge les tâches **ouvertes** (`doneAt IS NULL`) — les tâches faites sont des
   faits ; le niveau 3 efface les cinq colonnes `last*At` des plantes, qui ne
@@ -1002,11 +1069,17 @@ courbe sans rien casser de visible.
   courbe qui saute ces semaines ment sur la forme de la croissance.
 - Les cohortes de **moins de cinq semaines sont exclues** de la rétention :
   leur fenêtre d'observation n'est pas close, et les afficher ferait plonger la
-  courbe à droite pour une raison étrangère au produit.
+  courbe à droite pour une raison étrangère au produit. Même écueil, même
+  parade, pour le taux de réaction de la communauté : il n'est calculé que sur
+  les publications de **plus de 48 heures**.
+- **Les proportions sont exposées en numérateur et dénominateur**, jamais en
+  ratio : la page les met en forme avec son helper `pct`, et un dénominateur
+  nommé à l'écran évite de lire « 40 % » comme une tendance quand il porte sur
+  trois publications.
 - **Ce SQL échappe au typecheck et aux tests unitaires**, qui doublent Prisma.
-  Seul le parcours e2e du tableau de bord l'atteste, en le faisant tourner
-  contre Postgres. Ne pas supprimer `22-admin-kpis.spec.ts` en pensant qu'il
-  fait double emploi.
+  Seuls les parcours e2e l'attestent, en le faisant tourner contre Postgres. Ne
+  supprimer ni `22-admin-kpis.spec.ts` ni `26-admin-communaute.spec.ts` en
+  pensant qu'ils font double emploi.
 - Graphes **en SVG écrit à la main**, sans bibliothèque : quelques barres ne
   valent pas les ~500 Ko de `recharts`, qui imposerait en plus un composant
   client là où tout le reste de l'admin est rendu côté serveur.
@@ -1072,11 +1145,121 @@ Bearer) et `app/dashboard/layout.tsx` (surface `web`).
 - Le jour est en **UTC**, comme `IdentifyQuota`. Ne pas le passer dans le fuseau
   de l'utilisateur : les séries hebdomadaires perdraient leur clé commune.
 
+### Communauté (`/dashboard/communaute`, onglet mobile `communaute`)
+
+Réseau **local** entre jardiniers : profil public opt-in, fil dans un rayon
+autour du jardin, bourse aux graines sans argent, messagerie rattachée aux
+annonces. Spec de référence :
+`/Users/dancohen/Growi/Documentation/spec/spec-communaute.md`. **Les cinq
+phases sont livrées** (socle · publications · abonnements et notifications ·
+bourse · modération · parité web).
+
+| Élément | Rôle |
+|---|---|
+| `lib/services/community/serializers.ts` | `COMMUNITY_USER_SELECT` et `toCommunityUser` — la barrière aux champs privés |
+| `lib/services/community/geo.ts` | Flou déterministe de la position, distances, mise en forme |
+| `lib/services/community/cursor.ts` | Curseurs `(createdAt, id)`, avec le rayon effectif pour le fil |
+| `lib/services/community/profile.service.ts` | Pseudo, activation, abonnements, blocage |
+| `lib/services/community/post.service.ts` | Publications, cœurs, commentaires, les deux fils |
+| `lib/services/community/listing.service.ts` | Annonces, fils de discussion, entretien quotidien |
+| `lib/services/community/notification.service.ts` | Écriture in-app + push, agrégation des cœurs, purge |
+| `lib/services/community/moderation.service.ts` | Liste noire, signalements, masquage, file admin |
+| `app/actions/community.ts` | Server Actions du web — le mobile passe par l'API v1 |
+| `app/admin/signalements/` | File de modération, groupée par contenu |
+
+**La position n'est jamais publiée telle quelle.** `geo.ts` arrondit sur une
+grille de 0,01° puis ajoute un bruit tiré du hachage de l'identifiant du
+compte. Ce bruit est **déterministe** : tiré au hasard à chaque publication, il
+s'annulerait à la moyenne et une dizaine de photos suffiraient à retrouver le
+jardin. Ce qui sort de l'API n'est de toute façon jamais une coordonnée mais
+une distance arrondie (« à ~3 km »), et d'autant plus grossièrement qu'elle est
+grande. `Post.lat/lng` et `Listing.lat/lng` **recopient** la position floutée à
+l'écriture : déménager ne doit pas déplacer après coup une photo prise dans
+l'ancien jardin.
+
+**`toCommunityUser` construit son résultat champ par champ**, comme les
+sérialiseurs de l'admin : une colonne ajoutée demain à `User` ne peut pas
+apparaître à l'écran toute seule. Il vit dans `serializers.ts` et non dans
+`profile.service` — les trois services en ont besoin, et l'y loger ferait un
+cycle d'imports dès qu'une notification est écrite depuis le suivi.
+
+- **Trois raisons de répondre 404** sur un profil : non activé, compte
+  désactivé, et **compte qui a bloqué le lecteur**. Distinguer le troisième
+  confirmerait l'existence du compte à celui dont il se protège. Même règle
+  pour une publication, une annonce, un fil.
+- **Bloquer rompt les abonnements dans les deux sens**, dans la transaction qui
+  pose le blocage. Débloquer ne les rétablit pas. `hiddenUserIds()` rend les
+  deux sens d'un coup : n'en filtrer qu'un laisserait le contenu du bloqueur
+  visible par le bloqué.
+- **Désactiver son profil n'écrit rien sur les contenus.** Toutes les lectures
+  filtrent sur `users.communityEnabled` — même effet visible que le masquage,
+  sans confondre le `hidden` de la modération avec celui d'un compte en pause,
+  et réactiver rend ses publications sans ressusciter ce qu'un admin a masqué.
+- **Les fils sont lus en SQL brut** (`earth_box` + `earth_distance`, index GiST
+  `posts_earth_idx` / `listings_earth_idx`) : Prisma ne sait pas l'exprimer. On
+  n'y lit que des identifiants, réhydratés ensuite par Prisma, pour que la mise
+  en forme reste au même endroit que partout ailleurs. Comme le SQL du tableau
+  de bord admin, il échappe au typecheck et aux tests unitaires — seul
+  `25-communaute.spec.ts` l'atteste.
+- **L'élargissement automatique du rayon n'a lieu que sur la première page**, et
+  le rayon retenu voyage dans le curseur : sans cela, la page 2 repartirait du
+  rayon d'origine et répéterait le vide de la page 1.
+- **Un abonnement ne notifie que s'il vient d'être créé.** Le geste est
+  idempotent en base, mais la notification partait quand même : un double tap
+  prévenait deux fois.
+- **Le cœur ne pousse jamais** et est agrégé — une notification par publication
+  et par heure, réécrite et remise en non-lue. Une photo qui plaît ferait
+  sinon dix lignes identiques dans la cloche.
+- **Rien du service de notifications ne lève**, et les appelants ne l'attendent
+  pas : une notification est un agrément, pas une raison de faire échouer le
+  geste qui l'a déclenchée. `actorId` n'a pas de clé étrangère et `preview` est
+  figé à l'écriture — une ligne survit à son acteur.
+- **Un fil d'annonce par intéressé**, garanti par un index unique ; « Je suis
+  intéressé » rouvre le sien. Le premier message est **écrit par le serveur** :
+  l'auteur reçoit toujours quelque chose de lisible. Écrire vaut lecture, sinon
+  son propre message rendrait le fil non lu pour son auteur.
+- **Le masquage automatique n'agit que sur un signalement réellement écrit** :
+  réévaluer le seuil après un doublon ignoré le rendrait franchissable par un
+  seul signaleur acharné. Il épargne un contenu déjà masqué ou supprimé, et ne
+  touche jamais un compte — un compte se désactive depuis sa fiche.
+- La **liste noire est un filet, pas un rempart**. Recherche sur des mots
+  entiers (sinon « pute » bloquerait « réputé » et « dispute »), aucune censure
+  d'opinion, et le refus ne cite pas le terme.
+- **On publie une annonce depuis le web, pas une publication.** Une annonce est
+  surtout du texte — titre, quantité, contrepartie, description — et sa photo
+  est facultative : elle se compose mieux au clavier. Une publication, elle,
+  part d'une à quatre photos prises sur le vif, et reste mobile.
+  `bourse/mes-annonces` existe pour la même raison que sur mobile : la bourse
+  est géographique et ne montre que ce qui est disponible, une annonce expirée
+  y serait introuvable.
+- `(public)/u/[handle]` et `/p/[id]` servent **les deux publics** ; une lecture
+  anonyme n'emporte ni distance ni « j'aime ». Le `noindex` d'un contenu masqué
+  est posé dans `generateMetadata`, là où l'on sait s'il est visible. Le sitemap
+  liste les profils actifs, **pas** les publications.
+
+L'entretien quotidien (`app/api/cron/daily-reminders`) enchaîne, dans cet
+ordre : rappels du matin, expiration des annonces puis rappel J‑7, alerte email
+au-delà de cinq signalements ouverts, purge des notifications lues de plus de
+90 jours. Chaque étape est isolée — l'échec de l'une n'annule pas les autres.
+
+> ⚠️ **Trois migrations, trois redémarrages.** Le serveur de dev garde son
+> client Prisma en mémoire : après chaque migration de cette spec, `prisma.post`
+> puis `prisma.listing` valaient `undefined` et les routes répondaient 500 sans
+> que le code soit en cause. Voir « Migrations Prisma — procédure imposée ».
+>
+> ⚠️ **Metro ne voit pas un dossier de routes déplacé.** Les routes typées
+> d'Expo (`.expo/types/router.d.ts`, non versionné) sont régénérées par le
+> serveur de développement ; après un `git mv` d'une pile entière, il continue
+> de décrire l'ancienne arborescence et `tsc` refuse tous les nouveaux chemins.
+> Le relancer suffit — au besoin sur un autre port : `CI=1 pnpm exec expo start
+> --port 8082`, le temps que le fichier se régénère.
+
 ### Routing principal
 
 | Route | Description |
 |-------|-------------|
 | `/` | Homepage (sections marketing) |
+| `/u/[handle]` · `/p/[id]` · `/a/[id]` | Faces **publiques** de la communauté — profil, publication, aperçu d'annonce |
 | `/fonctionnalites`, `/pro`, `/tarifs` | Pages marketing |
 | `/blog`, `/blog/[slug]` | Blog (articles MDX du dépôt) |
 | `/login`, `/register` | Auth (custom pages) |
@@ -1087,10 +1270,16 @@ Bearer) et `app/dashboard/layout.tsx` (surface `web`).
 | `/dashboard/meteo` | Météo locale |
 | `/dashboard/identifier` | Identification photo (Gemini) |
 | `/dashboard/diagnostic` | Choix de la plante à diagnostiquer (le parcours vit sur sa fiche) |
+| `/dashboard/communaute` | Fil local et fil des abonnements |
+| `/dashboard/communaute/bourse` · `/bourse/[id]` | Bourse aux graines et détail d'une annonce |
+| `/dashboard/communaute/bourse/nouvelle` · `/mes-annonces` | Publier une annonce, et retrouver les siennes |
+| `/dashboard/communaute/messages` · `/messages/[threadId]` | Discussions rattachées aux annonces |
+| `/dashboard/communaute/notifications` | La cloche |
 | `/dashboard/parametres` | Profil + adresse autocomplete |
 | `/admin` | Portail d'administration — réservé au rôle `ADMIN`, `noindex` |
 | `/admin/utilisateurs` | Liste des comptes (recherche, filtres, export CSV) |
 | `/admin/utilisateurs/[id]` | Fiche : profil · jardins · plantes · IA · activité · actions |
 | `/admin/messages` · `/admin/messages/[id]` | Boîte de réception et fil de réponse |
 | `/admin/administrateurs` | Comptes ayant accès au portail, promotion et retrait |
+| `/admin/signalements` | File de modération, groupée par contenu et triée par nombre |
 | `/admin/journal` | Journal d'audit des actions d'administration |

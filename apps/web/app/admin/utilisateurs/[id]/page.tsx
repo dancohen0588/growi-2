@@ -8,6 +8,7 @@ import { UserTabs, readTab } from '@/components/admin/UserTabs'
 import { ActionsTab } from '@/components/admin/tabs/ActionsTab'
 import { ActivityTab } from '@/components/admin/tabs/ActivityTab'
 import { AiTab } from '@/components/admin/tabs/AiTab'
+import { CommunityTab } from '@/components/admin/tabs/CommunityTab'
 import { GardensTab } from '@/components/admin/tabs/GardensTab'
 import { PlantsTab } from '@/components/admin/tabs/PlantsTab'
 import { ProfileTab } from '@/components/admin/tabs/ProfileTab'
@@ -91,6 +92,7 @@ export default async function AdminUserPage({
       {tab === 'jardins' && <GardensTab userId={user.id} />}
       {tab === 'plantes' && <PlantsTab userId={user.id} />}
       {tab === 'ia' && <AiTab userId={user.id} />}
+      {tab === 'communaute' && <CommunityTab userId={user.id} />}
       {tab === 'activite' && <ActivityTab userId={user.id} />}
       {tab === 'actions' && <ActionsTab user={user} />}
     </>

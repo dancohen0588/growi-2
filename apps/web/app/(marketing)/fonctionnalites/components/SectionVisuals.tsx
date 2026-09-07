@@ -217,3 +217,45 @@ export function CalendarVisual() {
     </Shot>
   )
 }
+
+/** Communauté : le fil local, puis une annonce de la bourse. */
+export function CommunityVisual() {
+  const posts = [
+    { handle: 'pierre_potager', distance: 'à ~3 km', text: 'Première récolte de cœurs de bœuf 🍅', likes: 7 },
+    { handle: 'julie_balcon', distance: 'à moins d’1 km', text: 'Mon monstera a doublé cet été', likes: 12 },
+  ]
+
+  return (
+    <Shot>
+      <TitleBar />
+
+      <div className="flex flex-col gap-2">
+        {posts.map((post) => (
+          <div key={post.handle} className="rounded-xl bg-sand p-3">
+            <div className="flex items-center gap-2">
+              <span className="h-7 w-7 shrink-0 rounded-full bg-lime" />
+              <span className="font-raleway text-sm">
+                <b className="block font-poppins font-semibold text-forest">{post.handle}</b>
+                <span className="text-forest/50">{post.distance}</span>
+              </span>
+              <span className="ml-auto shrink-0 font-poppins text-[11px] font-semibold text-forest/60">
+                ♥ {post.likes}
+              </span>
+            </div>
+            <p className="mt-2 font-raleway text-sm text-forest/70">{post.text}</p>
+          </div>
+        ))}
+
+        <div className="flex items-center gap-3 rounded-xl border border-lime bg-lime/20 p-3">
+          <span className="text-xl">🌻</span>
+          <span className="font-raleway text-sm">
+            <b className="block font-poppins font-semibold text-forest">
+              Je donne : graines de tomate
+            </b>
+            <span className="text-forest/60">Graines · ~30 graines · à ~6 km</span>
+          </span>
+        </div>
+      </div>
+    </Shot>
+  )
+}

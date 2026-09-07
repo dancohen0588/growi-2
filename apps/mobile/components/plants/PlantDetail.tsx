@@ -20,6 +20,7 @@ import {
   Pencil,
   Plus,
   Scissors,
+  Share2,
   Sprout,
   Stethoscope,
 } from 'lucide-react-native'
@@ -116,9 +117,9 @@ export interface PlantDetailProps {
 /**
  * Fiche d'une plante.
  *
- * Partagée par les onglets Calendrier, Mes plantes et Mon jardin : chacun a sa pile de
- * navigation, pour que le retour ramène là d'où l'on vient, mais l'écran doit
- * rester le même.
+ * Partagée par les piles Calendrier, Mes plantes et Jardins — cette dernière
+ * n'a plus d'onglet mais reste montée. Chacune a sa navigation, pour que le
+ * retour ramène là d'où l'on vient, mais l'écran doit rester le même.
  */
 export function PlantDetail({ plantId, onEdit, onDiagnose, onChat }: PlantDetailProps) {
   const router = useRouter()
@@ -378,6 +379,15 @@ export function PlantDetail({ plantId, onEdit, onDiagnose, onChat }: PlantDetail
             variant="outline"
             onPress={() => onChat('?kind=plant')}
             icon={<MessageCircle size={20} color="#1E5631" />}
+          />
+          {/* Chemin absolu : la modale de publication est déclarée une seule
+              fois au niveau des onglets, ce qui évite de la dupliquer dans les
+              quatre piles où cette fiche existe. */}
+          <Button
+            label="Partager"
+            variant="outline"
+            onPress={() => router.push(`/publier?plantInstanceId=${plantId}`)}
+            icon={<Share2 size={20} color="#1E5631" />}
           />
         </View>
 

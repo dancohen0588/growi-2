@@ -34,6 +34,9 @@ export const ADMIN_ACTIONS = {
   'contact.reply': 'Réponse à un message',
   'contact.status': "Changement de statut d'un message",
   'contact.note': 'Note interne sur un message',
+  'moderation.hide': "Masquage d'un contenu",
+  'moderation.restore': "Rétablissement d'un contenu",
+  'moderation.dismiss': 'Signalement rejeté',
 } as const
 
 export type AdminAction = keyof typeof ADMIN_ACTIONS
@@ -48,6 +51,12 @@ export const AUDIT_TARGET_TYPES = {
   contact_message: 'Message',
   garden: 'Jardin',
   plant_instance: 'Plante',
+  post: 'Publication',
+  comment: 'Commentaire',
+  listing: 'Annonce',
+  /// Message d'un fil de la bourse. Distinct de `contact_message`, qui est un
+  /// message du formulaire de contact.
+  message: 'Message d’annonce',
 } as const
 
 export type AuditTargetType = keyof typeof AUDIT_TARGET_TYPES

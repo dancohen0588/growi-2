@@ -28,6 +28,10 @@ export default function ConfidentialitePage() {
             accès sont tracés.
           </li>
           <li>
+            La communauté est facultative. Tant que tu ne l&apos;as pas activée, rien de toi
+            n&apos;est visible — et même activée, ton adresse n&apos;est jamais partagée.
+          </li>
+          <li>
             Tes données de jardin vivent dans l&apos;Union européenne (Irlande). Quelques
             prestataires, listés plus bas, sont établis aux États-Unis.
           </li>
@@ -104,7 +108,13 @@ export default function ConfidentialitePage() {
           </li>
           <li>
             <strong>Intérêt légitime</strong> — sécurité des comptes, prévention des abus (dont
-            le plafond de l&apos;identification sans compte), journaux techniques.
+            le plafond de l&apos;identification sans compte), modération des contenus signalés,
+            journaux techniques.
+          </li>
+          <li>
+            <strong>Consentement, pour la communauté</strong> — le profil public et tout ce
+            qu&apos;il rend visible reposent sur ton activation explicite. Le retirer désactive
+            le profil et retire tes contenus de la vue.
           </li>
         </ul>
       </LegalSection>
@@ -132,6 +142,71 @@ export default function ConfidentialitePage() {
           jamais enregistrée, et les compteurs de la veille sont effacés. Cette empreinte ne
           sert qu&apos;à ce plafond — ni à te reconnaître, ni à te suivre d&apos;une visite à
           l&apos;autre.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="La communauté, et ce qu’elle rend public">
+        <p>
+          La communauté est <strong>facultative et désactivée par défaut</strong>. Tant que tu
+          n&apos;as pas choisi un pseudo et activé ton profil public, tu n&apos;y apparais pas :
+          personne ne peut te trouver, et rien de toi n&apos;est publié.
+        </p>
+        <p>
+          Une fois le profil activé, deviennent visibles de tous — y compris de personnes non
+          inscrites et des moteurs de recherche : ton <strong>pseudo</strong>, ta présentation,
+          ton avatar, la <strong>ville</strong> que tu as renseignée, tes compteurs
+          d&apos;abonnés et de publications, et les publications, commentaires et annonces que
+          tu choisis de faire.
+        </p>
+        <p>
+          Restent privés, quoi qu&apos;il arrive : ton nom, ton prénom, ton adresse e-mail, ton
+          adresse postale, tes jardins, tes plantes, ton journal d&apos;entretien et tes
+          diagnostics.
+        </p>
+        <p>
+          <strong>Ta position n&apos;est jamais publiée telle quelle.</strong> Growi en calcule
+          une version volontairement imprécise : elle est arrondie sur une grille d&apos;environ
+          un kilomètre, puis décalée d&apos;un écart qui t&apos;est propre. Cet écart est
+          toujours le même pour toi — c&apos;est délibéré : s&apos;il changeait à chaque
+          publication, il suffirait d&apos;en moyenner quelques-unes pour retrouver ton jardin.
+          Cette position approchée n&apos;est jamais affichée sous forme de coordonnées : les
+          autres ne lisent qu&apos;une distance arrondie, du type « à ~3 km ». Elle est
+          recalculée si tu changes d&apos;adresse.
+        </p>
+        <p>
+          Les photos que tu publies dans la communauté sont des <strong>copies</strong> : elles
+          ne sont pas liées à la photo de ta plante, et supprimer la plante ne les efface pas.
+          Supprimer la publication, si.
+        </p>
+        <p>
+          Tu peux quitter la communauté à tout moment depuis tes réglages : ton profil et tes
+          publications cessent d&apos;être visibles, sans rien perdre — tu peux revenir. Tu peux
+          aussi supprimer chaque publication et chaque annonce individuellement, ce qui efface
+          leurs photos du stockage.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Signalement, blocage et modération">
+        <p>
+          Quand tu signales un contenu, nous conservons le motif choisi, la note que tu écris
+          éventuellement, et la date. Le compte signalé n&apos;est <strong>pas</strong> informé
+          de qui l&apos;a signalé.
+        </p>
+        <p>
+          Un contenu signalé par plusieurs personnes distinctes est masqué automatiquement le
+          temps d&apos;une vérification, et son auteur en est informé — sans savoir qui a
+          signalé. Les décisions de modération prises par l&apos;équipe sont inscrites dans le
+          journal interne évoqué plus bas.
+        </p>
+        <p>
+          Bloquer un compte crée un enregistrement qui associe ton compte au sien, le temps que
+          le blocage dure. Il disparaît si tu le retires.
+        </p>
+        <p>
+          Les messages échangés au sujet d&apos;une annonce sont privés entre leurs deux
+          participants. L&apos;équipe ne les lit pas : un message signalé arrive dans la file de
+          modération avec son motif, mais son contenu n&apos;y est pas affiché — la décision
+          porte alors sur le compte.
         </p>
       </LegalSection>
 
@@ -219,8 +294,10 @@ export default function ConfidentialitePage() {
         </p>
         <p>
           Écris à {EDITOR.email} : nous répondons sous un mois. Tu peux aussi supprimer
-          directement tes jardins, tes plantes et leurs photos depuis l&apos;application — la
-          suppression est immédiate et définitive, y compris pour les fichiers.
+          directement tes jardins, tes plantes, tes publications et tes annonces depuis
+          l&apos;application — la suppression est immédiate et définitive, y compris pour les
+          fichiers. Supprimer ton compte efface également les commentaires que tu as laissés
+          sous les publications d&apos;autres jardiniers.
         </p>
         <p>
           Si notre réponse ne te convient pas, tu peux saisir la CNIL (
@@ -243,8 +320,11 @@ export default function ConfidentialitePage() {
           un rappel ne part pas, corriger une donnée à ta demande.
         </p>
         <p>
-          Cet accès permet de consulter ton profil, tes jardins, tes plantes, tes diagnostics et
-          tes échanges avec l&apos;assistant. Il ne donne <strong>jamais</strong> accès à ton mot
+          Cet accès permet de consulter ton profil, tes jardins, tes plantes, tes diagnostics,
+          tes échanges avec l&apos;assistant et, si tu as rejoint la communauté, ton profil
+          public, tes publications, tes annonces et les signalements qui les visent. Il ne
+          donne <strong>jamais</strong> accès au contenu de tes messages privés, ni
+          <strong> jamais</strong> accès à ton mot
           de passe, qui n&apos;est stocké que sous forme d&apos;empreinte et n&apos;est lisible
           par personne — pas même par nous.
         </p>

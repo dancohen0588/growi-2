@@ -1,17 +1,26 @@
 import { Redirect, Tabs } from 'expo-router'
-import { CalendarDays, Camera, Leaf, LayoutDashboard, Map } from 'lucide-react-native'
+import { CalendarDays, Camera, Leaf, LayoutDashboard, Users } from 'lucide-react-native'
 
 import { usePushNotifications } from '@/lib/use-push'
 import { useSession } from '@/store/session'
 
 /**
- * Les cinq onglets, alignés sur la navigation du web : Accueil, Mon jardin,
- * Mes plantes, Calendrier, puis ce qui distingue chaque support — la caméra
- * ici, le diagnostic IA là-bas.
+ * Les cinq onglets : Accueil, Mes plantes, Identifier, Calendrier, Communauté.
  *
- * Le profil n'y figure pas, faute de place : il s'ouvre depuis l'en-tête de
- * l'accueil, comme « Mon compte » vit dans la colonne du web sans être une
- * destination principale.
+ * « Mon jardin » n'en fait plus partie. Un jardin est un **classement**, pas
+ * une destination : on l'ouvrait pour y retrouver ses plantes, ce que
+ * « Mes plantes » fait désormais avec son sélecteur de jardin. La place ainsi
+ * libérée revient à la communauté, qu'on ouvre plusieurs fois par semaine et
+ * qui vivait jusqu'ici à deux taps de l'accueil.
+ *
+ * Les écrans du jardin — liste, plan, création, ajout d'une plante — n'ont pas
+ * disparu : leur pile reste montée, simplement retirée de la barre par
+ * `href: null`, et on y navigue depuis « Mes plantes ». Les supprimer aurait
+ * emporté le plan du jardin et la seule façon d'ajouter une plante.
+ *
+ * Le profil ne figure pas non plus dans la barre, faute de place : il s'ouvre
+ * depuis l'en-tête de l'accueil, comme « Mon compte » vit dans la colonne du
+ * web sans être une destination principale.
  */
 export default function TabsLayout() {
   const status = useSession((s) => s.status)
@@ -37,7 +46,7 @@ export default function TabsLayout() {
         tabBarLabelStyle: {
           fontFamily: 'Raleway_500Medium',
           // Cinq libellés dans la largeur d'un iPhone SE : 11 pt évite la
-          // troncature de « Mes plantes ».
+          // troncature de « Mes plantes » et de « Communauté ».
           fontSize: 11,
         },
       }}
@@ -50,17 +59,17 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="jardins"
-        options={{
-          title: 'Mon jardin',
-          tabBarIcon: ({ color, size }) => <Map color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
         name="plantes"
         options={{
           title: 'Mes plantes',
           tabBarIcon: ({ color, size }) => <Leaf color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="identifier"
+        options={{
+          title: 'Identifier',
+          tabBarIcon: ({ color, size }) => <Camera color={color} size={size} />,
         }}
       />
       <Tabs.Screen
@@ -71,12 +80,17 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="identifier"
+        name="communaute"
         options={{
-          title: 'Identifier',
-          tabBarIcon: ({ color, size }) => <Camera color={color} size={size} />,
+          title: 'Communauté',
+          tabBarIcon: ({ color, size }) => <Users color={color} size={size} />,
         }}
       />
+
+      {/* Montée mais hors de la barre : le plan du jardin, la création d'un
+          jardin et l'ajout d'une plante s'y trouvent, et on y accède depuis
+          « Mes plantes ». */}
+      <Tabs.Screen name="jardins" options={{ href: null }} />
     </Tabs>
   )
 }

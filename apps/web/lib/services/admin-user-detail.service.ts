@@ -240,6 +240,101 @@ export async function getUserConversations(userId: string, limit = 50) {
   })
 }
 
+// ─── Communauté ────────────────────────────────────────────────────────────
+
+/**
+ * Ce que ce compte a mis dans la communauté, et ce qu'on lui reproche.
+ *
+ * Trois lectures pour un seul onglet, comme partout ailleurs dans cette fiche :
+ * on ne les fait que si l'onglet est demandé.
+ *
+ * Les contenus **supprimés par leur auteur** sont exclus : ils n'existent plus
+ * pour personne, et les montrer ici ferait de l'administration un endroit où
+ * l'on relit ce que quelqu'un a effacé. Ceux qui sont **masqués**, en revanche,
+ * y figurent : c'est précisément ce qu'on vient vérifier.
+ */
+export async function getUserCommunity(userId: string, limit = 50) {
+  // Les identifiants de ses publications, pour retrouver les signalements qui
+  // les visent. Lu avant, et non dans le `Promise.all` : un `await` imbriqué y
+  // sérialiserait ce qu'on cherche justement à paralléliser.
+  const postIds = (
+    await prisma.post.findMany({ where: { userId }, select: { id: true } })
+  ).map((row) => row.id)
+
+  const [profile, posts, listings, reports] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        handle: true,
+        bio: true,
+        communityEnabled: true,
+        communityEnabledAt: true,
+        communityRadiusKm: true,
+        followerCount: true,
+        followingCount: true,
+        postCount: true,
+        // La position **floutée** seulement : la fiche affiche déjà l'adresse
+        // dans l'onglet Profil, inutile de la redonner ici, et c'est bien la
+        // position publiée qu'on vient vérifier.
+        fuzzyLat: true,
+        fuzzyLng: true,
+      },
+    }),
+    prisma.post.findMany({
+      where: { userId, status: { not: 'deleted' } },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        body: true,
+        photos: true,
+        status: true,
+        likeCount: true,
+        commentCount: true,
+        createdAt: true,
+      },
+    }),
+    prisma.listing.findMany({
+      where: { userId, status: { not: 'deleted' } },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        kind: true,
+        category: true,
+        title: true,
+        status: true,
+        threadCount: true,
+        expiresAt: true,
+        createdAt: true,
+      },
+    }),
+    // Les signalements **reçus** par ses contenus, pas ceux qu'il a émis :
+    // c'est ce qui aide à décider d'une désactivation.
+    prisma.report.findMany({
+      where: {
+        OR: [
+          { targetType: 'user', targetId: userId },
+          { targetType: 'post', targetId: { in: postIds } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        targetType: true,
+        targetId: true,
+        reason: true,
+        note: true,
+        status: true,
+        createdAt: true,
+      },
+    }),
+  ])
+
+  return { profile, posts, listings, reports }
+}
+
 // ─── Activité ──────────────────────────────────────────────────────────────
 
 export type ActivityDay = { day: string; surfaces: string[] }

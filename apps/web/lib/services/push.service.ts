@@ -54,7 +54,7 @@ function minutesOfDay(time: string): number {
 }
 
 /** Heure locale de l'utilisateur, en minutes depuis minuit. */
-function localMinutes(now: Date, timezone: string): number {
+export function localMinutes(now: Date, timezone: string): number {
   try {
     const formatted = new Intl.DateTimeFormat('fr-FR', {
       timeZone: timezone,
@@ -71,24 +71,38 @@ function localMinutes(now: Date, timezone: string): number {
 }
 
 /**
- * L'utilisateur veut-il être notifié maintenant ?
+ * Le compte accepte-t-il le push ?
+ *
+ * `both` couvre le jour où l'email s'ajoutera : le push y est compris.
+ */
+export function channelAllowsPush(config: AlertConfig): boolean {
+  return config.channel === 'push' || config.channel === 'both'
+}
+
+/** L'instant présent tombe-t-il dans les heures calmes du compte ? */
+export function inQuietHours(config: AlertConfig, localMinute: number): boolean {
+  if (!config.quietHoursEnabled) return false
+
+  const start = minutesOfDay(config.quietHoursStart)
+  const end = minutesOfDay(config.quietHoursEnd)
+
+  // Une plage de nuit franchit minuit : 22:00 → 07:00.
+  return start <= end
+    ? localMinute >= start && localMinute < end
+    : localMinute >= start || localMinute < end
+}
+
+/**
+ * L'utilisateur veut-il recevoir un **rappel du matin** maintenant ?
  *
  * Trois conditions : le canal inclut le push, les heures calmes ne couvrent
- * pas l'instant présent, et il reste au moins un type de rappel activé.
+ * pas l'instant présent, et il reste au moins un type de rappel activé. Cette
+ * dernière ne vaut que pour les rappels du jardin — les notifications de la
+ * communauté ont leurs propres interrupteurs, dans `alertConfig.community`.
  */
 export function wantsPushNow(config: AlertConfig, localMinute: number): boolean {
-  if (config.channel !== 'push' && config.channel !== 'both') return false
-
-  if (config.quietHoursEnabled) {
-    const start = minutesOfDay(config.quietHoursStart)
-    const end = minutesOfDay(config.quietHoursEnd)
-
-    // Une plage de nuit franchit minuit : 22:00 → 07:00.
-    const inQuietHours =
-      start <= end ? localMinute >= start && localMinute < end : localMinute >= start || localMinute < end
-
-    if (inQuietHours) return false
-  }
+  if (!channelAllowsPush(config)) return false
+  if (inQuietHours(config, localMinute)) return false
 
   return (
     config.wateringReminder ||
@@ -99,6 +113,56 @@ export function wantsPushNow(config: AlertConfig, localMinute: number): boolean 
     config.frostAlert ||
     config.heatAlert
   )
+}
+
+/**
+ * Envoie un message aux appareils d'un compte, en respectant son canal et ses
+ * heures calmes.
+ *
+ * L'envoyeur générique, par opposition aux **composeurs** — `composeReminder`
+ * pour le jardin, `notification.service` pour la communauté. Les rappels
+ * quotidiens ne passent pas par ici : ils composent des centaines de messages
+ * qu'il vaut mieux envoyer en un seul lot.
+ *
+ * Ne lève jamais et ne s'attend pas : une notification manquée est un agrément
+ * en moins, pas une raison de faire échouer le geste qui l'a déclenchée.
+ */
+export async function sendToUser(
+  userId: string,
+  message: Omit<PushMessage, 'to'>,
+  options: { now?: Date; fetchImpl?: typeof fetch } = {},
+): Promise<void> {
+  const now = options.now ?? new Date()
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        timezone: true,
+        alertConfig: true,
+        disabledAt: true,
+        pushTokens: { select: { token: true } },
+      },
+    })
+
+    if (!user || user.disabledAt || user.pushTokens.length === 0) return
+
+    const config: AlertConfig = {
+      ...DEFAULT_ALERT_CONFIG,
+      ...((user.alertConfig as AlertConfig | null) ?? {}),
+    }
+
+    if (!channelAllowsPush(config)) return
+    if (inQuietHours(config, localMinutes(now, user.timezone))) return
+
+    const outcome = await sendPushMessages(
+      user.pushTokens.map(({ token }) => ({ ...message, to: token })),
+      options.fetchImpl ?? fetch,
+    )
+    await forgetInvalidTokens(outcome.invalidTokens)
+  } catch (error) {
+    console.error('[push] envoi à', userId, 'impossible :', error)
+  }
 }
 
 /** Titre et corps du rappel, à partir de ce qu'il y a à faire. */

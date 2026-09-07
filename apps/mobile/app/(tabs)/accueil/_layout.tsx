@@ -9,6 +9,9 @@ import { Stack } from 'expo-router'
  * Le blog vit ici plutôt que dans un sixième onglet : on y arrive depuis les
  * « Conseils du moment » de l'accueil, et une barre à six entrées ne tiendrait
  * pas sur un iPhone SE.
+ *
+ * La communauté y a vécu jusqu'à ce qu'elle obtienne son propre onglet, en
+ * prenant la place de « Mon jardin ».
  */
 export default function AccueilLayout() {
   return (

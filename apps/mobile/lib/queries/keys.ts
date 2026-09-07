@@ -63,3 +63,42 @@ export const meKeys = {
   all: ['me'] as const,
   profile: () => [...meKeys.all, 'profile'] as const,
 }
+
+/**
+ * Communauté. Les profils publics sont indexés par **pseudo** et non par
+ * identifiant : c'est ce que porte l'URL, et donc ce dont dispose un écran
+ * ouvert depuis un lien ou une notification.
+ */
+export const communityKeys = {
+  all: ['community'] as const,
+  settings: () => [...communityKeys.all, 'settings'] as const,
+  profile: (handle: string) => [...communityKeys.all, 'profile', handle] as const,
+  handleCheck: (handle: string) => [...communityKeys.all, 'handle', handle] as const,
+  blocked: () => [...communityKeys.all, 'blocked'] as const,
+  /**
+   * Le fil local dépend du rayon : en changer doit repartir d'une première
+   * page, pas empiler deux fils différents. Le fil des abonnements, lui, n'en
+   * dépend pas — d'où deux clés distinctes plutôt qu'un rayon factice.
+   */
+  feed: (radiusKm: number) => [...communityKeys.all, 'feed', 'nearby', radiusKm] as const,
+  followingFeed: () => [...communityKeys.all, 'feed', 'following'] as const,
+  userPosts: (handle: string) => [...communityKeys.all, 'profile', handle, 'posts'] as const,
+  follows: (handle: string, direction: 'followers' | 'following') =>
+    [...communityKeys.all, 'profile', handle, direction] as const,
+  notifications: () => [...communityKeys.all, 'notifications'] as const,
+  unread: () => [...communityKeys.all, 'unread'] as const,
+  /** La bourse dépend de ses filtres : en changer repart d'une première page. */
+  listings: (filters: { kind?: string; category?: string; radiusKm?: number }) =>
+    [...communityKeys.all, 'listings', filters.kind ?? 'tous', filters.category ?? 'toutes', filters.radiusKm ?? 0] as const,
+  myListings: () => [...communityKeys.all, 'listings', 'mine'] as const,
+  listing: (listingId: string) => [...communityKeys.all, 'listing', listingId] as const,
+  listingThreads: (listingId: string) =>
+    [...communityKeys.all, 'listing', listingId, 'threads'] as const,
+  threads: () => [...communityKeys.all, 'threads'] as const,
+  thread: (threadId: string) => [...communityKeys.all, 'thread', threadId] as const,
+  threadMessages: (threadId: string) =>
+    [...communityKeys.all, 'thread', threadId, 'messages'] as const,
+  home: () => [...communityKeys.all, 'home'] as const,
+  post: (postId: string) => [...communityKeys.all, 'post', postId] as const,
+  comments: (postId: string) => [...communityKeys.all, 'post', postId, 'comments'] as const,
+}

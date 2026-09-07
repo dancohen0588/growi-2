@@ -11,45 +11,83 @@ datasource db {
 // ─── Auth ──────────────────────────────────────────────────────────────────
 
 model User {
-  id             String          @id @default(cuid())
-  name           String?
-  email          String          @unique
-  emailVerified  DateTime?       @db.Timestamptz(6)
-  image          String?
-  password       String?
-  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime        @default(now()) @updatedAt @db.Timestamptz(6)
-  firstName      String?
-  lastName       String?
-  plan           String          @default("FREE")
-  timezone       String          @default("Europe/Paris")
-  locationCity   String?
-  onboarded      Boolean         @default(false)
-  address        String?
-  gardenType     String?
-  avatarColor    String?
-  alertConfig    Json?
-  latitude       Float?
-  longitude      Float?
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime? @db.Timestamptz(6)
+  image         String?
+  password      String?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  firstName     String?
+  lastName      String?
+  plan          String    @default("FREE")
+  timezone      String    @default("Europe/Paris")
+  locationCity  String?
+  onboarded     Boolean   @default(false)
+  address       String?
+  gardenType    String?
+  avatarColor   String?
+  alertConfig   Json?
+  latitude      Float?
+  longitude     Float?
   /// Droits du compte — voir USER_ROLES dans @growi/shared : USER | ADMIN.
-  role           String          @default("USER")
+  role          String    @default("USER")
   /// Compte désactivé par un administrateur : connexion refusée, données conservées.
-  disabledAt     DateTime?       @db.Timestamptz(6)
+  disabledAt    DateTime? @db.Timestamptz(6)
   /// Dernière activité observée, toutes surfaces confondues.
   /// Mise à jour au plus une fois par heure (voir activity.service.ts).
-  lastSeenAt     DateTime?       @db.Timestamptz(6)
+  lastSeenAt    DateTime? @db.Timestamptz(6)
+
+  // ── Communauté (opt-in) ──────────────────────────────────────────────────
+  /// Pseudo public unique, 3 à 30 caractères `[a-z0-9_]`, normalisé en
+  /// minuscules à l'écriture. Nul tant que le profil public n'est pas activé.
+  /// Distinct de `name`/`firstName`, qui restent privés.
+  handle             String?   @unique
+  /// Présentation courte, ≤ 160 caractères.
+  bio                String?
+  /// Profil visible dans la communauté. Faux par défaut : l'opt-in est explicite,
+  /// y compris pour les comptes créés avant la fonctionnalité.
+  communityEnabled   Boolean   @default(false)
+  communityEnabledAt DateTime? @db.Timestamptz(6)
+  /// Position **floutée**, dérivée de latitude/longitude (voir community/geo.ts).
+  /// C'est la seule position que la communauté manipule ; `latitude`/`longitude`
+  /// ne sortent jamais d'une réponse API communautaire.
+  fuzzyLat           Float?
+  fuzzyLng           Float?
+  /// Rayon préféré du fil local, en km — 5 | 20 | 50.
+  communityRadiusKm  Int       @default(20)
+  /// Compteurs dénormalisés : un fil affiche des dizaines de profils, et trois
+  /// `COUNT` par carte ne tiendraient pas.
+  followerCount      Int       @default(0)
+  followingCount     Int       @default(0)
+  postCount          Int       @default(0)
+
+  following          Follow[]         @relation("follower")
+  followers          Follow[]         @relation("following")
+  blocksMade         Block[]          @relation("blocker")
+  blocksReceived     Block[]          @relation("blocked")
+  notifications      Notification[]
+  reportsMade        Report[]         @relation("reporter")
+  posts              Post[]
+  postLikes          PostLike[]
+  comments           Comment[]
+  listings           Listing[]
+  threadsAsRequester ListingThread[]  @relation("requester")
+  listingMessages    ListingMessage[]
+
   accounts        Account[]
   activities      UserActivity[]
   adminActions    AdminAuditLog[]  @relation("actor")
   contactMessages ContactMessage[]
   conversations   Conversation[]
-  diagnoses      Diagnosis[]
-  tasks          PlantTask[]
-  gardens        Garden[]
-  plantInstances PlantInstance[]
-  pushTokens     PushToken[]
-  refreshTokens  RefreshToken[]
-  sessions       Session[]
+  diagnoses       Diagnosis[]
+  tasks           PlantTask[]
+  gardens         Garden[]
+  plantInstances  PlantInstance[]
+  pushTokens      PushToken[]
+  refreshTokens   RefreshToken[]
+  sessions        Session[]
 
   @@index([role])
   @@index([createdAt])
@@ -283,6 +321,7 @@ model PlantCatalog {
   /// * Sous-type pour la catégorie TREES_SHRUBS : CONIFER | DECIDUOUS | FRUIT | SHRUB
   treeType              String?
   plantInstances        PlantInstance[]
+  listings              Listing[]
 
   @@map("plant_catalog")
 }
@@ -323,6 +362,7 @@ model PlantInstance {
   customWateringAdjFactor Float?
   alertsEnabled           Boolean        @default(true)
   careLogs                CareLog[]
+  communityPosts          Post[]
   conversations           Conversation[]
   diagnoses               Diagnosis[]
   tasks                   PlantTask[]
@@ -596,12 +636,276 @@ model VerificationToken {
 /// réservées y cohabitent avec les empreintes : le plafond global du jour et
 /// le seau des requêtes dont l'adresse est inconnue.
 model IdentifyQuota {
-  ipHash String   @map("ip_hash")
+  ipHash String @map("ip_hash")
   /// Jour UTC au format `YYYY-MM-DD` : la remise à zéro est un changement de ligne.
   day    String
-  count  Int      @default(0)
+  count  Int    @default(0)
 
   @@id([ipHash, day])
   @@index([day])
   @@map("identify_quotas")
+}
+
+// ─── Communauté ────────────────────────────────────────────────────────────
+
+/// Abonnement **unilatéral et sans validation** : un profil public est public.
+/// Demander une acceptation ajouterait une file d'attente à gérer pour une
+/// valeur nulle tant que la base d'utilisateurs est petite.
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  /// « Qui me suit », dans l'ordre d'arrivée.
+  @@index([followingId, createdAt])
+  @@map("follows")
+}
+
+/// Blocage, appliqué **dans les deux sens** : le bloqué ne voit plus mes
+/// contenus et ne peut plus m'écrire, et je ne vois plus les siens. Poser le
+/// blocage rompt les abonnements existants ; le retirer ne les rétablit pas.
+model Block {
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  blocker User @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  /// Lecture symétrique : « qui m'a bloqué » filtre aussi mes lectures.
+  @@index([blockedId])
+  @@map("blocks")
+}
+
+/// Notification in-app. Le push, lui, est envoyé au moment de l'écriture et
+/// n'est pas rejoué : cette table est un journal consultable, pas une file.
+model Notification {
+  id        String    @id @default(cuid())
+  /// Destinataire.
+  userId    String
+  /// Voir NOTIFICATION_KINDS dans @growi/shared.
+  kind      String
+  /// Qui a déclenché. Volontairement **sans clé étrangère** : le texte affiché
+  /// est figé dans `preview`, il n'y a donc rien à rejoindre pour afficher la
+  /// ligne, et une notification survit à la suppression de son acteur.
+  actorId   String?
+  /// Cible du tap : { postId } | { listingId, threadId } | { userId }.
+  target    Json
+  /// Texte prêt à afficher, figé à l'écriture — l'acteur peut changer de pseudo
+  /// et le contenu être supprimé, la notification doit rester lisible.
+  preview   String
+  readAt    DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Sert la liste paginée comme le badge de non-lus.
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+/// Publication du fil communautaire.
+model Post {
+  id              String   @id @default(cuid())
+  userId          String
+  /// Plante mise en avant, facultative. `SetNull` : supprimer la plante ne doit
+  /// pas emporter la publication, qui a sa vie propre — des cœurs, des
+  /// commentaires — chez d'autres que son auteur.
+  plantInstanceId String?
+  /// Nom affiché, **figé à la publication**. La plante peut être renommée ou
+  /// disparaître ; ce que les gens ont lu ne change pas.
+  plantLabel      String?
+  body            String
+  /// 1 à 4 URLs Supabase Storage. Json plutôt qu'une table : rien n'interroge
+  /// jamais une photo isolément.
+  photos          Json
+  /// Position **floutée**, recopiée de l'auteur au moment de la publication.
+  /// Recopiée et non jointe : déménager ne doit pas déplacer après coup une
+  /// photo prise dans l'ancien jardin.
+  lat             Float
+  lng             Float
+  /// Dénormalisés : le fil affiche vingt cartes, et deux `COUNT` par carte ne
+  /// tiendraient pas.
+  likeCount       Int      @default(0)
+  commentCount    Int      @default(0)
+  /// Voir CONTENT_STATUSES : visible | hidden (modération, ou profil désactivé)
+  /// | deleted.
+  status          String   @default("visible")
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plantInstance PlantInstance? @relation(fields: [plantInstanceId], references: [id], onDelete: SetNull)
+  likes         PostLike[]
+  comments      Comment[]
+
+  /// Les publications d'un compte, pour son profil public.
+  @@index([userId, createdAt])
+  /// Le fil : filtre sur `status`, puis tri antéchronologique.
+  @@index([status, createdAt])
+  @@map("posts")
+}
+
+/// Un cœur. Sans identifiant propre : la paire est la clé, ce qui rend le
+/// « j'aime » idempotent par construction.
+model PostLike {
+  postId    String
+  userId    String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  /// « Ai-je aimé ces vingt publications ? » en une requête.
+  @@index([userId])
+  @@map("post_likes")
+}
+
+/// Commentaire, **à plat** : pas de réponses imbriquées en v1.
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  body      String
+  /// Voir CONTENT_STATUSES.
+  status    String   @default("visible")
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@index([userId, createdAt])
+  @@map("comments")
+}
+
+/// Annonce de la bourse aux graines — don, échange ou recherche.
+///
+/// Pas de vente en v1 : l'échange gratuit de semences entre amateurs est
+/// autorisé, la vente est encadrée par le catalogue officiel.
+model Listing {
+  id               String    @id @default(cuid())
+  userId           String
+  /// Voir LISTING_KINDS : give | swap | seek.
+  kind             String
+  /// Voir LISTING_CATEGORIES : seeds | plants | cuttings | harvest | tools.
+  category         String
+  title            String
+  description      String?
+  photoUrl         String?
+  /// Espèce du catalogue si l'auteur l'a identifiée — prépare les filtres par
+  /// espèce, sans les imposer aujourd'hui.
+  catalogPlantId   String?
+  /// Texte libre : « ~30 graines », « 3 plants ».
+  quantity         String?
+  /// Ce que l'auteur souhaite en retour, sur une annonce d'échange.
+  wants            String?
+  /// Voir LISTING_STATUSES.
+  status           String    @default("active")
+  /// Position **floutée**, recopiée de l'auteur à la publication — même
+  /// raisonnement que sur `Post`.
+  lat              Float
+  lng              Float
+  /// `createdAt` + 60 jours, prolongeable. Une bourse pleine d'annonces d'il y
+  /// a huit mois ne vaut rien.
+  expiresAt        DateTime  @db.Timestamptz(6)
+  /// Dernier rappel d'expiration envoyé, pour ne pas le répéter chaque jour.
+  expiryNotifiedAt DateTime? @db.Timestamptz(6)
+  /// Dénormalisé : l'auteur voit le nombre d'intéressés sur sa propre annonce.
+  threadCount      Int       @default(0)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  catalog PlantCatalog?   @relation(fields: [catalogPlantId], references: [id], onDelete: SetNull)
+  threads ListingThread[]
+
+  /// La bourse : statut, puis filtre de catégorie, puis tri antéchronologique.
+  @@index([status, category, createdAt])
+  @@index([userId, createdAt])
+  /// La tournée d'expiration : les annonces actives dont la date est passée.
+  @@index([status, expiresAt])
+  @@map("listings")
+}
+
+/// Un fil par (annonce, intéressé).
+///
+/// Distinct de `Conversation`, réservé au chat Growi et ancré sur une plante :
+/// les mélanger forcerait des colonnes nullables des deux côtés et brouillerait
+/// le quota IA, qui ne concerne que l'un des deux.
+model ListingThread {
+  id              String    @id @default(cuid())
+  listingId       String
+  /// Dénormalisé depuis `listing.userId`, pour indexer « mes fils » sans
+  /// jointure : l'écran Messages mêle les deux rôles.
+  ownerId         String
+  requesterId     String
+  lastMessageAt   DateTime? @db.Timestamptz(6)
+  /// Dernière lecture de chacun, pour le badge de non-lus.
+  ownerReadAt     DateTime? @db.Timestamptz(6)
+  requesterReadAt DateTime? @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+
+  listing   Listing          @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  requester User             @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  messages  ListingMessage[]
+
+  /// Un seul fil par intéressé et par annonce : « Je suis intéressé » rouvre
+  /// le sien plutôt que d'en empiler un nouveau.
+  @@unique([listingId, requesterId])
+  @@index([ownerId, lastMessageAt])
+  @@index([requesterId, lastMessageAt])
+  @@map("listing_threads")
+}
+
+model ListingMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  userId    String
+  body      String
+  photoUrl  String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  thread ListingThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@map("listing_messages")
+}
+
+/// Signalement d'un contenu ou d'un compte.
+///
+/// L'unicité `(reporterId, targetType, targetId)` est ce qui donne son sens au
+/// masquage automatique : le seuil compte des **personnes** distinctes, qu'un
+/// seul signaleur acharné ne peut donc pas atteindre.
+model Report {
+  id           String    @id @default(cuid())
+  reporterId   String
+  /// Voir REPORT_TARGETS : post | comment | listing | message | user.
+  targetType   String
+  targetId     String
+  /// Voir REPORT_REASONS.
+  reason       String
+  note         String?
+  /// Voir REPORT_STATUSES : open | actioned | dismissed.
+  status       String    @default("open")
+  /// Administrateur ayant tranché. Sans clé étrangère, comme AdminAuditLog.actorId.
+  reviewedById String?
+  reviewedAt   DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+
+  reporter User @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([reporterId, targetType, targetId])
+  /// File de modération : les signalements ouverts, les plus anciens d'abord.
+  @@index([status, createdAt])
+  /// Compte des signalements distincts d'un contenu, pour le seuil de masquage.
+  @@index([targetType, targetId])
+  @@map("reports")
 }

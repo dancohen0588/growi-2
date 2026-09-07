@@ -14,6 +14,8 @@ import {
 import { indicatorTone, toIsoDate, type DashboardSummary } from '@growi/shared'
 
 import { ConseilsSection } from '@/components/blog/ConseilsSection'
+import { AroundYouSection } from '@/components/community/AroundYouSection'
+import { NotificationBell } from '@/components/community/NotificationBell'
 import { StatCard } from '@/components/home/StatCard'
 import { ForecastRow } from '@/components/weather/ForecastRow'
 import { GardenContextCard } from '@/components/weather/GardenContextCard'
@@ -126,14 +128,17 @@ export default function AccueilScreen() {
             </Text>
           </View>
 
-          <Pressable
-            onPress={openProfile}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Mon profil"
-          >
-            <UserCircle2 size={28} color="#1E5631" />
-          </Pressable>
+          <View className="flex-row items-center gap-4">
+            <NotificationBell />
+            <Pressable
+              onPress={openProfile}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Mon profil"
+            >
+              <UserCircle2 size={28} color="#1E5631" />
+            </Pressable>
+          </View>
         </View>
 
         {/* Indicateurs */}
@@ -225,6 +230,11 @@ export default function AccueilScreen() {
             ) : null}
           </>
         )}
+
+        {/* La communauté après le jardin, et avant le blog : ce que font les
+            voisins vaut un coup d'œil plus souvent qu'un article. Muette tant
+            que le profil public n'est pas activé. */}
+        <AroundYouSection />
 
         {/* Le blog vient après le jardin : on ouvre l'app pour savoir quoi
             faire aujourd'hui, pas pour lire. */}

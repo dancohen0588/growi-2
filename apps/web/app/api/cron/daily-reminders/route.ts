@@ -1,3 +1,6 @@
+import { runListingUpkeep } from '@/lib/services/community/listing.service'
+import { sendOpenReportsAlert } from '@/lib/services/community/moderation.service'
+import { purgeReadNotifications } from '@/lib/services/community/notification.service'
 import { sendDailyReminders } from '@/lib/services/push.service'
 
 // Jamais de rendu statique : la route s'exécute à chaque appel du planificateur.
@@ -42,7 +45,42 @@ export async function GET(request: Request): Promise<Response> {
     const result = await sendDailyReminders()
     console.log('[cron] rappels envoyés :', JSON.stringify(result))
 
-    return Response.json({ data: result }, { headers: { 'cache-control': 'no-store' } })
+    // L'entretien de la bourse profite du même passage quotidien : expiration
+    // des annonces échues, puis rappel J‑7 à leurs auteurs.
+    let upkeep = { expired: 0, reminded: 0 }
+    try {
+      upkeep = await runListingUpkeep()
+      if (upkeep.expired || upkeep.reminded) {
+        console.log('[cron] bourse :', JSON.stringify(upkeep))
+      }
+    } catch (error) {
+      console.error('[cron] entretien de la bourse impossible :', error)
+    }
+
+    // Alerte de seuil : le badge de l'admin suffit tant qu'on l'ouvre, cet
+    // email est là pour le jour où on ne l'ouvre pas.
+    let reports = { open: 0, sent: false }
+    try {
+      reports = await sendOpenReportsAlert()
+      if (reports.sent) console.log('[cron] alerte modération envoyée :', reports.open)
+    } catch (error) {
+      console.error('[cron] alerte de modération impossible :', error)
+    }
+
+    // La purge des notifications lues vient en dernier, et son échec n'annule
+    // rien : ranger est moins important que prévenir.
+    let purged = 0
+    try {
+      purged = await purgeReadNotifications()
+      if (purged > 0) console.log('[cron] notifications purgées :', purged)
+    } catch (error) {
+      console.error('[cron] purge des notifications impossible :', error)
+    }
+
+    return Response.json(
+      { data: { ...result, listings: upkeep, reports, notificationsPurged: purged } },
+      { headers: { 'cache-control': 'no-store' } },
+    )
   } catch (error) {
     // Une tournée qui échoue ne doit pas rester silencieuse dans les journaux.
     console.error('[cron] la tournée a échoué :', error)

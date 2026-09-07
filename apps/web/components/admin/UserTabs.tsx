@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { buildQuery, type SearchParams } from '@/lib/admin/search-params'
 
 /**
- * Les six onglets de la fiche.
+ * Les sept onglets de la fiche.
  *
  * L'onglet vit dans l'URL (`?onglet=`), comme les filtres des listes : la page
  * reste un Server Component, chaque onglet est un lien partageable, et
@@ -16,6 +16,7 @@ export const USER_TABS = [
   { key: 'jardins', label: 'Jardins' },
   { key: 'plantes', label: 'Plantes' },
   { key: 'ia', label: 'Diagnostics & conversations' },
+  { key: 'communaute', label: 'Communauté' },
   { key: 'activite', label: 'Activité' },
   { key: 'actions', label: 'Actions' },
 ] as const

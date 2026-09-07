@@ -50,6 +50,19 @@ async function prepare(uri: string): Promise<Photo> {
   }
 }
 
+/**
+ * Prépare une image **déjà en ligne** — la photo d'une plante qu'on partage.
+ *
+ * `manipulateAsync` télécharge une URI distante avant de la retravailler, ce
+ * qui donne un fichier local prêt à être redéposé. La photo d'une publication
+ * est ainsi une **copie** et non une référence : supprimer la plante, ou
+ * changer sa photo, ne doit pas vider une publication que d'autres ont
+ * commentée.
+ */
+export async function preparePhotoFromUrl(url: string): Promise<Photo> {
+  return prepare(url)
+}
+
 /** Ouvre l'appareil photo. `null` si l'utilisateur renonce. */
 export async function takePhoto(): Promise<Photo | null> {
   const permission = await ImagePicker.requestCameraPermissionsAsync()

@@ -7,9 +7,10 @@ import { PlantDetail } from '@/components/plants/PlantDetail'
 import { PlantEditor } from '@/components/plants/PlantEditor'
 
 /**
- * La fiche d'une plante s'ouvre depuis plusieurs onglets — l'accueil, le
- * calendrier, les plantes, un jardin. Chacun a sa pile, pour que le retour
- * ramène là d'où l'on vient ; l'écran, lui, doit rester le même.
+ * La fiche d'une plante s'ouvre depuis plusieurs piles — l'accueil, le
+ * calendrier, les plantes, un jardin. Chacune a la sienne, pour que le retour
+ * ramène là d'où l'on vient ; l'écran, lui, doit rester le même. « Jardins »
+ * n'est plus un onglet mais sa pile reste montée, et la fiche y vit toujours.
  *
  * Ces deux fabriques donnent la route d'un onglet en une ligne, au lieu de
  * recopier le même écran quatre fois.

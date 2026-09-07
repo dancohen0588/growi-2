@@ -16,6 +16,7 @@ import * as WebBrowser from 'expo-web-browser'
 import { ChevronRight, ExternalLink, LocateFixed, LogOut, Map, Sparkles } from 'lucide-react-native'
 import type { UpdateAlertConfigInput, UserProfile } from '@growi/shared'
 
+import { CommunitySection } from '@/components/profil/CommunitySection'
 import { PushSection } from '@/components/profil/PushSection'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -220,6 +221,12 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
             onChange={(v) => saveAlerts({ seedingAlerts: v })}
           />
         </View>
+      </View>
+
+      {/* Communauté */}
+      <View className="gap-3">
+        <SectionTitle>Ma communauté</SectionTitle>
+        <CommunitySection alerts={alerts.community} onAlertsChange={saveAlerts} />
       </View>
 
       {/* Vers le web */}

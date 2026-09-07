@@ -73,6 +73,13 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="onboarding" />
+          {/* Publier n'est pas une destination mais un geste, et il part de
+              partout — le fil, l'accueil, la fiche plante (qui existe dans
+              quatre piles). Déclarée ici, à la racine, elle s'ouvre par un
+              chemin absolu sans être recopiée dans chaque pile ; une modale
+              ne peut de toute façon pas vivre dans un navigateur d'onglets. */}
+          <Stack.Screen name="publier" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="annonce" options={{ presentation: 'modal' }} />
         </Stack>
         </ToastProvider>
       </QueryClientProvider>

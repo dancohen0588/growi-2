@@ -34,5 +34,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority:        0.7,
   }))
 
-  return [...staticRoutes, ...blogRoutes, ...plantRoutes]
+  /**
+   * Les profils publics **actifs**, et eux seuls.
+   *
+   * Un profil désactivé, ou dont le compte l'est, répond 404 : le laisser dans
+   * le sitemap enverrait les robots sur des pages mortes. Les publications ne
+   * sont pas listées — leur volume grossira vite, elles se découvrent depuis
+   * les profils, et elles restent partageables par lien.
+   */
+  const profiles = await prisma.user.findMany({
+    where: { communityEnabled: true, disabledAt: null, handle: { not: null } },
+    select: { handle: true, updatedAt: true },
+  })
+
+  const profileRoutes: MetadataRoute.Sitemap = profiles
+    .filter((user) => !!user.handle)
+    .map((user) => ({
+      url:             `${SITE_URL}/u/${user.handle!}`,
+      lastModified:    user.updatedAt,
+      changeFrequency: 'weekly',
+      priority:        0.4,
+    }))
+
+  return [...staticRoutes, ...blogRoutes, ...plantRoutes, ...profileRoutes]
 }
