@@ -152,14 +152,14 @@ function ProfileHeader({ profile }: { profile: CommunityProfile }) {
           value={profile.followerCount}
           label="abonnés"
           onPress={() =>
-            router.push(`/(tabs)/accueil/communaute/u/${profile.handle}/abonnes`)
+            router.push(`/(tabs)/communaute/u/${profile.handle}/abonnes`)
           }
         />
         <Counter
           value={profile.followingCount}
           label="abonnements"
           onPress={() =>
-            router.push(`/(tabs)/accueil/communaute/u/${profile.handle}/abonnements`)
+            router.push(`/(tabs)/communaute/u/${profile.handle}/abonnements`)
           }
         />
       </View>
@@ -175,7 +175,7 @@ function ProfileHeader({ profile }: { profile: CommunityProfile }) {
         <Button
           label="Modifier mon profil"
           variant="outline"
-          onPress={() => router.push('/(tabs)/accueil/communaute/activer')}
+          onPress={() => router.push('/(tabs)/communaute/activer')}
         />
       ) : (
         <Button
@@ -266,7 +266,7 @@ export default function ProfilPublicScreen() {
           renderItem={({ item }) => (
             <Pressable
               onPress={() =>
-                router.push(`/(tabs)/accueil/communaute/publications/${item.id}`)
+                router.push(`/(tabs)/communaute/publications/${item.id}`)
               }
               accessibilityRole="button"
               accessibilityLabel={`Publication du ${item.createdAt}`}

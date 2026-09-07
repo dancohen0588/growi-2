@@ -58,7 +58,9 @@ export function AroundYouSection() {
   // rien, l'accueil se lit très bien sans elle.
   if (!home.data?.enabled) return null
 
-  const openFeed = () => router.push('/(tabs)/accueil/communaute')
+  // La communauté est un onglet à part : `navigate` le sélectionne avant
+  // d'empiler, là où `push` empilerait la destination dans la pile Accueil.
+  const openFeed = () => router.navigate('/(tabs)/communaute')
 
   return (
     <View className="gap-3">
@@ -94,7 +96,7 @@ export function AroundYouSection() {
           renderItem={({ item }) => (
             <Thumb
               post={item}
-              onPress={() => router.push(`/(tabs)/accueil/communaute/publications/${item.id}`)}
+              onPress={() => router.navigate(`/(tabs)/communaute/publications/${item.id}`)}
             />
           )}
         />

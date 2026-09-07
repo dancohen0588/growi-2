@@ -75,7 +75,7 @@ function ThreadContent({ thread }: { thread: ListingThreadDetail }) {
   return (
     <>
       <Pressable
-        onPress={() => router.push(`/(tabs)/accueil/communaute/bourse/${thread.listingId}`)}
+        onPress={() => router.push(`/(tabs)/communaute/bourse/${thread.listingId}`)}
         accessibilityRole="button"
         accessibilityLabel={`Annonce : ${thread.listingTitle}`}
         className="mx-4 mb-2 flex-row items-center gap-3 rounded-xl bg-card p-3"

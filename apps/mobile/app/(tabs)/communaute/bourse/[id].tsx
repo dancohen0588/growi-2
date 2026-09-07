@@ -60,7 +60,7 @@ function Interested({ listingId }: { listingId: string }) {
       {threads.data.map((thread: ListingThread) => (
         <Pressable
           key={thread.id}
-          onPress={() => router.push(`/(tabs)/accueil/communaute/messages/${thread.id}`)}
+          onPress={() => router.push(`/(tabs)/communaute/messages/${thread.id}`)}
           accessibilityRole="button"
           accessibilityLabel={`Discussion avec ${thread.other.handle}`}
           className="flex-row items-center gap-3 rounded-xl bg-card p-3"
@@ -110,7 +110,7 @@ function ListingContent({ listing }: { listing: Listing }) {
   const openInterest = async () => {
     try {
       const thread = await interest.mutateAsync()
-      router.push(`/(tabs)/accueil/communaute/messages/${thread.id}`)
+      router.push(`/(tabs)/communaute/messages/${thread.id}`)
     } catch (error) {
       toast(errorMessage(error), 'error')
     }
@@ -198,7 +198,7 @@ function ListingContent({ listing }: { listing: Listing }) {
         {/* L'auteur, tapable vers son profil — sauf s'il s'agit de soi. */}
         <Pressable
           onPress={() =>
-            router.push(`/(tabs)/accueil/communaute/u/${listing.author.handle}`)
+            router.push(`/(tabs)/communaute/u/${listing.author.handle}`)
           }
           disabled={listing.isMine}
           accessibilityRole={listing.isMine ? undefined : 'button'}
@@ -291,7 +291,7 @@ function ListingContent({ listing }: { listing: Listing }) {
               disabled={!listing.myThreadId && listing.status !== 'active'}
               onPress={() =>
                 listing.myThreadId
-                  ? router.push(`/(tabs)/accueil/communaute/messages/${listing.myThreadId}`)
+                  ? router.push(`/(tabs)/communaute/messages/${listing.myThreadId}`)
                   : void openInterest()
               }
             />

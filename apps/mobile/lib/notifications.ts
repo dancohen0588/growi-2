@@ -24,7 +24,7 @@ export interface NotificationTargetLike {
 /** Les écrans que le serveur peut nommer directement (`data.screen`). */
 const SCREENS = {
   calendrier: '/(tabs)/calendrier',
-  communaute: '/(tabs)/accueil/communaute',
+  communaute: '/(tabs)/communaute',
 } as const
 
 type ScreenKey = keyof typeof SCREENS
@@ -42,19 +42,19 @@ export function notificationRoute(data: unknown): Href | null {
   const target = data as NotificationTargetLike
 
   if (typeof target.postId === 'string' && target.postId) {
-    return `/(tabs)/accueil/communaute/publications/${target.postId}` as Href
+    return `/(tabs)/communaute/publications/${target.postId}` as Href
   }
 
   if (typeof target.threadId === 'string' && target.threadId) {
-    return `/(tabs)/accueil/communaute/messages/${target.threadId}` as Href
+    return `/(tabs)/communaute/messages/${target.threadId}` as Href
   }
 
   if (typeof target.listingId === 'string' && target.listingId) {
-    return `/(tabs)/accueil/communaute/bourse/${target.listingId}` as Href
+    return `/(tabs)/communaute/bourse/${target.listingId}` as Href
   }
 
   if (typeof target.handle === 'string' && target.handle) {
-    return `/(tabs)/accueil/communaute/u/${target.handle}` as Href
+    return `/(tabs)/communaute/u/${target.handle}` as Href
   }
 
   if (typeof target.screen === 'string' && target.screen in SCREENS) {

@@ -129,14 +129,14 @@ export default function MessagesScreen() {
               message="Réponds à une annonce de la bourse, ou publie la tienne."
               cta={{
                 label: 'Voir la bourse',
-                onPress: () => router.replace('/(tabs)/accueil/communaute/bourse'),
+                onPress: () => router.replace('/(tabs)/communaute/bourse'),
               }}
             />
           }
           renderItem={({ item }) => (
             <ThreadRow
               thread={item}
-              onPress={() => router.push(`/(tabs)/accueil/communaute/messages/${item.id}`)}
+              onPress={() => router.push(`/(tabs)/communaute/messages/${item.id}`)}
             />
           )}
         />

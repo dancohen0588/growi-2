@@ -73,7 +73,7 @@ export default function MesAnnoncesScreen() {
           renderItem={({ item }) => (
             <ListingCard
               listing={item}
-              onPress={() => router.push(`/(tabs)/accueil/communaute/bourse/${item.id}`)}
+              onPress={() => router.push(`/(tabs)/communaute/bourse/${item.id}`)}
             />
           )}
         />

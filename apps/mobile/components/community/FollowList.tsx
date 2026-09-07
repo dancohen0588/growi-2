@@ -124,7 +124,7 @@ export function FollowList({ handle, direction }: FollowListProps) {
           renderItem={({ item }) => (
             <Row
               user={item}
-              onPress={() => router.push(`/(tabs)/accueil/communaute/u/${item.handle}`)}
+              onPress={() => router.push(`/(tabs)/communaute/u/${item.handle}`)}
             />
           )}
         />

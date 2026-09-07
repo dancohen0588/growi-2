@@ -9,6 +9,7 @@ import type {
   PlantLocation,
 } from '@growi/shared'
 
+import { GardenPicker, type GardenFilter } from '@/components/plants/GardenPicker'
 import { PlantGridCard, wateringProgress } from '@/components/plants/PlantGridCard'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
@@ -89,6 +90,9 @@ export default function MesPlantesScreen() {
   const plants = useAllPlants()
   const gardens = useGardens()
 
+  // « Tous les jardins » par défaut : c'est le sens de cet écran, et quelqu'un
+  // qui n'a qu'un jardin ne doit pas avoir à choisir.
+  const [garden, setGarden] = useState<GardenFilter>('all')
   const [location, setLocation] = useState<'all' | PlantLocation>('all')
   const [health, setHealth] = useState<'all' | HealthStatus>('all')
   const [refreshing, setRefreshing] = useState(false)
@@ -108,25 +112,44 @@ export default function MesPlantesScreen() {
     () =>
       all.filter(
         (plant) =>
+          (garden === 'all' || plant.gardenId === garden) &&
           (location === 'all' || plant.location === location) &&
           (health === 'all' || (plant.healthStatus ?? 'HEALTHY') === health),
       ),
-    [all, location, health],
+    [all, garden, location, health],
   )
 
+  // Comptés depuis la liste déjà chargée : `GardenWithStats.plantCount` est
+  // facultatif, et un compte absent afficherait « 0 plante » à tort.
+  const countsByGarden = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const plant of all) {
+      if (plant.gardenId) counts[plant.gardenId] = (counts[plant.gardenId] ?? 0) + 1
+    }
+    return counts
+  }, [all])
+
   // Comme sur le web : une plante dont le cycle est écoulé demande de l'eau.
-  const overdue = useMemo(() => all.filter((p) => wateringProgress(p) >= 100).length, [all])
+  const overdue = useMemo(
+    () => filtered.filter((p) => wateringProgress(p) >= 100).length,
+    [filtered],
+  )
 
   // L'ajout se fait toujours dans un jardin : avec un seul, on y va tout droit,
   // sinon on laisse choisir dans la liste des jardins plutôt que de deviner.
   const goToNewPlant = useCallback(() => {
+    // Un jardin est sélectionné : c'est là qu'on ajoute, sans redemander.
+    if (garden !== 'all') {
+      router.push(`/(tabs)/jardins/${garden}/plantes/nouvelle`)
+      return
+    }
     const list = gardens.data ?? []
     if (list.length === 1) {
       router.push(`/(tabs)/jardins/${list[0].id}/plantes/nouvelle`)
       return
     }
     router.push('/(tabs)/jardins')
-  }, [gardens.data, router])
+  }, [garden, gardens.data, router])
 
   return (
     <SafeAreaView className="flex-1 bg-sand" edges={['top', 'left', 'right']}>
@@ -138,13 +161,27 @@ export default function MesPlantesScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#B4DD7F" />
         }
       >
-        <View className="gap-0.5 px-4">
-          <Text className="font-poppins-bold text-screen text-forest">Mes plantes 🌿</Text>
-          <Text className="font-raleway text-secondary text-muted-foreground">
-            {all.length > 0
-              ? `${all.length} plante${all.length > 1 ? 's' : ''} dans tes jardins`
-              : 'Toutes tes plantes, tous jardins confondus.'}
-          </Text>
+        <View className="gap-2 px-4">
+          <View className="gap-0.5">
+            <Text className="font-poppins-bold text-screen text-forest">Mes plantes 🌿</Text>
+            <Text className="font-raleway text-secondary text-muted-foreground">
+              {all.length > 0
+                ? `${filtered.length} plante${filtered.length > 1 ? 's' : ''} affichée${
+                    filtered.length > 1 ? 's' : ''
+                  }`
+                : 'Toutes tes plantes, tous jardins confondus.'}
+            </Text>
+          </View>
+
+          {/* Le sélecteur remplace l'onglet « Mon jardin » : c'est ici qu'on
+              choisit ce qu'on regarde, et qu'on rejoint le plan d'un jardin. */}
+          <GardenPicker
+            gardens={gardens.data ?? []}
+            value={garden}
+            onChange={setGarden}
+            counts={countsByGarden}
+            totalCount={all.length}
+          />
         </View>
 
         {plants.isPending ? (
@@ -157,8 +194,8 @@ export default function MesPlantesScreen() {
           <EmptyState
             emoji="🌱"
             title="Aucune plante pour l'instant"
-            message="Ajoute ta première plante depuis un jardin, et elle apparaîtra ici."
-            cta={{ label: 'Voir mes jardins', onPress: () => router.push('/(tabs)/jardins') }}
+            message="Crée un jardin, ajoute ta première plante, et elle apparaîtra ici."
+            cta={{ label: 'Ajouter une plante', onPress: goToNewPlant }}
           />
         ) : (
           <>
@@ -192,7 +229,9 @@ export default function MesPlantesScreen() {
 
             {filtered.length === 0 ? (
               <Text className="px-4 py-10 text-center font-raleway text-secondary text-muted-foreground">
-                Aucune plante dans cette catégorie.
+                {garden === 'all'
+                  ? 'Aucune plante dans cette catégorie.'
+                  : 'Aucune plante de ce jardin dans cette catégorie.'}
               </Text>
             ) : (
               <View className="flex-row flex-wrap gap-3 px-4">

@@ -44,7 +44,7 @@ export function CommunitySection({ alerts, onAlertsChange }: CommunitySectionPro
   if (!data.enabled) {
     return (
       <Pressable
-        onPress={() => router.push('/(tabs)/accueil/communaute/activer')}
+        onPress={() => router.navigate('/(tabs)/communaute/activer')}
         accessibilityRole="button"
         className="flex-row items-center gap-3 rounded-xl bg-card p-4"
         style={({ pressed }) => (pressed ? { transform: [{ scale: 0.99 }] } : null)}
@@ -96,7 +96,7 @@ export function CommunitySection({ alerts, onAlertsChange }: CommunitySectionPro
   return (
     <View className="gap-3">
       <Pressable
-        onPress={() => router.push('/(tabs)/accueil/communaute/activer')}
+        onPress={() => router.navigate('/(tabs)/communaute/activer')}
         accessibilityRole="button"
         className="flex-row items-center gap-3 rounded-xl bg-card p-4"
         style={({ pressed }) => (pressed ? { transform: [{ scale: 0.99 }] } : null)}
@@ -145,7 +145,7 @@ export function CommunitySection({ alerts, onAlertsChange }: CommunitySectionPro
       </View>
 
       <Pressable
-        onPress={() => router.push('/(tabs)/accueil/communaute/bloques')}
+        onPress={() => router.navigate('/(tabs)/communaute/bloques')}
         accessibilityRole="button"
         className="flex-row items-center gap-3 rounded-xl bg-card p-4"
         style={({ pressed }) => (pressed ? { transform: [{ scale: 0.99 }] } : null)}

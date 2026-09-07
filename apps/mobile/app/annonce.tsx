@@ -108,7 +108,7 @@ export default function NouvelleAnnonceScreen() {
       })
 
       toast('Annonce publiée 🌻')
-      router.replace(`/(tabs)/accueil/communaute/bourse/${listing.id}`)
+      router.replace(`/(tabs)/communaute/bourse/${listing.id}`)
     } catch (error) {
       toast(errorMessage(error), 'error')
     }

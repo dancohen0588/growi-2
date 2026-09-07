@@ -162,7 +162,7 @@ function PostContent({ post }: { post: CommunityPostDetail }) {
         <View className="flex-row items-center gap-3">
           <Pressable
             onPress={() =>
-              router.push(`/(tabs)/accueil/communaute/u/${post.author.handle}`)
+              router.push(`/(tabs)/communaute/u/${post.author.handle}`)
             }
             accessibilityRole="button"
             accessibilityLabel={`Profil de ${post.author.handle}`}

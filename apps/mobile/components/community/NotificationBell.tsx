@@ -21,7 +21,7 @@ export function NotificationBell() {
 
   return (
     <Pressable
-      onPress={() => router.push('/(tabs)/accueil/communaute/notifications')}
+      onPress={() => router.navigate('/(tabs)/communaute/notifications')}
       hitSlop={12}
       accessibilityRole="button"
       accessibilityLabel={

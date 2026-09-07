@@ -260,9 +260,14 @@ pnpm --filter mobile typecheck
   Pour tester sur téléphone, y mettre l'IP du Mac sur le réseau local, pas `localhost`.
 - **Metro** : depuis le SDK 52, Expo configure seul le monorepo. Ne pas ajouter `watchFolders` ni
   `nodeModulesPaths`, cela entrerait en conflit avec sa détection.
-- **Cinq onglets, pas six.** Le blog (`accueil/conseils/*`), le profil et la communauté
-  (`accueil/communaute/*`) vivent dans la pile Accueil : une barre à six entrées ne tiendrait pas
-  sur un iPhone SE, et l'onboarding présente les cinq existants.
+- **Cinq onglets, pas six** : Accueil, Mes plantes, Identifier, Calendrier, Communauté. Une barre
+  à six entrées ne tiendrait pas sur un iPhone SE.
+- **« Mon jardin » n'est plus un onglet.** Un jardin est un *classement*, pas une destination : on
+  l'ouvrait pour y retrouver ses plantes, ce que fait désormais le sélecteur de « Mes plantes »
+  (`components/plants/GardenPicker.tsx`, défaut « tous les jardins »). La pile `(tabs)/jardins`
+  reste **montée** mais retirée de la barre par `href: null` — la supprimer emporterait le plan du
+  jardin, sa création et la seule façon d'ajouter une plante. On y accède depuis le sélecteur.
+- Le blog (`accueil/conseils/*`) et le profil vivent dans la pile Accueil, faute de place.
 - **Les modales de création sont déclarées à la racine** (`app/publier.tsx`, `app/annonce.tsx`),
   pas dans un onglet : un navigateur d'onglets ne sait pas présenter une modale. On y navigue par
   chemin absolu depuis n'importe quelle pile — dont les quatre où vit la fiche plante.
@@ -1140,7 +1145,7 @@ Bearer) et `app/dashboard/layout.tsx` (surface `web`).
 - Le jour est en **UTC**, comme `IdentifyQuota`. Ne pas le passer dans le fuseau
   de l'utilisateur : les séries hebdomadaires perdraient leur clé commune.
 
-### Communauté (`/dashboard/communaute`, `accueil/communaute/*`)
+### Communauté (`/dashboard/communaute`, onglet mobile `communaute`)
 
 Réseau **local** entre jardiniers : profil public opt-in, fil dans un rayon
 autour du jardin, bourse aux graines sans argent, messagerie rattachée aux
@@ -1241,6 +1246,13 @@ au-delà de cinq signalements ouverts, purge des notifications lues de plus de
 > client Prisma en mémoire : après chaque migration de cette spec, `prisma.post`
 > puis `prisma.listing` valaient `undefined` et les routes répondaient 500 sans
 > que le code soit en cause. Voir « Migrations Prisma — procédure imposée ».
+>
+> ⚠️ **Metro ne voit pas un dossier de routes déplacé.** Les routes typées
+> d'Expo (`.expo/types/router.d.ts`, non versionné) sont régénérées par le
+> serveur de développement ; après un `git mv` d'une pile entière, il continue
+> de décrire l'ancienne arborescence et `tsc` refuse tous les nouveaux chemins.
+> Le relancer suffit — au besoin sur un autre port : `CI=1 pnpm exec expo start
+> --port 8082`, le temps que le fichier se régénère.
 
 ### Routing principal
 

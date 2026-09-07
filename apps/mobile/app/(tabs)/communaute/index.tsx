@@ -141,7 +141,7 @@ export default function CommunauteScreen() {
   const appliedRadius = nearby.data?.pages[0]?.appliedRadiusKm ?? applied
 
   const openPost = (postId: string) =>
-    router.push(`/(tabs)/accueil/communaute/publications/${postId}`)
+    router.push(`/(tabs)/communaute/publications/${postId}`)
 
   const like = (post: CommunityPost) => {
     toggleLike.mutate(
@@ -188,7 +188,7 @@ export default function CommunauteScreen() {
             communauté : elles vivent dans l'en-tête plutôt que dans un second
             segment, qui se disputerait la place avec les deux fils. */}
         <Pressable
-          onPress={() => router.push('/(tabs)/accueil/communaute/messages')}
+          onPress={() => router.push('/(tabs)/communaute/messages')}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Mes messages"
@@ -196,7 +196,7 @@ export default function CommunauteScreen() {
           <MessageSquare size={24} color="#1E5631" />
         </Pressable>
         <Pressable
-          onPress={() => router.push('/(tabs)/accueil/communaute/bourse')}
+          onPress={() => router.push('/(tabs)/communaute/bourse')}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="La bourse aux graines"
@@ -250,7 +250,7 @@ export default function CommunauteScreen() {
               post={item}
               onPress={() => openPost(item.id)}
               onOpenAuthor={() =>
-                router.push(`/(tabs)/accueil/communaute/u/${item.author.handle}`)
+                router.push(`/(tabs)/communaute/u/${item.author.handle}`)
               }
               onToggleLike={() => like(item)}
             />

@@ -122,7 +122,7 @@ export default function BourseScreen() {
         </Pressable>
         <Text className="flex-1 font-poppins-bold text-screen text-forest">Bourse</Text>
         <Pressable
-          onPress={() => router.push('/(tabs)/accueil/communaute/bourse/mes-annonces')}
+          onPress={() => router.push('/(tabs)/communaute/bourse/mes-annonces')}
           hitSlop={8}
           accessibilityRole="button"
         >
@@ -172,7 +172,7 @@ export default function BourseScreen() {
           renderItem={({ item }) => (
             <ListingCard
               listing={item}
-              onPress={() => router.push(`/(tabs)/accueil/communaute/bourse/${item.id}`)}
+              onPress={() => router.push(`/(tabs)/communaute/bourse/${item.id}`)}
             />
           )}
         />
