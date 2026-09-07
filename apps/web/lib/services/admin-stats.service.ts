@@ -362,6 +362,127 @@ async function opsStats(): Promise<OpsStats> {
   }
 }
 
+// ─── Communauté ────────────────────────────────────────────────────────────
+
+/**
+ * Les indicateurs de la communauté.
+ *
+ * Les proportions sont exposées en **numérateur et dénominateur**, jamais en
+ * ratio : la page les met en forme avec son helper `pct`, et un dénominateur
+ * nommé à l'écran évite de lire « 40 % » comme une tendance quand il porte sur
+ * trois publications.
+ */
+export type CommunityStats = {
+  enabledProfiles: number
+  posts: number
+  postsByWeek: WeekPoint[]
+  /**
+   * Publications ayant reçu au moins un cœur ou un commentaire dans les 48
+   * heures, et publications **assez vieilles pour être jugées**.
+   *
+   * Inclure celle d'il y a une heure ferait plonger le taux pour une raison
+   * étrangère au produit — même écueil que les cohortes de rétention.
+   */
+  engagedPosts: number
+  judgedPosts: number
+  activeListings: number
+  /** Annonces terminées, et annonces closes d'une façon ou d'une autre. */
+  doneListings: number
+  closedListings: number
+  threads: number
+  /** Annonces ayant pu recevoir un fil — le dénominateur de la moyenne. */
+  openableListings: number
+  openReports: number
+  reports: number
+  /** Contenus publiés, toutes natures confondues : la base du taux pour mille. */
+  publishedContents: number
+}
+
+async function communityStats(now: Date): Promise<CommunityStats> {
+  const weeks = lastWeeks(SIGNUP_WEEKS, now)
+  const since = new Date(`${weeks[0]}T00:00:00.000Z`)
+
+  // Les publications de plus de 48 heures : les seules dont on puisse dire si
+  // elles ont trouvé leur public.
+  const judgedBefore = new Date(now.getTime() - 48 * 3_600_000)
+
+  const [
+    enabledProfiles,
+    posts,
+    postRows,
+    engaged,
+    judged,
+    activeListings,
+    doneListings,
+    closedListings,
+    threads,
+    listingsWithThreads,
+    openReports,
+    reports,
+  ] = await Promise.all([
+    prisma.user.count({ where: { communityEnabled: true, disabledAt: null } }),
+    prisma.post.count({ where: { status: { not: 'deleted' } } }),
+    prisma.$queryRaw<{ week: Date; count: number }[]>(Prisma.sql`
+      SELECT date_trunc('week', "createdAt" AT TIME ZONE 'UTC')::date AS week,
+             COUNT(*)::int AS count
+      FROM posts
+      WHERE "createdAt" >= ${since} AND status <> 'deleted'
+      GROUP BY 1
+      ORDER BY 1
+    `),
+    // Une réaction **dans les 48 heures** : un cœur reçu six mois plus tard ne
+    // dit rien de la vitalité du fil au moment où la photo a été postée.
+    prisma.$queryRaw<{ count: number }[]>(Prisma.sql`
+      SELECT COUNT(DISTINCT p.id)::int AS count
+      FROM posts p
+      WHERE p.status <> 'deleted'
+        AND p."createdAt" <= ${judgedBefore}
+        AND (
+          EXISTS (
+            SELECT 1 FROM post_likes l
+            WHERE l."postId" = p.id
+              AND l."createdAt" <= p."createdAt" + interval '48 hours'
+          )
+          OR EXISTS (
+            SELECT 1 FROM comments c
+            WHERE c."postId" = p.id
+              AND c."createdAt" <= p."createdAt" + interval '48 hours'
+          )
+        )
+    `),
+    prisma.post.count({
+      where: { status: { not: 'deleted' }, createdAt: { lte: judgedBefore } },
+    }),
+    prisma.listing.count({ where: { status: { in: ['active', 'reserved'] } } }),
+    prisma.listing.count({ where: { status: 'done' } }),
+    prisma.listing.count({ where: { status: { in: ['done', 'expired'] } } }),
+    prisma.listingThread.count(),
+    // Le dénominateur des fils par annonce : les annonces qui ont **pu** en
+    // recevoir, c'est-à-dire toutes sauf les supprimées.
+    prisma.listing.count({ where: { status: { not: 'deleted' } } }),
+    prisma.report.count({ where: { status: 'open' } }),
+    prisma.report.count(),
+  ])
+
+  return {
+    enabledProfiles,
+    posts,
+    postsByWeek: fillWeeks(weeks, postRows),
+    engagedPosts: engaged[0]?.count ?? 0,
+    judgedPosts: judged,
+    activeListings,
+    doneListings,
+    closedListings,
+    threads,
+    openableListings: listingsWithThreads,
+    openReports,
+    reports,
+    // Publications et annonces : c'est sur elles que se rapporte le taux de
+    // signalement, et non sur les commentaires, qu'on ne « publie » pas.
+    publishedContents: posts + listingsWithThreads,
+  }
+}
+
 // ─── Assemblage ────────────────────────────────────────────────────────────
 
 export type AdminStats = {
@@ -370,18 +491,20 @@ export type AdminStats = {
   retention: RetentionPoint[]
   garden: GardenStats
   ai: AiStats
+  community: CommunityStats
   ops: OpsStats
   generatedAt: string
 }
 
 /** Sans cache — c'est cette fonction que les tests appellent. */
 export async function computeStats(now: Date = new Date()): Promise<AdminStats> {
-  const [accounts, active, retentionPoints, garden, ai, ops] = await Promise.all([
+  const [accounts, active, retentionPoints, garden, ai, community, ops] = await Promise.all([
     accountStats(now),
     activeStats(now),
     retention(now),
     gardenStats(now),
     aiStats(now),
+    communityStats(now),
     opsStats(),
   ])
 
@@ -391,6 +514,7 @@ export async function computeStats(now: Date = new Date()): Promise<AdminStats> 
     retention: retentionPoints,
     garden,
     ai,
+    community,
     ops,
     generatedAt: now.toISOString(),
   }

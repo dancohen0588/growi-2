@@ -16,7 +16,7 @@ export default async function AdminHomePage() {
   await requireAdmin()
 
   const stats = await getAdminStats()
-  const { accounts, active, retention, garden, ai, ops } = stats
+  const { accounts, active, retention, garden, ai, community, ops } = stats
 
   return (
     <>
@@ -251,6 +251,80 @@ export default async function AdminHomePage() {
             caption="12 dernières semaines"
           />
         </Panel>
+      </Section>
+
+      {/* ─── Communauté ──────────────────────────────────────────────── */}
+      <Section title="Communauté">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <KpiCard
+            label="Profils publics activés"
+            value={community.enabledProfiles}
+            hint={`${pct(community.enabledProfiles, accounts.onboarded)} des comptes onboardés.`}
+          />
+          <KpiCard label="Publications" value={community.posts} />
+          <KpiCard
+            label="Publications ayant reçu une réaction"
+            value={pct(community.engagedPosts, community.judgedPosts)}
+            // Le dénominateur est nommé : sans lui, « 40 % » sur trois
+            // publications se lirait comme une tendance.
+            hint={
+              community.judgedPosts === 0
+                ? 'Aucune publication de plus de 48 h.'
+                : `Cœur ou commentaire sous 48 h, sur ${community.judgedPosts} publication(s) assez ancienne(s) pour être jugée(s).`
+            }
+          />
+        </div>
+
+        <Panel title="Publications par semaine">
+          <WeeklyChart
+            weeks={community.postsByWeek.map((p) => p.week)}
+            series={[
+              {
+                label: 'Publications',
+                color: CHART_COLORS.lime,
+                points: community.postsByWeek.map((p) => p.value),
+              },
+            ]}
+            caption="26 dernières semaines"
+          />
+        </Panel>
+
+        <div className="grid gap-4 sm:grid-cols-4">
+          <KpiCard label="Annonces en ligne" value={community.activeListings} />
+          <KpiCard
+            label="Échanges aboutis"
+            value={pct(community.doneListings, community.closedListings)}
+            hint={`${community.doneListings} annonce(s) terminée(s) sur ${community.closedListings} close(s).`}
+          />
+          <KpiCard
+            label="Discussions par annonce"
+            value={
+              community.openableListings > 0
+                ? (community.threads / community.openableListings).toFixed(1)
+                : '—'
+            }
+          />
+          <KpiCard
+            label="Signalements pour 1 000 contenus"
+            value={
+              community.publishedContents > 0
+                ? ((community.reports * 1000) / community.publishedContents).toFixed(1)
+                : '—'
+            }
+            hint={
+              community.openReports > 0 ? (
+                <Link
+                  href="/admin/signalements"
+                  className="text-forest underline hover:no-underline"
+                >
+                  {community.openReports} en attente
+                </Link>
+              ) : (
+                'Rien en attente.'
+              )
+            }
+          />
+        </div>
       </Section>
 
       {/* ─── Exploitation ────────────────────────────────────────────── */}

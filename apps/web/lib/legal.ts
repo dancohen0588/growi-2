@@ -113,6 +113,47 @@ export const DATA_COLLECTED = [
       'Plafonner l\'identification photo depuis la page publique : chaque analyse a un coût, et sans compte il n\'y a rien d\'autre à compter.',
     retention: 'Au plus 24 h : les compteurs de la veille sont effacés.',
   },
+  {
+    category: 'Profil public',
+    items:
+      'Si tu actives la communauté : pseudo, présentation, avatar, ville, compteurs d\'abonnés et de publications.',
+    why: 'Te rendre identifiable des jardiniers proches, et te permettre de les suivre.',
+    retention:
+      'Jusqu\'à la désactivation du profil public — qui le rend invisible sans rien effacer — ou la suppression du compte.',
+  },
+  {
+    category: 'Position approchée',
+    items:
+      'Une position volontairement imprécise, calculée à partir de la tienne et décalée d\'environ un kilomètre. Elle est recopiée dans chaque publication et chaque annonce.',
+    why:
+      'Situer tes contenus dans le fil des jardiniers voisins. Ni ton adresse ni ta position exacte ne sont partagées : les autres ne voient qu\'une distance arrondie.',
+    retention: 'Jusqu\'à la désactivation du profil public ou la suppression du compte.',
+  },
+  {
+    category: 'Contenus de la communauté',
+    items:
+      'Publications et leurs photos, commentaires, cœurs, abonnements, annonces de la bourse et messages échangés à leur sujet.',
+    why: 'Faire vivre le fil local et la bourse d\'échange entre jardiniers.',
+    retention:
+      'Jusqu\'à ta suppression du contenu ou du compte. Les annonces expirent d\'elles-mêmes au bout de 60 jours.',
+  },
+  {
+    category: 'Modération',
+    items:
+      'Signalements que tu émets ou qui visent tes contenus — motif, note libre, date — et blocages que tu poses.',
+    why:
+      'Traiter les abus, masquer un contenu signalé par plusieurs personnes, et faire respecter les règles de la communauté.',
+    retention:
+      'Jusqu\'à la suppression du compte. Les blocages disparaissent si tu les retires.',
+  },
+  {
+    category: 'Notifications de la communauté',
+    items:
+      'Les notifications reçues — nouvel abonné, commentaire, message — avec leur texte figé et leur date.',
+    why: 'Te dire ce que tu as manqué depuis ta dernière visite.',
+    retention:
+      '90 jours après lecture. Les notifications non lues sont conservées jusqu\'à ce que tu les consultes.',
+  },
 ] as const
 
 /**

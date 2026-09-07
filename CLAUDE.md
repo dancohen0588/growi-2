@@ -962,13 +962,21 @@ données » décrit l'accès d'administration et le journal ; elle doit suivre t
 la page affirmait « aucun outil de mesure d'audience tiers », ce que son ajout
 a rendu faux.
 
-> ⚠️ **Les CGU et la politique de confidentialité n'ont pas encore été mises à
-> jour pour la communauté**, alors que du contenu devient public et qu'une
-> position approchée est partagée. À faire **avant** toute ouverture : données
-> rendues publiques, position floutée, règles d'échange (pas d'argent, espèces
-> protégées, plantes invasives, produits phytosanitaires), modération et
-> masquage, rencontres physiques. La rédaction revient à Dan ; la spec ne la
-> couvre pas.
+**CGU et confidentialité.** Les deux pages couvrent la communauté : profil
+public et ce qu'il rend visible, position floutée, règles d'échange (pas
+d'argent, espèces protégées, plantes invasives, produits phytosanitaires),
+signalement, blocage et modération, rencontres en personne. Le tableau
+`DATA_COLLECTED` de `lib/legal.ts` porte cinq catégories de plus.
+
+> ⚠️ Une clause des CGU affirmait « **nous ne les publions nulle part** » à
+> propos des contenus déposés. C'était vrai tant que Growi était strictement
+> individuel ; la communauté l'a rendue fausse. La distinction contenus privés
+> (jardins, plantes, journal, diagnostics) / contenus publiés (publications,
+> commentaires, annonces, profil) est désormais la charnière de la section
+> « Tes contenus ». **Ne pas la reperdre** en réécrivant cette page.
+>
+> Ces textes n'ont **pas été relus par un juriste** : la relecture reste à
+> faire avant l'ouverture.
 
 **Premier administrateur** — seule voie, volontairement manuelle (aucune règle
 « premier inscrit = admin ») :
@@ -1010,8 +1018,15 @@ pnpm --filter web admin:promote dan0588@gmail.com
 #### Fiche utilisateur et actions
 
 - **Un seul onglet est rendu à la fois**, l'onglet vivant dans l'URL
-  (`?onglet=`). Charger les six pour n'en montrer qu'un rendrait la fiche d'un
+  (`?onglet=`). Charger les sept pour n'en montrer qu'un rendrait la fiche d'un
   compte fourni lente alors qu'on ne cherchait qu'un email.
+- L'onglet **Communauté** montre le profil public, les signalements reçus, les
+  publications et les annonces. Les contenus **supprimés par leur auteur** en
+  sont exclus — ils n'existent plus pour personne, et les montrer ferait de
+  l'administration un endroit où l'on relit ce que quelqu'un a effacé. Ceux qui
+  sont **masqués** y figurent : c'est précisément ce qu'on vient vérifier. La
+  position affichée est la **floutée**, celle que voient les autres. Le contenu
+  des messages privés d'un fil d'annonce n'y est jamais lisible.
 - **Les trois niveaux de réinitialisation ne s'emboîtent pas.** Le niveau 2
   purge les tâches **ouvertes** (`doneAt IS NULL`) — les tâches faites sont des
   faits ; le niveau 3 efface les cinq colonnes `last*At` des plantes, qui ne
@@ -1049,11 +1064,17 @@ courbe sans rien casser de visible.
   courbe qui saute ces semaines ment sur la forme de la croissance.
 - Les cohortes de **moins de cinq semaines sont exclues** de la rétention :
   leur fenêtre d'observation n'est pas close, et les afficher ferait plonger la
-  courbe à droite pour une raison étrangère au produit.
+  courbe à droite pour une raison étrangère au produit. Même écueil, même
+  parade, pour le taux de réaction de la communauté : il n'est calculé que sur
+  les publications de **plus de 48 heures**.
+- **Les proportions sont exposées en numérateur et dénominateur**, jamais en
+  ratio : la page les met en forme avec son helper `pct`, et un dénominateur
+  nommé à l'écran évite de lire « 40 % » comme une tendance quand il porte sur
+  trois publications.
 - **Ce SQL échappe au typecheck et aux tests unitaires**, qui doublent Prisma.
-  Seul le parcours e2e du tableau de bord l'atteste, en le faisant tourner
-  contre Postgres. Ne pas supprimer `22-admin-kpis.spec.ts` en pensant qu'il
-  fait double emploi.
+  Seuls les parcours e2e l'attestent, en le faisant tourner contre Postgres. Ne
+  supprimer ni `22-admin-kpis.spec.ts` ni `26-admin-communaute.spec.ts` en
+  pensant qu'ils font double emploi.
 - Graphes **en SVG écrit à la main**, sans bibliothèque : quelques barres ne
   valent pas les ~500 Ko de `recharts`, qui imposerait en plus un composant
   client là où tout le reste de l'admin est rendu côté serveur.
