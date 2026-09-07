@@ -16,6 +16,8 @@ import type { Href } from 'expo-router'
 export interface NotificationTargetLike {
   screen?: unknown
   postId?: unknown
+  threadId?: unknown
+  listingId?: unknown
   handle?: unknown
 }
 
@@ -30,9 +32,9 @@ type ScreenKey = keyof typeof SCREENS
 /**
  * La destination d'une notification, ou `null` si rien n'est reconnu.
  *
- * L'ordre compte : une cible précise l'emporte sur un nom d'écran. Un
- * commentaire porte les deux, et ouvrir la publication vaut mieux qu'ouvrir le
- * fil.
+ * L'ordre compte : du plus précis au plus vague. Une notification de message
+ * porte à la fois `threadId`, `listingId` et `handle` — ouvrir la discussion
+ * vaut mieux qu'ouvrir l'annonce, qui vaut mieux qu'ouvrir un profil.
  */
 export function notificationRoute(data: unknown): Href | null {
   if (typeof data !== 'object' || data === null) return null
@@ -41,6 +43,14 @@ export function notificationRoute(data: unknown): Href | null {
 
   if (typeof target.postId === 'string' && target.postId) {
     return `/(tabs)/accueil/communaute/publications/${target.postId}` as Href
+  }
+
+  if (typeof target.threadId === 'string' && target.threadId) {
+    return `/(tabs)/accueil/communaute/messages/${target.threadId}` as Href
+  }
+
+  if (typeof target.listingId === 'string' && target.listingId) {
+    return `/(tabs)/accueil/communaute/bourse/${target.listingId}` as Href
   }
 
   if (typeof target.handle === 'string' && target.handle) {

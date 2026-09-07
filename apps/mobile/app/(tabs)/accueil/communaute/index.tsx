@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { ChevronLeft, Plus } from 'lucide-react-native'
+import { ChevronLeft, MessageSquare, Plus, Sprout } from 'lucide-react-native'
 import type { CommunityPost, CommunityRadiusKm, FeedScope } from '@growi/shared'
 import { COMMUNITY_RADII_KM, COMMUNITY_RADIUS_LABELS } from '@growi/shared'
 
@@ -183,6 +183,26 @@ export default function CommunauteScreen() {
           <ChevronLeft size={26} color="#1E5631" />
         </Pressable>
         <Text className="flex-1 font-poppins-bold text-screen text-forest">Communauté</Text>
+
+        {/* La bourse et les messages sont les deux autres destinations de la
+            communauté : elles vivent dans l'en-tête plutôt que dans un second
+            segment, qui se disputerait la place avec les deux fils. */}
+        <Pressable
+          onPress={() => router.push('/(tabs)/accueil/communaute/messages')}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Mes messages"
+        >
+          <MessageSquare size={24} color="#1E5631" />
+        </Pressable>
+        <Pressable
+          onPress={() => router.push('/(tabs)/accueil/communaute/bourse')}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="La bourse aux graines"
+        >
+          <Sprout size={24} color="#1E5631" />
+        </Pressable>
       </View>
 
       {feed.isPending ? (

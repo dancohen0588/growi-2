@@ -36,6 +36,7 @@ import type {
   CreateCareLogInput,
   CreateCommentInput,
   CreateGardenInput,
+  CreateListingInput,
   CreatePlantInstanceInput,
   CreatePostInput,
   CreateReportInput,
@@ -53,6 +54,14 @@ import type {
   HandleAvailability,
   HealthStatus,
   LikeResult,
+  Listing,
+  ListingFilters,
+  ListingMessage,
+  ListingMessagePage,
+  ListingPage,
+  ListingThread,
+  ListingThreadDetail,
+  ListingThreadPage,
   IdentifyApiResponse,
   MarkActionDoneInput,
   MobileLoginInput,
@@ -64,6 +73,7 @@ import type {
   PlantInstanceWithRelations,
   RegisterPushTokenInput,
   ReportReceipt,
+  SendListingMessageInput,
   SendMessageInput,
   SocialLoginInput,
   SocialProvider,
@@ -71,6 +81,7 @@ import type {
   UpdateAlertConfigInput,
   UpdateCommunitySettingsInput,
   UpdateGardenInput,
+  UpdateListingInput,
   UpdatePlantInstanceInput,
   UpdatePostInput,
   UpdateProfileInput,
@@ -719,6 +730,111 @@ export class GrowiApiClient {
       this.http.request(`/api/v1/community/comments/${encodeURIComponent(commentId)}`, {
         ...options,
         method: 'DELETE',
+      }),
+
+    // ── Bourse aux graines ────────────────────────────────────────────────
+
+    /** La bourse autour de soi. Filtres et rayon sont tous facultatifs. */
+    listings: (
+      params?: ListingFilters & { cursor?: string },
+      options?: CallOptions,
+    ): Promise<ListingPage> =>
+      this.http.request('/api/v1/community/listings', {
+        ...options,
+        query: {
+          kind: params?.kind,
+          category: params?.category,
+          radiusKm: params?.radiusKm,
+          cursor: params?.cursor,
+        },
+      }),
+
+    /** Mes annonces — y compris expirées, qu'on doit pouvoir prolonger. */
+    myListings: (params?: { cursor?: string }, options?: CallOptions): Promise<ListingPage> =>
+      this.http.request('/api/v1/community/listings/mine', {
+        ...options,
+        query: { cursor: params?.cursor },
+      }),
+
+    createListing: (input: CreateListingInput, options?: CallOptions): Promise<Listing> =>
+      this.http.request('/api/v1/community/listings', {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
+
+    getListing: (listingId: string, options?: CallOptions): Promise<Listing> =>
+      this.http.request(`/api/v1/community/listings/${encodeURIComponent(listingId)}`, {
+        ...options,
+      }),
+
+    /** Texte, statut (`active` / `reserved` / `done`) et prolongation. */
+    updateListing: (
+      listingId: string,
+      input: UpdateListingInput,
+      options?: CallOptions,
+    ): Promise<Listing> =>
+      this.http.request(`/api/v1/community/listings/${encodeURIComponent(listingId)}`, {
+        ...options,
+        method: 'PATCH',
+        body: input,
+      }),
+
+    deleteListing: (listingId: string, options?: CallOptions): Promise<void> =>
+      this.http.request(`/api/v1/community/listings/${encodeURIComponent(listingId)}`, {
+        ...options,
+        method: 'DELETE',
+      }),
+
+    /** « Je suis intéressé » — ouvre le fil, ou rouvre le sien. */
+    expressInterest: (listingId: string, options?: CallOptions): Promise<ListingThread> =>
+      this.http.request(
+        `/api/v1/community/listings/${encodeURIComponent(listingId)}/interest`,
+        { ...options, method: 'POST' },
+      ),
+
+    /** Les intéressés d'une annonce — réservé à son auteur. */
+    listingThreads: (listingId: string, options?: CallOptions): Promise<ListingThread[]> =>
+      this.http.request(
+        `/api/v1/community/listings/${encodeURIComponent(listingId)}/threads`,
+        { ...options },
+      ),
+
+    /** Mes fils, les deux rôles confondus. */
+    threads: (
+      params?: { cursor?: string },
+      options?: CallOptions,
+    ): Promise<ListingThreadPage> =>
+      this.http.request('/api/v1/community/threads', {
+        ...options,
+        query: { cursor: params?.cursor },
+      }),
+
+    /** Le fil et ses premiers messages. Marque la lecture au passage. */
+    getThread: (threadId: string, options?: CallOptions): Promise<ListingThreadDetail> =>
+      this.http.request(`/api/v1/community/threads/${encodeURIComponent(threadId)}`, {
+        ...options,
+      }),
+
+    threadMessages: (
+      threadId: string,
+      params?: { cursor?: string },
+      options?: CallOptions,
+    ): Promise<ListingMessagePage> =>
+      this.http.request(`/api/v1/community/threads/${encodeURIComponent(threadId)}/messages`, {
+        ...options,
+        query: { cursor: params?.cursor },
+      }),
+
+    sendThreadMessage: (
+      threadId: string,
+      input: SendListingMessageInput,
+      options?: CallOptions,
+    ): Promise<ListingMessage> =>
+      this.http.request(`/api/v1/community/threads/${encodeURIComponent(threadId)}/messages`, {
+        ...options,
+        method: 'POST',
+        body: input,
       }),
   }
 

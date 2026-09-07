@@ -14,9 +14,16 @@ import type {
   CommunityProfile,
   CommunityUserPage,
   CreateCommentInput,
+  CreateListingInput,
   CreatePostInput,
   CreateReportInput,
+  ListingFilters,
+  ListingMessagePage,
+  ListingPage,
+  ListingThreadPage,
+  SendListingMessageInput,
   UpdateCommunitySettingsInput,
+  UpdateListingInput,
 } from '@growi/shared'
 import { HANDLE_MIN_LENGTH } from '@growi/shared'
 
@@ -242,6 +249,149 @@ export function useMarkNotificationsRead() {
     onSuccess: (result) => {
       queryClient.setQueryData(communityKeys.unread(), result)
       void queryClient.invalidateQueries({ queryKey: communityKeys.notifications() })
+    },
+  })
+}
+
+// ─── Bourse aux graines ────────────────────────────────────────────────────
+
+export function useListings(filters: ListingFilters) {
+  return useInfiniteQuery({
+    queryKey: communityKeys.listings(filters),
+    queryFn: ({ pageParam }) =>
+      api.community.listings({ ...filters, cursor: pageParam ?? undefined }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: ListingPage) => last.nextCursor ?? undefined,
+  })
+}
+
+/** Mes annonces — y compris expirées, qu'on doit pouvoir prolonger. */
+export function useMyListings() {
+  return useInfiniteQuery({
+    queryKey: communityKeys.myListings(),
+    queryFn: ({ pageParam }) => api.community.myListings({ cursor: pageParam ?? undefined }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: ListingPage) => last.nextCursor ?? undefined,
+  })
+}
+
+export function useListing(listingId: string) {
+  return useQuery({
+    queryKey: communityKeys.listing(listingId),
+    queryFn: () => api.community.getListing(listingId),
+    enabled: listingId.length > 0,
+  })
+}
+
+export function useCreateListing() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: CreateListingInput) => api.community.createListing(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: communityKeys.all })
+    },
+  })
+}
+
+export function useUpdateListing(listingId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: UpdateListingInput) => api.community.updateListing(listingId, input),
+    onSuccess: (listing) => {
+      queryClient.setQueryData(communityKeys.listing(listingId), listing)
+      // Le statut change ce que la bourse montre, et « mes annonces » aussi.
+      void queryClient.invalidateQueries({ queryKey: communityKeys.all })
+    },
+  })
+}
+
+export function useDeleteListing() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (listingId: string) => api.community.deleteListing(listingId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: communityKeys.all })
+    },
+  })
+}
+
+/** Les intéressés d'une annonce — vue de son auteur. */
+export function useListingThreads(listingId: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: communityKeys.listingThreads(listingId),
+    queryFn: () => api.community.listingThreads(listingId),
+    enabled: (options?.enabled ?? true) && listingId.length > 0,
+  })
+}
+
+/** « Je suis intéressé » — ouvre le fil, ou rouvre le sien. */
+export function useExpressInterest(listingId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => api.community.expressInterest(listingId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: communityKeys.listing(listingId) })
+      void queryClient.invalidateQueries({ queryKey: communityKeys.threads() })
+    },
+  })
+}
+
+// ─── Fils de discussion ────────────────────────────────────────────────────
+
+export function useThreads() {
+  return useInfiniteQuery({
+    queryKey: communityKeys.threads(),
+    queryFn: ({ pageParam }) => api.community.threads({ cursor: pageParam ?? undefined }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: ListingThreadPage) => last.nextCursor ?? undefined,
+  })
+}
+
+/**
+ * Le fil et ses premiers messages.
+ *
+ * L'appel **marque la lecture** côté serveur : la liste des fils est donc
+ * invalidée derrière, sans quoi son badge resterait allumé.
+ */
+export function useThread(threadId: string) {
+  const queryClient = useQueryClient()
+
+  return useQuery({
+    queryKey: communityKeys.thread(threadId),
+    queryFn: async () => {
+      const thread = await api.community.getThread(threadId)
+      void queryClient.invalidateQueries({ queryKey: communityKeys.threads() })
+      void queryClient.invalidateQueries({ queryKey: communityKeys.unread() })
+      return thread
+    },
+    enabled: threadId.length > 0,
+  })
+}
+
+export function useThreadMessages(threadId: string) {
+  return useInfiniteQuery({
+    queryKey: communityKeys.threadMessages(threadId),
+    queryFn: ({ pageParam }) =>
+      api.community.threadMessages(threadId, { cursor: pageParam ?? undefined }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: ListingMessagePage) => last.nextCursor ?? undefined,
+    enabled: threadId.length > 0,
+  })
+}
+
+export function useSendThreadMessage(threadId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: SendListingMessageInput) =>
+      api.community.sendThreadMessage(threadId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: communityKeys.threadMessages(threadId) })
+      void queryClient.invalidateQueries({ queryKey: communityKeys.threads() })
     },
   })
 }

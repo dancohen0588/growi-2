@@ -7,6 +7,15 @@ import {
   HANDLE_MAX_LENGTH,
   HANDLE_MIN_LENGTH,
   HANDLE_PATTERN,
+  LISTING_AUTHOR_STATUSES,
+  LISTING_DESCRIPTION_MAX_LENGTH,
+  LISTING_MESSAGE_MAX_LENGTH,
+  LISTING_QUANTITY_MAX_LENGTH,
+  LISTING_TITLE_MAX_LENGTH,
+  LISTING_WANTS_MAX_LENGTH,
+  listingCategorySchema,
+  listingKindSchema,
+  listingStatusSchema,
   notificationKindSchema,
   POST_BODY_MAX_LENGTH,
   POST_MAX_PHOTOS,
@@ -333,6 +342,148 @@ export const communityHomeSchema = z.object({
 
 export type CommunityHome = z.infer<typeof communityHomeSchema>
 
+// ─── Bourse aux graines ────────────────────────────────────────────────────
+
+/**
+ * Une annonce, telle qu'affichée dans la bourse et sur son détail.
+ *
+ * Comme les publications : ni `lat`, ni `lng`, seulement la distance déjà mise
+ * en forme sur `author`.
+ */
+export const listingSchema = z.object({
+  id: idSchema,
+  author: communityUserSchema,
+  kind: listingKindSchema,
+  category: listingCategorySchema,
+  title: z.string(),
+  description: nullish(z.string()),
+  photoUrl: nullish(z.string()),
+  /** Espèce du catalogue, si l'auteur l'a identifiée. */
+  catalogPlantId: nullish(z.string()),
+  /** Texte libre : « ~30 graines », « 3 plants ». */
+  quantity: nullish(z.string()),
+  /** Ce que l'auteur souhaite en retour, sur une annonce d'échange. */
+  wants: nullish(z.string()),
+  status: listingStatusSchema,
+  /** Nombre d'intéressés — visible de l'auteur seul, `null` pour les autres. */
+  threadCount: z.number().int().nullable(),
+  expiresAt: isoDateTimeSchema,
+  isMine: z.boolean(),
+  /**
+   * Le fil que **ce lecteur** a déjà ouvert sur cette annonce, s'il y en a un :
+   * le CTA devient « Reprendre la discussion » au lieu d'en rouvrir un.
+   */
+  myThreadId: nullish(z.string()),
+  createdAt: isoDateTimeSchema,
+})
+
+export type Listing = z.infer<typeof listingSchema>
+
+export const listingPageSchema = cursorPageSchema(listingSchema)
+export type ListingPage = z.infer<typeof listingPageSchema>
+
+/** Corps de `POST /api/v1/community/listings`. */
+export const createListingSchema = z.object({
+  kind: listingKindSchema,
+  category: listingCategorySchema,
+  title: z.string().trim().min(1).max(LISTING_TITLE_MAX_LENGTH),
+  description: nullish(z.string().trim().max(LISTING_DESCRIPTION_MAX_LENGTH)),
+  /** Déposée par `/api/v1/uploads` (kind `listing`) avant cet appel. */
+  photoUrl: nullish(z.string()),
+  catalogPlantId: nullish(idSchema),
+  quantity: nullish(z.string().trim().max(LISTING_QUANTITY_MAX_LENGTH)),
+  wants: nullish(z.string().trim().max(LISTING_WANTS_MAX_LENGTH)),
+})
+
+export type CreateListingInput = z.infer<typeof createListingSchema>
+
+/**
+ * Corps de `PATCH …/listings/[id]`.
+ *
+ * `status` n'accepte que les trois valeurs que l'auteur peut poser :
+ * `expired` est l'affaire de la tournée quotidienne, `hidden` celle de la
+ * modération, et `deleted` passe par `DELETE`.
+ */
+export const updateListingSchema = z.object({
+  title: z.string().trim().min(1).max(LISTING_TITLE_MAX_LENGTH).optional(),
+  description: nullish(z.string().trim().max(LISTING_DESCRIPTION_MAX_LENGTH)),
+  quantity: nullish(z.string().trim().max(LISTING_QUANTITY_MAX_LENGTH)),
+  wants: nullish(z.string().trim().max(LISTING_WANTS_MAX_LENGTH)),
+  status: z.enum(LISTING_AUTHOR_STATUSES).optional(),
+  /** `true` repart pour 60 jours à compter de maintenant. */
+  extend: z.boolean().optional(),
+})
+
+export type UpdateListingInput = z.infer<typeof updateListingSchema>
+
+/** Filtres de la bourse, lus depuis l'URL. */
+export const listingFiltersSchema = z.object({
+  kind: listingKindSchema.optional(),
+  category: listingCategorySchema.optional(),
+  radiusKm: communityRadiusSchema.optional(),
+})
+
+export type ListingFilters = z.infer<typeof listingFiltersSchema>
+
+// ─── Fils de discussion ────────────────────────────────────────────────────
+
+export const listingMessageSchema = z.object({
+  id: idSchema,
+  threadId: idSchema,
+  /** Vrai si c'est moi qui l'ai écrit — la bulle change de côté. */
+  isMine: z.boolean(),
+  body: z.string(),
+  photoUrl: nullish(z.string()),
+  createdAt: isoDateTimeSchema,
+})
+
+export type ListingMessage = z.infer<typeof listingMessageSchema>
+
+export const listingMessagePageSchema = cursorPageSchema(listingMessageSchema)
+export type ListingMessagePage = z.infer<typeof listingMessagePageSchema>
+
+/**
+ * Un fil, tel qu'il apparaît dans « Messages ».
+ *
+ * `listing` y est réduit à ce qu'il faut pour la vignette : le fil reste
+ * lisible même si l'annonce a été retirée depuis.
+ */
+export const listingThreadSchema = z.object({
+  id: idSchema,
+  listingId: idSchema,
+  listingTitle: z.string(),
+  listingPhotoUrl: nullish(z.string()),
+  listingStatus: listingStatusSchema,
+  /** L'autre personne — l'auteur si je suis l'intéressé, et l'inverse. */
+  other: communityUserSchema,
+  /** Suis-je l'auteur de l'annonce ? */
+  isOwner: z.boolean(),
+  lastMessage: nullish(z.string()),
+  lastMessageAt: nullish(isoDateTimeSchema),
+  /** Vrai s'il s'est dit quelque chose depuis ma dernière lecture. */
+  unread: z.boolean(),
+  createdAt: isoDateTimeSchema,
+})
+
+export type ListingThread = z.infer<typeof listingThreadSchema>
+
+export const listingThreadPageSchema = cursorPageSchema(listingThreadSchema)
+export type ListingThreadPage = z.infer<typeof listingThreadPageSchema>
+
+/** Le fil et sa première page de messages — écran 6. */
+export const listingThreadDetailSchema = listingThreadSchema.extend({
+  messages: listingMessagePageSchema,
+})
+
+export type ListingThreadDetail = z.infer<typeof listingThreadDetailSchema>
+
+export const sendListingMessageSchema = z.object({
+  body: z.string().trim().min(1).max(LISTING_MESSAGE_MAX_LENGTH),
+  photoUrl: nullish(z.string()),
+})
+
+export type SendListingMessageInput = z.infer<typeof sendListingMessageSchema>
+
 // ─── Notifications ─────────────────────────────────────────────────────────
 
 /**
@@ -346,6 +497,9 @@ export type CommunityHome = z.infer<typeof communityHomeSchema>
  */
 export const notificationTargetSchema = z.object({
   postId: nullish(z.string()),
+  /** Fil de discussion d'une annonce. */
+  threadId: nullish(z.string()),
+  listingId: nullish(z.string()),
   /** Pseudo de l'acteur, pour ouvrir son profil. */
   handle: nullish(z.string()),
 })

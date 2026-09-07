@@ -36,6 +36,11 @@ export default function AccueilLayout() {
       <Stack.Screen name="communaute/u/[handle]/index" />
       <Stack.Screen name="communaute/u/[handle]/abonnes" />
       <Stack.Screen name="communaute/u/[handle]/abonnements" />
+      <Stack.Screen name="communaute/bourse/index" />
+      <Stack.Screen name="communaute/bourse/[id]" />
+      <Stack.Screen name="communaute/bourse/mes-annonces" />
+      <Stack.Screen name="communaute/messages/index" />
+      <Stack.Screen name="communaute/messages/[threadId]" />
     </Stack>
   )
 }

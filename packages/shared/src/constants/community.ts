@@ -118,6 +118,119 @@ export const FEED_PAGE_SIZE = 20
  */
 export const FEED_WIDEN_BELOW = 10
 
+// ─── Bourse aux graines ────────────────────────────────────────────────────
+
+/**
+ * `Listing.kind` — ce que l'annonce propose.
+ *
+ * Pas de vente en v1 : l'échange **gratuit** de semences entre jardiniers
+ * amateurs est autorisé en France, la vente est encadrée par le catalogue
+ * officiel. Rester sur le don et le troc évite Stripe, la fiscalité et la
+ * responsabilité de plateforme tant que la base d'utilisateurs est petite.
+ */
+export const LISTING_KINDS = ['give', 'swap', 'seek'] as const
+export const listingKindSchema = z.enum(LISTING_KINDS)
+export type ListingKind = z.infer<typeof listingKindSchema>
+
+export const LISTING_KIND_LABELS: Record<ListingKind, string> = {
+  give: 'Je donne',
+  swap: 'J’échange',
+  seek: 'Je cherche',
+}
+
+/** `Listing.category`. */
+export const LISTING_CATEGORIES = ['seeds', 'plants', 'cuttings', 'harvest', 'tools'] as const
+export const listingCategorySchema = z.enum(LISTING_CATEGORIES)
+export type ListingCategory = z.infer<typeof listingCategorySchema>
+
+export const LISTING_CATEGORY_LABELS: Record<ListingCategory, string> = {
+  seeds: 'Graines',
+  plants: 'Plants',
+  cuttings: 'Boutures',
+  harvest: 'Récoltes',
+  tools: 'Matériel',
+}
+
+/**
+ * Icône de chaque catégorie, par son **nom** seulement — comme les gestes
+ * d'entretien : le web la relie à `lucide-react`, le mobile à
+ * `lucide-react-native`.
+ */
+export const LISTING_CATEGORY_ICONS: Record<ListingCategory, string> = {
+  seeds: 'sprout',
+  plants: 'leaf',
+  cuttings: 'scissors',
+  harvest: 'shopping-basket',
+  tools: 'shovel',
+}
+
+/**
+ * `Listing.status`.
+ *
+ * `reserved` n'est pas `done` : convenir d'un rendez-vous n'est pas l'avoir
+ * honoré, et une annonce réservée doit pouvoir revenir en `active` si
+ * l'échange ne se fait pas.
+ */
+export const LISTING_STATUSES = [
+  'active',
+  'reserved',
+  'done',
+  'expired',
+  'hidden',
+  'deleted',
+] as const
+export const listingStatusSchema = z.enum(LISTING_STATUSES)
+export type ListingStatus = z.infer<typeof listingStatusSchema>
+
+export const LISTING_STATUS_LABELS: Record<ListingStatus, string> = {
+  active: 'En ligne',
+  reserved: 'Réservée',
+  done: 'Terminée',
+  expired: 'Expirée',
+  hidden: 'Masquée',
+  deleted: 'Supprimée',
+}
+
+/** Les seuls statuts que l'auteur peut poser lui-même. */
+export const LISTING_AUTHOR_STATUSES = ['active', 'reserved', 'done'] as const
+
+export const LISTING_TITLE_MAX_LENGTH = 80
+export const LISTING_DESCRIPTION_MAX_LENGTH = 1000
+export const LISTING_QUANTITY_MAX_LENGTH = 80
+export const LISTING_WANTS_MAX_LENGTH = 200
+export const LISTING_MESSAGE_MAX_LENGTH = 1000
+
+/**
+ * Durée de vie d'une annonce, en jours.
+ *
+ * Une bourse pleine d'annonces d'il y a huit mois ne vaut rien : on préfère
+ * demander à l'auteur s'il veut prolonger. Le rappel part une semaine avant.
+ */
+export const LISTING_EXPIRY_DAYS = 60
+export const LISTING_EXPIRY_REMINDER_DAYS = 7
+
+/** Annonces par page de la bourse. */
+export const LISTINGS_PAGE_SIZE = 20
+
+/**
+ * Premier message envoyé à l'ouverture d'un fil.
+ *
+ * Écrit par le serveur, pas par le client : c'est ce qui garantit que l'auteur
+ * reçoit toujours quelque chose de lisible, même si l'intéressé ne trouve pas
+ * ses mots.
+ */
+export const LISTING_FIRST_MESSAGE = 'Bonjour, ton annonce m’intéresse !'
+
+/**
+ * Bandeau affiché au premier message d'un fil.
+ *
+ * Les échanges se font en main propre, entre inconnus : le dire une fois, au
+ * moment où le rendez-vous se prépare, vaut mieux que de l'enterrer dans les
+ * CGU.
+ */
+export const LISTING_SAFETY_NOTICE =
+  'Privilégie un lieu public pour l’échange. Growi ne gère aucun paiement.'
+
 // ─── Statut d'un contenu ───────────────────────────────────────────────────
 
 /**
@@ -198,6 +311,8 @@ export const NOTIFICATION_KINDS = [
   'comment',
   'listing_interest',
   'listing_message',
+  /** Rappel J‑7 — la seule notification sans acteur : c'est le calendrier. */
+  'listing_expiring',
 ] as const
 export const notificationKindSchema = z.enum(NOTIFICATION_KINDS)
 export type NotificationKind = z.infer<typeof notificationKindSchema>

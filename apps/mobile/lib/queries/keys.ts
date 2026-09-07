@@ -87,6 +87,17 @@ export const communityKeys = {
     [...communityKeys.all, 'profile', handle, direction] as const,
   notifications: () => [...communityKeys.all, 'notifications'] as const,
   unread: () => [...communityKeys.all, 'unread'] as const,
+  /** La bourse dépend de ses filtres : en changer repart d'une première page. */
+  listings: (filters: { kind?: string; category?: string; radiusKm?: number }) =>
+    [...communityKeys.all, 'listings', filters.kind ?? 'tous', filters.category ?? 'toutes', filters.radiusKm ?? 0] as const,
+  myListings: () => [...communityKeys.all, 'listings', 'mine'] as const,
+  listing: (listingId: string) => [...communityKeys.all, 'listing', listingId] as const,
+  listingThreads: (listingId: string) =>
+    [...communityKeys.all, 'listing', listingId, 'threads'] as const,
+  threads: () => [...communityKeys.all, 'threads'] as const,
+  thread: (threadId: string) => [...communityKeys.all, 'thread', threadId] as const,
+  threadMessages: (threadId: string) =>
+    [...communityKeys.all, 'thread', threadId, 'messages'] as const,
   home: () => [...communityKeys.all, 'home'] as const,
   post: (postId: string) => [...communityKeys.all, 'post', postId] as const,
   comments: (postId: string) => [...communityKeys.all, 'post', postId, 'comments'] as const,

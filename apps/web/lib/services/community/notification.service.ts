@@ -119,7 +119,7 @@ export async function notifyFollow(
     userId: targetUserId,
     actorId: actor.id,
     kind: 'follow',
-    target: { handle: actor.handle, postId: null },
+    target: { handle: actor.handle, postId: null, threadId: null, listingId: null },
     preview: `${who} s’est abonné à ton jardin`,
     push: { title: 'Un nouvel abonné 🌿', body: `${who} suit désormais ton jardin.` },
   })
@@ -140,7 +140,7 @@ export async function notifyComment(
     userId: post.userId,
     actorId: actor.id,
     kind: 'comment',
-    target: { postId: post.id, handle: actor.handle },
+    target: { postId: post.id, handle: actor.handle, threadId: null, listingId: null },
     preview: `${who} a commenté ta publication : « ${excerpt} »`,
     push: { title: `${who} a commenté 💬`, body: excerpt },
   })
@@ -205,17 +205,110 @@ export async function notifyLike(
   }
 }
 
+/** Quelqu'un s'est déclaré intéressé par une annonce. */
+export async function notifyListingInterest(
+  actor: { id: string; handle: string | null },
+  listing: { id: string; userId: string; title: string },
+  threadId: string,
+): Promise<void> {
+  const who = actor.handle ?? 'Un jardinier'
+
+  await notify({
+    userId: listing.userId,
+    actorId: actor.id,
+    kind: 'listing_interest',
+    target: { threadId, listingId: listing.id, handle: actor.handle, postId: null },
+    preview: `${who} est intéressé par « ${listing.title} »`,
+    push: { title: `${who} est intéressé 🌱`, body: listing.title },
+  })
+}
+
+/** Un message dans un fil de discussion. */
+export async function notifyListingMessage(
+  actor: { id: string; handle: string | null },
+  recipientId: string,
+  thread: { threadId: string; listingId: string; listingTitle: string },
+  body: string,
+): Promise<void> {
+  const who = actor.handle ?? 'Un jardinier'
+  const excerpt = body.length > 80 ? `${body.slice(0, 79)}…` : body
+
+  await notify({
+    userId: recipientId,
+    actorId: actor.id,
+    kind: 'listing_message',
+    target: {
+      threadId: thread.threadId,
+      listingId: thread.listingId,
+      handle: actor.handle,
+      postId: null,
+    },
+    preview: `${who} — ${thread.listingTitle} : « ${excerpt} »`,
+    push: { title: who, body: excerpt },
+  })
+}
+
+/**
+ * L'annonce d'un utilisateur expire dans une semaine.
+ *
+ * Seule notification **sans acteur** : c'est le calendrier qui la déclenche,
+ * personne. `notify` exige un acteur pour écarter l'auto-notification ; on
+ * écrit donc la ligne directement, en passant `actorId` à `null`.
+ */
+export async function notifyListingExpiring(listing: {
+  id: string
+  userId: string
+  title: string
+}): Promise<void> {
+  try {
+    await prisma.notification.create({
+      data: {
+        userId: listing.userId,
+        actorId: null,
+        kind: 'listing_expiring',
+        target: {
+          listingId: listing.id,
+          postId: null,
+          threadId: null,
+          handle: null,
+        } as Prisma.InputJsonValue,
+        preview: `Ton annonce « ${listing.title} » expire dans une semaine`,
+      },
+    })
+
+    await sendToUser(listing.userId, {
+      title: 'Ton annonce expire bientôt ⏳',
+      body: `« ${listing.title} » sera retirée dans une semaine. Tu peux la prolonger.`,
+      sound: 'default',
+      // Pas d'interrupteur `alertConfig.community` ici : il s'agit de sa
+      // propre annonce, pas d'une sollicitation de quelqu'un d'autre. Le canal
+      // et les heures calmes, eux, sont respectés par `sendToUser`.
+      data: { kind: 'listing_expiring', listingId: listing.id },
+    })
+  } catch (error) {
+    console.error('[communauté] rappel d’expiration impossible :', error)
+  }
+}
+
 // ─── Lecture ───────────────────────────────────────────────────────────────
 
 function readTarget(value: Prisma.JsonValue): NotificationTarget {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return { postId: null, handle: null }
+  const empty: NotificationTarget = {
+    postId: null,
+    threadId: null,
+    listingId: null,
+    handle: null,
   }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return empty
 
   const record = value as Record<string, unknown>
+  const str = (key: string) => (typeof record[key] === 'string' ? (record[key] as string) : null)
+
   return {
-    postId: typeof record.postId === 'string' ? record.postId : null,
-    handle: typeof record.handle === 'string' ? record.handle : null,
+    postId: str('postId'),
+    threadId: str('threadId'),
+    listingId: str('listingId'),
+    handle: str('handle'),
   }
 }
 

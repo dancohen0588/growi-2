@@ -63,15 +63,18 @@ model User {
   followingCount     Int       @default(0)
   postCount          Int       @default(0)
 
-  following      Follow[]       @relation("follower")
-  followers      Follow[]       @relation("following")
-  blocksMade     Block[]        @relation("blocker")
-  blocksReceived Block[]        @relation("blocked")
-  notifications  Notification[]
-  reportsMade    Report[]       @relation("reporter")
-  posts          Post[]
-  postLikes      PostLike[]
-  comments       Comment[]
+  following          Follow[]         @relation("follower")
+  followers          Follow[]         @relation("following")
+  blocksMade         Block[]          @relation("blocker")
+  blocksReceived     Block[]          @relation("blocked")
+  notifications      Notification[]
+  reportsMade        Report[]         @relation("reporter")
+  posts              Post[]
+  postLikes          PostLike[]
+  comments           Comment[]
+  listings           Listing[]
+  threadsAsRequester ListingThread[]  @relation("requester")
+  listingMessages    ListingMessage[]
 
   accounts        Account[]
   activities      UserActivity[]
@@ -318,6 +321,7 @@ model PlantCatalog {
   /// * Sous-type pour la catégorie TREES_SHRUBS : CONIFER | DECIDUOUS | FRUIT | SHRUB
   treeType              String?
   plantInstances        PlantInstance[]
+  listings              Listing[]
 
   @@map("plant_catalog")
 }
@@ -779,6 +783,100 @@ model Comment {
   @@index([postId, createdAt])
   @@index([userId, createdAt])
   @@map("comments")
+}
+
+/// Annonce de la bourse aux graines — don, échange ou recherche.
+///
+/// Pas de vente en v1 : l'échange gratuit de semences entre amateurs est
+/// autorisé, la vente est encadrée par le catalogue officiel.
+model Listing {
+  id               String    @id @default(cuid())
+  userId           String
+  /// Voir LISTING_KINDS : give | swap | seek.
+  kind             String
+  /// Voir LISTING_CATEGORIES : seeds | plants | cuttings | harvest | tools.
+  category         String
+  title            String
+  description      String?
+  photoUrl         String?
+  /// Espèce du catalogue si l'auteur l'a identifiée — prépare les filtres par
+  /// espèce, sans les imposer aujourd'hui.
+  catalogPlantId   String?
+  /// Texte libre : « ~30 graines », « 3 plants ».
+  quantity         String?
+  /// Ce que l'auteur souhaite en retour, sur une annonce d'échange.
+  wants            String?
+  /// Voir LISTING_STATUSES.
+  status           String    @default("active")
+  /// Position **floutée**, recopiée de l'auteur à la publication — même
+  /// raisonnement que sur `Post`.
+  lat              Float
+  lng              Float
+  /// `createdAt` + 60 jours, prolongeable. Une bourse pleine d'annonces d'il y
+  /// a huit mois ne vaut rien.
+  expiresAt        DateTime  @db.Timestamptz(6)
+  /// Dernier rappel d'expiration envoyé, pour ne pas le répéter chaque jour.
+  expiryNotifiedAt DateTime? @db.Timestamptz(6)
+  /// Dénormalisé : l'auteur voit le nombre d'intéressés sur sa propre annonce.
+  threadCount      Int       @default(0)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  catalog PlantCatalog?   @relation(fields: [catalogPlantId], references: [id], onDelete: SetNull)
+  threads ListingThread[]
+
+  /// La bourse : statut, puis filtre de catégorie, puis tri antéchronologique.
+  @@index([status, category, createdAt])
+  @@index([userId, createdAt])
+  /// La tournée d'expiration : les annonces actives dont la date est passée.
+  @@index([status, expiresAt])
+  @@map("listings")
+}
+
+/// Un fil par (annonce, intéressé).
+///
+/// Distinct de `Conversation`, réservé au chat Growi et ancré sur une plante :
+/// les mélanger forcerait des colonnes nullables des deux côtés et brouillerait
+/// le quota IA, qui ne concerne que l'un des deux.
+model ListingThread {
+  id              String    @id @default(cuid())
+  listingId       String
+  /// Dénormalisé depuis `listing.userId`, pour indexer « mes fils » sans
+  /// jointure : l'écran Messages mêle les deux rôles.
+  ownerId         String
+  requesterId     String
+  lastMessageAt   DateTime? @db.Timestamptz(6)
+  /// Dernière lecture de chacun, pour le badge de non-lus.
+  ownerReadAt     DateTime? @db.Timestamptz(6)
+  requesterReadAt DateTime? @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+
+  listing   Listing          @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  requester User             @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  messages  ListingMessage[]
+
+  /// Un seul fil par intéressé et par annonce : « Je suis intéressé » rouvre
+  /// le sien plutôt que d'en empiler un nouveau.
+  @@unique([listingId, requesterId])
+  @@index([ownerId, lastMessageAt])
+  @@index([requesterId, lastMessageAt])
+  @@map("listing_threads")
+}
+
+model ListingMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  userId    String
+  body      String
+  photoUrl  String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  thread ListingThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@map("listing_messages")
 }
 
 /// Signalement d'un contenu ou d'un compte.

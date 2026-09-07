@@ -50,7 +50,7 @@ describe('notifyFollow', () => {
     expect(data.kind).toBe('follow')
     expect(data.preview).toContain('pierre')
     // La cible porte le pseudo : le tap ouvre le profil de l'acteur.
-    expect(data.target).toEqual({ handle: 'pierre', postId: null })
+    expect(data.target).toMatchObject({ handle: 'pierre', postId: null })
   })
 
   it('ne pousse pas quand l’utilisateur a coupé les abonnements', async () => {
@@ -97,7 +97,7 @@ describe('notifyComment', () => {
     // nouveau commentaire ».
     expect(data.preview.length).toBeLessThan(150)
     expect(data.preview).toContain('…')
-    expect(data.target).toEqual({ postId: 'post_1', handle: 'pierre' })
+    expect(data.target).toMatchObject({ postId: 'post_1', handle: 'pierre' })
   })
 
   it('pousse par défaut', async () => {
@@ -186,7 +186,12 @@ describe('listNotifications', () => {
 
     const page = await listNotifications(ME, null)
 
-    expect(page.items[0].target).toEqual({ postId: null, handle: null })
+    expect(page.items[0].target).toEqual({
+      postId: null,
+      threadId: null,
+      listingId: null,
+      handle: null,
+    })
   })
 })
 
