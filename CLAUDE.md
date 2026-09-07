@@ -1220,8 +1220,13 @@ cycle d'imports dès qu'une notification est écrite depuis le suivi.
 - La **liste noire est un filet, pas un rempart**. Recherche sur des mots
   entiers (sinon « pute » bloquerait « réputé » et « dispute »), aucune censure
   d'opinion, et le refus ne cite pas le terme.
-- **Pas de composeur web** : publier part d'une photo prise dans le jardin. Le
-  web sert à lire, réagir, suivre et discuter.
+- **On publie une annonce depuis le web, pas une publication.** Une annonce est
+  surtout du texte — titre, quantité, contrepartie, description — et sa photo
+  est facultative : elle se compose mieux au clavier. Une publication, elle,
+  part d'une à quatre photos prises sur le vif, et reste mobile.
+  `bourse/mes-annonces` existe pour la même raison que sur mobile : la bourse
+  est géographique et ne montre que ce qui est disponible, une annonce expirée
+  y serait introuvable.
 - `(public)/u/[handle]` et `/p/[id]` servent **les deux publics** ; une lecture
   anonyme n'emporte ni distance ni « j'aime ». Le `noindex` d'un contenu masqué
   est posé dans `generateMetadata`, là où l'on sait s'il est visible. Le sitemap
@@ -1255,6 +1260,7 @@ au-delà de cinq signalements ouverts, purge des notifications lues de plus de
 | `/dashboard/diagnostic` | Choix de la plante à diagnostiquer (le parcours vit sur sa fiche) |
 | `/dashboard/communaute` | Fil local et fil des abonnements |
 | `/dashboard/communaute/bourse` · `/bourse/[id]` | Bourse aux graines et détail d'une annonce |
+| `/dashboard/communaute/bourse/nouvelle` · `/mes-annonces` | Publier une annonce, et retrouver les siennes |
 | `/dashboard/communaute/messages` · `/messages/[threadId]` | Discussions rattachées aux annonces |
 | `/dashboard/communaute/notifications` | La cloche |
 | `/dashboard/parametres` | Profil + adresse autocomplete |

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { Plus } from 'lucide-react'
 import {
   LISTING_CATEGORIES,
   LISTING_CATEGORY_LABELS,
@@ -102,12 +103,21 @@ export default async function BoursePage({ searchParams }: { searchParams: Searc
             Don et troc uniquement — Growi ne gère aucun paiement.
           </p>
         </div>
-        <Link
-          href="/dashboard/communaute"
-          className="rounded-lg border border-forest/15 bg-white px-3 py-2 font-raleway text-sm text-forest hover:bg-sand"
-        >
-          Retour au fil
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/dashboard/communaute/bourse/mes-annonces"
+            className="rounded-lg border border-forest/15 bg-white px-3 py-2 font-raleway text-sm text-forest hover:bg-sand"
+          >
+            Mes annonces
+          </Link>
+          <Link
+            href="/dashboard/communaute/bourse/nouvelle"
+            className="inline-flex items-center gap-2 rounded-lg bg-lime px-4 py-2 font-raleway text-sm font-semibold text-forest hover:bg-lime/80"
+          >
+            <Plus size={16} aria-hidden />
+            Publier
+          </Link>
+        </div>
       </header>
 
       <div className="space-y-2">
@@ -148,7 +158,15 @@ export default async function BoursePage({ searchParams }: { searchParams: Searc
         <CommunityEmpty
           emoji="🌻"
           title="Rien dans ta bourse pour l’instant"
-          hint="Publie la première annonce de ton quartier depuis l’app mobile — des graines en trop suffisent."
+          hint="Publie la première annonce de ton quartier — des graines en trop suffisent."
+          action={
+            <Link
+              href="/dashboard/communaute/bourse/nouvelle"
+              className="rounded-lg bg-lime px-5 py-2.5 font-raleway text-sm font-semibold text-forest hover:bg-lime/80"
+            >
+              Publier une annonce
+            </Link>
+          }
         />
       ) : (
         <div className="space-y-3">

@@ -13,6 +13,7 @@
 import { revalidatePath } from 'next/cache'
 import {
   createCommentSchema,
+  createListingSchema,
   createReportSchema,
   sendListingMessageSchema,
   updateListingSchema,
@@ -117,6 +118,56 @@ export async function toggleBlockAction(handle: string, next: boolean): Promise<
 }
 
 // ─── Bourse ────────────────────────────────────────────────────────────────
+
+/**
+ * Publie une annonce depuis le web.
+ *
+ * Contrairement aux publications, une annonce se compose très bien au
+ * clavier : elle est surtout du texte — titre, quantité, contrepartie,
+ * description — et sa photo est facultative.
+ *
+ * La photo a déjà été déposée par `/api/v1/uploads` (kind `listing`) au moment
+ * où elle a été choisie : le formulaire ne transporte qu'une URL, et une photo
+ * abandonnée reste orpheline dans le stockage sans conséquence.
+ *
+ * Rend l'identifiant de l'annonce créée, pour que l'appelant y navigue.
+ */
+export async function createListingAction(
+  formData: FormData,
+): Promise<{ ok: true; listingId: string } | { ok: false; error: string }> {
+  try {
+    const userId = await requireUser()
+
+    const parsed = createListingSchema.safeParse({
+      kind: formData.get('kind'),
+      category: formData.get('category'),
+      title: formData.get('title'),
+      description: formData.get('description') || null,
+      photoUrl: formData.get('photoUrl') || null,
+      quantity: formData.get('quantity') || null,
+      // La contrepartie n'a de sens que sur un échange : ailleurs, elle est
+      // ignorée plutôt que refusée.
+      wants: formData.get('kind') === 'swap' ? formData.get('wants') || null : null,
+    })
+    if (!parsed.success) {
+      throw new ServiceError(
+        'INVALID_INPUT',
+        parsed.error.issues[0]?.message ?? 'Annonce invalide',
+      )
+    }
+
+    const listing = await listingService.createListing(userId, parsed.data)
+
+    revalidatePath('/dashboard/communaute/bourse')
+    revalidatePath('/dashboard/communaute/bourse/mes-annonces')
+
+    return { ok: true, listingId: listing.id }
+  } catch (err) {
+    if (isServiceError(err)) return { ok: false, error: err.message }
+    console.error('[communauté] création d’annonce en échec', err)
+    return { ok: false, error: 'Une erreur est survenue. Réessaie dans un instant.' }
+  }
+}
 
 export async function expressInterestAction(listingId: string): Promise<ActionResult> {
   return run(async (userId) => {

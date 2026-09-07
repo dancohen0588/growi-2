@@ -174,6 +174,60 @@ test.describe('Communauté — tableau de bord', () => {
     await expect(page.getByRole('button', { name: 'Je suis intéressé' })).toBeVisible()
   })
 
+  test('E2E-COMM-07 — On publie une annonce depuis le web', async ({ page }) => {
+    // La bourse est surtout du texte : ne pas pouvoir en composer une au
+    // clavier était un manque, pas une décision.
+    await loginAs(page, VIEWER_EMAIL, TEST_PASSWORD)
+
+    const response = await page.goto('/dashboard/communaute/bourse/nouvelle')
+    expect(response?.status()).toBe(200)
+
+    await page.getByRole('button', { name: 'J’échange' }).click()
+    await page.getByLabel('Titre').fill('Boutures de romarin e2e')
+    await page.getByLabel('Quantité (facultatif)').fill('3 boutures')
+    // Le champ de contrepartie n'apparaît que sur un échange.
+    await expect(page.getByLabel('En échange de (facultatif)')).toBeVisible()
+    await page.getByLabel('En échange de (facultatif)').fill('Des graines de basilic')
+
+    await page.getByRole('button', { name: 'Publier l’annonce' }).click()
+
+    // La création renvoie sur la fiche de l'annonce.
+    await page.waitForURL('**/dashboard/communaute/bourse/**', { timeout: 15_000 })
+    await expect(page.getByRole('heading', { name: 'Boutures de romarin e2e' })).toBeVisible()
+    await expect(page.getByText('Des graines de basilic')).toBeVisible()
+  })
+
+  test('E2E-COMM-08 — « Mes annonces » retrouve une annonce expirée', async ({ page }) => {
+    // C'est la raison d'être de cette page : la bourse ne montre que ce qui
+    // est disponible, et une annonce expirée y serait introuvable.
+    const author = await prisma.user.findUniqueOrThrow({ where: { email: AUTHOR_EMAIL } })
+    const expired = await prisma.listing.create({
+      data: {
+        userId: author.id,
+        kind: 'give',
+        category: 'plants',
+        title: 'Annonce expirée e2e',
+        status: 'expired',
+        lat: TOURS.lat,
+        lng: TOURS.lng,
+        expiresAt: new Date(Date.now() - 86_400_000),
+      },
+    })
+
+    try {
+      await loginAs(page, AUTHOR_EMAIL, TEST_PASSWORD)
+
+      await page.goto('/dashboard/communaute/bourse')
+      await expect(page.getByText('Annonce expirée e2e')).toHaveCount(0)
+
+      const response = await page.goto('/dashboard/communaute/bourse/mes-annonces')
+      expect(response?.status()).toBe(200)
+      await expect(page.getByText('Annonce expirée e2e')).toBeVisible()
+    } finally {
+      await prisma.listing.delete({ where: { id: expired.id } })
+    }
+  })
+
   test('E2E-COMM-06 — La navigation mène à la communauté', async ({ page }) => {
     await loginAs(page, VIEWER_EMAIL, TEST_PASSWORD)
     await page.goto('/dashboard')
