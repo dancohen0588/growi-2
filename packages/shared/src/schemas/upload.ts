@@ -7,8 +7,23 @@ import { z } from 'zod'
  * JSON : encoder une image en base64 l'alourdit d'un tiers pour rien.
  */
 
-/** À quoi la photo est destinée — le serveur en tire le chemin de rangement. */
-export const PHOTO_KINDS = ['plant', 'care-log', 'diagnosis', 'chat'] as const
+/**
+ * À quoi la photo est destinée — le serveur en tire le chemin de rangement.
+ *
+ * Les trois derniers sont les kinds de la communauté. Ce sont les seuls dont
+ * la photo est vue par d'autres que son auteur : le chemin reste préfixé par
+ * l'identifiant du propriétaire, mais le bucket étant public, une URL devinée
+ * suffirait à lire — d'où le nom aléatoire du fichier (voir `lib/storage.ts`).
+ */
+export const PHOTO_KINDS = [
+  'plant',
+  'care-log',
+  'diagnosis',
+  'chat',
+  'post',
+  'listing',
+  'avatar',
+] as const
 export const photoKindSchema = z.enum(PHOTO_KINDS)
 export type PhotoKind = z.infer<typeof photoKindSchema>
 

@@ -63,3 +63,16 @@ export const meKeys = {
   all: ['me'] as const,
   profile: () => [...meKeys.all, 'profile'] as const,
 }
+
+/**
+ * Communauté. Les profils publics sont indexés par **pseudo** et non par
+ * identifiant : c'est ce que porte l'URL, et donc ce dont dispose un écran
+ * ouvert depuis un lien ou une notification.
+ */
+export const communityKeys = {
+  all: ['community'] as const,
+  settings: () => [...communityKeys.all, 'settings'] as const,
+  profile: (handle: string) => [...communityKeys.all, 'profile', handle] as const,
+  handleCheck: (handle: string) => [...communityKeys.all, 'handle', handle] as const,
+  blocked: () => [...communityKeys.all, 'blocked'] as const,
+}

@@ -66,6 +66,18 @@ export async function getUserId(): Promise<string | null> {
 }
 
 /**
+ * Identifiant de l'utilisateur courant, sur une route **volontairement**
+ * lisible sans compte — le profil public d'un jardinier, une publication
+ * partagée par lien.
+ *
+ * Rigoureusement `getUserId()`, sous un nom qui dit l'intention : lu dans une
+ * route, `getUserId()` laisse croire à un oubli de `requireUserId()`. Un
+ * Bearer invalide reste une erreur ici aussi — présenter un jeton cassé n'est
+ * pas « visiter anonymement ».
+ */
+export const optionalUserId = getUserId
+
+/**
  * Identifiant de l'utilisateur courant.
  * @throws ServiceError('UNAUTHENTICATED') si la requête n'est pas authentifiée.
  */

@@ -11,45 +11,77 @@ datasource db {
 // ─── Auth ──────────────────────────────────────────────────────────────────
 
 model User {
-  id             String          @id @default(cuid())
-  name           String?
-  email          String          @unique
-  emailVerified  DateTime?       @db.Timestamptz(6)
-  image          String?
-  password       String?
-  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime        @default(now()) @updatedAt @db.Timestamptz(6)
-  firstName      String?
-  lastName       String?
-  plan           String          @default("FREE")
-  timezone       String          @default("Europe/Paris")
-  locationCity   String?
-  onboarded      Boolean         @default(false)
-  address        String?
-  gardenType     String?
-  avatarColor    String?
-  alertConfig    Json?
-  latitude       Float?
-  longitude      Float?
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime? @db.Timestamptz(6)
+  image         String?
+  password      String?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  firstName     String?
+  lastName      String?
+  plan          String    @default("FREE")
+  timezone      String    @default("Europe/Paris")
+  locationCity  String?
+  onboarded     Boolean   @default(false)
+  address       String?
+  gardenType    String?
+  avatarColor   String?
+  alertConfig   Json?
+  latitude      Float?
+  longitude     Float?
   /// Droits du compte — voir USER_ROLES dans @growi/shared : USER | ADMIN.
-  role           String          @default("USER")
+  role          String    @default("USER")
   /// Compte désactivé par un administrateur : connexion refusée, données conservées.
-  disabledAt     DateTime?       @db.Timestamptz(6)
+  disabledAt    DateTime? @db.Timestamptz(6)
   /// Dernière activité observée, toutes surfaces confondues.
   /// Mise à jour au plus une fois par heure (voir activity.service.ts).
-  lastSeenAt     DateTime?       @db.Timestamptz(6)
+  lastSeenAt    DateTime? @db.Timestamptz(6)
+
+  // ── Communauté (opt-in) ──────────────────────────────────────────────────
+  /// Pseudo public unique, 3 à 30 caractères `[a-z0-9_]`, normalisé en
+  /// minuscules à l'écriture. Nul tant que le profil public n'est pas activé.
+  /// Distinct de `name`/`firstName`, qui restent privés.
+  handle             String?   @unique
+  /// Présentation courte, ≤ 160 caractères.
+  bio                String?
+  /// Profil visible dans la communauté. Faux par défaut : l'opt-in est explicite,
+  /// y compris pour les comptes créés avant la fonctionnalité.
+  communityEnabled   Boolean   @default(false)
+  communityEnabledAt DateTime? @db.Timestamptz(6)
+  /// Position **floutée**, dérivée de latitude/longitude (voir community/geo.ts).
+  /// C'est la seule position que la communauté manipule ; `latitude`/`longitude`
+  /// ne sortent jamais d'une réponse API communautaire.
+  fuzzyLat           Float?
+  fuzzyLng           Float?
+  /// Rayon préféré du fil local, en km — 5 | 20 | 50.
+  communityRadiusKm  Int       @default(20)
+  /// Compteurs dénormalisés : un fil affiche des dizaines de profils, et trois
+  /// `COUNT` par carte ne tiendraient pas.
+  followerCount      Int       @default(0)
+  followingCount     Int       @default(0)
+  postCount          Int       @default(0)
+
+  following      Follow[]       @relation("follower")
+  followers      Follow[]       @relation("following")
+  blocksMade     Block[]        @relation("blocker")
+  blocksReceived Block[]        @relation("blocked")
+  notifications  Notification[]
+  reportsMade    Report[]       @relation("reporter")
+
   accounts        Account[]
   activities      UserActivity[]
   adminActions    AdminAuditLog[]  @relation("actor")
   contactMessages ContactMessage[]
   conversations   Conversation[]
-  diagnoses      Diagnosis[]
-  tasks          PlantTask[]
-  gardens        Garden[]
-  plantInstances PlantInstance[]
-  pushTokens     PushToken[]
-  refreshTokens  RefreshToken[]
-  sessions       Session[]
+  diagnoses       Diagnosis[]
+  tasks           PlantTask[]
+  gardens         Garden[]
+  plantInstances  PlantInstance[]
+  pushTokens      PushToken[]
+  refreshTokens   RefreshToken[]
+  sessions        Session[]
 
   @@index([role])
   @@index([createdAt])
@@ -596,12 +628,106 @@ model VerificationToken {
 /// réservées y cohabitent avec les empreintes : le plafond global du jour et
 /// le seau des requêtes dont l'adresse est inconnue.
 model IdentifyQuota {
-  ipHash String   @map("ip_hash")
+  ipHash String @map("ip_hash")
   /// Jour UTC au format `YYYY-MM-DD` : la remise à zéro est un changement de ligne.
   day    String
-  count  Int      @default(0)
+  count  Int    @default(0)
 
   @@id([ipHash, day])
   @@index([day])
   @@map("identify_quotas")
+}
+
+// ─── Communauté ────────────────────────────────────────────────────────────
+
+/// Abonnement **unilatéral et sans validation** : un profil public est public.
+/// Demander une acceptation ajouterait une file d'attente à gérer pour une
+/// valeur nulle tant que la base d'utilisateurs est petite.
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  /// « Qui me suit », dans l'ordre d'arrivée.
+  @@index([followingId, createdAt])
+  @@map("follows")
+}
+
+/// Blocage, appliqué **dans les deux sens** : le bloqué ne voit plus mes
+/// contenus et ne peut plus m'écrire, et je ne vois plus les siens. Poser le
+/// blocage rompt les abonnements existants ; le retirer ne les rétablit pas.
+model Block {
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  blocker User @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  /// Lecture symétrique : « qui m'a bloqué » filtre aussi mes lectures.
+  @@index([blockedId])
+  @@map("blocks")
+}
+
+/// Notification in-app. Le push, lui, est envoyé au moment de l'écriture et
+/// n'est pas rejoué : cette table est un journal consultable, pas une file.
+model Notification {
+  id        String    @id @default(cuid())
+  /// Destinataire.
+  userId    String
+  /// Voir NOTIFICATION_KINDS dans @growi/shared.
+  kind      String
+  /// Qui a déclenché. Volontairement **sans clé étrangère** : le texte affiché
+  /// est figé dans `preview`, il n'y a donc rien à rejoindre pour afficher la
+  /// ligne, et une notification survit à la suppression de son acteur.
+  actorId   String?
+  /// Cible du tap : { postId } | { listingId, threadId } | { userId }.
+  target    Json
+  /// Texte prêt à afficher, figé à l'écriture — l'acteur peut changer de pseudo
+  /// et le contenu être supprimé, la notification doit rester lisible.
+  preview   String
+  readAt    DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Sert la liste paginée comme le badge de non-lus.
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+/// Signalement d'un contenu ou d'un compte.
+///
+/// L'unicité `(reporterId, targetType, targetId)` est ce qui donne son sens au
+/// masquage automatique : le seuil compte des **personnes** distinctes, qu'un
+/// seul signaleur acharné ne peut donc pas atteindre.
+model Report {
+  id           String    @id @default(cuid())
+  reporterId   String
+  /// Voir REPORT_TARGETS : post | comment | listing | message | user.
+  targetType   String
+  targetId     String
+  /// Voir REPORT_REASONS.
+  reason       String
+  note         String?
+  /// Voir REPORT_STATUSES : open | actioned | dismissed.
+  status       String    @default("open")
+  /// Administrateur ayant tranché. Sans clé étrangère, comme AdminAuditLog.actorId.
+  reviewedById String?
+  reviewedAt   DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+
+  reporter User @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([reporterId, targetType, targetId])
+  /// File de modération : les signalements ouverts, les plus anciens d'abord.
+  @@index([status, createdAt])
+  /// Compte des signalements distincts d'un contenu, pour le seuil de masquage.
+  @@index([targetType, targetId])
+  @@map("reports")
 }

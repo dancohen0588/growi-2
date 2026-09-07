@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs'
 
 import { prisma } from '@/lib/prisma'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
+import { refreshFuzzyPosition } from '@/lib/services/community/profile.service'
 import { ServiceError } from '@/lib/services/errors'
 
 const PROFILE_SELECT = {
@@ -49,7 +50,13 @@ export function toProfile(user: ProfileRow): UserProfile {
     city: user.locationCity ?? undefined,
     avatarColor: user.avatarColor ?? undefined,
     gardenType: (user.gardenType ?? undefined) as UserProfile['gardenType'],
-    alertConfig: (user.alertConfig as AlertConfig | null) ?? DEFAULT_ALERT_CONFIG,
+    // Fusion, et non repli : une configuration enregistrée avant l'ajout d'une
+    // clé (`community`) la rendrait sinon absente du profil, et le réglage
+    // correspondant s'afficherait vide au lieu de sa valeur par défaut.
+    alertConfig: {
+      ...DEFAULT_ALERT_CONFIG,
+      ...((user.alertConfig as AlertConfig | null) ?? {}),
+    },
     latitude: user.latitude,
     longitude: user.longitude,
   }
@@ -83,9 +90,16 @@ export async function updateProfile(
     // Les conseils sont calculés avec la météo du lieu : déménager doit les
     // refaire, sans quoi l'utilisateur renseigne sa ville et ne voit rien
     // changer pendant six heures.
+    //
+    // La position floutée de la communauté suit le même déménagement : la
+    // laisser sur l'ancienne commune ferait afficher des distances fausses aux
+    // voisins, et rangerait les publications au mauvais endroit.
     if (input.latitude !== undefined || input.longitude !== undefined) {
       const gardens = await prisma.garden.findMany({ where: { userId }, select: { id: true } })
-      await Promise.all(gardens.map((garden) => invalidateGardenAdviceCache(garden.id)))
+      await Promise.all([
+        ...gardens.map((garden) => invalidateGardenAdviceCache(garden.id)),
+        refreshFuzzyPosition(userId, updated.latitude, updated.longitude),
+      ])
     }
 
     return toProfile(updated)

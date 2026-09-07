@@ -9,6 +9,24 @@ import { idSchema, isoDateTimeSchema, nullish } from './common'
 
 // ─── Configuration des alertes (User.alertConfig, colonne Json) ────────────
 
+/**
+ * Notifications de la communauté — sous-objet de `alertConfig`.
+ *
+ * Le cœur (`like`) n'y figure pas : il ne part jamais en push, quelle que soit
+ * la préférence. `follows` est le seul décoché par défaut — être suivi ne
+ * demande aucune réaction, contrairement à un commentaire ou un message.
+ *
+ * Attention : `updateAlertConfig` fusionne à **plat**. Un client qui ne veut
+ * changer que `follows` renvoie l'objet `community` entier.
+ */
+export const communityAlertConfigSchema = z.object({
+  comments: z.boolean(),
+  messages: z.boolean(),
+  follows: z.boolean(),
+})
+
+export type CommunityAlertConfig = z.infer<typeof communityAlertConfigSchema>
+
 export const alertConfigSchema = z.object({
   frostAlert: z.boolean(),
   frostThreshold: z.number().int().min(-5).max(5),
@@ -26,6 +44,7 @@ export const alertConfigSchema = z.object({
   quietHoursEnabled: z.boolean(),
   quietHoursStart: z.string().regex(/^\d{2}:\d{2}$/),
   quietHoursEnd: z.string().regex(/^\d{2}:\d{2}$/),
+  community: communityAlertConfigSchema,
 })
 
 export type AlertConfig = z.infer<typeof alertConfigSchema>
@@ -52,6 +71,7 @@ export const DEFAULT_ALERT_CONFIG: AlertConfig = {
   quietHoursEnabled: false,
   quietHoursStart: '22:00',
   quietHoursEnd: '07:00',
+  community: { comments: true, messages: true, follows: false },
 }
 
 // ─── Utilisateur ───────────────────────────────────────────────────────────

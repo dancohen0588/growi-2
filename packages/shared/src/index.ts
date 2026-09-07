@@ -11,6 +11,7 @@
 
 export * from './constants/enums'
 export * from './constants/weather'
+export * from './constants/community'
 export * from './schemas/common'
 export * from './schemas/user'
 export * from './schemas/garden'
@@ -27,3 +28,4 @@ export * from './schemas/auth'
 export * from './schemas/blog'
 export * from './schemas/chat'
 export * from './schemas/cadastre'
+export * from './schemas/community'

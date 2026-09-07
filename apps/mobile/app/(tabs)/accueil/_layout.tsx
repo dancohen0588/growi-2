@@ -9,6 +9,10 @@ import { Stack } from 'expo-router'
  * Le blog vit ici plutôt que dans un sixième onglet : on y arrive depuis les
  * « Conseils du moment » de l'accueil, et une barre à six entrées ne tiendrait
  * pas sur un iPhone SE.
+ *
+ * La communauté (`communaute/*`) suit le même raisonnement, pour la même
+ * raison : on y entre depuis l'accueil et depuis le profil, pas depuis un
+ * onglet qu'il faudrait prendre à « Identifier ».
  */
 export default function AccueilLayout() {
   return (
@@ -22,6 +26,10 @@ export default function AccueilLayout() {
       <Stack.Screen name="profil" options={{ presentation: 'modal' }} />
       <Stack.Screen name="conseils/index" />
       <Stack.Screen name="conseils/[slug]" />
+      {/* L'activation est une modale : elle s'ouvre depuis le profil, qui en
+          est déjà une, et depuis l'accueil. */}
+      <Stack.Screen name="communaute/activer" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="communaute/bloques" />
     </Stack>
   )
 }

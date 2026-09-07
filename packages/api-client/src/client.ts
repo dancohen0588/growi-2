@@ -12,26 +12,33 @@ import type {
   AddIdentifiedPlantInput,
   AlertConfig,
   AuthTokens,
+  BlockResult,
+  BlockedAccount,
   BlogListResponse,
   BlogPost,
   BlogTag,
   CareLog,
   CareLogs,
   ChatStreamEvent,
+  CommunityProfile,
+  CommunitySettings,
   Conversation,
   ConversationDetail,
   CreateCareLogInput,
   CreateGardenInput,
   CreatePlantInstanceInput,
+  CreateReportInput,
   DashboardSummary,
   DiagnoseApiResponse,
   DiagnoseRequest,
   DiagnosisDetail,
   DiagnosisListItem,
+  FollowResult,
   Garden,
   GardenPlan,
   GardenWeather,
   GardenWithStats,
+  HandleAvailability,
   HealthStatus,
   IdentifyApiResponse,
   MarkActionDoneInput,
@@ -43,11 +50,13 @@ import type {
   PhotoKind,
   PlantInstanceWithRelations,
   RegisterPushTokenInput,
+  ReportReceipt,
   SendMessageInput,
   SocialLoginInput,
   SocialProvider,
   TodayPlanning,
   UpdateAlertConfigInput,
+  UpdateCommunitySettingsInput,
   UpdateGardenInput,
   UpdatePlantInstanceInput,
   UpdateProfileInput,
@@ -499,6 +508,72 @@ export class GrowiApiClient {
         `/api/v1/conversations/${encodeURIComponent(conversationId)}/proposals/accept`,
         { ...options, method: 'POST', body: input },
       ),
+  }
+
+  /**
+   * Communauté — identité publique, abonnements, blocage, signalement.
+   *
+   * `getProfile` est la seule méthode qui aboutit sans jeton : un profil
+   * public se lit par lien, sans compte.
+   */
+  readonly community = {
+    /** Mes réglages : profil activé ou non, pseudo, rayon, compteurs. */
+    getSettings: (options?: CallOptions): Promise<CommunitySettings> =>
+      this.http.request('/api/v1/community/me', { ...options }),
+
+    /** Active, modifie ou désactive le profil public — même appel pour les trois. */
+    updateSettings: (
+      input: UpdateCommunitySettingsInput,
+      options?: CallOptions,
+    ): Promise<CommunitySettings> =>
+      this.http.request('/api/v1/community/me', { ...options, method: 'PATCH', body: input }),
+
+    /** Disponibilité d'un pseudo, à appeler à la frappe (avec `signal`). */
+    checkHandle: (handle: string, options?: CallOptions): Promise<HandleAvailability> =>
+      this.http.request('/api/v1/community/handles/check', { ...options, query: { handle } }),
+
+    getProfile: (handle: string, options?: CallOptions): Promise<CommunityProfile> =>
+      this.http.request(`/api/v1/community/users/${encodeURIComponent(handle)}`, {
+        ...options,
+      }),
+
+    /** Suivre. Idempotent : un double tap ne produit pas d'erreur. */
+    follow: (handle: string, options?: CallOptions): Promise<FollowResult> =>
+      this.http.request(`/api/v1/community/users/${encodeURIComponent(handle)}/follow`, {
+        ...options,
+        method: 'POST',
+      }),
+
+    unfollow: (handle: string, options?: CallOptions): Promise<FollowResult> =>
+      this.http.request(`/api/v1/community/users/${encodeURIComponent(handle)}/follow`, {
+        ...options,
+        method: 'DELETE',
+      }),
+
+    /** Bloquer — rompt aussi les abonnements dans les deux sens. */
+    block: (handle: string, options?: CallOptions): Promise<BlockResult> =>
+      this.http.request(`/api/v1/community/users/${encodeURIComponent(handle)}/block`, {
+        ...options,
+        method: 'POST',
+      }),
+
+    /** Débloquer. Ne rétablit aucun abonnement. */
+    unblock: (handle: string, options?: CallOptions): Promise<BlockResult> =>
+      this.http.request(`/api/v1/community/users/${encodeURIComponent(handle)}/block`, {
+        ...options,
+        method: 'DELETE',
+      }),
+
+    listBlocked: (options?: CallOptions): Promise<BlockedAccount[]> =>
+      this.http.request('/api/v1/community/blocks', { ...options }),
+
+    /** Signaler un contenu ou un compte. Idempotent. */
+    report: (input: CreateReportInput, options?: CallOptions): Promise<ReportReceipt> =>
+      this.http.request('/api/v1/community/reports', {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
   }
 
   /**

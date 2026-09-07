@@ -28,6 +28,21 @@ export function apiSuccessSchema<T extends z.ZodType>(dataSchema: T) {
   return z.object({ data: dataSchema })
 }
 
+/**
+ * Enveloppe des listes paginées par curseur.
+ *
+ * `nextCursor` est opaque et vaut `null` sur la dernière page — le client ne
+ * le construit jamais, il le renvoie tel quel. Un curseur plutôt qu'un
+ * `offset` : dans un fil antéchronologique, une publication arrivée entre
+ * deux pages décalerait toutes les suivantes.
+ */
+export function cursorPageSchema<T extends z.ZodType>(itemSchema: T) {
+  return z.object({
+    items: z.array(itemSchema),
+    nextCursor: z.string().nullable(),
+  })
+}
+
 /** Enveloppe d'erreur de l'API v1. */
 export const apiErrorSchema = z.object({
   error: z.object({
