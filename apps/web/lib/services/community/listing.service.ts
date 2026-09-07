@@ -422,6 +422,51 @@ export async function getListing(listingId: string, viewerId: string): Promise<L
   return toListing(listing, viewer, viewerId, threads.get(listingId) ?? null)
 }
 
+/**
+ * L'aperçu **public** d'une annonce, pour un lien partagé hors de l'app.
+ *
+ * Volontairement pauvre : ni distance — elle n'a de sens que rapportée à
+ * quelqu'un — ni description, ni auteur, ni moyen d'agir. Juste de quoi
+ * comprendre de quoi il s'agit, et décider de créer un compte.
+ *
+ * Seules les annonces `active` y répondent : partager le lien d'une annonce
+ * réservée ou terminée mènerait à une déception.
+ */
+export async function getPublicListingTeaser(listingId: string): Promise<{
+  id: string
+  kind: Listing['kind']
+  category: Listing['category']
+  title: string
+  photoUrl: string | null
+  city: string | null
+} | null> {
+  const listing = await prisma.listing.findFirst({
+    where: {
+      id: listingId,
+      status: 'active',
+      user: { disabledAt: null, communityEnabled: true },
+    },
+    select: {
+      id: true,
+      kind: true,
+      category: true,
+      title: true,
+      photoUrl: true,
+      user: { select: { locationCity: true } },
+    },
+  })
+  if (!listing) return null
+
+  return {
+    id: listing.id,
+    kind: listing.kind as Listing['kind'],
+    category: listing.category as Listing['category'],
+    title: listing.title,
+    photoUrl: listing.photoUrl,
+    city: listing.user.locationCity,
+  }
+}
+
 // ─── Fils de discussion ────────────────────────────────────────────────────
 
 const THREAD_INCLUDE = {

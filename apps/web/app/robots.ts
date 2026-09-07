@@ -10,7 +10,11 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/encyclopedie/'],
+        // `/u/` et `/p/` sont les deux faces publiques de la communauté : un
+        // profil et une publication se partagent par lien, et le `noindex`
+        // d'un contenu masqué est posé page par page (`generateMetadata`),
+        // là où l'on sait s'il est encore visible.
+        allow: ['/', '/encyclopedie/', '/u/', '/p/', '/a/'],
         disallow: ['/dashboard/', '/admin', '/api/', '/login', '/register'],
       },
     ],

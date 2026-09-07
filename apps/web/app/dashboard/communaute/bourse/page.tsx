@@ -1,0 +1,206 @@
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import {
+  LISTING_CATEGORIES,
+  LISTING_CATEGORY_LABELS,
+  LISTING_KINDS,
+  LISTING_KIND_LABELS,
+  LISTING_STATUS_LABELS,
+  listingCategorySchema,
+  listingKindSchema,
+  type Listing,
+} from '@growi/shared'
+
+import { auth } from '@/auth'
+import { CommunityDisabled, CommunityEmpty, MoreLink, Tag } from '@/components/community/bits'
+import { cn } from '@/lib/utils'
+import { listListings } from '@/lib/services/community/listing.service'
+import { getSettings } from '@/lib/services/community/profile.service'
+import { isServiceError } from '@/lib/services/errors'
+
+export const metadata: Metadata = {
+  title: 'Bourse aux graines — Growi',
+  description: 'Donne, échange ou cherche des graines, plants et boutures près de chez toi.',
+  robots: { index: false },
+}
+
+export const dynamic = 'force-dynamic'
+
+type SearchParams = Record<string, string | string[] | undefined>
+
+function readParam(params: SearchParams, key: string): string | undefined {
+  const raw = params[key]
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return value?.trim() || undefined
+}
+
+function link(params: SearchParams, patch: Record<string, string | undefined>): string {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries({ ...params, ...patch })) {
+    const single = Array.isArray(value) ? value[0] : value
+    if (single) query.set(key, single)
+  }
+  const suffix = query.toString()
+  return suffix ? `/dashboard/communaute/bourse?${suffix}` : '/dashboard/communaute/bourse'
+}
+
+function Chip({ href, label, active }: { href: string; label: string; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? 'true' : undefined}
+      className={cn(
+        'rounded-lg border px-3 py-1.5 font-raleway text-sm transition-colors',
+        active
+          ? 'border-forest bg-lime font-medium text-forest'
+          : 'border-forest/15 bg-white text-forest/60 hover:bg-sand',
+      )}
+    >
+      {label}
+    </Link>
+  )
+}
+
+export function ListingRow({ listing }: { listing: Listing }) {
+  return (
+    <Link
+      href={`/dashboard/communaute/bourse/${listing.id}`}
+      className="flex gap-4 rounded-2xl border border-forest/10 bg-white p-4 transition-colors hover:bg-sand/50"
+    >
+      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-sand-dark">
+        {listing.photoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={listing.photoUrl}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Tag tone="lime">{LISTING_KIND_LABELS[listing.kind]}</Tag>
+          {/* `active` est l'état normal : l'afficher n'apprendrait rien. */}
+          {listing.status !== 'active' && <Tag>{LISTING_STATUS_LABELS[listing.status]}</Tag>}
+        </div>
+
+        <p className="font-raleway font-medium text-forest">{listing.title}</p>
+
+        <p className="font-raleway text-xs text-forest/50">
+          {[
+            LISTING_CATEGORY_LABELS[listing.category],
+            listing.quantity,
+            listing.author.distanceLabel,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+      </div>
+    </Link>
+  )
+}
+
+export default async function BoursePage({ searchParams }: { searchParams: SearchParams }) {
+  const session = await auth()
+  if (!session?.user?.id) redirect('/login')
+
+  const settings = await getSettings(session.user.id)
+  if (!settings.enabled) {
+    return (
+      <div className="space-y-6">
+        <h1 className="font-poppins text-2xl font-semibold text-forest">Bourse aux graines</h1>
+        <CommunityDisabled />
+      </div>
+    )
+  }
+
+  const kindParsed = listingKindSchema.safeParse(readParam(searchParams, 'type'))
+  const categoryParsed = listingCategorySchema.safeParse(readParam(searchParams, 'categorie'))
+
+  let page
+  try {
+    page = await listListings(
+      session.user.id,
+      {
+        kind: kindParsed.success ? kindParsed.data : undefined,
+        category: categoryParsed.success ? categoryParsed.data : undefined,
+      },
+      readParam(searchParams, 'apres') ?? null,
+    )
+  } catch (err) {
+    if (isServiceError(err) && err.code === 'FORBIDDEN') return <CommunityDisabled />
+    throw err
+  }
+
+  return (
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-poppins text-2xl font-semibold text-forest">Bourse aux graines</h1>
+          <p className="font-raleway text-sm text-forest/60">
+            Don et troc uniquement — Growi ne gère aucun paiement.
+          </p>
+        </div>
+        <Link
+          href="/dashboard/communaute"
+          className="rounded-lg border border-forest/15 bg-white px-3 py-2 font-raleway text-sm text-forest hover:bg-sand"
+        >
+          Retour au fil
+        </Link>
+      </header>
+
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <Chip
+            href={link(searchParams, { type: undefined, apres: undefined })}
+            label="Tout"
+            active={!kindParsed.success}
+          />
+          {LISTING_KINDS.map((kind) => (
+            <Chip
+              key={kind}
+              href={link(searchParams, { type: kind, apres: undefined })}
+              label={LISTING_KIND_LABELS[kind]}
+              active={kindParsed.success && kindParsed.data === kind}
+            />
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Chip
+            href={link(searchParams, { categorie: undefined, apres: undefined })}
+            label="Toutes"
+            active={!categoryParsed.success}
+          />
+          {LISTING_CATEGORIES.map((category) => (
+            <Chip
+              key={category}
+              href={link(searchParams, { categorie: category, apres: undefined })}
+              label={LISTING_CATEGORY_LABELS[category]}
+              active={categoryParsed.success && categoryParsed.data === category}
+            />
+          ))}
+        </div>
+      </div>
+
+      {page.items.length === 0 ? (
+        <CommunityEmpty
+          emoji="🌻"
+          title="Rien dans ta bourse pour l’instant"
+          hint="Publie la première annonce de ton quartier depuis l’app mobile — des graines en trop suffisent."
+        />
+      ) : (
+        <div className="space-y-3">
+          {page.items.map((listing) => (
+            <ListingRow key={listing.id} listing={listing} />
+          ))}
+
+          {page.nextCursor && <MoreLink href={link(searchParams, { apres: page.nextCursor })} />}
+        </div>
+      )}
+    </div>
+  )
+}

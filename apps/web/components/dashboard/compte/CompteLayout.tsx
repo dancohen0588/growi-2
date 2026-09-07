@@ -3,18 +3,19 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, Bell } from 'lucide-react'
+import { User, Bell, Users } from 'lucide-react'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProfilForm } from './ProfilForm'
 import { AlertesForm } from './AlertesForm'
+import { CommunauteForm } from './CommunauteForm'
 import { useUserProfile } from '@/hooks/useUserProfile'
 
 interface CompteLayoutProps {
   initialSession: { firstName: string; email: string }
 }
 
-type TabValue = 'profil' | 'alertes'
+type TabValue = 'profil' | 'alertes' | 'communaute'
 
 export function CompteLayout({ initialSession }: CompteLayoutProps) {
   const router = useRouter()
@@ -25,7 +26,7 @@ export function CompteLayout({ initialSession }: CompteLayoutProps) {
   // Sync with URL hash on mount
   useEffect(() => {
     const hash = window.location.hash.replace('#', '')
-    if (hash === 'alertes') setActiveTab('alertes')
+    if (hash === 'alertes' || hash === 'communaute') setActiveTab(hash)
   }, [])
 
   function handleTabChange(value: string) {
@@ -59,6 +60,13 @@ export function CompteLayout({ initialSession }: CompteLayoutProps) {
           >
             <Bell size={15} aria-hidden />
             Mes alertes
+          </TabsTrigger>
+          <TabsTrigger
+            value="communaute"
+            className="flex items-center gap-2 px-4 py-2.5 font-raleway text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-lime data-[state=active]:text-forest data-[state=active]:font-semibold text-forest/60 hover:text-forest transition-colors bg-transparent shadow-none"
+          >
+            <Users size={15} aria-hidden />
+            Profil public
           </TabsTrigger>
         </TabsList>
 
@@ -109,6 +117,12 @@ export function CompteLayout({ initialSession }: CompteLayoutProps) {
               </div>
             )
           )}
+        </TabsContent>
+
+        {/* Rejoindre la communauté ou la quitter est un réglage de compte : il
+            vit ici, et non dans une page à part. */}
+        <TabsContent value="communaute" className="mt-6 animate-in fade-in-0 duration-200">
+          <CommunauteForm />
         </TabsContent>
       </Tabs>
     </div>

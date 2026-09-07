@@ -10,15 +10,19 @@ import {
   Stethoscope,
   CloudSun,
   UserCircle,
+  Users,
   Map,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
- * Les cinq premières entrées sont celles de l'app mobile, dans le même ordre
- * et avec les mêmes icônes — seule la dernière diffère d'un support à l'autre :
- * le diagnostic ici, l'identification photo là-bas. Elles forment aussi la
- * barre du bas en petit écran, d'où la limite de cinq.
+ * Les cinq premières entrées forment la barre du bas en petit écran, d'où la
+ * limite de cinq.
+ *
+ * Elles suivaient l'app mobile à l'identique ; « Communauté » y prend la place
+ * de « Diagnostic IA », qui reste accessible depuis la fiche d'une plante et
+ * depuis la colonne. Ce qu'on vient voir plusieurs fois par semaine mérite la
+ * barre du bas ; un diagnostic se fait quelques fois par an.
  */
 const PRIMARY_ITEMS = 5
 
@@ -27,12 +31,21 @@ const navItems = [
   { href: '/dashboard/jardin',       label: 'Mon jardin',    icon: Map },
   { href: '/dashboard/plantes',      label: 'Mes plantes',   icon: Leaf },
   { href: '/dashboard/calendrier',   label: 'Calendrier',    icon: CalendarDays },
+  { href: '/dashboard/communaute',   label: 'Communauté',    icon: Users },
   { href: '/dashboard/diagnostic',   label: 'Diagnostic IA', icon: Stethoscope },
   { href: '/dashboard/meteo',        label: 'Météo',         icon: CloudSun },
   // « Mon compte » porte aussi les réglages : profil et alertes y sont réunis,
   // il n'y a plus d'entrée « Paramètres ».
   { href: '/dashboard/compte',       label: 'Mon compte',    icon: UserCircle },
 ] as const
+
+/**
+ * `/dashboard` est un préfixe de toutes les autres routes : sans égalité
+ * stricte, l'accueil resterait surligné partout.
+ */
+function isActive(pathname: string, href: string): boolean {
+  return href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href)
+}
 
 export function DashboardNav() {
   const pathname = usePathname()
@@ -45,7 +58,9 @@ export function DashboardNav() {
         className="hidden md:flex flex-col w-56 shrink-0 py-6 gap-1 border-r border-forest/10 bg-white"
       >
         {navItems.map(({ href, label, icon: Icon }, index) => {
-          const active = pathname === href
+          // La communauté a des sous-pages : sans le préfixe, l'entrée se
+          // désurlignerait dès qu'on ouvre la bourse ou un message.
+          const active = isActive(pathname, href)
           return (
             <Link
               key={href}
@@ -74,7 +89,7 @@ export function DashboardNav() {
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-forest/10 flex items-center justify-around px-2 pb-safe"
       >
         {navItems.slice(0, PRIMARY_ITEMS).map(({ href, label, icon: Icon }) => {
-          const active = pathname === href
+          const active = isActive(pathname, href)
           return (
             <Link
               key={href}
