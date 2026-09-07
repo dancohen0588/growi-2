@@ -69,6 +69,9 @@ model User {
   blocksReceived Block[]        @relation("blocked")
   notifications  Notification[]
   reportsMade    Report[]       @relation("reporter")
+  posts          Post[]
+  postLikes      PostLike[]
+  comments       Comment[]
 
   accounts        Account[]
   activities      UserActivity[]
@@ -355,6 +358,7 @@ model PlantInstance {
   customWateringAdjFactor Float?
   alertsEnabled           Boolean        @default(true)
   careLogs                CareLog[]
+  communityPosts          Post[]
   conversations           Conversation[]
   diagnoses               Diagnosis[]
   tasks                   PlantTask[]
@@ -699,6 +703,82 @@ model Notification {
   /// Sert la liste paginée comme le badge de non-lus.
   @@index([userId, readAt, createdAt])
   @@map("notifications")
+}
+
+/// Publication du fil communautaire.
+model Post {
+  id              String   @id @default(cuid())
+  userId          String
+  /// Plante mise en avant, facultative. `SetNull` : supprimer la plante ne doit
+  /// pas emporter la publication, qui a sa vie propre — des cœurs, des
+  /// commentaires — chez d'autres que son auteur.
+  plantInstanceId String?
+  /// Nom affiché, **figé à la publication**. La plante peut être renommée ou
+  /// disparaître ; ce que les gens ont lu ne change pas.
+  plantLabel      String?
+  body            String
+  /// 1 à 4 URLs Supabase Storage. Json plutôt qu'une table : rien n'interroge
+  /// jamais une photo isolément.
+  photos          Json
+  /// Position **floutée**, recopiée de l'auteur au moment de la publication.
+  /// Recopiée et non jointe : déménager ne doit pas déplacer après coup une
+  /// photo prise dans l'ancien jardin.
+  lat             Float
+  lng             Float
+  /// Dénormalisés : le fil affiche vingt cartes, et deux `COUNT` par carte ne
+  /// tiendraient pas.
+  likeCount       Int      @default(0)
+  commentCount    Int      @default(0)
+  /// Voir CONTENT_STATUSES : visible | hidden (modération, ou profil désactivé)
+  /// | deleted.
+  status          String   @default("visible")
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plantInstance PlantInstance? @relation(fields: [plantInstanceId], references: [id], onDelete: SetNull)
+  likes         PostLike[]
+  comments      Comment[]
+
+  /// Les publications d'un compte, pour son profil public.
+  @@index([userId, createdAt])
+  /// Le fil : filtre sur `status`, puis tri antéchronologique.
+  @@index([status, createdAt])
+  @@map("posts")
+}
+
+/// Un cœur. Sans identifiant propre : la paire est la clé, ce qui rend le
+/// « j'aime » idempotent par construction.
+model PostLike {
+  postId    String
+  userId    String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  /// « Ai-je aimé ces vingt publications ? » en une requête.
+  @@index([userId])
+  @@map("post_likes")
+}
+
+/// Commentaire, **à plat** : pas de réponses imbriquées en v1.
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  body      String
+  /// Voir CONTENT_STATUSES.
+  status    String   @default("visible")
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@index([userId, createdAt])
+  @@map("comments")
 }
 
 /// Signalement d'un contenu ou d'un compte.

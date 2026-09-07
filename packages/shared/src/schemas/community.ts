@@ -2,16 +2,20 @@ import { z } from 'zod'
 
 import {
   BIO_MAX_LENGTH,
+  COMMENT_BODY_MAX_LENGTH,
   communityRadiusSchema,
   HANDLE_MAX_LENGTH,
   HANDLE_MIN_LENGTH,
   HANDLE_PATTERN,
+  POST_BODY_MAX_LENGTH,
+  POST_MAX_PHOTOS,
+  POST_MIN_PHOTOS,
   REPORT_NOTE_MAX_LENGTH,
   reportReasonSchema,
   reportTargetSchema,
   RESERVED_HANDLES,
 } from '../constants/community'
-import { idSchema, isoDateTimeSchema, nullish } from './common'
+import { cursorPageSchema, idSchema, isoDateTimeSchema, nullish } from './common'
 
 /**
  * Communauté Growi — contrats de la phase 0 : identité publique, graphe
@@ -176,6 +180,134 @@ export const blockedAccountSchema = z.object({
 })
 
 export type BlockedAccount = z.infer<typeof blockedAccountSchema>
+
+// ─── Publications ──────────────────────────────────────────────────────────
+
+/**
+ * Une publication telle qu'elle apparaît dans le fil.
+ *
+ * Ni `lat`, ni `lng`, ni même la position floutée : la proximité ne sort que
+ * sous la forme déjà mise en forme de `author.distanceLabel`.
+ */
+export const communityPostSchema = z.object({
+  id: idSchema,
+  author: communityUserSchema,
+  body: z.string(),
+  /** 1 à 4 URLs Supabase Storage. */
+  photos: z.array(z.string()),
+  /**
+   * Nom de la plante, **figé à la publication**. La plante peut être renommée
+   * ou supprimée ; la publication, elle, ne doit pas changer de sens.
+   */
+  plantLabel: nullish(z.string()),
+  /** `null` dès que la plante a été supprimée — la pastille cesse d'être tactile. */
+  plantInstanceId: nullish(z.string()),
+  likeCount: z.number().int(),
+  commentCount: z.number().int(),
+  /** `null` pour une lecture anonyme : personne n'est là pour aimer. */
+  likedByMe: z.boolean().nullable(),
+  /** Vrai sur ses propres publications : l'UI y montre « Supprimer ». */
+  isMine: z.boolean(),
+  createdAt: isoDateTimeSchema,
+})
+
+export type CommunityPost = z.infer<typeof communityPostSchema>
+
+/**
+ * Corps de `POST /api/v1/community/posts`.
+ *
+ * Les photos sont déposées avant, par `/api/v1/uploads` (kind `post`) : on ne
+ * reçoit ici que leurs URLs. Séparer les deux gestes fait qu'une photo
+ * abandonnée ne casse rien, et qu'une publication ne se perd pas parce qu'une
+ * image sur quatre a échoué.
+ */
+export const createPostSchema = z.object({
+  body: z.string().trim().max(POST_BODY_MAX_LENGTH),
+  photos: z.array(z.string().min(1)).min(POST_MIN_PHOTOS).max(POST_MAX_PHOTOS),
+  /** Plante mise en avant, facultative. */
+  plantInstanceId: nullish(idSchema),
+})
+
+export type CreatePostInput = z.infer<typeof createPostSchema>
+
+/**
+ * Corps de `PATCH …/posts/[id]` — le texte, et rien d'autre.
+ *
+ * Les photos ne se remplacent pas : un cœur déjà donné ne voudrait plus rien
+ * dire si l'image sous laquelle il a été donné pouvait changer.
+ */
+export const updatePostSchema = z.object({
+  body: z.string().trim().max(POST_BODY_MAX_LENGTH),
+})
+
+export type UpdatePostInput = z.infer<typeof updatePostSchema>
+
+export const communityCommentSchema = z.object({
+  id: idSchema,
+  author: communityUserSchema,
+  body: z.string(),
+  /** Vrai pour l'auteur du commentaire **et** pour celui de la publication. */
+  canDelete: z.boolean(),
+  createdAt: isoDateTimeSchema,
+})
+
+export type CommunityComment = z.infer<typeof communityCommentSchema>
+
+export const createCommentSchema = z.object({
+  body: z.string().trim().min(1).max(COMMENT_BODY_MAX_LENGTH),
+})
+
+export type CreateCommentInput = z.infer<typeof createCommentSchema>
+
+export const communityCommentPageSchema = cursorPageSchema(communityCommentSchema)
+export type CommunityCommentPage = z.infer<typeof communityCommentPageSchema>
+
+/** Détail d'une publication — écran 2, avec ses premiers commentaires. */
+export const communityPostDetailSchema = communityPostSchema.extend({
+  comments: communityCommentPageSchema,
+})
+
+export type CommunityPostDetail = z.infer<typeof communityPostDetailSchema>
+
+/** Réponse de `POST`/`DELETE …/like`. */
+export const likeResultSchema = z.object({
+  liked: z.boolean(),
+  likeCount: z.number().int(),
+})
+
+export type LikeResult = z.infer<typeof likeResultSchema>
+
+/**
+ * Une page du fil « Autour de moi ».
+ *
+ * `appliedRadiusKm` peut dépasser le rayon demandé : quand le voisinage
+ * immédiat est vide, le fil élargit de lui-même. L'écran doit le dire —
+ * afficher des publications à 50 km sans prévenir laisserait croire qu'un
+ * inconnu habite la rue d'à côté.
+ */
+export const communityFeedSchema = cursorPageSchema(communityPostSchema).extend({
+  requestedRadiusKm: communityRadiusSchema,
+  appliedRadiusKm: z.number().int(),
+  widened: z.boolean(),
+})
+
+export type CommunityFeed = z.infer<typeof communityFeedSchema>
+
+/**
+ * Ce que l'Accueil affiche de la communauté.
+ *
+ * Servi par une route **séparée** de `/api/v1/summary`, et chargé après elle :
+ * l'accueil est l'écran le plus consulté de l'app, et la communauté ne doit
+ * pas pouvoir en retarder l'affichage.
+ */
+export const communityHomeSchema = z.object({
+  /** Faux tant que le profil public n'est pas activé : l'accueil n'affiche alors rien. */
+  enabled: z.boolean(),
+  /** Les deux ou trois dernières publications proches. */
+  posts: z.array(communityPostSchema),
+})
+
+export type CommunityHome = z.infer<typeof communityHomeSchema>
 
 // ─── Signalement ───────────────────────────────────────────────────────────
 

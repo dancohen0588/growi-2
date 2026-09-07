@@ -20,13 +20,21 @@ import type {
   CareLog,
   CareLogs,
   ChatStreamEvent,
+  CommunityComment,
+  CommunityCommentPage,
+  CommunityFeed,
+  CommunityHome,
+  CommunityPost,
+  CommunityPostDetail,
   CommunityProfile,
   CommunitySettings,
   Conversation,
   ConversationDetail,
   CreateCareLogInput,
+  CreateCommentInput,
   CreateGardenInput,
   CreatePlantInstanceInput,
+  CreatePostInput,
   CreateReportInput,
   DashboardSummary,
   DiagnoseApiResponse,
@@ -40,6 +48,7 @@ import type {
   GardenWithStats,
   HandleAvailability,
   HealthStatus,
+  LikeResult,
   IdentifyApiResponse,
   MarkActionDoneInput,
   MobileLoginInput,
@@ -59,6 +68,7 @@ import type {
   UpdateCommunitySettingsInput,
   UpdateGardenInput,
   UpdatePlantInstanceInput,
+  UpdatePostInput,
   UpdateProfileInput,
   UploadedPhoto,
   UserProfile,
@@ -573,6 +583,92 @@ export class GrowiApiClient {
         ...options,
         method: 'POST',
         body: input,
+      }),
+
+    /**
+     * Le fil « Autour de moi ».
+     *
+     * `radiusKm` omis reprend le rayon des réglages. `cursor` est opaque : le
+     * renvoyer tel quel suffit, il emporte le rayon effectif si le fil s'est
+     * élargi de lui-même.
+     */
+    feed: (
+      params?: { radiusKm?: number; cursor?: string },
+      options?: CallOptions,
+    ): Promise<CommunityFeed> =>
+      this.http.request('/api/v1/community/feed', {
+        ...options,
+        query: { radiusKm: params?.radiusKm, cursor: params?.cursor },
+      }),
+
+    /** La carte « Autour de toi » de l'Accueil. */
+    home: (options?: CallOptions): Promise<CommunityHome> =>
+      this.http.request('/api/v1/community/home', { ...options }),
+
+    createPost: (input: CreatePostInput, options?: CallOptions): Promise<CommunityPost> =>
+      this.http.request('/api/v1/community/posts', {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
+
+    /** Détail et première page de commentaires. Lisible sans compte. */
+    getPost: (postId: string, options?: CallOptions): Promise<CommunityPostDetail> =>
+      this.http.request(`/api/v1/community/posts/${encodeURIComponent(postId)}`, {
+        ...options,
+      }),
+
+    /** Le texte seul : les photos d'une publication ne se remplacent pas. */
+    updatePost: (
+      postId: string,
+      input: UpdatePostInput,
+      options?: CallOptions,
+    ): Promise<CommunityPost> =>
+      this.http.request(`/api/v1/community/posts/${encodeURIComponent(postId)}`, {
+        ...options,
+        method: 'PATCH',
+        body: input,
+      }),
+
+    deletePost: (postId: string, options?: CallOptions): Promise<void> =>
+      this.http.request(`/api/v1/community/posts/${encodeURIComponent(postId)}`, {
+        ...options,
+        method: 'DELETE',
+      }),
+
+    /** Aimer / ne plus aimer. Idempotent dans les deux sens. */
+    setLike: (postId: string, liked: boolean, options?: CallOptions): Promise<LikeResult> =>
+      this.http.request(`/api/v1/community/posts/${encodeURIComponent(postId)}/like`, {
+        ...options,
+        method: liked ? 'POST' : 'DELETE',
+      }),
+
+    listComments: (
+      postId: string,
+      params?: { cursor?: string },
+      options?: CallOptions,
+    ): Promise<CommunityCommentPage> =>
+      this.http.request(`/api/v1/community/posts/${encodeURIComponent(postId)}/comments`, {
+        ...options,
+        query: { cursor: params?.cursor },
+      }),
+
+    addComment: (
+      postId: string,
+      input: CreateCommentInput,
+      options?: CallOptions,
+    ): Promise<CommunityComment> =>
+      this.http.request(`/api/v1/community/posts/${encodeURIComponent(postId)}/comments`, {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
+
+    /** Le sien, ou n'importe lequel sur sa propre publication. */
+    deleteComment: (commentId: string, options?: CallOptions): Promise<void> =>
+      this.http.request(`/api/v1/community/comments/${encodeURIComponent(commentId)}`, {
+        ...options,
+        method: 'DELETE',
       }),
   }
 

@@ -14,6 +14,7 @@ import {
 import { indicatorTone, toIsoDate, type DashboardSummary } from '@growi/shared'
 
 import { ConseilsSection } from '@/components/blog/ConseilsSection'
+import { AroundYouSection } from '@/components/community/AroundYouSection'
 import { StatCard } from '@/components/home/StatCard'
 import { ForecastRow } from '@/components/weather/ForecastRow'
 import { GardenContextCard } from '@/components/weather/GardenContextCard'
@@ -225,6 +226,11 @@ export default function AccueilScreen() {
             ) : null}
           </>
         )}
+
+        {/* La communauté après le jardin, et avant le blog : ce que font les
+            voisins vaut un coup d'œil plus souvent qu'un article. Muette tant
+            que le profil public n'est pas activé. */}
+        <AroundYouSection />
 
         {/* Le blog vient après le jardin : on ouvre l'app pour savoir quoi
             faire aujourd'hui, pas pour lire. */}

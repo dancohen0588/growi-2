@@ -90,6 +90,34 @@ export const COMMUNITY_RADIUS_LABELS: Record<CommunityRadiusKm, string> = {
 export const FUZZY_GRID_DEGREES = 0.01
 export const FUZZY_JITTER_DEGREES = 0.004
 
+// ─── Publications ──────────────────────────────────────────────────────────
+
+export const POST_BODY_MAX_LENGTH = 500
+export const COMMENT_BODY_MAX_LENGTH = 300
+
+/**
+ * Photos par publication.
+ *
+ * Quatre au plus : le stockage est le premier poste de coût de la
+ * fonctionnalité, et au-delà la carte du fil devient une galerie qu'on fait
+ * défiler au lieu de la lire.
+ */
+export const POST_MIN_PHOTOS = 1
+export const POST_MAX_PHOTOS = 4
+
+/** Publications par page du fil. */
+export const FEED_PAGE_SIZE = 20
+
+/**
+ * En deçà de ce nombre de résultats, le fil élargit son rayon au palier
+ * suivant et le dit.
+ *
+ * Le réseau démarre vide : un fil qui répond « personne autour de toi » au
+ * premier lancement est un fil qu'on ne rouvre pas, alors que la même personne
+ * a des voisins à 50 km.
+ */
+export const FEED_WIDEN_BELOW = 10
+
 // ─── Statut d'un contenu ───────────────────────────────────────────────────
 
 /**

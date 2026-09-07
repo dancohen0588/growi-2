@@ -75,4 +75,9 @@ export const communityKeys = {
   profile: (handle: string) => [...communityKeys.all, 'profile', handle] as const,
   handleCheck: (handle: string) => [...communityKeys.all, 'handle', handle] as const,
   blocked: () => [...communityKeys.all, 'blocked'] as const,
+  /** Le fil dépend du rayon : en changer doit repartir d'une première page. */
+  feed: (radiusKm: number) => [...communityKeys.all, 'feed', radiusKm] as const,
+  home: () => [...communityKeys.all, 'home'] as const,
+  post: (postId: string) => [...communityKeys.all, 'post', postId] as const,
+  comments: (postId: string) => [...communityKeys.all, 'post', postId, 'comments'] as const,
 }

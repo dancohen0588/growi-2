@@ -30,6 +30,8 @@ export default function AccueilLayout() {
           est déjà une, et depuis l'accueil. */}
       <Stack.Screen name="communaute/activer" options={{ presentation: 'modal' }} />
       <Stack.Screen name="communaute/bloques" />
+      <Stack.Screen name="communaute/index" />
+      <Stack.Screen name="communaute/publications/[id]" />
     </Stack>
   )
 }

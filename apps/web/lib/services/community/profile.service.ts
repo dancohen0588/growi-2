@@ -34,7 +34,7 @@ import { distanceLabelBetween, fuzzyPosition } from './geo'
  * n'y sont pas — et ne doivent pas y entrer. Sélectionner large « au cas où »
  * est la façon habituelle dont une donnée privée finit dans une réponse.
  */
-const COMMUNITY_USER_SELECT = {
+export const COMMUNITY_USER_SELECT = {
   id: true,
   handle: true,
   bio: true,
@@ -52,10 +52,10 @@ const COMMUNITY_USER_SELECT = {
   createdAt: true,
 } satisfies Prisma.UserSelect
 
-type CommunityUserRow = Prisma.UserGetPayload<{ select: typeof COMMUNITY_USER_SELECT }>
+export type CommunityUserRow = Prisma.UserGetPayload<{ select: typeof COMMUNITY_USER_SELECT }>
 
 /** Position du lecteur, pour calculer les distances affichées. */
-type Viewer = { fuzzyLat: number | null; fuzzyLng: number | null } | null
+export type Viewer = { fuzzyLat: number | null; fuzzyLng: number | null } | null
 
 /**
  * Ligne Prisma → utilisateur tel que la communauté l'expose.
@@ -78,7 +78,8 @@ export function toCommunityUser(row: CommunityUserRow, viewer: Viewer): Communit
   }
 }
 
-async function findViewer(viewerId: string | null): Promise<Viewer> {
+/** Position floutée du lecteur — `null` s'il est anonyme. */
+export async function findViewer(viewerId: string | null): Promise<Viewer> {
   if (!viewerId) return null
   return prisma.user.findUnique({
     where: { id: viewerId },
@@ -124,7 +125,7 @@ function toSettings(row: SettingsRow): CommunitySettings {
  * paliers. Une valeur inattendue en base retombe sur le défaut plutôt que de
  * faire échouer la lecture d'un profil.
  */
-function normalizeRadius(km: number): CommunitySettings['radiusKm'] {
+export function normalizeRadius(km: number): CommunitySettings['radiusKm'] {
   return km === 5 || km === 20 || km === 50 ? km : DEFAULT_COMMUNITY_RADIUS_KM
 }
 
