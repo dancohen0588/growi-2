@@ -13,14 +13,13 @@ const prismaMock = vi.hoisted(() => ({
 
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 
-const {
-  block,
-  follow,
-  getProfileByHandle,
-  hiddenUserIds,
-  toCommunityUser,
-  updateSettings,
-} = await import('../profile.service')
+const notifyFollow = vi.hoisted(() => vi.fn())
+vi.mock('../notification.service', () => ({ notifyFollow }))
+
+const { block, follow, getProfileByHandle, hiddenUserIds, updateSettings } = await import(
+  '../profile.service'
+)
+const { toCommunityUser } = await import('../serializers')
 const { ServiceError } = await import('../../errors')
 
 const ME = 'user_me'
@@ -155,6 +154,26 @@ describe('follow', () => {
     // Idempotent : un double tap ne doit pas gonfler le compteur.
     expect(prismaMock.user.update).not.toHaveBeenCalled()
     expect(result).toEqual({ isFollowing: true, followerCount: 12 })
+  })
+
+  it('ne notifie pas deux fois le même abonnement', async () => {
+    // Un double tap, ou un désabonnement suivi d'un réabonnement, préviendrait
+    // sinon la même personne autant de fois.
+    prismaMock.follow.createMany.mockResolvedValue({ count: 0 })
+
+    await follow(ME, 'pierre')
+
+    expect(notifyFollow).not.toHaveBeenCalled()
+  })
+
+  it('notifie quand l’abonnement vient d’être créé', async () => {
+    prismaMock.follow.createMany.mockResolvedValue({ count: 1 })
+    prismaMock.user.update.mockResolvedValue({ followerCount: 13 } as never)
+
+    await follow(ME, 'pierre')
+
+    expect(notifyFollow).toHaveBeenCalledOnce()
+    expect(notifyFollow.mock.calls[0][1]).toBe(THEM)
   })
 
   it('refuse de suivre un compte qu’on a soi-même bloqué', async () => {

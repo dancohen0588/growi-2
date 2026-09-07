@@ -24,10 +24,13 @@ import type {
   CommunityCommentPage,
   CommunityFeed,
   CommunityHome,
+  CommunityNotificationPage,
   CommunityPost,
   CommunityPostDetail,
+  CommunityPostPage,
   CommunityProfile,
   CommunitySettings,
+  CommunityUserPage,
   Conversation,
   ConversationDetail,
   CreateCareLogInput,
@@ -41,6 +44,7 @@ import type {
   DiagnoseRequest,
   DiagnosisDetail,
   DiagnosisListItem,
+  FeedScope,
   FollowResult,
   Garden,
   GardenPlan,
@@ -70,6 +74,7 @@ import type {
   UpdatePlantInstanceInput,
   UpdatePostInput,
   UpdateProfileInput,
+  UnreadCount,
   UploadedPhoto,
   UserProfile,
 } from '@growi/shared'
@@ -586,19 +591,64 @@ export class GrowiApiClient {
       }),
 
     /**
-     * Le fil « Autour de moi ».
+     * Un fil — « Autour de moi » par défaut, « Abonnements » avec
+     * `scope: 'following'`.
      *
-     * `radiusKm` omis reprend le rayon des réglages. `cursor` est opaque : le
-     * renvoyer tel quel suffit, il emporte le rayon effectif si le fil s'est
-     * élargi de lui-même.
+     * `radiusKm` omis reprend le rayon des réglages, et n'a aucun effet sur le
+     * fil des abonnements. `cursor` est opaque : le renvoyer tel quel suffit,
+     * il emporte le rayon effectif si le fil s'est élargi de lui-même.
      */
     feed: (
-      params?: { radiusKm?: number; cursor?: string },
+      params?: { scope?: FeedScope; radiusKm?: number; cursor?: string },
       options?: CallOptions,
     ): Promise<CommunityFeed> =>
       this.http.request('/api/v1/community/feed', {
         ...options,
-        query: { radiusKm: params?.radiusKm, cursor: params?.cursor },
+        query: { scope: params?.scope, radiusKm: params?.radiusKm, cursor: params?.cursor },
+      }),
+
+    /** Les publications d'un compte — la grille de son profil public. */
+    userPosts: (
+      handle: string,
+      params?: { cursor?: string },
+      options?: CallOptions,
+    ): Promise<CommunityPostPage> =>
+      this.http.request(`/api/v1/community/users/${encodeURIComponent(handle)}/posts`, {
+        ...options,
+        query: { cursor: params?.cursor },
+      }),
+
+    /** Qui suit ce compte, ou qui il suit. */
+    follows: (
+      handle: string,
+      direction: 'followers' | 'following',
+      params?: { cursor?: string },
+      options?: CallOptions,
+    ): Promise<CommunityUserPage> =>
+      this.http.request(
+        `/api/v1/community/users/${encodeURIComponent(handle)}/${direction}`,
+        { ...options, query: { cursor: params?.cursor } },
+      ),
+
+    /** La cloche. */
+    notifications: (
+      params?: { cursor?: string },
+      options?: CallOptions,
+    ): Promise<CommunityNotificationPage> =>
+      this.http.request('/api/v1/community/notifications', {
+        ...options,
+        query: { cursor: params?.cursor },
+      }),
+
+    /** Le badge — appelé bien plus souvent que la liste. */
+    unreadCount: (options?: CallOptions): Promise<UnreadCount> =>
+      this.http.request('/api/v1/community/notifications/unread-count', { ...options }),
+
+    /** Tout marquer lu ; rend le nouveau compte de non-lus. */
+    markNotificationsRead: (options?: CallOptions): Promise<UnreadCount> =>
+      this.http.request('/api/v1/community/notifications/read', {
+        ...options,
+        method: 'POST',
       }),
 
     /** La carte « Autour de toi » de l'Accueil. */

@@ -32,6 +32,10 @@ export default function AccueilLayout() {
       <Stack.Screen name="communaute/bloques" />
       <Stack.Screen name="communaute/index" />
       <Stack.Screen name="communaute/publications/[id]" />
+      <Stack.Screen name="communaute/notifications" />
+      <Stack.Screen name="communaute/u/[handle]/index" />
+      <Stack.Screen name="communaute/u/[handle]/abonnes" />
+      <Stack.Screen name="communaute/u/[handle]/abonnements" />
     </Stack>
   )
 }

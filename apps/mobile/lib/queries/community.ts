@@ -8,9 +8,14 @@ import {
 import type {
   CommunityCommentPage,
   CommunityFeed,
+  CommunityNotificationPage,
   CommunityPostDetail,
+  CommunityPostPage,
+  CommunityProfile,
+  CommunityUserPage,
   CreateCommentInput,
   CreatePostInput,
+  CreateReportInput,
   UpdateCommunitySettingsInput,
 } from '@growi/shared'
 import { HANDLE_MIN_LENGTH } from '@growi/shared'
@@ -78,10 +83,173 @@ export function useFeed(radiusKm: number, options?: { enabled?: boolean }) {
   return useInfiniteQuery({
     queryKey: communityKeys.feed(radiusKm),
     queryFn: ({ pageParam }) =>
-      api.community.feed({ radiusKm, cursor: pageParam ?? undefined }),
+      api.community.feed({ scope: 'nearby', radiusKm, cursor: pageParam ?? undefined }),
     initialPageParam: null as string | null,
     getNextPageParam: (last: CommunityFeed) => last.nextCursor ?? undefined,
     enabled: options?.enabled ?? true,
+  })
+}
+
+/**
+ * Le fil « Abonnements » — sans rayon, donc sans clé de rayon.
+ *
+ * Chargé seulement quand l'onglet est ouvert : la plupart des comptes n'ont
+ * encore d'abonnement à personne, et le demander d'office ne servirait rien.
+ */
+export function useFollowingFeed(options?: { enabled?: boolean }) {
+  return useInfiniteQuery({
+    queryKey: communityKeys.followingFeed(),
+    queryFn: ({ pageParam }) =>
+      api.community.feed({ scope: 'following', cursor: pageParam ?? undefined }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: CommunityFeed) => last.nextCursor ?? undefined,
+    enabled: options?.enabled ?? true,
+  })
+}
+
+// ─── Profil public d'un autre compte ───────────────────────────────────────
+
+export function useCommunityProfile(handle: string) {
+  return useQuery({
+    queryKey: communityKeys.profile(handle),
+    queryFn: () => api.community.getProfile(handle),
+    enabled: handle.length > 0,
+  })
+}
+
+export function useUserPosts(handle: string) {
+  return useInfiniteQuery({
+    queryKey: communityKeys.userPosts(handle),
+    queryFn: ({ pageParam }) =>
+      api.community.userPosts(handle, { cursor: pageParam ?? undefined }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: CommunityPostPage) => last.nextCursor ?? undefined,
+    enabled: handle.length > 0,
+  })
+}
+
+export function useFollows(handle: string, direction: 'followers' | 'following') {
+  return useInfiniteQuery({
+    queryKey: communityKeys.follows(handle, direction),
+    queryFn: ({ pageParam }) =>
+      api.community.follows(handle, direction, { cursor: pageParam ?? undefined }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: CommunityUserPage) => last.nextCursor ?? undefined,
+    enabled: handle.length > 0,
+  })
+}
+
+/**
+ * Suivre / ne plus suivre, avec bascule immédiate.
+ *
+ * Attendre le serveur pour un bouton « Suivre » se verrait. Un échec le remet
+ * dans sa position d'avant, compteur compris.
+ */
+export function useToggleFollow(handle: string) {
+  const queryClient = useQueryClient()
+  const key = communityKeys.profile(handle)
+
+  return useMutation({
+    mutationFn: (next: boolean) =>
+      next ? api.community.follow(handle) : api.community.unfollow(handle),
+
+    onMutate: async (next) => {
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<CommunityProfile>(key)
+
+      queryClient.setQueryData<CommunityProfile>(key, (profile) =>
+        profile
+          ? {
+              ...profile,
+              isFollowing: next,
+              followerCount: profile.followerCount + (next ? 1 : -1),
+            }
+          : profile,
+      )
+
+      return { previous }
+    },
+
+    onError: (_error, _next, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous)
+    },
+
+    onSuccess: (result) => {
+      queryClient.setQueryData<CommunityProfile>(key, (profile) =>
+        profile
+          ? { ...profile, isFollowing: result.isFollowing, followerCount: result.followerCount }
+          : profile,
+      )
+      // Mon compteur d'abonnements a bougé, et le fil « Abonnements » aussi.
+      void queryClient.invalidateQueries({ queryKey: communityKeys.settings() })
+      void queryClient.invalidateQueries({ queryKey: communityKeys.followingFeed() })
+    },
+  })
+}
+
+/**
+ * Bloquer / débloquer depuis un profil.
+ *
+ * Sans optimisme, à la différence du suivi : bloquer rompt aussi les
+ * abonnements des deux côtés, et afficher le résultat avant de le savoir
+ * acquis donnerait un faux sentiment de protection.
+ */
+export function useToggleBlock(handle: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (next: boolean) =>
+      next ? api.community.block(handle) : api.community.unblock(handle),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: communityKeys.all })
+    },
+  })
+}
+
+// ─── Notifications ─────────────────────────────────────────────────────────
+
+export function useNotifications() {
+  return useInfiniteQuery({
+    queryKey: communityKeys.notifications(),
+    queryFn: ({ pageParam }) =>
+      api.community.notifications({ cursor: pageParam ?? undefined }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: CommunityNotificationPage) => last.nextCursor ?? undefined,
+  })
+}
+
+/**
+ * Le badge de la cloche.
+ *
+ * Rafraîchi à chaque retour sur l'accueil plutôt que par une minuterie : un
+ * compteur qui interroge le serveur en boucle coûte de la batterie pour une
+ * information qui n'a rien d'urgent.
+ */
+export function useUnreadCount(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: communityKeys.unread(),
+    queryFn: () => api.community.unreadCount(),
+    enabled: options?.enabled ?? true,
+  })
+}
+
+/** Tout marquer lu — à l'ouverture de l'écran des notifications. */
+export function useMarkNotificationsRead() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => api.community.markNotificationsRead(),
+    onSuccess: (result) => {
+      queryClient.setQueryData(communityKeys.unread(), result)
+      void queryClient.invalidateQueries({ queryKey: communityKeys.notifications() })
+    },
+  })
+}
+
+/** Signaler un contenu ou un compte. Idempotent côté serveur. */
+export function useReport() {
+  return useMutation({
+    mutationFn: (input: CreateReportInput) => api.community.report(input),
   })
 }
 

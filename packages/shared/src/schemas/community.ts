@@ -7,6 +7,7 @@ import {
   HANDLE_MAX_LENGTH,
   HANDLE_MIN_LENGTH,
   HANDLE_PATTERN,
+  notificationKindSchema,
   POST_BODY_MAX_LENGTH,
   POST_MAX_PHOTOS,
   POST_MIN_PHOTOS,
@@ -278,20 +279,43 @@ export const likeResultSchema = z.object({
 export type LikeResult = z.infer<typeof likeResultSchema>
 
 /**
- * Une page du fil « Autour de moi ».
+ * Les deux fils.
  *
- * `appliedRadiusKm` peut dépasser le rayon demandé : quand le voisinage
- * immédiat est vide, le fil élargit de lui-même. L'écran doit le dire —
- * afficher des publications à 50 km sans prévenir laisserait croire qu'un
- * inconnu habite la rue d'à côté.
+ * `nearby` est local et dépend d'où l'on est ; `following` ne dépend que de
+ * qui l'on suit, sans aucune contrainte de distance — suivre quelqu'un, c'est
+ * précisément dire qu'on veut le voir même s'il déménage.
+ */
+export const FEED_SCOPES = ['nearby', 'following'] as const
+export const feedScopeSchema = z.enum(FEED_SCOPES)
+export type FeedScope = z.infer<typeof feedScopeSchema>
+
+/**
+ * Une page de fil.
+ *
+ * Sur `nearby`, `appliedRadiusKm` peut dépasser le rayon demandé : quand le
+ * voisinage immédiat est vide, le fil élargit de lui-même. L'écran doit le
+ * dire — afficher des publications à 50 km sans prévenir laisserait croire
+ * qu'un inconnu habite la rue d'à côté.
+ *
+ * Sur `following`, les trois champs de rayon valent `null` : la distance n'y
+ * joue aucun rôle.
  */
 export const communityFeedSchema = cursorPageSchema(communityPostSchema).extend({
-  requestedRadiusKm: communityRadiusSchema,
-  appliedRadiusKm: z.number().int(),
+  scope: feedScopeSchema,
+  requestedRadiusKm: communityRadiusSchema.nullable(),
+  appliedRadiusKm: z.number().int().nullable(),
   widened: z.boolean(),
 })
 
 export type CommunityFeed = z.infer<typeof communityFeedSchema>
+
+/** Une page de profils — abonnés, abonnements. */
+export const communityUserPageSchema = cursorPageSchema(communityUserSchema)
+export type CommunityUserPage = z.infer<typeof communityUserPageSchema>
+
+/** Une page de publications d'un compte, pour son profil public. */
+export const communityPostPageSchema = cursorPageSchema(communityPostSchema)
+export type CommunityPostPage = z.infer<typeof communityPostPageSchema>
 
 /**
  * Ce que l'Accueil affiche de la communauté.
@@ -308,6 +332,52 @@ export const communityHomeSchema = z.object({
 })
 
 export type CommunityHome = z.infer<typeof communityHomeSchema>
+
+// ─── Notifications ─────────────────────────────────────────────────────────
+
+/**
+ * Où mène le tap sur une notification.
+ *
+ * Un objet à champs facultatifs plutôt qu'une union discriminée : la colonne
+ * est en Json et porte déjà des notifications écrites par des versions
+ * antérieures de l'app. Le routeur de l'app lit ce qui est présent et ne fait
+ * rien de ce qu'il ne reconnaît pas, ce qui laisse ajouter une cible sans
+ * casser les installations déjà déployées.
+ */
+export const notificationTargetSchema = z.object({
+  postId: nullish(z.string()),
+  /** Pseudo de l'acteur, pour ouvrir son profil. */
+  handle: nullish(z.string()),
+})
+
+export type NotificationTarget = z.infer<typeof notificationTargetSchema>
+
+export const communityNotificationSchema = z.object({
+  id: idSchema,
+  kind: notificationKindSchema,
+  /** `null` quand l'acteur a supprimé son compte — la notification reste lisible. */
+  actor: communityUserSchema.nullable(),
+  /**
+   * Texte figé à l'écriture. L'acteur peut changer de pseudo et le contenu
+   * être supprimé : ce qui a été annoncé ne doit pas se réécrire tout seul.
+   */
+  preview: z.string(),
+  target: notificationTargetSchema,
+  readAt: nullish(isoDateTimeSchema),
+  createdAt: isoDateTimeSchema,
+})
+
+export type CommunityNotification = z.infer<typeof communityNotificationSchema>
+
+export const communityNotificationPageSchema = cursorPageSchema(communityNotificationSchema)
+export type CommunityNotificationPage = z.infer<typeof communityNotificationPageSchema>
+
+/** Le badge de la cloche. */
+export const unreadCountSchema = z.object({
+  unread: z.number().int(),
+})
+
+export type UnreadCount = z.infer<typeof unreadCountSchema>
 
 // ─── Signalement ───────────────────────────────────────────────────────────
 

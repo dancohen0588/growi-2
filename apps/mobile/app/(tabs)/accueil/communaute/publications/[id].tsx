@@ -160,7 +160,15 @@ function PostContent({ post }: { post: CommunityPostDetail }) {
 
       <View className="gap-3 px-4">
         <View className="flex-row items-center gap-3">
-          <View className="flex-1">
+          <Pressable
+            onPress={() =>
+              router.push(`/(tabs)/accueil/communaute/u/${post.author.handle}`)
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`Profil de ${post.author.handle}`}
+            className="flex-1"
+            style={({ pressed }) => (pressed ? { opacity: 0.8 } : null)}
+          >
             <Text className="font-raleway-medium text-body text-forest">
               {post.author.handle}
             </Text>
@@ -169,7 +177,7 @@ function PostContent({ post }: { post: CommunityPostDetail }) {
                 .filter(Boolean)
                 .join(' · ')}
             </Text>
-          </View>
+          </Pressable>
 
           <Pressable
             onPress={() =>

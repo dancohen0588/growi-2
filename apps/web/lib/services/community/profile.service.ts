@@ -1,13 +1,12 @@
 import {
   COMMUNITY_RATE_LIMITS,
-  DEFAULT_COMMUNITY_RADIUS_KM,
   RESERVED_HANDLES,
   handleSchema,
   type BlockResult,
   type BlockedAccount,
   type CommunityProfile,
   type CommunitySettings,
-  type CommunityUser,
+  type CommunityUserPage,
   type FollowResult,
   type HandleAvailability,
   type UpdateCommunitySettingsInput,
@@ -17,7 +16,16 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/errors'
 
-import { distanceLabelBetween, fuzzyPosition } from './geo'
+import { decodeCursor, takePage } from './cursor'
+import { fuzzyPosition } from './geo'
+import { notifyFollow } from './notification.service'
+import {
+  COMMUNITY_USER_SELECT,
+  findViewer,
+  normalizeRadius,
+  toCommunityUser,
+  type CommunityUserRow,
+} from './serializers'
 
 /**
  * Identité publique, abonnements et blocage.
@@ -27,65 +35,8 @@ import { distanceLabelBetween, fuzzyPosition } from './geo'
  * par son pseudo.
  */
 
-/**
- * Les seules colonnes de `users` que la communauté a le droit de lire.
- *
- * `email`, `name`, `firstName`, `lastName`, `address`, `latitude`, `longitude`
- * n'y sont pas — et ne doivent pas y entrer. Sélectionner large « au cas où »
- * est la façon habituelle dont une donnée privée finit dans une réponse.
- */
-export const COMMUNITY_USER_SELECT = {
-  id: true,
-  handle: true,
-  bio: true,
-  image: true,
-  avatarColor: true,
-  locationCity: true,
-  fuzzyLat: true,
-  fuzzyLng: true,
-  followerCount: true,
-  followingCount: true,
-  postCount: true,
-  communityEnabled: true,
-  communityEnabledAt: true,
-  disabledAt: true,
-  createdAt: true,
-} satisfies Prisma.UserSelect
-
-export type CommunityUserRow = Prisma.UserGetPayload<{ select: typeof COMMUNITY_USER_SELECT }>
-
-/** Position du lecteur, pour calculer les distances affichées. */
-export type Viewer = { fuzzyLat: number | null; fuzzyLng: number | null } | null
-
-/**
- * Ligne Prisma → utilisateur tel que la communauté l'expose.
- *
- * **Construit champ par champ, jamais par recopie de la ligne.** C'est la même
- * discipline que les sérialiseurs de l'admin, et pour la même raison : une
- * colonne ajoutée demain à `User` ne doit pas pouvoir apparaître à l'écran
- * toute seule.
- */
-export function toCommunityUser(row: CommunityUserRow, viewer: Viewer): CommunityUser {
-  return {
-    id: row.id,
-    // Un compte sans pseudo n'est jamais servi par la communauté ; la valeur de
-    // repli ne sert qu'à satisfaire le type.
-    handle: row.handle ?? '',
-    avatarUrl: row.image,
-    avatarColor: row.avatarColor,
-    city: row.locationCity,
-    distanceLabel: distanceLabelBetween(viewer, row),
-  }
-}
-
-/** Position floutée du lecteur — `null` s'il est anonyme. */
-export async function findViewer(viewerId: string | null): Promise<Viewer> {
-  if (!viewerId) return null
-  return prisma.user.findUnique({
-    where: { id: viewerId },
-    select: { fuzzyLat: true, fuzzyLng: true },
-  })
-}
+/** Profils par page des listes d'abonnés et d'abonnements. */
+const FOLLOWS_PAGE_SIZE = 30
 
 // ─── Mes réglages ──────────────────────────────────────────────────────────
 
@@ -118,15 +69,6 @@ function toSettings(row: SettingsRow): CommunitySettings {
     hasLocation: row.latitude !== null && row.longitude !== null,
     city: row.locationCity,
   }
-}
-
-/**
- * La colonne accepte n'importe quel entier ; le contrat n'expose que trois
- * paliers. Une valeur inattendue en base retombe sur le défaut plutôt que de
- * faire échouer la lecture d'un profil.
- */
-export function normalizeRadius(km: number): CommunitySettings['radiusKm'] {
-  return km === 5 || km === 20 || km === 50 ? km : DEFAULT_COMMUNITY_RADIUS_KM
 }
 
 /** @throws ServiceError('NOT_FOUND') si le compte n'existe plus. */
@@ -379,7 +321,7 @@ export async function follow(userId: string, handle: string): Promise<FollowResu
 
   await assertFollowBudget(userId)
 
-  const followerCount = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // `skipDuplicates` fait l'unicité et l'idempotence en une requête : deux
     // taps simultanés n'incrémentent pas deux fois.
     const inserted = await tx.follow.createMany({
@@ -387,7 +329,7 @@ export async function follow(userId: string, handle: string): Promise<FollowResu
       skipDuplicates: true,
     })
 
-    if (inserted.count === 0) return target.followerCount
+    if (inserted.count === 0) return { followerCount: target.followerCount, created: false }
 
     await tx.user.update({
       where: { id: userId },
@@ -398,10 +340,23 @@ export async function follow(userId: string, handle: string): Promise<FollowResu
       data: { followerCount: { increment: 1 } },
       select: { followerCount: true },
     })
-    return updated.followerCount
+    return { followerCount: updated.followerCount, created: true }
   })
 
-  return { isFollowing: true, followerCount }
+  // **Seulement quand l'abonnement vient d'être créé.** Sans ce garde-fou, un
+  // double tap — ou un désabonnement suivi d'un réabonnement — préviendrait la
+  // même personne autant de fois, ce qui est précisément la forme la plus
+  // pénible de notification.
+  //
+  // Sans `await` : une notification est un agrément, pas une raison de faire
+  // attendre le bouton « Suivre ». `notifyFollow` n'échoue jamais, elle
+  // journalise.
+  if (result.created) {
+    const me = await prisma.user.findUnique({ where: { id: userId }, select: { handle: true } })
+    void notifyFollow({ id: userId, handle: me?.handle ?? null }, target.id)
+  }
+
+  return { isFollowing: true, followerCount: result.followerCount }
 }
 
 /** Ne plus suivre. Idempotent, pour la même raison que `follow`. */
@@ -428,6 +383,76 @@ export async function unfollow(userId: string, handle: string): Promise<FollowRe
   })
 
   return { isFollowing: false, followerCount }
+}
+
+/**
+ * Les abonnés d'un compte, ou ses abonnements.
+ *
+ * Une seule fonction pour les deux listes : elles ne diffèrent que par la
+ * colonne de `follows` qu'on fixe et par celle qu'on lit. Les comptes sortis
+ * de la communauté, désactivés ou en blocage avec le lecteur en sont écartés —
+ * une liste d'abonnés est une porte vers des profils, et elle ne doit pas
+ * mener sur des 404.
+ *
+ * @throws ServiceError('NOT_FOUND') si le profil n'est pas visible par ce lecteur.
+ */
+export async function listFollows(
+  handle: string,
+  viewerId: string | null,
+  direction: 'followers' | 'following',
+  rawCursor: string | null,
+): Promise<CommunityUserPage> {
+  const target = await findVisibleByHandle(handle, viewerId)
+  const cursor = decodeCursor(rawCursor)
+  const hidden = await hiddenUserIds(viewerId)
+
+  // « Ses abonnés » fixe `followingId` et lit `follower` ; « ses abonnements »
+  // l'inverse.
+  const fixed = direction === 'followers' ? 'followingId' : 'followerId'
+  const read = direction === 'followers' ? 'followerId' : 'followingId'
+
+  const rows = await prisma.follow.findMany({
+    where: {
+      [fixed]: target.id,
+      ...(hidden.length > 0 ? { [read]: { notIn: hidden } } : {}),
+      [direction === 'followers' ? 'follower' : 'following']: {
+        disabledAt: null,
+        communityEnabled: true,
+      },
+      ...(cursor ? { createdAt: { lt: cursor.createdAt } } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    take: FOLLOWS_PAGE_SIZE + 1,
+    include: {
+      follower: { select: COMMUNITY_USER_SELECT },
+      following: { select: COMMUNITY_USER_SELECT },
+    },
+  })
+
+  // `follows` n'a pas d'`id` : la clé du curseur est la paire, et on prend
+  // celui du compte lu — unique dans la liste, puisqu'on ne suit quelqu'un
+  // qu'une fois.
+  const withId = rows.map((row) => {
+    const user = direction === 'followers' ? row.follower : row.following
+    return { id: user.id, createdAt: row.createdAt, user }
+  })
+
+  const page = takePage(withId, FOLLOWS_PAGE_SIZE)
+  const viewer = await findViewer(viewerId)
+
+  return {
+    items: page.items.map((row) => toCommunityUser(row.user, viewer)),
+    nextCursor: page.nextCursor,
+  }
+}
+
+/** Les comptes que suit `userId` — la base du fil « Abonnements ». */
+export async function followingIds(userId: string): Promise<string[]> {
+  const rows = await prisma.follow.findMany({
+    where: { followerId: userId },
+    select: { followingId: true },
+  })
+  return rows.map((row) => row.followingId)
 }
 
 // ─── Blocage ───────────────────────────────────────────────────────────────

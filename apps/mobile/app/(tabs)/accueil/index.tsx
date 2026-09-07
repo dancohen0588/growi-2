@@ -15,6 +15,7 @@ import { indicatorTone, toIsoDate, type DashboardSummary } from '@growi/shared'
 
 import { ConseilsSection } from '@/components/blog/ConseilsSection'
 import { AroundYouSection } from '@/components/community/AroundYouSection'
+import { NotificationBell } from '@/components/community/NotificationBell'
 import { StatCard } from '@/components/home/StatCard'
 import { ForecastRow } from '@/components/weather/ForecastRow'
 import { GardenContextCard } from '@/components/weather/GardenContextCard'
@@ -127,14 +128,17 @@ export default function AccueilScreen() {
             </Text>
           </View>
 
-          <Pressable
-            onPress={openProfile}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Mon profil"
-          >
-            <UserCircle2 size={28} color="#1E5631" />
-          </Pressable>
+          <View className="flex-row items-center gap-4">
+            <NotificationBell />
+            <Pressable
+              onPress={openProfile}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Mon profil"
+            >
+              <UserCircle2 size={28} color="#1E5631" />
+            </Pressable>
+          </View>
         </View>
 
         {/* Indicateurs */}

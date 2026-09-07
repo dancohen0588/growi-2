@@ -15,6 +15,7 @@ import { formatLogDate } from '@/lib/dates'
 export interface PostCardProps {
   post: CommunityPost
   onPress: () => void
+  onOpenAuthor: () => void
   onToggleLike: () => void
 }
 
@@ -44,33 +45,41 @@ function Avatar({ post }: { post: CommunityPost }) {
   )
 }
 
-export function PostCard({ post, onPress, onToggleLike }: PostCardProps) {
+export function PostCard({ post, onPress, onOpenAuthor, onToggleLike }: PostCardProps) {
   // Photo carrée pleine largeur : la largeur de l'écran moins les marges.
   const { width } = useWindowDimensions()
   const photoSize = width - 32
 
   return (
     <View className="overflow-hidden rounded-xl bg-card">
+      {/* L'en-tête mène au profil, le reste de la carte à la publication : deux
+          destinations, donc deux zones tactiles côte à côte et non imbriquées. */}
+      <Pressable
+        onPress={onOpenAuthor}
+        accessibilityRole="button"
+        accessibilityLabel={`Profil de ${post.author.handle}`}
+        className="flex-row items-center gap-3 p-3"
+        style={({ pressed }) => (pressed ? { opacity: 0.8 } : null)}
+      >
+        <Avatar post={post} />
+        <View className="flex-1">
+          <Text className="font-raleway-medium text-body text-forest" numberOfLines={1}>
+            {post.author.handle}
+          </Text>
+          <Text className="font-raleway text-caption text-muted-foreground" numberOfLines={1}>
+            {[post.author.distanceLabel, formatLogDate(post.createdAt)]
+              .filter(Boolean)
+              .join(' · ')}
+          </Text>
+        </View>
+      </Pressable>
+
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`Publication de ${post.author.handle}`}
         style={({ pressed }) => (pressed ? { opacity: 0.95 } : null)}
       >
-        <View className="flex-row items-center gap-3 p-3">
-          <Avatar post={post} />
-          <View className="flex-1">
-            <Text className="font-raleway-medium text-body text-forest" numberOfLines={1}>
-              {post.author.handle}
-            </Text>
-            <Text className="font-raleway text-caption text-muted-foreground" numberOfLines={1}>
-              {[post.author.distanceLabel, formatLogDate(post.createdAt)]
-                .filter(Boolean)
-                .join(' · ')}
-            </Text>
-          </View>
-        </View>
-
         {/* Le fond `sand-dark` tient la place pendant le chargement : sans lui,
             le fil sautille au fur et à mesure que les photos arrivent. */}
         {post.photos[0] ? (

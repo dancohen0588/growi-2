@@ -9,9 +9,11 @@ import {
   type CommunityHome,
   type CommunityPost,
   type CommunityPostDetail,
+  type CommunityPostPage,
   type CommunityRadiusKm,
   type CreateCommentInput,
   type CreatePostInput,
+  type FeedScope,
   type LikeResult,
   type UpdatePostInput,
 } from '@growi/shared'
@@ -22,14 +24,15 @@ import { ServiceError } from '@/lib/services/errors'
 import { deletePhotoByUrl } from '@/lib/storage'
 
 import { decodeCursor, encodeCursor, takePage } from './cursor'
+import { notifyComment, notifyLike } from './notification.service'
+import { followingIds, hiddenUserIds } from './profile.service'
 import {
   COMMUNITY_USER_SELECT,
   findViewer,
-  hiddenUserIds,
   normalizeRadius,
   toCommunityUser,
   type Viewer,
-} from './profile.service'
+} from './serializers'
 
 /**
  * Publications, cœurs et commentaires.
@@ -341,6 +344,16 @@ export async function setLike(
     return updated.likeCount
   })
 
+  // Seulement quand le cœur vient d'être donné : le retirer ne s'annonce pas,
+  // et le redonner ne doit pas rouvrir une notification déjà lue.
+  if (liked && likeCount !== post.likeCount) {
+    const actor = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { handle: true },
+    })
+    void notifyLike({ id: userId, handle: actor?.handle ?? null }, { ...post, likeCount })
+  }
+
   return { liked, likeCount }
 }
 
@@ -402,7 +415,7 @@ export async function addComment(
   input: CreateCommentInput,
 ): Promise<CommunityComment> {
   await requirePublisher(userId)
-  await findVisiblePost(postId, userId)
+  const post = await findVisiblePost(postId, userId)
 
   if (
     (await countSince('comment', userId, 60 * 60 * 1000)) >=
@@ -419,6 +432,12 @@ export async function addComment(
     await tx.post.update({ where: { id: postId }, data: { commentCount: { increment: 1 } } })
     return created
   })
+
+  void notifyComment(
+    { id: userId, handle: comment.user.handle },
+    { id: postId, userId: post.userId },
+    input.body,
+  )
 
   return toComment(comment, null, true)
 }
@@ -538,7 +557,7 @@ async function hydrate(
  *
  * @throws ServiceError('FORBIDDEN') si le profil public n'est pas activé.
  */
-export async function getNearbyFeed(
+async function getNearbyFeed(
   userId: string,
   requestedRadiusKm: CommunityRadiusKm | null,
   rawCursor: string | null,
@@ -583,9 +602,128 @@ export async function getNearbyFeed(
       ids.length > FEED_PAGE_SIZE && last
         ? encodeCursor({ createdAt: new Date(last.createdAt), id: last.id, radiusKm: applied })
         : null,
+    scope: 'nearby',
     requestedRadiusKm: requested,
     appliedRadiusKm: applied,
     widened: applied > requested,
+  }
+}
+
+/**
+ * Le fil « Abonnements » — les publications des comptes suivis, **sans aucune
+ * contrainte de distance**.
+ *
+ * Suivre quelqu'un, c'est précisément dire qu'on veut le voir même s'il habite
+ * loin, ou s'il déménage. Pas de SQL brut ici : sans géographie, Prisma suffit.
+ */
+async function getFollowingFeed(userId: string, rawCursor: string | null): Promise<CommunityFeed> {
+  const cursor = decodeCursor(rawCursor)
+  const [following, hidden] = await Promise.all([followingIds(userId), hiddenUserIds(userId)])
+
+  const visible = following.filter((id) => !hidden.includes(id))
+
+  const rows = visible.length
+    ? await prisma.post.findMany({
+        where: {
+          userId: { in: visible },
+          status: 'visible',
+          user: { disabledAt: null, communityEnabled: true },
+          ...(cursor
+            ? {
+                OR: [
+                  { createdAt: { lt: cursor.createdAt } },
+                  { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+                ],
+              }
+            : {}),
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: FEED_PAGE_SIZE + 1,
+        include: POST_INCLUDE,
+      })
+    : []
+
+  const page = takePage(rows, FEED_PAGE_SIZE)
+  const [viewer, liked] = await Promise.all([
+    findViewer(userId),
+    likedAmong(userId, page.items.map((row) => row.id)),
+  ])
+
+  return {
+    items: page.items.map((row) => toPost(row, viewer, userId, liked)),
+    nextCursor: page.nextCursor,
+    scope: 'following',
+    // La distance ne joue aucun rôle ici : annoncer un rayon laisserait croire
+    // le contraire.
+    requestedRadiusKm: null,
+    appliedRadiusKm: null,
+    widened: false,
+  }
+}
+
+/**
+ * Le fil demandé.
+ *
+ * @throws ServiceError('FORBIDDEN') si le profil public n'est pas activé.
+ */
+export async function getFeed(
+  userId: string,
+  scope: FeedScope,
+  requestedRadiusKm: CommunityRadiusKm | null,
+  rawCursor: string | null,
+): Promise<CommunityFeed> {
+  if (scope === 'following') {
+    await requirePublisher(userId)
+    return getFollowingFeed(userId, rawCursor)
+  }
+
+  return getNearbyFeed(userId, requestedRadiusKm, rawCursor)
+}
+
+/**
+ * Les publications d'un compte, pour son profil public.
+ *
+ * Lisible sans compte — un profil se partage par lien — et filtrée par les
+ * blocages dans les deux sens comme partout ailleurs.
+ */
+export async function listUserPosts(
+  authorId: string,
+  viewerId: string | null,
+  rawCursor: string | null,
+): Promise<CommunityPostPage> {
+  const cursor = decodeCursor(rawCursor)
+  const hidden = await hiddenUserIds(viewerId)
+
+  if (hidden.includes(authorId)) return { items: [], nextCursor: null }
+
+  const rows = await prisma.post.findMany({
+    where: {
+      userId: authorId,
+      status: 'visible',
+      user: { disabledAt: null, communityEnabled: true },
+      ...(cursor
+        ? {
+            OR: [
+              { createdAt: { lt: cursor.createdAt } },
+              { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: FEED_PAGE_SIZE + 1,
+    include: POST_INCLUDE,
+  })
+
+  const page = takePage(rows, FEED_PAGE_SIZE)
+  const [viewer, liked] = await Promise.all([
+    findViewer(viewerId),
+    likedAmong(viewerId, page.items.map((row) => row.id)),
+  ])
+
+  return {
+    items: page.items.map((row) => toPost(row, viewer, viewerId, liked)),
+    nextCursor: page.nextCursor,
   }
 }
 
@@ -598,7 +736,7 @@ export async function getNearbyFeed(
  */
 export async function getHome(userId: string): Promise<CommunityHome> {
   try {
-    const feed = await getNearbyFeed(userId, null, null)
+    const feed = await getFeed(userId, 'nearby', null, null)
     return { enabled: true, posts: feed.items.slice(0, 3) }
   } catch (err) {
     // Le seul refus possible ici est « profil non activé », qui n'est pas une

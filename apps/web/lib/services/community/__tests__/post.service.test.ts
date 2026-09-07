@@ -26,7 +26,7 @@ const {
   createPost,
   deletePost,
   getHome,
-  getNearbyFeed,
+  getFeed,
   setLike,
 } = await import('../post.service')
 const { decodeCursor, encodeCursor } = await import('../cursor')
@@ -253,7 +253,7 @@ describe('addComment', () => {
   })
 })
 
-describe('getNearbyFeed', () => {
+describe('getFeed — autour de moi', () => {
   beforeEach(() => {
     prismaMock.user.findUnique.mockResolvedValue({
       ...PUBLISHER,
@@ -269,7 +269,7 @@ describe('getNearbyFeed', () => {
       communityRadiusKm: 20,
     } as never)
 
-    await expect(getNearbyFeed(ME, null, null)).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    await expect(getFeed(ME, 'nearby', null, null)).rejects.toMatchObject({ code: 'FORBIDDEN' })
   })
 
   it('élargit le rayon quand le voisinage immédiat est vide', async () => {
@@ -277,7 +277,7 @@ describe('getNearbyFeed', () => {
     // fil qu'on ne rouvre pas.
     prismaMock.$queryRaw.mockResolvedValue([])
 
-    const feed = await getNearbyFeed(ME, 5, null)
+    const feed = await getFeed(ME, 'nearby', 5, null)
 
     expect(feed.requestedRadiusKm).toBe(5)
     expect(feed.appliedRadiusKm).toBe(50)
@@ -290,7 +290,7 @@ describe('getNearbyFeed', () => {
     )
     prismaMock.post.findMany.mockResolvedValue([])
 
-    const feed = await getNearbyFeed(ME, 5, null)
+    const feed = await getFeed(ME, 'nearby', 5, null)
 
     expect(feed.appliedRadiusKm).toBe(5)
     expect(feed.widened).toBe(false)
@@ -306,7 +306,7 @@ describe('getNearbyFeed', () => {
       radiusKm: 50,
     })
 
-    const feed = await getNearbyFeed(ME, 5, cursor)
+    const feed = await getFeed(ME, 'nearby', 5, cursor)
 
     expect(feed.appliedRadiusKm).toBe(50)
     expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1)

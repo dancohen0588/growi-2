@@ -3,6 +3,7 @@ import { AppState } from 'react-native'
 import { useRouter } from 'expo-router'
 import * as Notifications from 'expo-notifications'
 
+import { notificationRoute } from '@/lib/notifications'
 import { clearBadge, registerDeviceForPush } from '@/lib/push'
 import { useProfile } from '@/lib/queries/me'
 
@@ -13,22 +14,6 @@ import { useProfile } from '@/lib/queries/me'
  * enregistrer l'appareil, effacer la pastille quand il revient dans l'app, et
  * ouvrir le bon écran quand il tape une notification.
  */
-
-/** Ce que le serveur peut demander d'ouvrir (`data.screen` du message). */
-const SCREENS = {
-  calendrier: '/(tabs)/calendrier',
-} as const
-
-type ScreenKey = keyof typeof SCREENS
-
-function screenRoute(data: unknown): (typeof SCREENS)[ScreenKey] | null {
-  if (typeof data !== 'object' || data === null) return null
-
-  const screen = (data as { screen?: unknown }).screen
-  if (typeof screen !== 'string') return null
-
-  return screen in SCREENS ? SCREENS[screen as ScreenKey] : null
-}
 
 /**
  * @param enabled faux tant que la session n'est pas établie — l'enregistrement
@@ -92,7 +77,10 @@ export function usePushNotifications(enabled: boolean): void {
     if (handled.current === id) return
     handled.current = id
 
-    const route = screenRoute(response.notification.request.content.data)
+    // Les cibles de la communauté vivent dans la pile Accueil : `navigate`
+    // avec le chemin complet sélectionne d'abord cet onglet, sans quoi le
+    // geste de retour ramènerait sur l'onglet d'où l'on venait.
+    const route = notificationRoute(response.notification.request.content.data)
     if (route) router.navigate(route)
   }, [enabled, response, router])
 }

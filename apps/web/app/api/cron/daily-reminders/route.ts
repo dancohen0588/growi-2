@@ -1,3 +1,4 @@
+import { purgeReadNotifications } from '@/lib/services/community/notification.service'
 import { sendDailyReminders } from '@/lib/services/push.service'
 
 // Jamais de rendu statique : la route s'exécute à chaque appel du planificateur.
@@ -42,7 +43,21 @@ export async function GET(request: Request): Promise<Response> {
     const result = await sendDailyReminders()
     console.log('[cron] rappels envoyés :', JSON.stringify(result))
 
-    return Response.json({ data: result }, { headers: { 'cache-control': 'no-store' } })
+    // La purge des notifications lues profite du même passage quotidien. Elle
+    // vient **après** les rappels, et son échec ne les annule pas : ranger est
+    // moins important que prévenir.
+    let purged = 0
+    try {
+      purged = await purgeReadNotifications()
+      if (purged > 0) console.log('[cron] notifications purgées :', purged)
+    } catch (error) {
+      console.error('[cron] purge des notifications impossible :', error)
+    }
+
+    return Response.json(
+      { data: { ...result, notificationsPurged: purged } },
+      { headers: { 'cache-control': 'no-store' } },
+    )
   } catch (error) {
     // Une tournée qui échoue ne doit pas rester silencieuse dans les journaux.
     console.error('[cron] la tournée a échoué :', error)

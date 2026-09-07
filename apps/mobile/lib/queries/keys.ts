@@ -75,8 +75,18 @@ export const communityKeys = {
   profile: (handle: string) => [...communityKeys.all, 'profile', handle] as const,
   handleCheck: (handle: string) => [...communityKeys.all, 'handle', handle] as const,
   blocked: () => [...communityKeys.all, 'blocked'] as const,
-  /** Le fil dépend du rayon : en changer doit repartir d'une première page. */
-  feed: (radiusKm: number) => [...communityKeys.all, 'feed', radiusKm] as const,
+  /**
+   * Le fil local dépend du rayon : en changer doit repartir d'une première
+   * page, pas empiler deux fils différents. Le fil des abonnements, lui, n'en
+   * dépend pas — d'où deux clés distinctes plutôt qu'un rayon factice.
+   */
+  feed: (radiusKm: number) => [...communityKeys.all, 'feed', 'nearby', radiusKm] as const,
+  followingFeed: () => [...communityKeys.all, 'feed', 'following'] as const,
+  userPosts: (handle: string) => [...communityKeys.all, 'profile', handle, 'posts'] as const,
+  follows: (handle: string, direction: 'followers' | 'following') =>
+    [...communityKeys.all, 'profile', handle, direction] as const,
+  notifications: () => [...communityKeys.all, 'notifications'] as const,
+  unread: () => [...communityKeys.all, 'unread'] as const,
   home: () => [...communityKeys.all, 'home'] as const,
   post: (postId: string) => [...communityKeys.all, 'post', postId] as const,
   comments: (postId: string) => [...communityKeys.all, 'post', postId, 'comments'] as const,

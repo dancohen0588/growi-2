@@ -3,7 +3,7 @@ import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { ChevronLeft, Plus } from 'lucide-react-native'
-import type { CommunityPost, CommunityRadiusKm } from '@growi/shared'
+import type { CommunityPost, CommunityRadiusKm, FeedScope } from '@growi/shared'
 import { COMMUNITY_RADII_KM, COMMUNITY_RADIUS_LABELS } from '@growi/shared'
 
 import { PostCard } from '@/components/community/PostCard'
@@ -11,7 +11,12 @@ import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
 import { errorMessage } from '@/lib/errors'
-import { useCommunitySettings, useFeed, useToggleLike } from '@/lib/queries/community'
+import {
+  useCommunitySettings,
+  useFeed,
+  useFollowingFeed,
+  useToggleLike,
+} from '@/lib/queries/community'
 
 /**
  * Écran 1 — le fil « Autour de moi ».
@@ -61,10 +66,56 @@ function RadiusChips({
   )
 }
 
+/** Segment de tête : deux fils, pas un algorithme. */
+function ScopeSegment({
+  value,
+  onChange,
+}: {
+  value: FeedScope
+  onChange: (scope: FeedScope) => void
+}) {
+  return (
+    <View className="mb-3 flex-row rounded-lg bg-card p-1">
+      {(
+        [
+          ['nearby', 'Autour de moi'],
+          ['following', 'Abonnements'],
+        ] as const
+      ).map(([scope, label]) => {
+        const selected = scope === value
+        return (
+          <Pressable
+            key={scope}
+            onPress={() => onChange(scope)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            accessibilityLabel={label}
+            className={[
+              'h-11 flex-1 items-center justify-center rounded-lg',
+              selected ? 'bg-lime' : '',
+            ].join(' ')}
+          >
+            <Text
+              className={[
+                'font-raleway-medium text-secondary',
+                selected ? 'text-forest' : 'text-muted-foreground',
+              ].join(' ')}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        )
+      })}
+    </View>
+  )
+}
+
 export default function CommunauteScreen() {
   const router = useRouter()
   const toast = useToast()
   const settings = useCommunitySettings()
+
+  const [scope, setScope] = useState<FeedScope>('nearby')
 
   // Le rayon des réglages sert de point de départ ; les pastilles le changent
   // pour la session sans réécrire la préférence du compte.
@@ -75,12 +126,19 @@ export default function CommunauteScreen() {
   const [radius, setRadius] = useState<CommunityRadiusKm | null>(null)
   const applied = radius ?? settings.data?.radiusKm ?? 20
 
-  const feed = useFeed(applied, { enabled: radius !== null || settings.isSuccess })
+  const nearby = useFeed(applied, {
+    enabled: scope === 'nearby' && (radius !== null || settings.isSuccess),
+  })
+  // Le fil des abonnements n'est demandé qu'à l'ouverture de son onglet : la
+  // plupart des comptes ne suivent encore personne.
+  const following = useFollowingFeed({ enabled: scope === 'following' })
+
+  const feed = scope === 'nearby' ? nearby : following
   const toggleLike = useToggleLike()
 
   const posts: CommunityPost[] = feed.data?.pages.flatMap((page) => page.items) ?? []
-  const widened = feed.data?.pages[0]?.widened ?? false
-  const appliedRadius = feed.data?.pages[0]?.appliedRadiusKm ?? applied
+  const widened = nearby.data?.pages[0]?.widened ?? false
+  const appliedRadius = nearby.data?.pages[0]?.appliedRadiusKm ?? applied
 
   const openPost = (postId: string) =>
     router.push(`/(tabs)/accueil/communaute/publications/${postId}`)
@@ -94,11 +152,15 @@ export default function CommunauteScreen() {
 
   const header = (
     <View>
-      <RadiusChips value={applied} onChange={setRadius} />
+      <ScopeSegment value={scope} onChange={setScope} />
+
+      {/* Le rayon ne concerne que le fil local : l'afficher sur les abonnements
+          laisserait croire qu'il y filtre quelque chose. */}
+      {scope === 'nearby' ? <RadiusChips value={applied} onChange={setRadius} /> : null}
 
       {/* Le fil s'est élargi de lui-même : il faut le dire, sinon on croirait
           qu'un inconnu habite la rue d'à côté. */}
-      {widened ? (
+      {scope === 'nearby' && widened ? (
         <View className="mb-3 rounded-xl bg-card p-3">
           <Text className="font-raleway text-secondary text-muted-foreground">
             Peu d’activité à {COMMUNITY_RADIUS_LABELS[applied]} — voici ce qui se passe à{' '}
@@ -147,18 +209,31 @@ export default function CommunauteScreen() {
             if (feed.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage()
           }}
           ListEmptyComponent={
-            <EmptyState
-              emoji="🌱"
-              title="Personne n’a encore publié près de chez toi"
-              message="Sois le premier — une photo de ton jardin suffit à lancer le voisinage."
-              cta={{
-                label: 'Publier',
-                onPress: () => router.push('/publier'),
-              }}
-            />
+            scope === 'following' ? (
+              <EmptyState
+                emoji="🌿"
+                title="Tu ne suis encore personne"
+                message="Ouvre « Autour de moi » et abonne-toi aux jardiniers du coin — leurs publications arriveront ici."
+                cta={{ label: 'Voir autour de moi', onPress: () => setScope('nearby') }}
+              />
+            ) : (
+              <EmptyState
+                emoji="🌱"
+                title="Personne n’a encore publié près de chez toi"
+                message="Sois le premier — une photo de ton jardin suffit à lancer le voisinage."
+                cta={{ label: 'Publier', onPress: () => router.push('/publier') }}
+              />
+            )
           }
           renderItem={({ item }) => (
-            <PostCard post={item} onPress={() => openPost(item.id)} onToggleLike={() => like(item)} />
+            <PostCard
+              post={item}
+              onPress={() => openPost(item.id)}
+              onOpenAuthor={() =>
+                router.push(`/(tabs)/accueil/communaute/u/${item.author.handle}`)
+              }
+              onToggleLike={() => like(item)}
+            />
           )}
         />
       )}
