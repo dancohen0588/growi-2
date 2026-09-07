@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { ChevronLeft, Plus } from 'lucide-react-native'
+import { Plus } from 'lucide-react-native'
 import type { ListingCategory, ListingKind } from '@growi/shared'
 import {
   LISTING_CATEGORIES,
@@ -11,6 +11,7 @@ import {
   LISTING_KIND_LABELS,
 } from '@growi/shared'
 
+import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { ListingCard } from '@/components/community/ListingCard'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
@@ -111,16 +112,7 @@ export default function BourseScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-sand" edges={['top', 'left', 'right']}>
-      <View className="flex-row items-center gap-2 px-4 py-3">
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Retour"
-        >
-          <ChevronLeft size={26} color="#1E5631" />
-        </Pressable>
-        <Text className="flex-1 font-poppins-bold text-screen text-forest">Bourse</Text>
+      <CommunityHeader title="Bourse" parent="/(tabs)/communaute">
         <Pressable
           onPress={() => router.push('/(tabs)/communaute/bourse/mes-annonces')}
           hitSlop={8}
@@ -128,7 +120,7 @@ export default function BourseScreen() {
         >
           <Text className="font-raleway-medium text-secondary text-forest">Mes annonces</Text>
         </Pressable>
-      </View>
+      </CommunityHeader>
 
       {listings.isPending ? (
         <View className="px-4">

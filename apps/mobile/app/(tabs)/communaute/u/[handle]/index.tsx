@@ -2,10 +2,11 @@ import { Alert, FlatList, Pressable, RefreshControl, Text, View, useWindowDimens
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ChevronLeft, MoreHorizontal, ShieldBan } from 'lucide-react-native'
+import { MoreHorizontal, ShieldBan } from 'lucide-react-native'
 import type { CommunityPost, CommunityProfile } from '@growi/shared'
 import { REPORT_REASONS, REPORT_REASON_LABELS } from '@growi/shared'
 
+import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
@@ -62,7 +63,9 @@ function ProfileHeader({ profile }: { profile: CommunityProfile }) {
             block.mutate(true, {
               onSuccess: () => {
                 toast('Compte bloqué')
-                router.back()
+                // Le profil n'est plus visible pour nous : y revenir donnerait
+                // une page introuvable.
+                router.navigate('/(tabs)/communaute')
               },
               onError: (error) => toast(errorMessage(error), 'error'),
             })
@@ -207,19 +210,10 @@ export default function ProfilPublicScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-sand" edges={['top', 'left', 'right']}>
-      <View className="flex-row items-center gap-2 px-4 py-3">
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Retour"
-        >
-          <ChevronLeft size={26} color="#1E5631" />
-        </Pressable>
-        <Text className="flex-1 font-poppins-bold text-screen text-forest" numberOfLines={1}>
-          {profile.data?.handle ?? 'Profil'}
-        </Text>
-      </View>
+      <CommunityHeader
+        title={profile.data?.handle ?? 'Profil'}
+        parent="/(tabs)/communaute"
+      />
 
       {profile.isPending ? (
         <View className="px-4">

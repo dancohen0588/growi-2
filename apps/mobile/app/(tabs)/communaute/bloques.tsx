@@ -1,9 +1,8 @@
 import { Alert, FlatList, Pressable, RefreshControl, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
-import { ChevronLeft } from 'lucide-react-native'
 import type { BlockedAccount } from '@growi/shared'
 
+import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
 import { errorMessage } from '@/lib/errors'
@@ -55,7 +54,6 @@ function BlockedRow({
 }
 
 export default function ComptesBloquesScreen() {
-  const router = useRouter()
   const toast = useToast()
   const blocked = useBlockedAccounts()
   const unblock = useUnblock()
@@ -83,17 +81,7 @@ export default function ComptesBloquesScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-sand" edges={['top', 'left', 'right']}>
-      <View className="flex-row items-center gap-2 px-4 py-3">
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Retour"
-        >
-          <ChevronLeft size={26} color="#1E5631" />
-        </Pressable>
-        <Text className="font-poppins-bold text-screen text-forest">Comptes bloqués</Text>
-      </View>
+      <CommunityHeader title="Comptes bloqués" parent="/(tabs)/communaute" />
 
       {blocked.isPending ? (
         <View className="px-4">

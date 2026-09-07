@@ -2,9 +2,10 @@ import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
-import { ChevronLeft, Sprout } from 'lucide-react-native'
+import { Sprout } from 'lucide-react-native'
 import type { ListingThread } from '@growi/shared'
 
+import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
 import { formatLogDate } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
@@ -88,17 +89,7 @@ export default function MessagesScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-sand" edges={['top', 'left', 'right']}>
-      <View className="flex-row items-center gap-2 px-4 py-3">
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Retour"
-        >
-          <ChevronLeft size={26} color="#1E5631" />
-        </Pressable>
-        <Text className="flex-1 font-poppins-bold text-screen text-forest">Messages</Text>
-      </View>
+      <CommunityHeader title="Messages" parent="/(tabs)/communaute" />
 
       {threads.isPending ? (
         <View className="px-4">

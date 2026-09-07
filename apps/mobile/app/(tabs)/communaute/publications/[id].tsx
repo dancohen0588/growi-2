@@ -13,10 +13,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ChevronLeft, Heart, Leaf, MoreHorizontal, Send } from 'lucide-react-native'
+import { Heart, Leaf, MoreHorizontal, Send } from 'lucide-react-native'
 import type { CommunityComment, CommunityPostDetail } from '@growi/shared'
 import { COMMENT_BODY_MAX_LENGTH } from '@growi/shared'
 
+import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
 import { formatLogDate } from '@/lib/dates'
@@ -110,7 +111,9 @@ function PostContent({ post }: { post: CommunityPostDetail }) {
           try {
             await deletePost.mutateAsync(post.id)
             toast('Publication supprimée')
-            router.back()
+            // La publication n'existe plus : on remonte au fil plutôt que de
+            // revenir sur un écran qui l'affiche encore.
+            router.navigate('/(tabs)/communaute')
           } catch (error) {
             toast(errorMessage(error), 'error')
           }
@@ -302,17 +305,7 @@ export default function PublicationScreen() {
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View className="flex-row items-center gap-2 px-4 py-3">
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Retour"
-          >
-            <ChevronLeft size={26} color="#1E5631" />
-          </Pressable>
-          <Text className="flex-1 font-poppins-bold text-screen text-forest">Publication</Text>
-        </View>
+        <CommunityHeader title="Publication" parent="/(tabs)/communaute" />
 
         {post.isPending ? (
           <View className="px-4">

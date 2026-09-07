@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { ChevronLeft, MessageSquare, Plus, Sprout } from 'lucide-react-native'
+import { MessageSquare, Plus, Sprout } from 'lucide-react-native'
 import type { CommunityPost, CommunityRadiusKm, FeedScope } from '@growi/shared'
 import { COMMUNITY_RADII_KM, COMMUNITY_RADIUS_LABELS } from '@growi/shared'
 
+import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { PostCard } from '@/components/community/PostCard'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
@@ -173,17 +174,8 @@ export default function CommunauteScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-sand" edges={['top', 'left', 'right']}>
-      <View className="flex-row items-center gap-2 px-4 py-3">
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Retour"
-        >
-          <ChevronLeft size={26} color="#1E5631" />
-        </Pressable>
-        <Text className="flex-1 font-poppins-bold text-screen text-forest">Communauté</Text>
-
+      {/* Racine de l'onglet : pas de retour. */}
+      <CommunityHeader title="Communauté">
         {/* La bourse et les messages sont les deux autres destinations de la
             communauté : elles vivent dans l'en-tête plutôt que dans un second
             segment, qui se disputerait la place avec les deux fils. */}
@@ -203,7 +195,7 @@ export default function CommunauteScreen() {
         >
           <Sprout size={24} color="#1E5631" />
         </Pressable>
-      </View>
+      </CommunityHeader>
 
       {feed.isPending ? (
         <View className="px-4">

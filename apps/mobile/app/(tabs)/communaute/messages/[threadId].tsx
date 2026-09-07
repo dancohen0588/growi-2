@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ChevronLeft, Send, ShieldCheck, Sprout } from 'lucide-react-native'
+import { Send, ShieldCheck, Sprout } from 'lucide-react-native'
 import type { ListingMessage, ListingThreadDetail } from '@growi/shared'
 import {
   LISTING_MESSAGE_MAX_LENGTH,
@@ -19,6 +19,7 @@ import {
   LISTING_STATUS_LABELS,
 } from '@growi/shared'
 
+import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
 import { formatLogDate } from '@/lib/dates'
@@ -176,19 +177,10 @@ export default function DiscussionScreen() {
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View className="flex-row items-center gap-2 px-4 py-3">
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Retour"
-          >
-            <ChevronLeft size={26} color="#1E5631" />
-          </Pressable>
-          <Text className="flex-1 font-poppins-bold text-screen text-forest" numberOfLines={1}>
-            {thread.data?.other.handle ?? 'Discussion'}
-          </Text>
-        </View>
+        <CommunityHeader
+          title={thread.data?.other.handle ?? 'Discussion'}
+          parent="/(tabs)/communaute/messages"
+        />
 
         {thread.isPending ? (
           <View className="px-4">

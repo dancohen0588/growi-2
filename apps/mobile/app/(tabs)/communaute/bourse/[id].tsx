@@ -2,7 +2,7 @@ import { Alert, Pressable, ScrollView, Text, View, useWindowDimensions } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react-native'
+import { ChevronRight } from 'lucide-react-native'
 import type { Listing, ListingThread } from '@growi/shared'
 import {
   LISTING_CATEGORY_LABELS,
@@ -12,6 +12,7 @@ import {
   REPORT_REASON_LABELS,
 } from '@growi/shared'
 
+import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
@@ -126,7 +127,7 @@ function ListingContent({ listing }: { listing: Listing }) {
           try {
             await remove.mutateAsync(listing.id)
             toast('Annonce supprimée')
-            router.back()
+            router.navigate('/(tabs)/communaute/bourse')
           } catch (error) {
             toast(errorMessage(error), 'error')
           }
@@ -315,18 +316,7 @@ export default function AnnonceScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-sand" edges={['top', 'left', 'right']}>
-      <View className="flex-row items-center gap-2 px-4 py-3">
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Retour"
-        >
-          <ChevronLeft size={26} color="#1E5631" />
-        </Pressable>
-        <Text className="flex-1 font-poppins-bold text-screen text-forest">Annonce</Text>
-        <MoreHorizontal size={24} color="transparent" />
-      </View>
+      <CommunityHeader title="Annonce" parent="/(tabs)/communaute/bourse" />
 
       {listing.isPending ? (
         <View className="px-4">
