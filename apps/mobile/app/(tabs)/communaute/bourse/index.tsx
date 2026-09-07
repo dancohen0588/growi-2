@@ -133,10 +133,11 @@ export default function BourseScreen() {
         />
       ) : (
         <FlatList
+          className="flex-1"
           data={items}
           keyExtractor={(listing) => listing.id}
           ListHeaderComponent={header}
-          contentContainerClassName="px-4 pb-24 gap-3"
+          contentContainerClassName="px-4 pb-4 gap-3"
           refreshControl={
             <RefreshControl
               refreshing={listings.isRefetching}
@@ -170,9 +171,12 @@ export default function BourseScreen() {
         />
       )}
 
-      {/* Action principale en bas : zone du pouce. */}
+      {/* Barre d'action en bas, dans le flux — comme « Mes plantes ».
+          Elle était en `absolute` : `Button` est `fullWidth` par défaut, et son
+          `w-full` se résolvait alors sur la largeur de l'écran au lieu de celle
+          d'un conteneur qui n'en avait pas, débordant à gauche. */}
       {items.length > 0 ? (
-        <View className="absolute bottom-6 right-4">
+        <View className="px-4 pb-4 pt-2">
           <Button
             label="Publier"
             onPress={() => router.push('/annonce')}
