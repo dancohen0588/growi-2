@@ -18,6 +18,7 @@ import { ServiceError } from '@/lib/services/errors'
 
 import { decodeCursor, takePage } from './cursor'
 import { fuzzyPosition } from './geo'
+import { assertClean } from './moderation.service'
 import { notifyFollow } from './notification.service'
 import {
   COMMUNITY_USER_SELECT,
@@ -111,6 +112,8 @@ export async function updateSettings(
       )
     }
   }
+
+  assertClean(input.handle, input.bio)
 
   const data: Prisma.UserUpdateInput = {}
 

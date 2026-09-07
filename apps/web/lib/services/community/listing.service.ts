@@ -23,6 +23,7 @@ import { ServiceError } from '@/lib/services/errors'
 import { deletePhotoByUrl } from '@/lib/storage'
 
 import { decodeCursor, takePage } from './cursor'
+import { assertClean } from './moderation.service'
 import {
   notifyListingExpiring,
   notifyListingInterest,
@@ -127,6 +128,7 @@ export async function createListing(
   input: CreateListingInput,
 ): Promise<Listing> {
   const position = await requirePublisher(userId)
+  assertClean(input.title, input.description, input.quantity, input.wants)
 
   // Le plafond porte sur les annonces **ouvertes**, pas sur un débit : dix
   // annonces en ligne, c'est déjà beaucoup pour un jardin, et rien n'empêche
@@ -181,6 +183,8 @@ export async function updateListing(
     select: { id: true },
   })
   if (!existing) throw new ServiceError('NOT_FOUND', 'Annonce introuvable.')
+
+  assertClean(input.title, input.description, input.quantity, input.wants)
 
   const data: Prisma.ListingUpdateInput = {}
   if (input.title !== undefined) data.title = input.title
@@ -695,6 +699,7 @@ export async function sendMessage(
   input: SendListingMessageInput,
 ): Promise<ListingMessage> {
   const thread = await findMyThread(threadId, userId)
+  assertClean(input.body)
   const now = new Date()
   const isOwner = thread.ownerId === userId
 

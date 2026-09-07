@@ -311,8 +311,10 @@ export const NOTIFICATION_KINDS = [
   'comment',
   'listing_interest',
   'listing_message',
-  /** Rappel J‑7 — la seule notification sans acteur : c'est le calendrier. */
+  /** Rappel J‑7 — sans acteur : c'est le calendrier qui la déclenche. */
   'listing_expiring',
+  /** Un contenu a été masqué le temps d'une vérification. Sans acteur non plus. */
+  'moderation',
 ] as const
 export const notificationKindSchema = z.enum(NOTIFICATION_KINDS)
 export type NotificationKind = z.infer<typeof notificationKindSchema>

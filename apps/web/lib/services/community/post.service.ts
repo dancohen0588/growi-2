@@ -24,6 +24,7 @@ import { ServiceError } from '@/lib/services/errors'
 import { deletePhotoByUrl } from '@/lib/storage'
 
 import { decodeCursor, encodeCursor, takePage } from './cursor'
+import { assertClean } from './moderation.service'
 import { notifyComment, notifyLike } from './notification.service'
 import { followingIds, hiddenUserIds } from './profile.service'
 import {
@@ -183,6 +184,7 @@ export async function createPost(
   input: CreatePostInput,
 ): Promise<CommunityPost> {
   const position = await requirePublisher(userId)
+  assertClean(input.body)
 
   if ((await countSince('post', userId, 24 * 60 * 60 * 1000)) >= COMMUNITY_RATE_LIMITS.postsPerDay) {
     throw new ServiceError(
@@ -235,6 +237,8 @@ export async function updatePost(
     select: { id: true },
   })
   if (!existing) throw new ServiceError('NOT_FOUND', 'Publication introuvable.')
+
+  assertClean(input.body)
 
   const updated = await prisma.post.update({
     where: { id: postId },
@@ -415,6 +419,7 @@ export async function addComment(
   input: CreateCommentInput,
 ): Promise<CommunityComment> {
   await requirePublisher(userId)
+  assertClean(input.body)
   const post = await findVisiblePost(postId, userId)
 
   if (

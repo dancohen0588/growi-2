@@ -1,4 +1,5 @@
 import { runListingUpkeep } from '@/lib/services/community/listing.service'
+import { sendOpenReportsAlert } from '@/lib/services/community/moderation.service'
 import { purgeReadNotifications } from '@/lib/services/community/notification.service'
 import { sendDailyReminders } from '@/lib/services/push.service'
 
@@ -56,6 +57,16 @@ export async function GET(request: Request): Promise<Response> {
       console.error('[cron] entretien de la bourse impossible :', error)
     }
 
+    // Alerte de seuil : le badge de l'admin suffit tant qu'on l'ouvre, cet
+    // email est là pour le jour où on ne l'ouvre pas.
+    let reports = { open: 0, sent: false }
+    try {
+      reports = await sendOpenReportsAlert()
+      if (reports.sent) console.log('[cron] alerte modération envoyée :', reports.open)
+    } catch (error) {
+      console.error('[cron] alerte de modération impossible :', error)
+    }
+
     // La purge des notifications lues vient en dernier, et son échec n'annule
     // rien : ranger est moins important que prévenir.
     let purged = 0
@@ -67,7 +78,7 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     return Response.json(
-      { data: { ...result, listings: upkeep, notificationsPurged: purged } },
+      { data: { ...result, listings: upkeep, reports, notificationsPurged: purged } },
       { headers: { 'cache-control': 'no-store' } },
     )
   } catch (error) {
