@@ -40,7 +40,9 @@ export async function getDashboardSummary(
   const actions = planning.gardens.flatMap((garden) => garden.actions)
   const alerts = planning.gardens.flatMap((garden) => garden.alerts)
 
-  const today = actions.filter((a) => actionHorizon(a.dueDate, planning.date) === 'today')
+  // L'horizon se lit sur l'action entière : une action à fenêtre en cours va
+  // dans « ce mois-ci », elle n'a rien à faire dans le compte du jour.
+  const today = actions.filter((a) => actionHorizon(a, planning.date) === 'today')
   const weekEnd = addDays(planning.date, 7)
 
   return {

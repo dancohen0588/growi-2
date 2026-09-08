@@ -4,7 +4,13 @@ import {
   ACTION_TYPES,
   CARE_LOG_TYPES,
   actionHorizon,
+  clearPlanningTodaySchema,
+  gardenActionSchema,
   groupActionsByHorizon,
+  groupWateringActions,
+  markActionsDoneBulkSchema,
+  undoActionSchema,
+  type GardenAction,
   CARE_LOG_TYPE_BY_ACTION,
   DEFAULT_ALERT_CONFIG,
   alertConfigSchema,
@@ -156,27 +162,145 @@ describe('planning du jour', () => {
     ).toBe(false)
   })
 
-  it('range les tâches en trois horizons, le retard avec le jour même', () => {
+  it('range les tâches en quatre horizons, le retard avec le jour même', () => {
     const groups = groupActionsByHorizon(
       [
         { id: 'retard', dueDate: '2026-08-18' },
         { id: 'jour', dueDate: '2026-08-21' },
         { id: 'demain', dueDate: '2026-08-22' },
         { id: 'semaine', dueDate: '2026-08-27' },
+        { id: 'lointain', dueDate: '2026-09-30' },
+        {
+          id: 'fenetre',
+          dueDate: '2026-09-30',
+          kind: 'window' as const,
+          window: { start: '2026-08-01', end: '2026-09-30' },
+        },
       ],
       '2026-08-21',
     )
 
     expect(groups.today.map((a) => a.id)).toEqual(['retard', 'jour'])
-    expect(groups.tomorrow.map((a) => a.id)).toEqual(['demain'])
-    expect(groups.later.map((a) => a.id)).toEqual(['semaine'])
+    expect(groups.week.map((a) => a.id)).toEqual(['demain', 'semaine'])
+    expect(groups.month.map((a) => a.id)).toEqual(['fenetre'])
+    expect(groups.later.map((a) => a.id)).toEqual(['lointain'])
   })
 
   it('passe correctement la fin de mois', () => {
-    expect(actionHorizon('2026-09-01', '2026-08-31')).toBe('tomorrow')
-    expect(actionHorizon('2026-09-02', '2026-08-31')).toBe('later')
+    expect(actionHorizon({ dueDate: '2026-09-01' }, '2026-08-31')).toBe('week')
+    expect(actionHorizon({ dueDate: '2026-09-07' }, '2026-08-31')).toBe('week')
+    expect(actionHorizon({ dueDate: '2026-09-08' }, '2026-08-31')).toBe('later')
   })
 
+  it('une action sans nature reste datée', () => {
+    expect(actionHorizon({ dueDate: '2026-08-20' }, '2026-08-21')).toBe('today')
+  })
+
+  it("une fenêtre à venir attend son tour, une fenêtre ouverte n'est jamais en retard", () => {
+    const window = { start: '2026-10-01', end: '2026-11-30' }
+    expect(actionHorizon({ dueDate: window.end, kind: 'window', window }, '2026-09-08')).toBe(
+      'later',
+    )
+    expect(actionHorizon({ dueDate: window.end, kind: 'window', window }, '2026-10-15')).toBe(
+      'month',
+    )
+    // Fenêtre close : rangée au calme, jamais traitée comme un retard.
+    expect(actionHorizon({ dueDate: window.end, kind: 'window', window }, '2026-12-01')).toBe(
+      'month',
+    )
+  })
+})
+
+describe('planning v2 — regroupement et gestes de masse', () => {
+  const action = (over: Partial<GardenAction> & { id: string }): GardenAction => ({
+    type: 'arrosage',
+    label: 'Arroser',
+    shortLabel: 'Arroser',
+    plantId: `p-${over.id}`,
+    dueDate: '2026-09-08',
+    done: false,
+    priority: 'medium',
+    ...over,
+  })
+
+  it('regroupe les arrosages, laisse le reste unitaire', () => {
+    const { groups, singles } = groupWateringActions(
+      [
+        action({ id: 'a' }),
+        action({ id: 'b' }),
+        action({ id: 'c', type: 'taille' }),
+        action({ id: 'd' }),
+      ],
+      'today',
+    )
+
+    expect(groups).toHaveLength(1)
+    expect(groups[0].key).toBe('arrosage:today')
+    expect(groups[0].actions.map((a) => a.id)).toEqual(['a', 'b', 'd'])
+    expect(singles.map((a) => a.id)).toEqual(['c'])
+  })
+
+  it('un seul arrosage ne fait pas un groupe, et garde sa place dans la liste', () => {
+    const { groups, singles } = groupWateringActions([
+      action({ id: 'taille', type: 'taille' }),
+      action({ id: 'seul' }),
+      action({ id: 'rempotage', type: 'rempotage' }),
+    ])
+
+    expect(groups).toHaveLength(0)
+    expect(singles.map((a) => a.id)).toEqual(['taille', 'seul', 'rempotage'])
+  })
+
+  it('un arrosage sans plante reste unitaire — rien à cocher dans une carte groupée', () => {
+    const { groups, singles } = groupWateringActions([
+      action({ id: 'a', plantId: undefined }),
+      action({ id: 'b', plantId: undefined }),
+    ])
+
+    expect(groups).toHaveLength(0)
+    expect(singles).toHaveLength(2)
+  })
+
+  it('exige au moins un item, et refuse une tournée démesurée', () => {
+    const item = { actionType: 'arrosage' as const, plantId: 'p1' }
+    expect(markActionsDoneBulkSchema.safeParse({ gardenId: 'g1', items: [item] }).success).toBe(
+      true,
+    )
+    expect(markActionsDoneBulkSchema.safeParse({ gardenId: 'g1', items: [] }).success).toBe(false)
+    expect(
+      markActionsDoneBulkSchema.safeParse({ gardenId: 'g1', items: Array(101).fill(item) }).success,
+    ).toBe(false)
+  })
+
+  it('« Ignorer » et son « Rétablir » partagent le même corps', () => {
+    expect(clearPlanningTodaySchema.safeParse({ gardenId: 'g1' }).success).toBe(true)
+    expect(clearPlanningTodaySchema.safeParse({ gardenId: 'g1', undo: true }).success).toBe(true)
+    expect(clearPlanningTodaySchema.safeParse({ undo: true }).success).toBe(false)
+  })
+
+  it("annuler demande le geste à effacer, pas seulement l'action", () => {
+    expect(undoActionSchema.safeParse({ gardenId: 'g1', careLogId: 'c1' }).success).toBe(true)
+    expect(undoActionSchema.safeParse({ gardenId: 'g1' }).success).toBe(false)
+  })
+
+  it('accepte encore une action sans aucun des champs de la v2', () => {
+    const legacy = action({ id: 'a' })
+    expect(gardenActionSchema.safeParse(legacy).success).toBe(true)
+    expect(
+      gardenActionSchema.safeParse({
+        ...legacy,
+        kind: 'window',
+        window: { start: '2026-09-01', end: '2026-10-31' },
+        why: 'Le rosier se taille en fin de saison.',
+        howTo: 'Sécateur propre, au-dessus d’un œil tourné vers l’extérieur.',
+        ruleId: 'r4-pruning-seasonal',
+      }).success,
+    ).toBe(true)
+    expect(gardenActionSchema.safeParse({ ...legacy, kind: 'saison' }).success).toBe(false)
+  })
+})
+
+describe('météo', () => {
   it('traduit les codes météo, et retombe sur un libellé neutre', () => {
     expect(getWeatherCodeInfo(0).label).toBe('Ciel dégagé')
     expect(getWeatherCodeInfo(95).severity).toBe('bad')

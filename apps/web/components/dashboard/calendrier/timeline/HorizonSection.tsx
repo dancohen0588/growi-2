@@ -16,9 +16,10 @@ interface HorizonSectionProps {
 }
 
 /**
- * Une section par échéance — aujourd'hui, demain, plus tard — comme dans l'app
- * mobile, et avec la même dégressivité : plus l'échéance est lointaine, plus la
- * carte est discrète.
+ * Une section par échéance — aujourd'hui, cette semaine, ce mois-ci, plus tard
+ * — comme dans l'app mobile, et avec la même dégressivité : plus l'échéance est
+ * lointaine, plus la carte est discrète. Ce qui est « à ton rythme » descend
+ * donc naturellement en lignes compactes.
  */
 export function HorizonSection({ horizon, actions, onDone }: HorizonSectionProps) {
   const headingId = `horizon-${horizon}`
@@ -60,7 +61,7 @@ export function HorizonSection({ horizon, actions, onDone }: HorizonSectionProps
             <motion.div key={action.id} variants={fadeUp} layout>
               {horizon === 'today' ? (
                 <ActionCardLarge action={action} onDone={onDone} />
-              ) : horizon === 'tomorrow' ? (
+              ) : horizon === 'week' ? (
                 <ActionCardMedium action={action} onDone={onDone} />
               ) : (
                 <ActionRowCompact action={action} onDone={onDone} />

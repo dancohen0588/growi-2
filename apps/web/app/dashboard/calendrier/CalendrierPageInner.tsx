@@ -116,8 +116,8 @@ function CalendrierContent({ initialActions, alerts, actionGardenIds, fallbackGa
           <span>✅ {todayDoneCount} faite{todayDoneCount > 1 ? 's' : ''} aujourd&apos;hui</span>
         )}
         <span>🌱 {pendingByHorizon.today.length} aujourd&apos;hui</span>
-        <span>⏳ {pendingByHorizon.tomorrow.length} demain</span>
-        <span>📅 {pendingByHorizon.later.length} plus tard</span>
+        <span>📆 {pendingByHorizon.week.length} cette semaine</span>
+        <span>🌿 {pendingByHorizon.month.length} ce mois-ci</span>
       </div>
 
       {/* Views */}
