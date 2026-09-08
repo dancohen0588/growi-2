@@ -48,12 +48,16 @@ function indicators(summary: DashboardSummary) {
       key: 'tasks',
       label: 'Gestes du jour',
       value: summary.tasksToday,
+      // L'arrosage passe devant le retard : c'est ce qui compose l'essentiel
+      // du chiffre, et ce qui se règle d'un seul geste depuis le calendrier.
       sub:
-        summary.tasksLate > 0
-          ? `dont ${summary.tasksLate} en retard`
-          : summary.tasksWeek > 0
-            ? `${summary.tasksWeek} cette semaine`
-            : 'rien ne presse',
+        summary.plantsToWater > 0
+          ? `dont ${summary.plantsToWater} arrosage${summary.plantsToWater > 1 ? 's' : ''}`
+          : summary.tasksLate > 0
+            ? `dont ${summary.tasksLate} en retard`
+            : summary.tasksWeek > 0
+              ? `${summary.tasksWeek} cette semaine`
+              : 'rien ne presse',
       tone: indicatorTone('tasks', summary),
       icon: <CalendarDays size={14} color="hsl(139 20% 40%)" />,
       href: '/(tabs)/calendrier' as const,

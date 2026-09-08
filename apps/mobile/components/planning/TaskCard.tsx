@@ -1,9 +1,10 @@
 import { Pressable, Text, View } from 'react-native'
 import { Image } from 'expo-image'
-import { Check, Clock, MessageCircle, Stethoscope } from 'lucide-react-native'
+import { Check, Clock, Stethoscope } from 'lucide-react-native'
 import type { GardenAction } from '@growi/shared'
 
 import { ActionIcon } from '@/components/plants/CareIcon'
+import { formatActionWhen } from '@/lib/dates'
 
 /** Largeur d'une carte du carrousel — la suivante déborde volontairement. */
 export const TASK_CARD_WIDTH = 268
@@ -11,27 +12,26 @@ export const TASK_CARD_GAP = 12
 
 export interface TaskCardProps {
   action: GardenAction
-  late: boolean
   /** Nom du jardin, affiché seulement quand l'utilisateur en a plusieurs. */
   gardenName?: string
   onDone: () => void
-  onOpenPlant?: () => void
-  /** Ouvre le fil de discussion sur cette tâche — « Comment faire ? ». */
-  onAsk?: () => void
+  /** Ouvre la feuille de détail — par le bouton, ou par un tap sur la carte. */
+  onOpenDetail: () => void
 }
 
 /**
- * Carte d'une tâche prioritaire : grande photo, geste en titre, validation
- * pleine largeur.
+ * Carte d'une tâche prioritaire : photo, verbe, une ligne, deux boutons.
  *
  * La photo fait le travail que le texte faisait mal — reconnaître la plante
- * avant de lire. À défaut, l'emoji tient la place sur le fond sable.
+ * avant de lire. À défaut, l'emoji tient la place sur le fond sable. La
+ * consigne, elle, a quitté la carte : elle y était coupée à trois lignes sans
+ * recours, et personne ne la lisait avant d'agir.
  */
-export function TaskCard({ action, late, gardenName, onDone, onOpenPlant, onAsk }: TaskCardProps) {
-  const meta = [
-    gardenName,
-    action.estimatedMinutes ? `${action.estimatedMinutes} min` : null,
-  ].filter(Boolean)
+export function TaskCard({ action, gardenName, onDone, onOpenDetail }: TaskCardProps) {
+  const when = formatActionWhen(action)
+  // Le « pourquoi » de la règle tient lieu de contexte ; sinon l'échéance,
+  // et le jardin quand l'utilisateur en a plusieurs.
+  const context = action.why ?? action.detail ?? [gardenName, when.label].filter(Boolean).join(' · ')
 
   return (
     <View
@@ -39,10 +39,9 @@ export function TaskCard({ action, late, gardenName, onDone, onOpenPlant, onAsk 
       style={{ width: TASK_CARD_WIDTH }}
     >
       <Pressable
-        onPress={onOpenPlant}
-        disabled={!onOpenPlant}
-        accessibilityRole={onOpenPlant ? 'button' : undefined}
-        accessibilityLabel={onOpenPlant ? `Ouvrir la fiche de ${action.plantName}` : undefined}
+        onPress={onOpenDetail}
+        accessibilityRole="button"
+        accessibilityLabel={`Détails : ${action.label}`}
       >
         <View className="h-44 items-center justify-center bg-sand-dark">
           {action.plantPhotoUrl ? (
@@ -86,30 +85,23 @@ export function TaskCard({ action, late, gardenName, onDone, onOpenPlant, onAsk 
             ) : null}
           </View>
 
-          {/* La consigne complète d'une recommandation : le titre seul ne
-              suffit pas à agir (dosage, moment de la journée). */}
-          {action.detail ? (
-            <Text className="font-raleway text-caption text-muted-foreground" numberOfLines={3}>
-              {action.detail}
+          {/* Une seule ligne de contexte : le reste est dans la feuille. */}
+          <View className="flex-row items-center gap-1.5">
+            {when.late ? <Clock size={13} color="hsl(0 84% 60%)" /> : null}
+            <Text
+              className={[
+                'flex-1 font-raleway text-caption',
+                when.late ? 'text-destructive' : 'text-muted-foreground',
+              ].join(' ')}
+              numberOfLines={1}
+            >
+              {context}
             </Text>
-          ) : null}
-
-          {late ? (
-            <View className="flex-row items-center gap-1.5">
-              <Clock size={13} color="hsl(0 84% 60%)" />
-              <Text className="font-raleway-medium text-caption text-destructive">
-                En retard
-              </Text>
-            </View>
-          ) : meta.length > 0 ? (
-            <Text className="font-raleway text-caption text-muted-foreground" numberOfLines={1}>
-              {meta.join(' · ')}
-            </Text>
-          ) : null}
+          </View>
         </View>
 
-        {/* Valider reste l'action principale ; demander comment faire est
-            juste à côté, pour qui ne sait pas par où commencer. */}
+        {/* Valider reste l'action principale ; « Détails » est un vrai bouton
+            à côté, jamais un lien souligné qu'on cherche du regard. */}
         <View className="flex-row gap-2">
           <Pressable
             onPress={onDone}
@@ -122,17 +114,15 @@ export function TaskCard({ action, late, gardenName, onDone, onOpenPlant, onAsk 
             <Text className="font-raleway-semibold text-body text-forest">C'est fait</Text>
           </Pressable>
 
-          {onAsk ? (
-            <Pressable
-              onPress={onAsk}
-              accessibilityRole="button"
-              accessibilityLabel={`Comment faire : ${action.shortLabel}`}
-              className="h-12 w-12 items-center justify-center rounded-xl bg-sand-dark"
-              style={({ pressed }) => (pressed ? { opacity: 0.8 } : null)}
-            >
-              <MessageCircle size={20} color="#1E5631" />
-            </Pressable>
-          ) : null}
+          <Pressable
+            onPress={onOpenDetail}
+            accessibilityRole="button"
+            accessibilityLabel={`Détails : ${action.shortLabel}`}
+            className="h-12 items-center justify-center rounded-xl bg-sand-dark px-4"
+            style={({ pressed }) => (pressed ? { opacity: 0.8 } : null)}
+          >
+            <Text className="font-raleway-semibold text-secondary text-forest">Détails</Text>
+          </Pressable>
         </View>
       </View>
     </View>

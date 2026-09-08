@@ -75,6 +75,25 @@ export function formatDueDate(
   return { label: formatDayLabel(due), late: false }
 }
 
+/**
+ * L'échéance telle que la carte la dit.
+ *
+ * Une action à fenêtre n'a pas de jour et n'est **jamais** en retard : elle
+ * annonce la fin de sa période. Passer par `formatDueDate` la ferait afficher
+ * en rouge dès le lendemain du premier du mois — c'est précisément ce que la
+ * v2 du planning corrige. Le web a la même fonction (`lib/calendar-utils.ts`).
+ */
+export function formatActionWhen(
+  action: { dueDate: string; kind?: 'dated' | 'window'; window?: { start: string; end: string } },
+  now = new Date(),
+): { label: string; late: boolean } {
+  if (action.kind === 'window' && action.window) {
+    const end = new Date(`${action.window.end}T12:00:00`)
+    return { label: `avant fin ${MONTHS[end.getMonth()]}`, late: false }
+  }
+  return formatDueDate(action.dueDate, now)
+}
+
 /** Jour abrégé d'une date `YYYY-MM-DD` — « mar. 25 », pour la prévision. */
 export function shortDayLabel(isoDate: string): string {
   const date = new Date(`${isoDate}T12:00:00`)
