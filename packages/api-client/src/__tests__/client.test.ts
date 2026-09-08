@@ -460,7 +460,7 @@ describe('diagnostic', () => {
     expect(applied.healthStatus).toBe('WARNING')
   })
 
-  it('planifie les recommandations sans corps', async () => {
+  it('planifie les recommandations, et retire celles que la revue a écartées', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({ data: { tasksCreated: 3, tasksPlannedAt: '2026-08-25T09:00:00.000Z' } }),
     )
@@ -470,8 +470,26 @@ describe('diagnostic', () => {
     const { url, init } = callArgs()
     expect(url).toBe('https://growi.test/api/v1/plants/p1/diagnoses/diag_1/plan')
     expect(init.method).toBe('POST')
-    expect(init.body).toBeUndefined()
+    // Corps vide par défaut : planifier sans passer par la revue reste possible.
+    expect(JSON.parse(String(init.body))).toEqual({})
     expect(planned.tasksCreated).toBe(3)
+
+    // Une même `Response` ne se lit qu'une fois : le second appel a la sienne.
+    fetchMock.mockResolvedValue(
+      jsonResponse({ data: { tasksCreated: 3, tasksPlannedAt: '2026-08-25T09:00:00.000Z' } }),
+    )
+    await makeClient().diagnosis.planActions('p1', 'diag_1', { supersede: ['t1'] })
+    expect(JSON.parse(String(callArgs().init.body))).toEqual({ supersede: ['t1'] })
+  })
+
+  it('lit la revue des actions en cours', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { tasks: [], superseded: [] } }))
+
+    await makeClient().diagnosis.review('p1', 'diag_1')
+
+    const { url, init } = callArgs()
+    expect(url).toBe('https://growi.test/api/v1/plants/p1/diagnoses/diag_1/review')
+    expect(init.method ?? 'GET').toBe('GET')
   })
 
   it('transmet le taskId quand on coche une tâche planifiée', async () => {
