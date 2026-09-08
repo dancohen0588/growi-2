@@ -11,12 +11,13 @@ import {
   LISTING_KIND_LABELS,
 } from '@growi/shared'
 
+import { CommunityDisabled } from '@/components/community/CommunityDisabled'
 import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { ListingCard } from '@/components/community/ListingCard'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
 import { errorMessage } from '@/lib/errors'
-import { useListings } from '@/lib/queries/community'
+import { useCommunitySettings, useListings } from '@/lib/queries/community'
 
 /**
  * Écran 4 — la bourse aux graines.
@@ -64,13 +65,22 @@ function Chip({
 export default function BourseScreen() {
   const router = useRouter()
 
+  const settings = useCommunitySettings()
+
   const [kind, setKind] = useState<ListingKind | null>(null)
   const [category, setCategory] = useState<ListingCategory | null>(null)
 
-  const listings = useListings({
-    kind: kind ?? undefined,
-    category: category ?? undefined,
-  })
+  // Comme le fil, la bourse est refusée en 403 tant que le profil public n'est
+  // pas activé : on invite à rejoindre plutôt que d'annoncer une panne.
+  const communityOn = settings.data?.enabled === true
+
+  const listings = useListings(
+    {
+      kind: kind ?? undefined,
+      category: category ?? undefined,
+    },
+    { enabled: communityOn },
+  )
 
   const items = listings.data?.pages.flatMap((page) => page.items) ?? []
 
@@ -113,16 +123,29 @@ export default function BourseScreen() {
   return (
     <SafeAreaView className="flex-1 bg-sand" edges={['top', 'left', 'right']}>
       <CommunityHeader title="Bourse" parent="/(tabs)/communaute">
-        <Pressable
-          onPress={() => router.push('/(tabs)/communaute/bourse/mes-annonces')}
-          hitSlop={8}
-          accessibilityRole="button"
-        >
-          <Text className="font-raleway-medium text-secondary text-forest">Mes annonces</Text>
-        </Pressable>
+        {communityOn ? (
+          <Pressable
+            onPress={() => router.push('/(tabs)/communaute/bourse/mes-annonces')}
+            hitSlop={8}
+            accessibilityRole="button"
+          >
+            <Text className="font-raleway-medium text-secondary text-forest">Mes annonces</Text>
+          </Pressable>
+        ) : null}
       </CommunityHeader>
 
-      {listings.isPending ? (
+      {settings.isPending ? (
+        <View className="px-4">
+          <ListSkeleton count={3} />
+        </View>
+      ) : settings.isError ? (
+        <ErrorState
+          message={errorMessage(settings.error)}
+          onRetry={() => void settings.refetch()}
+        />
+      ) : !communityOn ? (
+        <CommunityDisabled />
+      ) : listings.isPending ? (
         <View className="px-4">
           <ListSkeleton count={3} />
         </View>

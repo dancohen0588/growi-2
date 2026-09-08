@@ -255,13 +255,14 @@ export function useMarkNotificationsRead() {
 
 // ─── Bourse aux graines ────────────────────────────────────────────────────
 
-export function useListings(filters: ListingFilters) {
+export function useListings(filters: ListingFilters, options?: { enabled?: boolean }) {
   return useInfiniteQuery({
     queryKey: communityKeys.listings(filters),
     queryFn: ({ pageParam }) =>
       api.community.listings({ ...filters, cursor: pageParam ?? undefined }),
     initialPageParam: null as string | null,
     getNextPageParam: (last: ListingPage) => last.nextCursor ?? undefined,
+    enabled: options?.enabled ?? true,
   })
 }
 
