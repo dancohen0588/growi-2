@@ -69,6 +69,34 @@ test.beforeAll(async () => {
   })
 })
 
+/**
+ * Fait compiler `/login`, `/dashboard` et le calendrier avant de chronométrer
+ * quoi que ce soit.
+ *
+ * `next dev` compile à la demande, et le premier passage prend des dizaines de
+ * secondes — dont trente que `loginAs` s'accorde au maximum avant d'abandonner.
+ * Le premier test échouait donc sur un serveur froid, en restant sur la page de
+ * connexion, pour une raison sans aucun rapport avec le planning.
+ */
+test.beforeAll(async ({ browser }) => {
+  // Le `configure` plus bas ne couvre que les tests : un hook garde les trente
+  // secondes par défaut, soit moins que la compilation qu'il déclenche.
+  test.setTimeout(180_000)
+
+  const page = await browser.newPage()
+  try {
+    await page.goto('/login')
+    await page.fill('#email', TEST_EMAIL)
+    await page.fill('#password', TEST_PASSWORD)
+    await page.click('button[type="submit"]')
+    await page.waitForURL('**/dashboard**', { timeout: 120_000 })
+    await page.goto('/dashboard/calendrier')
+    await page.getByRole('heading', { name: /Ton calendrier jardin/ }).waitFor({ timeout: 120_000 })
+  } finally {
+    await page.close()
+  }
+})
+
 test.afterAll(async () => {
   await cleanupTestData()
 })
@@ -77,9 +105,9 @@ test.beforeEach(async () => {
   await resetGarden()
 })
 
-// Chaque test se reconnecte, et `next dev` compile les routes à froid : les
-// 30 secondes par défaut partaient entièrement dans la connexion, et le test
-// échouait sans que rien ne soit cassé dans le produit.
+// Chaque test se reconnecte, et `next dev` peut recompiler : les 30 secondes
+// par défaut partaient entièrement dans la connexion, et le test échouait sans
+// que rien ne soit cassé dans le produit.
 test.describe.configure({ timeout: 180_000 })
 
 test.describe('Planning v2', () => {
