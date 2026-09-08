@@ -37,11 +37,33 @@ async function seedThirstyPlant(name: string) {
   })
 }
 
+/**
+ * Un jardin **neuf** à chaque test, et plus aucune plante d'avant.
+ *
+ * Le cache de conseils est indexé par jardin, et la fin du test précédent
+ * déclenche un rendu serveur qui le réécrit — parfois après notre nettoyage.
+ * Le calendrier servait alors un planning calculé sur les plantes du test
+ * d'avant, c'est-à-dire aucune, et le test échouait sur une liste vide.
+ * Changer de jardin supprime la course au lieu d'en réduire la fenêtre.
+ */
 async function resetGarden() {
   await prisma.careLog.deleteMany({ where: { plantInstance: { userId } } })
   await prisma.plantInstance.deleteMany({ where: { userId } })
-  await prisma.garden.update({ where: { id: gardenId }, data: { planningClearedOn: null } })
-  await clearAdviceCache(gardenId)
+
+  // Les jardins du test précédent partent **avec leur cache de conseils** : ce
+  // cache vit six heures et n'est pas indexé sur les plantes, donc un jardin
+  // gardé continuait d'afficher les actions calculées sur des plantes depuis
+  // supprimées. On voyait alors la même carte d'arrosage dans deux sections.
+  const previous = await prisma.garden.findMany({ where: { userId }, select: { id: true } })
+  await prisma.gardenAdviceCache.deleteMany({
+    where: { gardenId: { in: previous.map((garden) => garden.id) } },
+  })
+  await prisma.garden.deleteMany({ where: { userId } })
+
+  const garden = await prisma.garden.create({
+    data: { userId, name: `Jardin E2E ${Date.now()}`, type: 'OUTDOOR' },
+  })
+  gardenId = garden.id
 }
 
 async function openCalendar(page: Page) {
@@ -127,14 +149,18 @@ test.describe('Planning v2', () => {
     await openCalendar(page)
     await page.getByRole('button', { name: /Tout arrosé/ }).click()
 
+    // Le journal fait foi : trois arrosages écrits, et les plantes le savent.
+    await expect
+      .poll(
+        async () =>
+          prisma.careLog.count({ where: { plantInstance: { userId }, type: 'watering' } }),
+        { timeout: 15_000 },
+      )
+      .toBe(3)
+
     // Le toast passe ; « Fait aujourd'hui », lui, reste — et c'est cette liste
     // qui doit porter les trois gestes.
     await expect(page.getByText(/3 gestes faits aujourd/)).toBeVisible({ timeout: 15_000 })
-
-    // Le journal fait foi : trois arrosages écrits, et les plantes le savent.
-    await expect
-      .poll(async () => prisma.careLog.count({ where: { plantInstance: { userId }, type: 'watering' } }))
-      .toBe(3)
     expect(
       await prisma.plantInstance.count({ where: { userId, lastWateredAt: { gte: new Date(Date.now() - DAY_MS) } } }),
     ).toBe(3)
