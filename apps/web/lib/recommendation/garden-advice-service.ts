@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { fetchWeatherForecast } from './weather-adapter'
-import { RecommendationEngine } from './engine'
+import { ADVICE_PAYLOAD_VERSION, RecommendationEngine } from './engine'
 import type { PlantContext, GardenAdviceResult, PlantAdvice, WeatherForecast } from './types'
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000 // 6 hours
@@ -35,8 +35,12 @@ export async function getGardenAdvice(
     where: { gardenId },
   })
 
+  // Un payload d'une version antérieure est traité comme absent : servir six
+  // heures de planning hybride au lendemain d'un déploiement coûterait plus
+  // cher que de recalculer une fois par jardin.
   if (cached && cached.expiresAt > new Date()) {
-    return cached.payload as unknown as GardenAdviceResult
+    const payload = cached.payload as unknown as GardenAdviceResult | null
+    if (payload?.version === ADVICE_PAYLOAD_VERSION) return payload
   }
 
   // 2. Fetch garden + owner coords

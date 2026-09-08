@@ -229,21 +229,26 @@ model PushToken {
 // ─── Garden ────────────────────────────────────────────────────────────────
 
 model Garden {
-  id             String          @id @default(cuid())
-  userId         String
-  name           String
-  description    String?
-  type           String          @default("OUTDOOR")
-  surfaceM2      Float?
-  climateZone    String?
-  soilType       String?
-  orientation    String?
-  canvasData     String?
-  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime        @default(now()) @updatedAt @db.Timestamptz(6)
-  zones          GardenZone[]
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plantInstances PlantInstance[]
+  id                String          @id @default(cuid())
+  userId            String
+  name              String
+  description       String?
+  type              String          @default("OUTDOOR")
+  surfaceM2         Float?
+  climateZone       String?
+  soilType          String?
+  orientation       String?
+  canvasData        String?
+  /// Jour `YYYY-MM-DD` où l'utilisateur a demandé « Ignorer pour aujourd'hui » :
+  /// les actions du moteur dues ce jour-là sont masquées jusqu'au lendemain.
+  /// Une date et non un booléen : elle se périme d'elle-même, sans tournée de
+  /// nettoyage ni risque de laisser un jardin muet pour toujours.
+  planningClearedOn String?
+  createdAt         DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime        @default(now()) @updatedAt @db.Timestamptz(6)
+  zones             GardenZone[]
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plantInstances    PlantInstance[]
 
   @@map("gardens")
 }
@@ -355,6 +360,10 @@ model PlantInstance {
   lastPrunedAt            DateTime?
   lastRepottedAt          DateTime?
   lastTreatedAt           DateTime?
+  /// Posée par `logCare('harvest')`, comme les autres `last*At`. Sans elle,
+  /// rien ne fermait la règle de récolte : elle ressortait chaque matin de
+  /// toute la saison, en priorité haute, sans qu'aucun geste ne l'apaise.
+  lastHarvestedAt         DateTime?      @db.Timestamptz(6)
   seedBatchRef            String?
   growthStage             String?
   isMultiYear             Boolean?
@@ -451,25 +460,31 @@ model Diagnosis {
 /// peut donc pas être une règle, d'où cette table. `source` prépare les
 /// tâches saisies à la main, qui viendront s'y ranger sans migration.
 model PlantTask {
-  id              String    @id @default(cuid())
-  userId          String
-  plantInstanceId String
-  diagnosisId     String?
+  id                      String    @id @default(cuid())
+  userId                  String
+  plantInstanceId         String
+  diagnosisId             String?
   /// Voir TASK_SOURCES dans @growi/shared : DIAGNOSIS | CHAT.
-  source          String    @default("DIAGNOSIS")
+  source                  String    @default("DIAGNOSIS")
   /// ActionType de @growi/shared : arrosage | taille | … | autre.
-  type            String
+  type                    String
   /// Consigne détaillée — l'action de la recommandation, telle quelle.
-  label           String
+  label                   String
   /// Titre court de la carte du planning ; `label` en devient le détail.
   /// Abrégé depuis `label` pour les diagnostics d'avant son introduction.
-  shortLabel      String
+  shortLabel              String
   /// Échéance `YYYY-MM-DD`, figée à la planification.
-  dueDate         String
+  dueDate                 String
   /// high | medium | low, mappé depuis urgent | soon | watch.
-  priority        String
-  doneAt          DateTime? @db.Timestamptz(6)
-  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  priority                String
+  doneAt                  DateTime? @db.Timestamptz(6)
+  /// Retirée du planning par un diagnostic plus récent, sans être « faite ».
+  /// Distinguer les deux importe : une tâche remplacée n'a pas à s'inscrire au
+  /// journal de la plante, et elle reste lisible dans l'historique du
+  /// diagnostic qui l'avait engendrée.
+  supersededByDiagnosisId String?
+  supersededAt            DateTime? @db.Timestamptz(6)
+  createdAt               DateTime  @default(now()) @db.Timestamptz(6)
 
   plantInstance PlantInstance  @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)

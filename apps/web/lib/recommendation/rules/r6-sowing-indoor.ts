@@ -1,5 +1,5 @@
 import type { AdviceRule, PlantContext, GardenAction } from '../types'
-import { isMonthIn } from '../utils'
+import { monthRunWindow, parseJsonArray } from '../utils'
 
 export const r6SowingIndoor: AdviceRule = {
   id: 'r6-sowing-indoor',
@@ -10,8 +10,9 @@ export const r6SowingIndoor: AdviceRule = {
     const catalog = instance.catalogPlant
     if (!catalog) return []
 
+    const months = parseJsonArray(catalog.sowingMonthsIndoor)
     const currentMonth = currentDate.getMonth() + 1
-    if (!isMonthIn(currentMonth, catalog.sowingMonthsIndoor)) return []
+    if (!months.includes(currentMonth)) return []
 
     const isIndoor =
       instance.location === 'INDOOR' ||
@@ -23,8 +24,9 @@ export const r6SowingIndoor: AdviceRule = {
     const plantName = instance.customName ?? catalog.commonName ?? 'Plante'
     const emoji = instance.emoji ?? catalog.emoji ?? ''
 
-    const dueDate = new Date(currentDate)
-    dueDate.setDate(dueDate.getDate() + 3)
+    // Un semis se fait dans une période, pas un jour : l'échéance à trois jours
+    // faisait revenir la carte en retard le quatrième, pour un mois entier.
+    const window = monthRunWindow(months, currentDate)
 
     return [
       {
@@ -35,9 +37,13 @@ export const r6SowingIndoor: AdviceRule = {
         plantId: instance.id,
         plantName,
         plantEmoji: emoji,
-        dueDate: dueDate.toISOString().slice(0, 10),
+        dueDate: window.end,
         done: false,
-        priority: 'medium',
+        priority: 'low',
+        kind: 'window',
+        window,
+        ruleId: this.id,
+        why: "C'est la période de semis en intérieur pour cette plante. À faire quand tu veux d'ici la fin de la fenêtre.",
       },
     ]
   },

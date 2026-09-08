@@ -185,6 +185,9 @@ function toGardenAction(task: TaskWithPlant): GardenAction {
     dueDate: task.dueDate,
     done: false,
     priority: task.priority as ActionPriority,
+    // Une tâche acceptée a un jour, pas une saison : elle a été figée à sa
+    // date d'acceptation et doit rester dans « Aujourd'hui » quand elle échoit.
+    kind: 'dated',
     source: 'task',
     taskId: task.id,
   }
@@ -214,6 +217,10 @@ export async function listOpenTasksAsActions(
     where: {
       userId,
       doneAt: null,
+      // Retirée par un diagnostic plus récent : elle n'a pas été faite, mais
+      // elle n'a plus lieu d'être proposée. Elle reste lisible dans
+      // l'historique du diagnostic qui l'avait engendrée.
+      supersededAt: null,
       ...(filter.plantInstanceId ? { plantInstanceId: filter.plantInstanceId } : {}),
       ...(filter.gardenId
         ? { plantInstance: { OR: [{ gardenId: filter.gardenId }, { gardenId: null }] } }
@@ -266,6 +273,7 @@ export async function completeTasksForGesture(
       plantInstanceId,
       type: actionType,
       doneAt: null,
+      supersededAt: null,
       dueDate: { lte: isoDay(now) },
     },
     data: { doneAt: now },

@@ -130,6 +130,11 @@ export interface AdviceRule {
 // ─── Full garden result ────────────────────────────────────────────────────
 
 export interface GardenAdviceResult {
+  /**
+   * Forme du payload — voir `ADVICE_PAYLOAD_VERSION`. Absente sur les résultats
+   * mis en cache avant la v2 du planning : c'est ce qui permet de les écarter.
+   */
+  version?: number
   gardenId: string
   generatedAt: Date
   expiresAt: Date

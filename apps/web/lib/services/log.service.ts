@@ -19,8 +19,11 @@ import { completeTasksForGesture } from '@/lib/services/task.service'
  * Date de la plante à faire avancer selon le geste.
  *
  * C'est par ces champs que le moteur de conseils raisonne — il ne lit pas les
- * logs. Un geste sans date associée (récolte, semis, autre) n'a donc pas
- * d'incidence sur le planning, seulement sur l'historique.
+ * logs. Un geste sans date associée (semis, autre) n'a donc pas d'incidence
+ * sur le planning, seulement sur l'historique.
+ *
+ * La récolte en fait partie depuis la v2 du planning : rien ne fermait la
+ * règle r8, qui reproposait la même récolte chaque matin de toute la saison.
  */
 const PLANT_DATE_FIELD: Partial<Record<CareLogType, keyof Prisma.PlantInstanceUpdateInput>> = {
   watering: 'lastWateredAt',
@@ -28,6 +31,7 @@ const PLANT_DATE_FIELD: Partial<Record<CareLogType, keyof Prisma.PlantInstanceUp
   fertilizing: 'lastFertilizedAt',
   treatment: 'lastTreatedAt',
   repotting: 'lastRepottedAt',
+  harvest: 'lastHarvestedAt',
 }
 
 /**

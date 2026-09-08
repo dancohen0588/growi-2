@@ -1,4 +1,5 @@
 import type { AdviceRule, PlantContext, GardenAction } from '../types'
+import { frenchDate, isoDay } from '../utils'
 
 const MS_PER_DAY = 86_400_000
 const THIRTEEN_MONTHS_DAYS = 395
@@ -43,9 +44,15 @@ export const r5PruningOverdue: AdviceRule = {
         plantId: instance.id,
         plantName,
         plantEmoji: emoji,
-        dueDate: currentDate.toISOString().slice(0, 10),
+        dueDate: isoDay(currentDate),
         done: false,
+        // Reste datée et prioritaire : treize mois sans taille, c'est un vrai
+        // retard, pas une fenêtre qu'on prend à son rythme.
         priority: 'high',
+        kind: 'dated',
+        ruleId: this.id,
+        why: `Dernière taille : ${frenchDate(instance.lastPrunedAt)}, soit plus de treize mois. On est dans la période de taille : c'est le moment de rattraper.`,
+        howTo: catalog.careTipPruning ?? undefined,
       },
     ]
   },

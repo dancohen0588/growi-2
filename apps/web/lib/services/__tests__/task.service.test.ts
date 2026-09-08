@@ -268,6 +268,8 @@ describe('tâches présentées comme actions du planning', () => {
         dueDate: '2026-08-25',
         done: false,
         priority: 'high',
+        // Figée à sa date d'acceptation : une tâche a un jour, pas une saison.
+        kind: 'dated',
         source: 'task',
         taskId: 'task_1',
       },
@@ -356,6 +358,9 @@ describe('un geste accomplit les tâches échues du même type', () => {
         plantInstanceId: PLANT,
         type: 'arrosage',
         doneAt: null,
+        // Une tâche retirée par un diagnostic plus récent n'est plus ouverte :
+        // la cocher au passage lui inventerait un accomplissement.
+        supersededAt: null,
         // Arroser aujourd'hui n'accomplit pas un arrosage prévu la semaine
         // prochaine : seules les tâches échues sont closes.
         dueDate: { lte: '2026-08-25' },

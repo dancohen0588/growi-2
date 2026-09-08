@@ -1,5 +1,5 @@
 import type { AdviceRule, PlantContext, GardenAction } from '../types'
-import { getCurrentSeason, daysSince } from '../utils'
+import { getCurrentSeason, daysSince, seasonWindow } from '../utils'
 
 export const r12PreventiveTreatment: AdviceRule = {
   id: 'r12-preventive-treatment',
@@ -27,6 +27,9 @@ export const r12PreventiveTreatment: AdviceRule = {
     const plantName = instance.customName ?? catalog.commonName ?? 'Plante'
     const emoji = instance.emoji ?? catalog.emoji ?? ''
 
+    // Préventif : rien ne presse au jour près, la saison suffit.
+    const window = seasonWindow(currentDate)
+
     return [
       {
         id: `${this.id}:${instance.id}`,
@@ -36,9 +39,14 @@ export const r12PreventiveTreatment: AdviceRule = {
         plantId: instance.id,
         plantName,
         plantEmoji: emoji,
-        dueDate: currentDate.toISOString().slice(0, 10),
+        dueDate: window.end,
         done: false,
         priority: 'low',
+        kind: 'window',
+        window,
+        ruleId: this.id,
+        why: "C'est la saison où cette plante est la plus exposée aux maladies, et aucun traitement n'a été noté depuis trois mois.",
+        howTo: catalog.careTipDiseases ?? undefined,
       },
     ]
   },
