@@ -11,7 +11,7 @@ import type {
   ForecastDay,
   WeatherCurrent,
 } from '@/types/weather'
-import type { Plant } from '@/lib/plant-types'
+import { getDaysUntilWatering, type Plant } from '@/lib/plant-types'
 
 // ─── Climate zone labels ──────────────────────────────────────────────────────
 
@@ -211,6 +211,61 @@ function isOverwateringSensitive(plant: Plant): boolean {
   )
 }
 
+/**
+ * Une plante a-t-elle encore soif, ou vient-elle d'être arrosée ?
+ *
+ * Le geste de l'utilisateur doit éteindre l'alerte : sans ce contrôle, la
+ * sécheresse ne dépendait que de la météo, et arroser ses vingt plantes ne
+ * changeait rien à l'écran — on gardait vingt bandeaux « arrosage urgent »
+ * jusqu'à la pluie suivante.
+ *
+ * Une plante jamais arrosée compte comme assoiffée : `getDaysUntilWatering`
+ * rend 0 faute de date, et c'est le bon comportement.
+ */
+function needsWater(plant: Plant): boolean {
+  return getDaysUntilWatering(plant) <= 0
+}
+
+/** « Basilic, Carotte, Courgette et 4 autres » — jamais plus de trois noms. */
+function listNames(plants: Plant[]): string {
+  const names = plants.map((plant) => plant.name)
+  if (names.length <= 3) return names.join(', ')
+
+  return `${names.slice(0, 3).join(', ')} et ${names.length - 3} autre${
+    names.length - 3 > 1 ? 's' : ''
+  }`
+}
+
+/**
+ * Une alerte pour un groupe de plantes.
+ *
+ * Seule une plante — la première — porte l'identifiant : les deux écrans
+ * n'affichent que le message, et un bandeau par plante concernée était
+ * précisément le défaut. `subject` compose l'attaque de la phrase : le nom et
+ * l'emoji quand il n'y en a qu'une, le compte et les noms au-delà.
+ */
+function groupedAlert(
+  plants: Plant[],
+  alertType: PlantWeatherAlert['alertType'],
+  severity: PlantWeatherAlert['severity'],
+  say: (subject: string, plural: boolean) => string,
+): PlantWeatherAlert | null {
+  if (plants.length === 0) return null
+
+  const plural = plants.length > 1
+  const subject = plural
+    ? `${plants.length} plantes (${listNames(plants)})`
+    : `${plants[0].emoji} ${plants[0].name}`
+
+  return {
+    plantId: plants[0].id,
+    plantName: plants[0].name,
+    alertType,
+    severity,
+    message: say(subject, plural),
+  }
+}
+
 export function generatePlantAlerts(
   plants: Plant[],
   frostRisk: FrostRisk,
@@ -218,89 +273,71 @@ export function generatePlantAlerts(
   forecast: ForecastDay[],
   gardenSeason: GardenSeason,
 ): PlantWeatherAlert[] {
-  const alerts: PlantWeatherAlert[] = []
-
   // Total rain over 3 days
   const rain3d = forecast.slice(0, 3).reduce((s, d) => s + d.precipitationSum, 0)
   const maxTemp = Math.max(...forecast.map((d) => d.tempMax))
+  const coldDays = forecast.filter((d) => d.tempMax < 8).length
 
-  for (const plant of plants) {
-    // Frost alert
-    if (frostRisk.level !== 'none' && isFrostSensitive(plant)) {
-      const severity =
-        frostRisk.level === 'high' ? 'critical'
-        : frostRisk.level === 'moderate' ? 'warning'
-        : 'info'
+  const frostSeverity =
+    frostRisk.level === 'high' ? 'critical' : frostRisk.level === 'moderate' ? 'warning' : 'info'
 
-      alerts.push({
-        plantName: plant.name,
-        plantId: plant.id,
-        alertType: 'frost',
-        severity,
-        message: `${plant.emoji} ${plant.name} — ${frostRisk.label.toLowerCase()}. ${
-          severity === 'critical'
-            ? 'Rentre tes plants immédiatement ou couvre-les avec un voile de forçage.'
-            : 'Protège-le si tu peux cette nuit.'
+  const alerts = [
+    groupedAlert(
+      frostRisk.level !== 'none' ? plants.filter(isFrostSensitive) : [],
+      'frost',
+      frostSeverity,
+      (subject, plural) =>
+        `${subject} — ${frostRisk.label.toLowerCase()}. ${
+          frostSeverity === 'critical'
+            ? `Rentre${plural ? '-les' : '-le'} immédiatement ou couvre${
+                plural ? '-les' : '-le'
+              } avec un voile de forçage.`
+            : `Protège${plural ? '-les' : '-le'} si tu peux cette nuit.`
         }`,
-      })
-    }
+    ),
 
-    // Drought alert
-    if (wateringIndex.score >= 7 && isDroughtSensitive(plant)) {
-      alerts.push({
-        plantName: plant.name,
-        plantId: plant.id,
-        alertType: 'drought',
-        severity: wateringIndex.score >= 9 ? 'critical' : 'warning',
-        message: `${plant.emoji} ${plant.name} — arrosage urgent recommandé. ${wateringIndex.reasoning}.`,
-      })
-    }
+    // La météo dit qu'il faudrait arroser ; la plante dit si elle en a besoin.
+    groupedAlert(
+      wateringIndex.score >= 7 ? plants.filter((p) => isDroughtSensitive(p) && needsWater(p)) : [],
+      'drought',
+      wateringIndex.score >= 9 ? 'critical' : 'warning',
+      (subject, plural) =>
+        `${subject} — arrosage recommandé, ${plural ? 'elles n’ont' : 'elle n’a'} pas été ${
+          plural ? 'arrosées' : 'arrosée'
+        } depuis leur dernière échéance. ${wateringIndex.reasoning}.`,
+    ),
 
-    // Overwatering risk (heavy rain + succulent-type plant)
-    if (rain3d > 20 && isOverwateringSensitive(plant) && plant.location === 'exterieur') {
-      alerts.push({
-        plantName: plant.name,
-        plantId: plant.id,
-        alertType: 'overwatering',
-        severity: 'warning',
-        message: `${plant.emoji} ${plant.name} — ${rain3d.toFixed(0)} mm de pluie prévus. Vérifie le drainage et évite d'arroser.`,
-      })
-    }
+    groupedAlert(
+      rain3d > 20
+        ? plants.filter((p) => isOverwateringSensitive(p) && p.location === 'exterieur')
+        : [],
+      'overwatering',
+      'warning',
+      (subject) =>
+        `${subject} — ${rain3d.toFixed(0)} mm de pluie prévus. Vérifie le drainage et évite d'arroser.`,
+    ),
 
-    // Heat stress
-    if (maxTemp > 34 && plant.location !== 'interieur') {
-      alerts.push({
-        plantName: plant.name,
-        plantId: plant.id,
-        alertType: 'heat',
-        severity: 'warning',
-        message: `${plant.emoji} ${plant.name} — chaleur extrême à ${maxTemp.toFixed(0)}°C prévue. Arrose tôt le matin et mulche le pied.`,
-      })
-    }
+    // Au-delà de 34 °C le risque ne vient plus du manque d'eau mais du soleil :
+    // le conseil vaut même pour une plante arrosée ce matin.
+    groupedAlert(
+      maxTemp > 34 ? plants.filter((p) => p.location !== 'interieur') : [],
+      'heat',
+      'warning',
+      (subject) =>
+        `${subject} — chaleur extrême à ${maxTemp.toFixed(0)}°C prévue. Arrose tôt le matin et mulche le pied.`,
+    ),
 
-    // Early spring: don't put plants out yet
-    if (gardenSeason === 'early_spring' && plant.location === 'interieur') {
-      const coldDays = forecast.filter((d) => d.tempMax < 8).length
-      if (coldDays >= 2) {
-        alerts.push({
-          plantName: plant.name,
-          plantId: plant.id,
-          alertType: 'frost',
-          severity: 'info',
-          message: `${plant.emoji} ${plant.name} — températures froides prévues. Attends encore avant de sortir tes plants.`,
-        })
-      }
-    }
-  }
+    groupedAlert(
+      gardenSeason === 'early_spring' && coldDays >= 2
+        ? plants.filter((p) => p.location === 'interieur')
+        : [],
+      'frost',
+      'info',
+      (subject) => `${subject} — températures froides prévues. Attends encore avant de sortir tes plants.`,
+    ),
+  ]
 
-  // Deduplicate: one alert per plant per alertType
-  const seen = new Set<string>()
-  return alerts.filter((a) => {
-    const key = `${a.plantId}-${a.alertType}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+  return alerts.filter((alert): alert is PlantWeatherAlert => alert !== null)
 }
 
 // ─── 6. General advice ───────────────────────────────────────────────────────
