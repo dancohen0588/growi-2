@@ -13,7 +13,7 @@ import * as SecureStore from 'expo-secure-store'
  * Clé versionnée : incrémenter le suffixe si un futur onboarding doit être
  * re-montré à tout le monde.
  */
-const KEY = 'growi.onboarding.seen.v1'
+const KEY = 'growi.onboarding.seen.v2'
 
 /**
  * En cas d'échec de lecture, on répond `true` : mieux vaut priver quelqu'un de

@@ -182,8 +182,8 @@ export function DiagnosisResult({ result, photoUri, onAsk }: DiagnosisResultProp
       <View className="flex-row items-start gap-2">
         <Sparkles size={14} color="hsl(139 20% 40%)" />
         <Text className="flex-1 font-raleway text-caption text-muted-foreground">
-          Diagnostic généré par IA — en cas de doute, demande l&apos;avis d&apos;un
-          professionnel.
+          Diagnostic établi par Growi à partir de ta photo — en cas de doute,
+          demande l&apos;avis d&apos;un professionnel.
         </Text>
       </View>
     </View>
