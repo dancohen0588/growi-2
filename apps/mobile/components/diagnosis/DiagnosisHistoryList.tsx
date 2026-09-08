@@ -80,7 +80,7 @@ function DiagnosisDetail({
           label="Planifier ces actions"
           loading={planActions.isPending}
           onPress={() =>
-            planActions.mutate(diagnosisId, {
+            planActions.mutate({ diagnosisId }, {
               onSuccess: (result) => {
                 setPlannedAt(result.tasksPlannedAt)
                 toast('Actions planifiées — retrouve-les dans ton calendrier 📅')

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   DIAGNOSIS_CONFIDENCE_LABELS,
   DIAGNOSIS_LIKELIHOOD_LABELS,
@@ -41,6 +42,8 @@ const PRIORITY_STYLES: Record<DiagnosisPriority, string> = {
   watch: 'bg-lime/20 text-forest',
 }
 
+import { TaskReviewSection } from '@/components/diagnosis/TaskReviewSection'
+
 export interface DiagnosisResultProps {
   result: DiagnosisSuccess
   photoUrl: string | null
@@ -54,7 +57,10 @@ export interface DiagnosisResultProps {
   applied?: boolean
   applyError?: string | null
   /** Absent en lecture seule ; la planification reste possible depuis l'historique. */
-  onPlan?: () => void
+  onPlan?: (supersede: string[]) => void
+  /** Les deux identifiants de la revue des actions en cours. Absents, pas de revue. */
+  plantId?: string
+  diagnosisId?: string | null
   isPlanning?: boolean
   /** Date de planification — non nulle, le bouton cède la place à son état accompli. */
   tasksPlannedAt?: string | null
@@ -77,12 +83,16 @@ export function DiagnosisResult({
   applied = false,
   applyError = null,
   onPlan,
+  plantId,
+  diagnosisId,
   isPlanning = false,
   tasksPlannedAt = null,
   planError = null,
   onAsk,
 }: DiagnosisResultProps) {
   const status = STATUS_STYLES[result.status]
+  // Les tâches que l'utilisateur a marquées « retirer » dans la revue.
+  const [supersede, setSupersede] = useState<string[]>([])
   // On ne propose la mise à jour que si elle change vraiment quelque chose.
   const suggestsChange = result.status !== currentHealthStatus
 
@@ -256,6 +266,17 @@ export function DiagnosisResult({
         )
       )}
 
+      {/* La revue des actions déjà ouvertes vient avant la planification : on
+          fait le ménage de ce qui n'a plus lieu d'être, puis on ajoute. */}
+      {plantId && diagnosisId && (
+        <TaskReviewSection
+          plantId={plantId}
+          diagnosisId={diagnosisId}
+          onChange={setSupersede}
+          readOnly={Boolean(tasksPlannedAt)}
+        />
+      )}
+
       {/* Planification — après la mise à jour du statut, dans le même bloc
           d'actions : on constate d'abord, on agit ensuite. */}
       {result.recommendations.length > 0 &&
@@ -271,7 +292,7 @@ export function DiagnosisResult({
             <div className="rounded-2xl border border-forest/15 bg-white p-4 flex flex-col gap-2">
               <button
                 type="button"
-                onClick={onPlan}
+                onClick={() => onPlan(supersede)}
                 disabled={isPlanning}
                 className="rounded-xl bg-lime text-forest font-poppins font-semibold text-sm px-4 py-2.5 hover:bg-lime/80 transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
@@ -280,10 +301,18 @@ export function DiagnosisResult({
                 ) : (
                   <CalendarPlus size={16} aria-hidden />
                 )}
-                {isPlanning ? 'Planification…' : 'Planifier ces actions'}
+                {isPlanning
+                  ? 'Planification…'
+                  : supersede.length > 0
+                    ? 'Mettre à jour mon planning'
+                    : 'Planifier ces actions'}
               </button>
               <p className="font-raleway text-xs text-forest/55 text-center">
-                Elles s&apos;ajouteront à ton calendrier et à ta liste du jour.
+                {supersede.length > 0
+                  ? `Elles s'ajouteront à ton calendrier ; ${supersede.length} action${
+                      supersede.length > 1 ? 's' : ''
+                    } en cours ${supersede.length > 1 ? 'seront retirées' : 'sera retirée'}.`
+                  : "Elles s'ajouteront à ton calendrier et à ta liste du jour."}
               </p>
               {planError && <p className="font-raleway text-sm text-red-700">{planError}</p>}
             </div>

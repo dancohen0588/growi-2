@@ -1,4 +1,5 @@
 import type { AdviceRule, PlantContext, GardenAction } from '../types'
+import { isoDay } from '../utils'
 import { r1WateringStandard } from './r1-watering-standard'
 
 export const r3WateringRain: AdviceRule = {
@@ -28,9 +29,12 @@ export const r3WateringRain: AdviceRule = {
         plantId: instance.id,
         plantName,
         plantEmoji: emoji,
-        dueDate: currentDate.toISOString().slice(0, 10),
+        dueDate: isoDay(currentDate),
         done: true,
         priority: 'low',
+        kind: 'dated',
+        ruleId: this.id,
+        why: `${Math.round(tomorrow.precipSum)} mm de pluie prévus : l'arrosage est reporté, la nature s'en charge.`,
       },
     ]
   },

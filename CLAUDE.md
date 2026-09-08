@@ -375,7 +375,10 @@ tous deux dans `apps/web`.
 >
 > Le **premier** passage d'une spec neuve peut être signalé « flaky » : c'est
 > `next dev` qui compile les routes à froid, pas le code. Relancer suffit à le
-> confirmer.
+> confirmer. `27-planning-v2.spec.ts` s'en protège par un `timeout` de section ;
+> il **retire aussi ses coordonnées au compte de test**, car chaque cas y vide
+> le cache de conseils et repayait donc un appel Open-Meteo — six minutes de
+> suite, et un échec quand le tiers traînait.
 
 > Note : `pnpm --filter web lint` remonte 11 erreurs ESLint pré-existantes
 > (`no-explicit-any`, variables inutilisées). Le build les ignore volontairement
@@ -445,11 +448,16 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/plants/[id]` | GET, PATCH, DELETE |
 | `/api/v1/plants/[id]/logs` | GET, POST (union discriminée par `type`) |
 | `/api/v1/planning/today` | GET |
+| `/api/v1/planning/actions/done` | POST — 200 `{ careLogId }` |
+| `/api/v1/planning/actions/done-bulk` | POST — « Tout arrosé », « Tout marquer fait » |
+| `/api/v1/planning/actions/undo` | POST — efface le geste, rouvre la tâche |
+| `/api/v1/planning/clear-today` | POST — « Ignorer pour aujourd'hui », `undo: true` pour rétablir |
 | `/api/v1/me` | GET, PATCH |
 | `/api/v1/identify` | POST |
 | `/api/v1/plants/[id]/diagnose` | POST |
 | `/api/v1/plants/[id]/diagnoses` · `/diagnoses/[diagnosisId]` | GET |
-| `/api/v1/plants/[id]/diagnoses/[diagnosisId]/apply` · `/plan` | POST |
+| `/api/v1/plants/[id]/diagnoses/[diagnosisId]/apply` · `/plan` | POST — `/plan` accepte `{ supersede }` |
+| `/api/v1/plants/[id]/diagnoses/[diagnosisId]/review` | GET — le sort des actions en cours |
 | `/api/v1/conversations` | POST (ouvre ou retrouve un fil), GET (`?plantInstanceId=`) |
 | `/api/v1/conversations/[id]` | GET |
 | `/api/v1/conversations/[id]/messages` | POST — réponse en **SSE** |
@@ -764,7 +772,7 @@ distinguer de l'identification, qui part d'une photo inconnue.
   suivante). Les trois sont **facultatifs** dans le schéma — les diagnostics
   antérieurs n'en ont pas, et doivent rester lisibles et planifiables.
 
-### Tâches du planning et planification d'un diagnostic
+### Planning — deux natures d'action, deux sources
 
 Le planning est **calculé** : les `GardenAction` viennent des règles r1–r12 de
 `lib/recommendation/`, mises en cache six heures dans `GardenAdviceCache`. Une
@@ -774,22 +782,79 @@ individuellement. D'où une **seconde source** de tâches, persistées.
 
 | Élément | Rôle |
 |---|---|
+| `packages/shared/src/schemas/planning.ts` | `kind`, `window`, horizons, `actionHorizon`, `groupWateringActions`, schémas des trois gestes de masse |
+| `lib/recommendation/` | Les douze règles, `compareActions`, `ADVICE_PAYLOAD_VERSION` |
 | Modèle `PlantTask` | Tâche figée ; `source` prépare les tâches saisies à la main |
-| `lib/services/task.service.ts` | Planification, présentation en actions, acquittement |
-| `POST …/diagnoses/[id]/plan` | Transforme les recommandations en tâches |
+| `lib/services/task.service.ts` | Planification, revue, présentation en actions, acquittement |
+| `lib/services/advice.service.ts` | `assemble`, `markActionsDone`, `clearPlanningToday`, `undoAction` |
+| `Garden.planningClearedOn` | Jour où l'utilisateur a demandé « Ignorer pour aujourd'hui » |
 | `Diagnosis.tasksPlannedAt` | État du bouton **et** verrou d'idempotence |
 
-- **La fusion est faite dans `advice.service`, après lecture du cache** — les
-  tâches ne transitent pas par `GardenAdviceCache`, donc rien à invalider et
-  pas six heures d'attente avant qu'une tâche planifiée n'apparaisse. Elle
-  couvre les **trois** portes d'entrée : `getGardenAdvice`, `getGardensAdvice`
-  (l'Accueil mobile **et** le calendrier web) et `getPlantAdvice`. En rater
-  une, c'est une surface entière sans tâches.
+#### Datée ou à fenêtre
+
+Une action **datée** (`kind: 'dated'`, absent vaut ce cas) a un jour : elle est
+due, puis en retard. Une action **à fenêtre** (`kind: 'window'`) a une période :
+elle n'est jamais en retard à l'intérieur, et disparaît à sa fermeture.
+`dueDate` vaut alors `window.end`.
+
+C'est la distinction qui a vidé « Aujourd'hui ». Six règles produisaient leur
+action avec l'échéance du jour à chaque évaluation — taille, semis, récolte,
+fertilisation, rempotage, traitement ressortaient donc **chaque matin** tant que
+le geste n'était pas noté, et r4 datait au 1ᵉʳ du mois, ce qui affichait « en
+retard » en rouge dès le 2. Elles couvrent maintenant leur saison.
+
+- **Quatre horizons** : `today` / `week` / `month` / `later`. « Demain » n'est
+  plus une section — presque toujours vide — mais une étiquette de *Cette
+  semaine*. `actionHorizon(action, today)` prend l'action **entière** : une
+  signature qui accepterait une date seule ferait retomber les fenêtres dans le
+  jour même, en silence.
+- **Le cap est de trois actions par plante**, et il **trie avant de couper** :
+  sinon l'ordre de déclaration des règles décidait de ce qui survit, et un
+  rempotage « plus tard » chassait un arrosage du jour. `compareActions` met les
+  datées devant, puis la priorité, puis la date.
+- **Deux gardes sur `healthStatus`** : r9 ne fertilise pas une plante
+  `CRITICAL`, r11 ne rempote pas une plante qui n'est pas `HEALTHY`. C'est le
+  second effet d'un diagnostic sur le planning, sans code supplémentaire.
+- **r8 se ferme par `lastHarvestedAt`**, posée par `logCare('harvest')` comme
+  les autres `last*At`. Sans elle, rien ne clôturait la récolte : elle
+  ressortait en priorité haute pendant toute la saison.
+- Chaque action porte son **`why`** — écrit par la règle avec les données de la
+  plante — et son **`howTo`**, repris du catalogue. Sans eux la popin de détail
+  n'aurait rien à montrer pour une action du moteur, ce qui était le cas.
+- **`GardenAdviceCache.payload` est versionné** (`ADVICE_PAYLOAD_VERSION`) : un
+  payload sans version ou d'une version antérieure est ignoré et recalculé.
+  Sans cela, changer la forme d'une action sert six heures de plannings
+  hybrides au lendemain d'un déploiement.
+
+#### Fusion, masquage, gestes de masse
+
+- **`assemble` fait la fusion puis le filtre, après lecture du cache** — les
+  tâches ne transitent pas par `GardenAdviceCache`, donc rien à invalider et pas
+  six heures d'attente avant qu'une tâche planifiée n'apparaisse. Elle couvre
+  les **trois** portes d'entrée : `getGardenAdvice`, `getGardensAdvice`
+  (l'Accueil mobile **et** le calendrier web) et `getPlantAdvice`. En rater une,
+  c'est une surface entière sans tâches, ou qui ignore le masquage.
 - Les tâches sont placées **en tête** des actions ; les écrans regroupent par
   échéance sans retrier, l'ordre tient.
-- `planDiagnosisActions` est **idempotent** plutôt qu'erreur sur second appel :
-  le bouton peut être tapé deux fois, et rouvrir un diagnostic depuis
-  l'historique ne doit pas échouer.
+- **« Tout marquer fait » et « Ignorer pour aujourd'hui » sont deux gestes
+  distincts** : le premier écrit les gestes au journal, le second n'écrit rien.
+  Les confondre ferait mentir le journal, dont on tire ensuite la date du
+  dernier arrosage.
+- **`markActionsDone` fait une transaction par item**, pas une pour la tournée :
+  Postgres annulerait tout sur une plante disparue, et l'utilisateur qui a bien
+  arrosé les quatre autres ne le retrouverait nulle part. Ce que l'appel groupé
+  économise, c'est le contrôle d'appartenance et l'invalidation du cache — faits
+  **une fois**, là où N appels unitaires faisaient clignoter la liste.
+- **« Aujourd'hui » se calcule dans le fuseau de l'utilisateur**
+  (`lib/zoned-day.ts`, partagé avec le quota du chat) : en UTC, « ignorer pour
+  aujourd'hui » à 23 h 30 à Paris serait levé à 2 h du matin.
+- **Le masquage épargne les tâches de diagnostic** : l'utilisateur les a
+  acceptées une à une, un geste global n'a pas à les lui reprendre. Il épargne
+  aussi ce qui n'est dû ni aujourd'hui ni ce mois-ci.
+- **`undoAction` recalcule `last*At`** depuis le dernier geste restant du même
+  type, jamais `null` : effacer l'arrosage de ce matin ne doit pas faire croire
+  que la plante n'a jamais été arrosée. Il rouvre aussi la tâche acquittée.
+  Jusqu'à la v2, « Annuler » ne faisait disparaître qu'une ligne à l'écran.
 - **Un geste noté clôt les tâches échues du même type**
   (`completeTasksForGesture`, appelé depuis `logCare`). Sans cela, arroser
   depuis la fiche masquait la tâche « Arrose ce soir » — le moteur écarte ce
@@ -798,15 +863,59 @@ individuellement. D'où une **seconde source** de tâches, persistées.
   prochaine, d'où le filtre sur l'échéance.
 - On acquitte **par `taskId`**, jamais par type de geste seul : deux tâches
   « autre » issues de deux diagnostics seraient sinon cochées d'un coup.
-- Côté affichage, `shortLabel` titre la carte et `detail` porte la consigne
-  complète (modale « Voir le détail » sur le web). Les actions du moteur n'ont
-  pas de `detail` : leur `label` répète le `shortLabel` avec le nom de la
-  plante, déjà affiché à côté.
+
+#### Ce que montrent les écrans
+
+- **La carte dit quoi ; la popin dit pourquoi et comment.** Photo · verbe ·
+  **une** ligne · deux boutons. La consigne, les notes, la durée estimée et
+  « Comment faire ? » vivent dans `ActionDetailDialog` (web) et
+  `ActionDetailSheet` (mobile), ouverts par le bouton *Détails* ou par un tap
+  sur la carte. `shortLabel` titre, `detail` porte la consigne d'une tâche,
+  `why`/`howTo` celle d'une action du moteur.
+- **Une carte d'arrosage groupée** dès deux arrosages du même horizon
+  (`groupWateringActions`) : « Tout arrosé », ou « Choisir » qui déplie la liste
+  **toutes cases cochées** — on décoche l'exception, on ne coche pas la règle.
+- « Fait aujourd'hui » vient du **journal** (`doneToday` de `/planning/today`),
+  pas d'un état local : l'accordéon du web oubliait tout au rechargement.
+- Les sections *Ce mois-ci* et *Plus tard* n'affichent **jamais de rouge** :
+  `formatActionWhen` (`lib/calendar-utils.ts` et `apps/mobile/lib/dates.ts`)
+  annonce « avant fin octobre » pour une fenêtre.
 
 > `GardenAction` a été défini trois fois — schéma partagé, `lib/recommendation/
 > types.ts` et `lib/mock-actions.ts`. Les copies ont divergé au premier champ
 > ajouté ; le type canonique est celui du moteur, réexporté par `mock-actions`.
 > Ne pas en recréer une quatrième.
+
+#### Revue des actions après un diagnostic
+
+`planDiagnosisActions` ajoutait ses tâches sans regarder celles déjà ouvertes :
+deux diagnostics à une semaine d'écart donnaient deux jeux de soins qui
+coexistaient, y compris quand le second disait « plante saine ».
+
+- **Deux couches de verdict.** La déterministe (`reviewOpenTasks`) suffit :
+  diagnostic `HEALTHY` → tout ce qu'un diagnostic antérieur avait prescrit est
+  proposé au retrait ; une nouvelle recommandation du même `actionType`
+  remplace l'ancienne ; sinon on garde. Le champ **facultatif**
+  `openTasksReview` du modèle l'emporte quand il existe — comme `shortAction`
+  et `dueInDays`, tout l'historique retombe sur la règle.
+- **Une tâche née du chat n'est jamais touchée** : elle n'a pas été prescrite
+  pour soigner ce que le diagnostic examine.
+- **Retirée n'est pas faite** : `supersededAt` + `supersededByDiagnosisId`
+  sortent la tâche du planning sans rien inscrire au journal, et elle reste
+  lisible — barrée, datée — dans le diagnostic qui l'avait engendrée. Rien
+  n'est jamais supprimé.
+- **Le client n'envoie que des identifiants** (`POST …/plan` avec
+  `{ supersede }`), et le service refiltre sur l'utilisateur **et** la plante :
+  glisser l'identifiant d'une tâche d'autrui ne retire rien.
+- La revue **propose**, elle n'écrit pas : chaque verdict est pré-coché et
+  modifiable, et le bouton devient « Mettre à jour mon planning ».
+- `planDiagnosisActions` reste **idempotent** plutôt qu'erreur sur second
+  appel : le bouton peut être tapé deux fois, et rouvrir un diagnostic depuis
+  l'historique ne doit pas échouer.
+
+> Non fait, assumé : le report (snooze) par action, les tâches créées à la main,
+> et les deux compteurs de `admin-stats.service` prévus au §12 de la spec
+> (`Documentation/spec/spec-planning-simplifie.md`).
 
 ### Chat contextuel (agent conversationnel)
 

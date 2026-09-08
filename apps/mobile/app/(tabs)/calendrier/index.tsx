@@ -2,16 +2,25 @@ import { useCallback, useState } from 'react'
 import { RefreshControl, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { ACTION_HORIZONS } from '@growi/shared'
+import { ACTION_HORIZONS, type GardenAction } from '@growi/shared'
 
 import { AlertCard } from '@/components/planning/AlertCard'
 import { actionChatQuery } from '@/components/chat/links'
+import { ActionDetailSheet } from '@/components/planning/ActionDetailSheet'
+import { DoneTodayList } from '@/components/planning/DoneTodayList'
 import { PlanningSections } from '@/components/planning/PlanningSections'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
 import { formatDayLabel, greeting } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
-import { useMarkActionDone, usePlanningTasks, type PlanningTask } from '@/lib/queries/planning'
+import {
+  useClearToday,
+  useMarkActionDone,
+  useMarkActionsDoneBulk,
+  usePlanningTasks,
+  useUndoAction,
+  type PlanningTask,
+} from '@/lib/queries/planning'
 
 /**
  * Calendrier — l'écran qui s'appelait « Aujourd'hui ».
@@ -29,7 +38,11 @@ export default function CalendrierScreen() {
 
   const planning = usePlanningTasks()
   const markDone = useMarkActionDone()
+  const markDoneBulk = useMarkActionsDoneBulk()
+  const clearToday = useClearToday()
+  const undoAction = useUndoAction()
   const [refreshing, setRefreshing] = useState(false)
+  const [detail, setDetail] = useState<PlanningTask | null>(null)
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
@@ -51,6 +64,72 @@ export default function CalendrierScreen() {
       },
       {
         onSuccess: () => toast('Bien noté, ton jardin te remercie 🌱'),
+        onError: (error) => toast(errorMessage(error), 'error'),
+      },
+    )
+  }
+
+  /**
+   * « Tout arrosé », « Tout marquer comme fait ».
+   *
+   * Les tâches sont regroupées par jardin : le planning les réunit tous, et
+   * l'endpoint groupé n'en accepte qu'un par appel.
+   */
+  const completeMany = (tasks: PlanningTask[]) => {
+    if (tasks.length === 0) return
+
+    const byGarden = new Map<string, PlanningTask[]>()
+    for (const task of tasks) {
+      byGarden.set(task.gardenId, [...(byGarden.get(task.gardenId) ?? []), task])
+    }
+
+    for (const [gardenId, group] of byGarden) {
+      markDoneBulk.mutate(
+        {
+          gardenId,
+          actionIds: group.map((task) => task.action.id),
+          items: group.map(({ action }) => ({
+            actionType: action.type,
+            plantId: action.plantId,
+            taskId: action.taskId,
+          })),
+        },
+        {
+          onSuccess: ({ done }) =>
+            toast(`${done} geste${done > 1 ? 's' : ''} noté${done > 1 ? 's' : ''} 🌱`),
+          onError: (error) => toast(errorMessage(error), 'error'),
+        },
+      )
+    }
+  }
+
+  /** « Ignorer pour aujourd'hui », et son « Rétablir ». */
+  const setCleared = (undo: boolean) =>
+    clearToday.mutate(
+      { gardenId: planning.gardenIds[0] ?? '', gardenIds: planning.gardenIds, undo },
+      {
+        onSuccess: () =>
+          toast(
+            undo
+              ? 'Actions rétablies.'
+              : "Actions du jour ignorées. Rien n'a été inscrit au journal.",
+          ),
+        onError: (error) => toast(errorMessage(error), 'error'),
+      },
+    )
+
+  const undo = (action: GardenAction) => {
+    if (!action.careLogId) return
+
+    undoAction.mutate(
+      {
+        gardenId: planning.gardenIds[0] ?? '',
+        careLogId: action.careLogId,
+        taskId: action.taskId,
+        plantId: action.plantId,
+      },
+      {
+        onSuccess: () => toast('Geste annulé.'),
         onError: (error) => toast(errorMessage(error), 'error'),
       },
     )
@@ -119,7 +198,7 @@ export default function CalendrierScreen() {
                 message="Crée un jardin et ajoute tes plantes : les gestes du jour apparaîtront ici."
                 cta={{ label: 'Créer un jardin', onPress: () => router.push('/(tabs)/jardins') }}
               />
-            ) : planning.total === 0 ? (
+            ) : planning.total === 0 && !planning.clearedToday ? (
               <EmptyState
                 emoji="🌿"
                 title="Tout est à jour"
@@ -129,16 +208,50 @@ export default function CalendrierScreen() {
               <PlanningSections
                 horizons={ACTION_HORIZONS}
                 groups={planning.groups}
-                today={planning.date}
                 showGardenNames={planning.showGardenNames}
                 onDone={completeTask}
-                onOpenPlant={openPlant}
-                onAsk={askAbout}
+                onDoneMany={completeMany}
+                onOpenDetail={setDetail}
+                onClearToday={() => setCleared(false)}
+                cleared={planning.clearedToday}
+                onRestore={() => setCleared(true)}
               />
             )}
+
+            <DoneTodayList actions={planning.doneToday} onUndo={undo} />
           </>
         )}
       </ScrollView>
+
+      <ActionDetailSheet
+        action={detail?.action ?? null}
+        onClose={() => setDetail(null)}
+        onDone={
+          detail
+            ? () => {
+                const task = detail
+                setDetail(null)
+                completeTask(task)
+              }
+            : undefined
+        }
+        onOpenPlant={
+          detail
+            ? (() => {
+                const open = openPlant(detail)
+                return open ? () => { setDetail(null); open() } : undefined
+              })()
+            : undefined
+        }
+        onAsk={
+          detail
+            ? (() => {
+                const ask = askAbout(detail)
+                return ask ? () => { setDetail(null); ask() } : undefined
+              })()
+            : undefined
+        }
+      />
     </SafeAreaView>
   )
 }

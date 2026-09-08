@@ -174,14 +174,18 @@ export function DiagnosisFlow({
     }
   }, [plantId, response, onStatusApplied])
 
-  const handlePlan = useCallback(async () => {
+  const handlePlan = useCallback(async (supersede: string[] = []) => {
     if (!response?.diagnosed || !response.diagnosisId) return
     setIsPlanning(true)
     setPlanError(null)
     try {
       const res = await fetch(
         `/api/v1/plants/${encodeURIComponent(plantId)}/diagnoses/${encodeURIComponent(response.diagnosisId)}/plan`,
-        { method: 'POST' },
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ supersede }),
+        },
       )
       if (!res.ok) throw new Error("Les actions n'ont pas pu être planifiées.")
 
@@ -327,6 +331,8 @@ export function DiagnosisFlow({
                 applied={applied}
                 applyError={applyError}
                 onPlan={handlePlan}
+                plantId={plantId}
+                diagnosisId={response.diagnosisId}
                 isPlanning={isPlanning}
                 tasksPlannedAt={plannedAt ?? response.tasksPlannedAt}
                 planError={planError}

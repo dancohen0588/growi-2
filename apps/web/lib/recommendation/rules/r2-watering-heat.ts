@@ -1,4 +1,5 @@
 import type { AdviceRule, PlantContext, GardenAction } from '../types'
+import { isoDay } from '../utils'
 import { r1WateringStandard } from './r1-watering-standard'
 
 const MS_PER_DAY = 86_400_000
@@ -35,9 +36,13 @@ export const r2WateringHeat: AdviceRule = {
         plantId: instance.id,
         plantName,
         plantEmoji: emoji,
-        dueDate: currentDate.toISOString().slice(0, 10),
+        dueDate: isoDay(currentDate),
         done: false,
         priority: 'high',
+        kind: 'dated',
+        ruleId: this.id,
+        why: `Il fait ${Math.round(weather.current.temperature)} °C aujourd'hui, au-dessus du seuil de ${Math.round(threshold)} °C supporté par cette plante. Arrose en soirée, quand le sol ne brûle plus.`,
+        howTo: catalog?.careTipWatering ?? undefined,
       },
     ]
   },

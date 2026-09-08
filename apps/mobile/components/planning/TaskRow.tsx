@@ -1,10 +1,10 @@
 import { Pressable, Text, View } from 'react-native'
 import { Image } from 'expo-image'
-import { Check, ChevronRight, MessageCircle, Stethoscope } from 'lucide-react-native'
+import { Check, ChevronRight, Stethoscope } from 'lucide-react-native'
 import type { GardenAction } from '@growi/shared'
 
 import { ActionIcon, CareIconBadge } from '@/components/plants/CareIcon'
-import { formatDueDate } from '@/lib/dates'
+import { formatActionWhen } from '@/lib/dates'
 
 export interface TaskRowProps {
   action: GardenAction
@@ -16,8 +16,8 @@ export interface TaskRowProps {
   showPlantName?: boolean
   /** Précision supplémentaire : le jardin, quand l'utilisateur en a plusieurs. */
   subtitle?: string
-  /** Ouvre le fil de discussion sur cette tâche — « Comment faire ? ». */
-  onAsk?: () => void
+  /** Ouvre la feuille de détail — pourquoi maintenant, comment faire. */
+  onOpenDetail?: () => void
 }
 
 export function TaskRow({
@@ -26,16 +26,13 @@ export function TaskRow({
   onOpenPlant,
   showPlantName = true,
   subtitle,
-  onAsk,
+  onOpenDetail,
 }: TaskRowProps) {
-  const due = formatDueDate(action.dueDate)
+  // Une action à fenêtre annonce la fin de sa période et n'est jamais en
+  // retard : c'est ce qui fait qu'aucune ligne de « Ce mois-ci » ne rougit.
+  const due = formatActionWhen(action)
 
-  const meta = [
-    showPlantName ? action.plantName : null,
-    subtitle,
-    due.label,
-    action.estimatedMinutes ? `${action.estimatedMinutes} min` : null,
-  ].filter(Boolean)
+  const meta = [showPlantName ? action.plantName : null, subtitle, due.label].filter(Boolean)
 
   return (
     <View className="flex-row items-center gap-3 rounded-xl bg-card p-3">
@@ -97,15 +94,15 @@ export function TaskRow({
 
       {/* Valider est l'action principale de la ligne : un vrai bouton lime,
           pas une case à cocher qu'on cherche du regard. */}
-      {onAsk ? (
+      {onOpenDetail ? (
         <Pressable
-          onPress={onAsk}
+          onPress={onOpenDetail}
           accessibilityRole="button"
-          accessibilityLabel={`Comment faire : ${action.shortLabel}`}
-          className="h-11 w-11 items-center justify-center rounded-lg bg-sand-dark"
+          accessibilityLabel={`Détails : ${action.shortLabel}`}
+          className="h-11 items-center justify-center rounded-lg bg-sand-dark px-3"
           style={({ pressed }) => (pressed ? { opacity: 0.8 } : null)}
         >
-          <MessageCircle size={18} color="#1E5631" />
+          <Text className="font-raleway-semibold text-caption text-forest">Détails</Text>
         </Pressable>
       ) : null}
 

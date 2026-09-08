@@ -1,7 +1,8 @@
-// growi-frontend/components/dashboard/calendrier/cards/ActionRowCompact.tsx
+'use client'
+
 import Image from 'next/image'
 import { GardenAction } from '@/lib/mock-actions'
-import { formatDueDate } from '@/lib/calendar-utils'
+import { formatActionWhen } from '@/lib/calendar-utils'
 import { ActionIcon } from '../ActionIcon'
 import { DiagnosisBadge } from '../DiagnosisBadge'
 import { DoneButton } from '../DoneButton'
@@ -9,11 +10,18 @@ import { DoneButton } from '../DoneButton'
 interface ActionRowCompactProps {
   action: GardenAction
   onDone: (id: string) => void
+  onOpenDetail: (action: GardenAction) => void
 }
 
-/** Ligne dépouillée pour les échéances lointaines : on lit, on ne coche guère. */
-export function ActionRowCompact({ action, onDone }: ActionRowCompactProps) {
-  const due = formatDueDate(action.dueDate)
+/**
+ * Ligne dépouillée pour ce qui vient plus tard, ou se fait à son rythme.
+ *
+ * Jamais de rouge ici : une action à fenêtre n'est pas en retard tant que sa
+ * période est ouverte, et c'est `formatActionWhen` qui le garantit — elle
+ * annonce « avant fin octobre » là où l'échéance seule aurait crié.
+ */
+export function ActionRowCompact({ action, onDone, onOpenDetail }: ActionRowCompactProps) {
+  const when = formatActionWhen(action)
 
   return (
     <div className="flex items-center gap-3 border-b border-forest/10 py-2.5 last:border-0">
@@ -38,7 +46,17 @@ export function ActionRowCompact({ action, onDone }: ActionRowCompactProps) {
 
       <DiagnosisBadge action={action} />
 
-      <span className="shrink-0 font-raleway text-xs capitalize text-forest/40">{due.label}</span>
+      <span className="shrink-0 font-raleway text-xs first-letter:capitalize text-forest/40">
+        {when.label}
+      </span>
+
+      <button
+        type="button"
+        onClick={() => onOpenDetail(action)}
+        className="shrink-0 rounded-lg border border-forest/15 px-2.5 py-1 font-raleway text-xs font-semibold text-forest/70 transition-colors hover:bg-sand hover:text-forest"
+      >
+        Détails
+      </button>
 
       <DoneButton
         actionId={action.id}

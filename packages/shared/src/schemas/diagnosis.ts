@@ -94,6 +94,26 @@ export type DiagnosisRecommendation = z.infer<typeof diagnosisRecommendationSche
  * rend une observation de moins donne un résultat parfaitement exploitable, le
  * rejeter coûterait un appel entier à l'utilisateur.
  */
+/**
+ * Ce qu'il advient d'une tâche déjà ouverte quand un nouveau diagnostic arrive.
+ *
+ * Deux diagnostics à une semaine d'écart sur le même rosier donnaient deux
+ * jeux de tâches qui coexistaient — y compris quand le second disait « plante
+ * saine ». Le dernier diagnostic fait foi sur ce qu'il a lui-même engendré,
+ * mais c'est l'utilisateur qui tranche : chaque verdict est modifiable.
+ */
+export const TASK_VERDICTS = ['keep', 'drop'] as const
+export const taskVerdictSchema = z.enum(TASK_VERDICTS)
+export type TaskVerdict = z.infer<typeof taskVerdictSchema>
+
+/** Verdict rendu par le modèle — facultatif, voir `openTasksReview`. */
+export const modelTaskVerdictSchema = z.object({
+  taskId: z.string(),
+  verdict: taskVerdictSchema,
+  /** Une ligne, à la 2e personne : « Le nouveau traitement la remplace. » */
+  reason: z.string(),
+})
+
 export const diagnosisSuccessSchema = z.object({
   diagnosed: z.literal(true),
   status: healthStatusSchema,
@@ -104,6 +124,14 @@ export const diagnosisSuccessSchema = z.object({
   probableCauses: z.array(diagnosisCauseSchema),
   recommendations: z.array(diagnosisRecommendationSchema),
   followUp: z.string().nullable(),
+  /**
+   * Sort des tâches déjà ouvertes sur la plante, quand le modèle se prononce.
+   *
+   * **Facultatif**, comme `shortAction` et `dueInDays` : les diagnostics
+   * antérieurs n'en ont pas, et la revue retombe alors sur ses règles
+   * déterministes. Quand il est présent, il l'emporte, verdict par verdict.
+   */
+  openTasksReview: z.array(modelTaskVerdictSchema).optional(),
 })
 
 export type DiagnosisSuccess = z.infer<typeof diagnosisSuccessSchema>
@@ -196,10 +224,67 @@ export const applyDiagnosisSchema = z.object({ apply: z.literal(true) })
 
 export type ApplyDiagnosis = z.infer<typeof applyDiagnosisSchema>
 
+/**
+ * Corps de `POST …/plan`.
+ *
+ * `supersede` porte les tâches que l'utilisateur a marquées « retirer » dans la
+ * revue. Absent ou vide, rien n'est retiré : planifier reste possible sans
+ * jamais passer par la revue.
+ */
+export const planDiagnosisSchema = z.object({
+  supersede: z.array(idSchema).max(50).optional(),
+})
+
+export type PlanDiagnosisInput = z.infer<typeof planDiagnosisSchema>
+
 /** Réponse de `POST …/plan` — planification des recommandations en tâches. */
 export const planDiagnosisResponseSchema = z.object({
   tasksCreated: z.number().int().min(0),
   tasksPlannedAt: isoDateTimeSchema,
+  /** Tâches retirées du planning par ce diagnostic. */
+  superseded: z.number().int().min(0).optional(),
 })
 
 export type PlanDiagnosisResponse = z.infer<typeof planDiagnosisResponseSchema>
+
+// ─── Revue des actions en cours ────────────────────────────────────────────
+
+/** Une tâche ouverte, avec le verdict proposé et sa raison. */
+export const taskReviewItemSchema = z.object({
+  taskId: idSchema,
+  type: actionTypeSchema,
+  shortLabel: z.string(),
+  label: z.string(),
+  dueDate: z.string(),
+  createdAt: isoDateTimeSchema,
+  verdict: taskVerdictSchema,
+  /** Une ligne qui dit pourquoi ce verdict — jamais un verdict nu. */
+  reason: z.string(),
+  /** Le modèle s'est-il prononcé, ou est-ce la règle déterministe ? */
+  fromModel: z.boolean(),
+})
+
+export type TaskReviewItem = z.infer<typeof taskReviewItemSchema>
+
+/** Une tâche déjà retirée par un diagnostic plus récent. */
+export const supersededTaskSchema = z.object({
+  taskId: idSchema,
+  shortLabel: z.string(),
+  supersededAt: isoDateTimeSchema,
+})
+
+export type SupersededTask = z.infer<typeof supersededTaskSchema>
+
+/**
+ * Réponse de `GET …/diagnoses/[id]/review`.
+ *
+ * `tasks` est vide quand la plante n'a aucune tâche ouverte : la section ne
+ * s'affiche alors pas, et le parcours de diagnostic ne change en rien.
+ */
+export const diagnosisReviewSchema = z.object({
+  tasks: z.array(taskReviewItemSchema),
+  /** Ce que *ce* diagnostic a engendré et qu'un plus récent a retiré. */
+  superseded: z.array(supersededTaskSchema),
+})
+
+export type DiagnosisReview = z.infer<typeof diagnosisReviewSchema>

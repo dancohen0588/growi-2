@@ -258,8 +258,136 @@ describe('R8 — Récolte imminente', () => {
 
     const harvest = actions.find((a) => a.type === 'recolte')
     expect(harvest).toBeDefined()
-    expect(harvest!.priority).toBe('high')
+    // Une récolte est une bonne nouvelle, pas une urgence.
+    expect(harvest!.priority).toBe('medium')
     expect(harvest!.label).toContain('récolter')
+  })
+
+  it('se tait une semaine après une récolte notée', () => {
+    const ctx = makeCtx(
+      { lastHarvestedAt: daysAgo(3) } as any,
+      { harvestMonthsStart: 4, harvestMonthsEnd: 6 },
+    )
+    expect(engine.evaluate([ctx]).filter((a) => a.type === 'recolte')).toHaveLength(0)
+
+    const old = makeCtx(
+      { lastHarvestedAt: daysAgo(9) } as any,
+      { harvestMonthsStart: 4, harvestMonthsEnd: 6 },
+    )
+    expect(engine.evaluate([old]).filter((a) => a.type === 'recolte')).toHaveLength(1)
+  })
+
+  it('couvre la saison en fenêtre, et se date sur la récolte attendue', () => {
+    const season = engine
+      .evaluate([makeCtx({}, { harvestMonthsStart: 4, harvestMonthsEnd: 6 })])
+      .find((a) => a.type === 'recolte')
+    expect(season!.kind).toBe('window')
+    expect(season!.window).toEqual({ start: '2026-04-01', end: '2026-06-30' })
+
+    const expected = engine
+      .evaluate([
+        makeCtx(
+          { expectedHarvestDate: new Date('2026-04-20T10:00:00Z') } as any,
+          { harvestMonthsStart: 4, harvestMonthsEnd: 6 },
+        ),
+      ])
+      .find((a) => a.type === 'recolte')
+    expect(expected!.kind).toBe('dated')
+    expect(expected!.dueDate).toBe('2026-04-20')
+  })
+})
+
+describe('actions à fenêtre — plus jamais « en retard »', () => {
+  it('la taille saisonnière couvre les mois consécutifs du catalogue', () => {
+    const action = engine
+      .evaluate([makeCtx({}, { pruningMonths: '[3,4,9]' })])
+      .find((a) => a.type === 'taille')
+
+    expect(action!.kind).toBe('window')
+    // Mars-avril se suivent, septembre non : la fenêtre s'arrête au 30 avril.
+    expect(action!.window).toEqual({ start: '2026-04-01', end: '2026-04-30' })
+    expect(action!.dueDate).toBe('2026-04-30')
+    expect(action!.priority).toBe('low')
+  })
+
+  it('la taille en retard, elle, reste datée et prioritaire', () => {
+    const action = engine
+      .evaluate([makeCtx({ lastPrunedAt: daysAgo(400) }, { pruningMonths: '[4]' })])
+      .find((a) => a.type === 'taille')
+
+    expect(action!.kind).toBe('dated')
+    expect(action!.priority).toBe('high')
+    expect(action!.why).toContain('treize mois')
+  })
+
+  it('le rempotage et le traitement couvrent la saison entière', () => {
+    const repotting = engine
+      .evaluate([
+        makeCtx({ containerSizeLiters: 5 } as any, { repottingSeasons: '["SPRING"]' }),
+      ])
+      .find((a) => a.type === 'rempotage')
+
+    expect(repotting!.kind).toBe('window')
+    expect(repotting!.window).toEqual({ start: '2026-03-01', end: '2026-05-31' })
+  })
+})
+
+describe('gardes sur l’état de santé', () => {
+  it('ne propose pas de fertiliser une plante en détresse', () => {
+    const healthy = makeCtx({}, { fertilizerMonths: '4' })
+    expect(engine.evaluate([healthy]).some((a) => a.type === 'fertilisation')).toBe(true)
+
+    const critical = makeCtx({ healthStatus: 'CRITICAL' }, { fertilizerMonths: '4' })
+    expect(engine.evaluate([critical]).some((a) => a.type === 'fertilisation')).toBe(false)
+  })
+
+  it('ne propose pas de rempoter une plante qui ne va pas bien', () => {
+    const warning = makeCtx(
+      { containerSizeLiters: 5, healthStatus: 'WARNING' } as any,
+      { repottingSeasons: '["SPRING"]' },
+    )
+    expect(engine.evaluate([warning]).some((a) => a.type === 'rempotage')).toBe(false)
+  })
+})
+
+describe('explications et cap par plante', () => {
+  it('chaque action porte sa règle et son « pourquoi »', () => {
+    const actions = engine.evaluate([makeCtx({ lastWateredAt: daysAgo(8) })])
+    const watering = actions.find((a) => a.type === 'arrosage')!
+
+    expect(watering.ruleId).toBe('r1-watering-standard')
+    expect(watering.why).toContain('il y a 8 jours')
+    expect(watering.kind).toBe('dated')
+  })
+
+  it('reprend le conseil catalogue pour dire comment faire', () => {
+    const actions = engine.evaluate([
+      makeCtx({ lastWateredAt: daysAgo(8) }, { careTipWatering: 'Arrose au pied, jamais le feuillage.' }),
+    ])
+
+    expect(actions.find((a) => a.type === 'arrosage')!.howTo).toBe(
+      'Arrose au pied, jamais le feuillage.',
+    )
+  })
+
+  it('ne garde que trois actions par plante, les plus prioritaires', () => {
+    const ctx = makeCtx(
+      { lastWateredAt: daysAgo(8), containerSizeLiters: 5 } as any,
+      {
+        pruningMonths: '[4]',
+        fertilizerMonths: '4',
+        repottingSeasons: '["SPRING"]',
+        treatmentSeasons: '["SPRING"]',
+        harvestMonthsStart: 4,
+        harvestMonthsEnd: 6,
+      },
+    )
+    const actions = engine.evaluate([ctx])
+
+    expect(actions).toHaveLength(3)
+    // L'arrosage du jour survit ; une fenêtre sans urgence ne le devance pas.
+    expect(actions[0].type).toBe('arrosage')
+    expect(actions[0].kind).toBe('dated')
   })
 })
 

@@ -28,10 +28,12 @@ import {
   HEALTH_STATUS_LABELS,
   type DiagnoseApiResponse,
   type DiagnosisSuccess,
+  type TaskVerdict,
 } from '@growi/shared'
 
 import { diagnosisChatQuery } from '@/components/chat/links'
 import { DiagnosisResult } from '@/components/diagnosis/DiagnosisResult'
+import { TaskReviewSection } from '@/components/diagnosis/TaskReviewSection'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
@@ -40,6 +42,7 @@ import { PermissionDeniedError, pickPhoto, takePhoto, type Photo } from '@/lib/p
 import {
   useApplyDiagnosis,
   useDiagnosePlant,
+  useDiagnosisReview,
   usePlanDiagnosisActions,
 } from '@/lib/queries/diagnosis'
 import { usePlant } from '@/lib/queries/plants'
@@ -94,6 +97,9 @@ export function DiagnosisScreen({ plantId, onChat }: DiagnosisScreenProps) {
   const diagnose = useDiagnosePlant(plantId)
   const applyStatus = useApplyDiagnosis(plantId)
   const planActions = usePlanDiagnosisActions(plantId)
+  // La revue des actions déjà ouvertes : verdicts proposés par le serveur,
+  // modifiables ici, appliqués seulement à la planification.
+  const [verdicts, setVerdicts] = useState<Record<string, TaskVerdict>>({})
 
   const [photo, setPhoto] = useState<Photo | null>(null)
   const [response, setResponse] = useState<DiagnoseApiResponse | null>(null)
@@ -101,10 +107,17 @@ export function DiagnosisScreen({ plantId, onChat }: DiagnosisScreenProps) {
   const [dismissed, setDismissed] = useState(false)
   const [plannedAt, setPlannedAt] = useState<string | null>(null)
 
+  const review = useDiagnosisReview(plantId, response?.diagnosisId ?? null)
+  /** Les tâches marquées « retirer », prêtes pour l'appel de planification. */
+  const dropped = (review.data?.tasks ?? [])
+    .filter((task) => (verdicts[task.taskId] ?? task.verdict) === 'drop')
+    .map((task) => task.taskId)
+
   const reset = () => {
     setPhoto(null)
     setResponse(null)
     setApplied(false)
+    setVerdicts({})
     setDismissed(false)
     setPlannedAt(null)
     diagnose.reset()
@@ -155,7 +168,7 @@ export function DiagnosisScreen({ plantId, onChat }: DiagnosisScreenProps) {
   const plan = () => {
     if (!response?.diagnosed || !response.diagnosisId) return
 
-    planActions.mutate(response.diagnosisId, {
+    planActions.mutate({ diagnosisId: response.diagnosisId, supersede: dropped }, {
       onSuccess: (result) => {
         setPlannedAt(result.tasksPlannedAt)
         toast('Actions planifiées — retrouve-les dans ton calendrier 📅')
@@ -252,6 +265,15 @@ export function DiagnosisScreen({ plantId, onChat }: DiagnosisScreenProps) {
                 </View>
               ) : null}
 
+              <TaskReviewSection
+                review={review.data}
+                verdicts={verdicts}
+                onVerdict={(taskId, verdict) =>
+                  setVerdicts((prev) => ({ ...prev, [taskId]: verdict }))
+                }
+                readOnly={Boolean(plannedAt ?? response.tasksPlannedAt)}
+              />
+
               {result.recommendations.length > 0 ? (
                 plannedAt ?? response.tasksPlannedAt ? (
                   <View className="flex-row items-center gap-2 rounded-xl bg-lime/30 p-4">
@@ -265,14 +287,22 @@ export function DiagnosisScreen({ plantId, onChat }: DiagnosisScreenProps) {
                 ) : (
                   <View className="gap-2 rounded-2xl bg-card p-4">
                     <Button
-                      label="Planifier ces actions"
+                      label={
+                        dropped.length > 0
+                          ? 'Mettre à jour mon planning'
+                          : 'Planifier ces actions'
+                      }
                       size="lg"
                       loading={planActions.isPending}
                       onPress={plan}
                       icon={<CalendarPlus size={20} color="#1E5631" />}
                     />
                     <Text className="font-raleway text-caption text-muted-foreground text-center">
-                      Elles s&apos;ajouteront à ton calendrier et à ta liste du jour.
+                      {dropped.length > 0
+                        ? `Elles s'ajouteront à ton calendrier ; ${dropped.length} action${
+                            dropped.length > 1 ? 's' : ''
+                          } en cours ${dropped.length > 1 ? 'seront retirées' : 'sera retirée'}.`
+                        : "Elles s'ajouteront à ton calendrier et à ta liste du jour."}
                     </Text>
                   </View>
                 )

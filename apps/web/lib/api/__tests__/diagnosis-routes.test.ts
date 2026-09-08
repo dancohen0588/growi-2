@@ -215,7 +215,7 @@ describe('POST …/diagnoses/[diagnosisId]/plan', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(taskService.planDiagnosisActions).toHaveBeenCalledWith(USER_ID, 'plant_1', 'diag_1')
+    expect(taskService.planDiagnosisActions).toHaveBeenCalledWith(USER_ID, 'plant_1', 'diag_1', {})
     expect(body.data).toEqual(PLANNED)
   })
 
@@ -225,6 +225,24 @@ describe('POST …/diagnoses/[diagnosisId]/plan', () => {
     const res = await planActions(new Request('http://localhost', { method: 'POST' }), DIAGNOSIS)
 
     expect(res.status).toBe(200)
+  })
+
+  it('transmet les tâches à retirer, choisies dans la revue', async () => {
+    taskService.planDiagnosisActions.mockResolvedValue({ ...PLANNED, superseded: 2 })
+
+    const res = await planActions(
+      new Request('http://localhost', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ supersede: ['task_1', 'task_2'] }),
+      }),
+      DIAGNOSIS,
+    )
+
+    expect(res.status).toBe(200)
+    expect(taskService.planDiagnosisActions).toHaveBeenCalledWith(USER_ID, 'plant_1', 'diag_1', {
+      supersede: ['task_1', 'task_2'],
+    })
   })
 
   it('répond 401 sur une requête anonyme', async () => {

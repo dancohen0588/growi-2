@@ -111,6 +111,20 @@ export async function updateProfile(
   }
 }
 
+/**
+ * Fuseau de l'utilisateur — celui dans lequel se compte « aujourd'hui ».
+ *
+ * Le planning et le quota du chat en dépendent : en UTC, la journée d'un
+ * Français bascule à 2 h du matin, au milieu de sa soirée.
+ */
+export async function getUserTimezone(userId: string): Promise<string> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { timezone: true },
+  })
+  return user?.timezone ?? 'Europe/Paris'
+}
+
 /** Localisation de l'utilisateur, pour la météo et les conseils. */
 export async function getUserLocation(userId: string) {
   return prisma.user.findUnique({

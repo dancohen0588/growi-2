@@ -1,4 +1,5 @@
 import type { PlantInstance, PlantCatalog, GardenZone, Garden } from '@prisma/client'
+import type { ActionKind, ActionWindow } from '@growi/shared'
 import type { ActionType, ActionPriority } from '@/lib/mock-actions'
 
 // ─── Weather ───────────────────────────────────────────────────────────────
@@ -66,6 +67,21 @@ export interface GardenAction {
    * plante, déjà affiché à côté.
    */
   detail?: string
+  /**
+   * Nature de l'échéance. Absent vaut `dated` — une règle qui ne se prononce
+   * pas produit une action au jour près, comme avant la v2 du planning.
+   */
+  kind?: ActionKind
+  /** Période d'une action `window` ; `dueDate` vaut alors `window.end`. */
+  window?: ActionWindow
+  /** Pourquoi ce geste maintenant, écrit par la règle avec les données de la plante. */
+  why?: string
+  /** Comment faire — le conseil catalogue correspondant au geste. */
+  howTo?: string
+  /** Règle d'origine (`r1-watering-standard`), pour le débogage et l'admin. */
+  ruleId?: string
+  /** Geste écrit au journal — renseigné par la liste « Fait aujourd'hui ». */
+  careLogId?: string
 }
 
 // ─── Alerts ────────────────────────────────────────────────────────────────
@@ -116,6 +132,11 @@ export interface AdviceRule {
 // ─── Full garden result ────────────────────────────────────────────────────
 
 export interface GardenAdviceResult {
+  /**
+   * Forme du payload — voir `ADVICE_PAYLOAD_VERSION`. Absente sur les résultats
+   * mis en cache avant la v2 du planning : c'est ce qui permet de les écarter.
+   */
+  version?: number
   gardenId: string
   generatedAt: Date
   expiresAt: Date

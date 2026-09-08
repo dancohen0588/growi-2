@@ -68,6 +68,7 @@ import { logCare } from '@/lib/services/log.service'
 import { buildPlantContext, contextBlock } from '@/lib/services/plant-context'
 import { PRIORITY_BY_DIAGNOSIS, completeTask, isoDay } from '@/lib/services/task.service'
 import { uploadPhoto } from '@/lib/storage'
+import { safeTimeZone, startOfZonedDay } from '@/lib/zoned-day'
 
 /** Réponse courte : l'utilisateur lit sur un téléphone, et peut relancer. */
 const CHAT_MAX_OUTPUT_TOKENS = 700
@@ -77,49 +78,6 @@ const LOG = '[chat]'
 // ─── Quota journalier ──────────────────────────────────────────────────────
 
 const HOUR_MS = 3_600_000
-
-/** Un fuseau que `Intl` refuse ne doit pas faire échouer une conversation. */
-function safeTimeZone(timeZone: string): string {
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone })
-    return timeZone
-  } catch {
-    console.error(`${LOG} fuseau inconnu, repli sur Europe/Paris :`, timeZone)
-    return 'Europe/Paris'
-  }
-}
-
-/** Décalage du fuseau à cet instant, en millisecondes à l'est de UTC. */
-function zoneOffsetMs(date: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).formatToParts(date)
-
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value)
-  const asUtc = Date.UTC(
-    get('year'),
-    get('month') - 1,
-    get('day'),
-    get('hour') % 24,
-    get('minute'),
-    get('second'),
-  )
-  return asUtc - (date.getTime() - date.getMilliseconds())
-}
-
-function startOfZonedDay(date: Date, timeZone: string): Date {
-  const offset = zoneOffsetMs(date, timeZone)
-  const local = new Date(date.getTime() + offset)
-  const midnight = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate())
-  return new Date(midnight - offset)
-}
 
 /**
  * La journée de l'utilisateur, dans **son** fuseau.

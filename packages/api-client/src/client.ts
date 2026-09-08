@@ -63,10 +63,17 @@ import type {
   ListingThreadDetail,
   ListingThreadPage,
   IdentifyApiResponse,
+  ClearPlanningTodayInput,
   MarkActionDoneInput,
+  MarkActionDoneResult,
+  MarkActionsDoneBulkInput,
+  MarkActionsDoneBulkResult,
+  UndoActionInput,
   MobileLoginInput,
   MobileRegisterInput,
   OpenConversationInput,
+  DiagnosisReview,
+  PlanDiagnosisInput,
   PlanDiagnosisResponse,
   PlantCatalog,
   PhotoKind,
@@ -302,9 +309,50 @@ export class GrowiApiClient {
     today: (options?: CallOptions): Promise<TodayPlanning> =>
       this.http.request('/api/v1/planning/today', { ...options }),
 
-    /** Coche une tâche : le geste correspondant est noté sur la plante. */
-    markDone: (input: MarkActionDoneInput, options?: CallOptions): Promise<void> =>
+    /**
+     * Coche une tâche : le geste correspondant est noté sur la plante.
+     *
+     * Renvoie l'identifiant du geste écrit — c'est ce que `undo` efface.
+     */
+    markDone: (
+      input: MarkActionDoneInput,
+      options?: CallOptions,
+    ): Promise<MarkActionDoneResult> =>
       this.http.request('/api/v1/planning/actions/done', {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
+
+    /**
+     * Coche plusieurs actions d'un coup — « Tout arrosé », « Tout marquer
+     * comme fait ». Un item en échec est compté dans `skipped` et n'annule
+     * pas les autres : tester `done` avant d'annoncer le résultat.
+     */
+    markDoneBulk: (
+      input: MarkActionsDoneBulkInput,
+      options?: CallOptions,
+    ): Promise<MarkActionsDoneBulkResult> =>
+      this.http.request('/api/v1/planning/actions/done-bulk', {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
+
+    /**
+     * Masque les actions du moteur jusqu'à demain — ou les rétablit avec
+     * `undo: true`. Rien n'est écrit au journal des plantes.
+     */
+    clearToday: (input: ClearPlanningTodayInput, options?: CallOptions): Promise<void> =>
+      this.http.request('/api/v1/planning/clear-today', {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
+
+    /** Annule un geste : le journal, la date de la plante et la tâche reviennent. */
+    undo: (input: UndoActionInput, options?: CallOptions): Promise<void> =>
+      this.http.request('/api/v1/planning/actions/undo', {
         ...options,
         method: 'POST',
         body: input,
@@ -452,11 +500,28 @@ export class GrowiApiClient {
     planActions: (
       plantId: string,
       diagnosisId: string,
+      input: PlanDiagnosisInput = {},
       options?: CallOptions,
     ): Promise<PlanDiagnosisResponse> =>
       this.http.request(
         `/api/v1/plants/${encodeURIComponent(plantId)}/diagnoses/${encodeURIComponent(diagnosisId)}/plan`,
-        { ...options, method: 'POST' },
+        { ...options, method: 'POST', body: input },
+      ),
+
+    /**
+     * Ce que devient chaque action déjà ouverte sur la plante.
+     *
+     * Une proposition, verdict par verdict : rien n'est retiré tant que
+     * `planActions` n'a pas reçu les identifiants confirmés.
+     */
+    review: (
+      plantId: string,
+      diagnosisId: string,
+      options?: CallOptions,
+    ): Promise<DiagnosisReview> =>
+      this.http.request(
+        `/api/v1/plants/${encodeURIComponent(plantId)}/diagnoses/${encodeURIComponent(diagnosisId)}/review`,
+        { ...options },
       ),
 
     /** Applique le statut proposé — sur accord explicite de l'utilisateur. */

@@ -1,5 +1,5 @@
 import type { AdviceRule, PlantContext, GardenAction } from '../types'
-import { parseJsonArray, getCurrentSeason, daysSince } from '../utils'
+import { parseJsonArray, getCurrentSeason, daysSince, seasonWindow } from '../utils'
 
 export const r11Repotting: AdviceRule = {
   id: 'r11-repotting',
@@ -12,6 +12,10 @@ export const r11Repotting: AdviceRule = {
 
     // Only for potted plants
     if (instance.containerSizeLiters == null) return []
+
+    // Rempoter, c'est casser la motte : on ne l'inflige pas à une plante qui
+    // ne va déjà pas bien. Elle a besoin d'être soignée d'abord.
+    if (instance.healthStatus !== 'HEALTHY') return []
 
     const seasons = parseJsonArray(catalog.repottingSeasons).length > 0
       ? parseJsonArray(catalog.repottingSeasons)
@@ -36,6 +40,13 @@ export const r11Repotting: AdviceRule = {
     const plantName = instance.customName ?? catalog.commonName ?? 'Plante'
     const emoji = instance.emoji ?? catalog.emoji ?? ''
 
+    // Un rempotage se fait dans la saison, pas ce mardi.
+    const window = seasonWindow(currentDate)
+
+    const last = instance.lastRepottedAt
+      ? `Dernier rempotage il y a environ ${Math.floor(daysSince(instance.lastRepottedAt, currentDate) / 30)} mois.`
+      : 'Aucun rempotage noté depuis son ajout.'
+
     return [
       {
         id: `${this.id}:${instance.id}`,
@@ -45,9 +56,14 @@ export const r11Repotting: AdviceRule = {
         plantId: instance.id,
         plantName,
         plantEmoji: emoji,
-        dueDate: currentDate.toISOString().slice(0, 10),
+        dueDate: window.end,
         done: false,
         priority: 'low',
+        kind: 'window',
+        window,
+        ruleId: this.id,
+        why: `C'est la saison de rempotage de cette plante. ${last} À faire quand tu as le temps, d'ici la fin de la saison.`,
+        howTo: catalog.careTipSoil ?? undefined,
       },
     ]
   },

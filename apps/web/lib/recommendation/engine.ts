@@ -12,8 +12,40 @@ import { r10FrostAlert } from './rules/r10-frost-alert'
 import { r11Repotting } from './rules/r11-repotting'
 import { r12PreventiveTreatment } from './rules/r12-preventive-treatment'
 
+/**
+ * Version de la forme du payload mis en cache six heures.
+ *
+ * Sans elle, changer la forme d'une `GardenAction` — ce que fait la v2 avec
+ * `kind` et `window` — sert pendant six heures des plannings hybrides : des
+ * tailles sans fenêtre, donc rangées « en retard », à côté de tailles qui n'y
+ * sont plus. Un cache d'une version antérieure est ignoré et recalculé.
+ */
+export const ADVICE_PAYLOAD_VERSION = 2
+
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
-const MAX_ACTIONS_PER_PLANT = 5
+
+/**
+ * Une plante qui aurait cinq choses à faire le même jour noie la liste sans
+ * que l'utilisateur en fasse davantage. Trois, et les plus prioritaires.
+ */
+const MAX_ACTIONS_PER_PLANT = 3
+
+/**
+ * L'ordre du planning : ce qui a un jour d'abord, puis l'urgence, puis la date.
+ *
+ * La nature passe avant la priorité — une action à fenêtre est par définition
+ * sans urgence, et laisser une taille « à faire ce mois-ci » devancer un
+ * arrosage du jour parce qu'elle est déclarée plus tôt n'aurait aucun sens.
+ */
+function compareActions(a: GardenAction, b: GardenAction): number {
+  const kindDiff = (a.kind === 'window' ? 1 : 0) - (b.kind === 'window' ? 1 : 0)
+  if (kindDiff !== 0) return kindDiff
+
+  const pDiff = (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2)
+  if (pDiff !== 0) return pDiff
+
+  return a.dueDate.localeCompare(b.dueDate)
+}
 
 export class RecommendationEngine {
   private rules: AdviceRule[] = [
@@ -66,18 +98,17 @@ export class RecommendationEngine {
       // elle décrit la plante, pas le geste.
       const photoUrl = ctx.instance.photoUrl ?? ctx.instance.catalogPlant?.imageUrl ?? null
 
-      // Cap per plant
+      // Le cap retient les plus prioritaires, pas les premières venues : sans
+      // ce tri local, l'ordre de déclaration des règles décidait de ce qui
+      // survit — un rempotage « plus tard » aurait chassé un arrosage du jour.
+      const ranked = [...unique].sort(compareActions)
+
       allActions.push(
-        ...unique.slice(0, MAX_ACTIONS_PER_PLANT).map((a) => ({ ...a, plantPhotoUrl: photoUrl })),
+        ...ranked.slice(0, MAX_ACTIONS_PER_PLANT).map((a) => ({ ...a, plantPhotoUrl: photoUrl })),
       )
     }
 
-    // Sort: priority (high→low) then dueDate (ascending)
-    allActions.sort((a, b) => {
-      const pDiff = (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2)
-      if (pDiff !== 0) return pDiff
-      return a.dueDate.localeCompare(b.dueDate)
-    })
+    allActions.sort(compareActions)
 
     return allActions
   }
@@ -127,6 +158,7 @@ export class RecommendationEngine {
     expiresAt.setHours(expiresAt.getHours() + 6)
 
     return {
+      version: ADVICE_PAYLOAD_VERSION,
       gardenId,
       generatedAt: now,
       expiresAt,

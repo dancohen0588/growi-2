@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   groupActionsByHorizon,
+  type ClearPlanningTodayInput,
   type GardenAction,
   type MarkActionDoneInput,
+  type MarkActionsDoneBulkInput,
   type TodayPlanning,
+  type UndoActionInput,
 } from '@growi/shared'
 
 import { api } from '@/lib/api'
@@ -80,7 +83,48 @@ export function usePlanningTasks() {
     showGardenNames: (data?.gardens.length ?? 0) > 1,
     total: tasks.length,
     groups: groupActionsByHorizon(tasks, data?.date),
+    /** Les gestes notés aujourd'hui — la section « Fait aujourd'hui ». */
+    doneToday: data?.doneToday ?? [],
+    /** Le jardin le plus récent, celui qu'on met en pause d'un tap. */
+    gardenIds: data?.gardens.map((garden) => garden.id) ?? [],
+    clearedToday: data?.gardens.some((garden) => garden.clearedToday) ?? false,
   }
+}
+
+/** Les quatre caches que tout geste sur le planning rend périmés. */
+function invalidatePlanning(queryClient: ReturnType<typeof useQueryClient>, plantIds: string[]) {
+  void queryClient.invalidateQueries({ queryKey: planningKeys.today() })
+  void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
+  // Une tâche cochée disparaît de l'historique ouvert des diagnostics.
+  void queryClient.invalidateQueries({ queryKey: diagnosisKeys.all })
+  for (const plantId of plantIds) {
+    void queryClient.invalidateQueries({ queryKey: plantKeys.detail(plantId) })
+    void queryClient.invalidateQueries({ queryKey: plantKeys.logs(plantId) })
+  }
+  void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
+}
+
+/** Retire des actions du planning en cache, sans attendre le serveur. */
+function dropActions(
+  queryClient: ReturnType<typeof useQueryClient>,
+  actionIds: string[],
+): TodayPlanning | undefined {
+  const previous = queryClient.getQueryData<TodayPlanning>(planningKeys.today())
+  const dropped = new Set(actionIds)
+
+  queryClient.setQueryData<TodayPlanning>(planningKeys.today(), (planning) =>
+    planning
+      ? {
+          ...planning,
+          gardens: planning.gardens.map((garden) => ({
+            ...garden,
+            actions: garden.actions.filter((action) => !dropped.has(action.id)),
+          })),
+        }
+      : planning,
+  )
+
+  return previous
 }
 
 /**
@@ -106,21 +150,7 @@ export function useMarkActionDone() {
 
     onMutate: async ({ actionId }) => {
       await queryClient.cancelQueries({ queryKey: planningKeys.today() })
-      const previous = queryClient.getQueryData<TodayPlanning>(planningKeys.today())
-
-      queryClient.setQueryData<TodayPlanning>(planningKeys.today(), (planning) =>
-        planning
-          ? {
-              ...planning,
-              gardens: planning.gardens.map((garden) => ({
-                ...garden,
-                actions: garden.actions.filter((action) => action.id !== actionId),
-              })),
-            }
-          : planning,
-      )
-
-      return { previous }
+      return { previous: dropActions(queryClient, [actionId]) }
     },
 
     onError: (_error, _input, context) => {
@@ -129,17 +159,84 @@ export function useMarkActionDone() {
       }
     },
 
-    onSettled: (_data, _error, { plantId }) => {
-      void queryClient.invalidateQueries({ queryKey: planningKeys.today() })
-      void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
-      // Une tâche cochée disparaît de l'historique ouvert des diagnostics.
-      void queryClient.invalidateQueries({ queryKey: diagnosisKeys.all })
-      // Le geste noté apparaît aussi dans l'historique de la plante.
-      if (plantId) {
-        void queryClient.invalidateQueries({ queryKey: plantKeys.detail(plantId) })
-        void queryClient.invalidateQueries({ queryKey: plantKeys.logs(plantId) })
-      }
-      void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
+    // Le geste noté apparaît aussi dans l'historique de la plante.
+    onSettled: (_data, _error, { plantId }) =>
+      invalidatePlanning(queryClient, plantId ? [plantId] : []),
+  })
+}
+
+/**
+ * Coche plusieurs actions d'un coup — « Tout arrosé », « Tout marquer fait ».
+ *
+ * Un appel et une seule invalidation, là où N mutations unitaires
+ * rechargeaient le planning N fois : sur cinq plantes, la liste sautait cinq
+ * fois sous le doigt.
+ */
+export function useMarkActionsDoneBulk() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: MarkActionsDoneBulkInput & { actionIds: string[] }) =>
+      api.planning.markDoneBulk({ gardenId: input.gardenId, items: input.items }),
+
+    onMutate: async ({ actionIds }) => {
+      await queryClient.cancelQueries({ queryKey: planningKeys.today() })
+      return { previous: dropActions(queryClient, actionIds) }
     },
+
+    onError: (_error, _input, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(planningKeys.today(), context.previous)
+      }
+    },
+
+    onSettled: (_data, _error, { items }) =>
+      invalidatePlanning(
+        queryClient,
+        items.map((item) => item.plantId).filter((id): id is string => !!id),
+      ),
+  })
+}
+
+/**
+ * « Ignorer pour aujourd'hui », et son « Rétablir ».
+ *
+ * Aucune mise à jour optimiste : le serveur décide de ce qui reste — les
+ * tâches issues d'un diagnostic ne sont jamais masquées, et refaire ce tri
+ * côté client serait s'exposer à ce que les deux divergent.
+ */
+export function useClearToday() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: ClearPlanningTodayInput & { gardenIds?: string[] }) => {
+      const gardens = input.gardenIds ?? [input.gardenId]
+      for (const gardenId of gardens) {
+        await api.planning.clearToday({ gardenId, undo: input.undo })
+      }
+    },
+    onSettled: () => invalidatePlanning(queryClient, []),
+  })
+}
+
+/**
+ * Annule un geste : le journal, la date de la plante et la tâche reviennent.
+ *
+ * L'action qui revient au planning est celle que le moteur recalcule, pas
+ * celle qu'on aurait devinée : on invalide plutôt que de la réinsérer.
+ */
+export function useUndoAction() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: UndoActionInput & { plantId?: string }) =>
+      api.planning.undo({
+        gardenId: input.gardenId,
+        careLogId: input.careLogId,
+        taskId: input.taskId,
+      }),
+
+    onSettled: (_data, _error, { plantId }) =>
+      invalidatePlanning(queryClient, plantId ? [plantId] : []),
   })
 }

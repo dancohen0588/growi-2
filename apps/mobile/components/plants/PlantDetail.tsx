@@ -37,6 +37,7 @@ import {
 } from '@growi/shared'
 
 import { actionChatQuery } from '@/components/chat/links'
+import { ActionDetailSheet } from '@/components/planning/ActionDetailSheet'
 import { DiagnosisHistoryList } from '@/components/diagnosis/DiagnosisHistoryList'
 import { CareHistory } from '@/components/plants/CareHistory'
 import { CareLogSheet } from '@/components/plants/CareLogSheet'
@@ -136,6 +137,9 @@ export function PlantDetail({ plantId, onEdit, onDiagnose, onChat }: PlantDetail
 
   const [refreshing, setRefreshing] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
+  // La même feuille que le calendrier : une action se lit pareil des deux
+  // côtés, et le « pourquoi » du moteur n'existe nulle part ailleurs.
+  const [detail, setDetail] = useState<GardenAction | null>(null)
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
@@ -402,7 +406,7 @@ export function PlantDetail({ plantId, onEdit, onDiagnose, onChat }: PlantDetail
                 action={action}
                 showPlantName={false}
                 onDone={() => completeTask(gardenId, action)}
-                onAsk={() => onChat(actionChatQuery(action))}
+                onOpenDetail={() => setDetail(action)}
               />
             ))}
           </View>
@@ -459,6 +463,29 @@ export function PlantDetail({ plantId, onEdit, onDiagnose, onChat }: PlantDetail
           )}
         </View>
       </ScrollView>
+
+      <ActionDetailSheet
+        action={detail}
+        onClose={() => setDetail(null)}
+        onDone={
+          detail && gardenId
+            ? () => {
+                const action = detail
+                setDetail(null)
+                completeTask(gardenId, action)
+              }
+            : undefined
+        }
+        onAsk={
+          detail
+            ? () => {
+                const query = actionChatQuery(detail)
+                setDetail(null)
+                onChat(query)
+              }
+            : undefined
+        }
+      />
 
       <CareLogSheet
         visible={sheetOpen}

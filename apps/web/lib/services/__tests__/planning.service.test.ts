@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // tous les jardins, sans doublon, et sans les gestes déjà notés aujourd'hui.
 
 const adviceService = vi.hoisted(() => ({ getGardensAdvice: vi.fn() }))
-const logService = vi.hoisted(() => ({ findCareTypesByPlantSince: vi.fn() }))
-const userService = vi.hoisted(() => ({ getUserLocation: vi.fn() }))
+const logService = vi.hoisted(() => ({ listCareLogsSince: vi.fn() }))
+const userService = vi.hoisted(() => ({ getUserLocation: vi.fn(), getUserTimezone: vi.fn() }))
 const weatherService = vi.hoisted(() => ({ getWeatherForecast: vi.fn() }))
 
 vi.mock('@/lib/services/advice.service', () => adviceService)
@@ -34,13 +34,30 @@ function action(overrides: Record<string, unknown> = {}) {
 }
 
 function garden(id: string, name: string, actions: unknown[], alerts: unknown[] = []) {
-  return { garden: { id, name }, advice: { actions, alerts } }
+  return { garden: { id, name, clearedToday: false }, advice: { actions, alerts } }
+}
+
+/** Un geste au journal, tel que le renvoie `listCareLogsSince`. */
+function careLog(type: string, plantInstanceId: string, id = `log_${plantInstanceId}_${type}`) {
+  return {
+    id,
+    type,
+    plantInstanceId,
+    occurredAt: new Date(`${TODAY}T08:12:00.000Z`),
+    plantInstance: {
+      customName: 'Basilic',
+      emoji: '🌿',
+      photoUrl: null,
+      catalogPlant: null,
+    },
+  }
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  logService.findCareTypesByPlantSince.mockResolvedValue(new Map())
+  logService.listCareLogsSince.mockResolvedValue([])
   userService.getUserLocation.mockResolvedValue(null)
+  userService.getUserTimezone.mockResolvedValue('Europe/Paris')
 })
 
 describe('getTodayPlanning', () => {
@@ -82,9 +99,7 @@ describe('getTodayPlanning', () => {
     adviceService.getGardensAdvice.mockResolvedValue([
       garden('g1', 'Potager', [action(), action({ id: 'demain', dueDate: '2026-08-22' })]),
     ])
-    logService.findCareTypesByPlantSince.mockResolvedValue(
-      new Map([['plant_1', new Set(['watering'])]]),
-    )
+    logService.listCareLogsSince.mockResolvedValue([careLog('watering', 'plant_1')])
 
     const planning = await getTodayPlanning(USER_ID, NOW)
 
@@ -104,9 +119,7 @@ describe('getTodayPlanning', () => {
     adviceService.getGardensAdvice.mockResolvedValue([
       garden('g1', 'Potager', [action(), action({ id: 'taille', type: 'taille' })]),
     ])
-    logService.findCareTypesByPlantSince.mockResolvedValue(
-      new Map([['plant_1', new Set(['watering'])]]),
-    )
+    logService.listCareLogsSince.mockResolvedValue([careLog('watering', 'plant_1')])
 
     const planning = await getTodayPlanning(USER_ID, NOW)
 
@@ -118,9 +131,7 @@ describe('getTodayPlanning', () => {
     adviceService.getGardensAdvice.mockResolvedValue([
       garden('g1', 'Potager', [action({ id: 'recolte', type: 'recolte' })]),
     ])
-    logService.findCareTypesByPlantSince.mockResolvedValue(
-      new Map([['plant_1', new Set(['harvest'])]]),
-    )
+    logService.listCareLogsSince.mockResolvedValue([careLog('harvest', 'plant_1')])
 
     expect((await getTodayPlanning(USER_ID, NOW)).gardens[0]!.actions).toHaveLength(0)
   })
@@ -161,6 +172,36 @@ describe('getTodayPlanning', () => {
     const planning = await getTodayPlanning(USER_ID, NOW)
 
     expect(planning.weather).toMatchObject({ locationName: 'Paris', today: { tempMax: 28 } })
+  })
+
+  it('rend les gestes du jour, de quoi les annuler un à un', async () => {
+    adviceService.getGardensAdvice.mockResolvedValue([garden('g1', 'Potager', [])])
+    logService.listCareLogsSince.mockResolvedValue([
+      careLog('watering', 'plant_1', 'log_1'),
+      // Une note de santé n'accomplit aucune action du planning : la montrer
+      // dans « Fait aujourd'hui » laisserait croire qu'on y a coché quelque chose.
+      careLog('health', 'plant_1', 'log_2'),
+    ])
+
+    const planning = await getTodayPlanning(USER_ID, NOW)
+
+    expect(planning.doneToday).toHaveLength(1)
+    expect(planning.doneToday![0]).toMatchObject({
+      type: 'arrosage',
+      careLogId: 'log_1',
+      done: true,
+      plantId: 'plant_1',
+    })
+  })
+
+  it('dit quel jardin est mis en pause pour aujourd’hui', async () => {
+    adviceService.getGardensAdvice.mockResolvedValue([
+      { garden: { id: 'g1', name: 'Potager', clearedToday: true }, advice: { actions: [], alerts: [] } },
+    ])
+
+    const planning = await getTodayPlanning(USER_ID, NOW)
+
+    expect(planning.gardens[0]!.clearedToday).toBe(true)
   })
 
   it('affiche le planning même si la météo est indisponible', async () => {

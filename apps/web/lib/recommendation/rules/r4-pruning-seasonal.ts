@@ -1,4 +1,5 @@
 import type { AdviceRule, PlantContext, GardenAction } from '../types'
+import { frenchDate, monthRunWindow } from '../utils'
 
 const MS_PER_DAY = 86_400_000
 const ELEVEN_MONTHS_DAYS = 335
@@ -44,7 +45,15 @@ export const r4PruningSeasonal: AdviceRule = {
     const emoji = instance.emoji ?? catalog.emoji ?? ''
     const season = getSeasonComplement(currentMonth)
 
-    const firstOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+    // Une taille est une affaire de saison, pas de jour. L'échéance au 1ᵉʳ du
+    // mois faisait afficher la carte « en retard », en rouge, dès le 2 — et
+    // pendant tout le mois. La fenêtre court jusqu'à la fin de la période de
+    // taille du catalogue ; `dueDate` en marque la fin, jamais le début.
+    const window = monthRunWindow(months, currentDate)
+
+    const lastPruned = instance.lastPrunedAt
+      ? `Dernière taille notée : ${frenchDate(instance.lastPrunedAt)}.`
+      : 'Aucune taille notée à ce jour.'
 
     return [
       {
@@ -55,9 +64,15 @@ export const r4PruningSeasonal: AdviceRule = {
         plantId: instance.id,
         plantName,
         plantEmoji: emoji,
-        dueDate: firstOfMonth.toISOString().slice(0, 10),
+        dueDate: window.end,
         done: false,
-        priority: 'medium',
+        // Sans urgence : c'est le propre d'une action à fenêtre.
+        priority: 'low',
+        kind: 'window',
+        window,
+        ruleId: this.id,
+        why: `C'est la période de taille de cette plante. ${lastPruned} Tu as jusqu'à la fin de la fenêtre, sans urgence.`,
+        howTo: catalog.careTipPruning ?? undefined,
       },
     ]
   },

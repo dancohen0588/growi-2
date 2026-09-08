@@ -12,6 +12,7 @@ import type { Prisma } from '@prisma/client'
 
 import { prisma } from '@/lib/prisma'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
+import { ServiceError } from '@/lib/services/errors'
 import { assertPlantOwned } from '@/lib/services/plant.service'
 import { completeTasksForGesture } from '@/lib/services/task.service'
 
@@ -19,8 +20,11 @@ import { completeTasksForGesture } from '@/lib/services/task.service'
  * Date de la plante à faire avancer selon le geste.
  *
  * C'est par ces champs que le moteur de conseils raisonne — il ne lit pas les
- * logs. Un geste sans date associée (récolte, semis, autre) n'a donc pas
- * d'incidence sur le planning, seulement sur l'historique.
+ * logs. Un geste sans date associée (semis, autre) n'a donc pas d'incidence
+ * sur le planning, seulement sur l'historique.
+ *
+ * La récolte en fait partie depuis la v2 du planning : rien ne fermait la
+ * règle r8, qui reproposait la même récolte chaque matin de toute la saison.
  */
 const PLANT_DATE_FIELD: Partial<Record<CareLogType, keyof Prisma.PlantInstanceUpdateInput>> = {
   watering: 'lastWateredAt',
@@ -28,6 +32,7 @@ const PLANT_DATE_FIELD: Partial<Record<CareLogType, keyof Prisma.PlantInstanceUp
   fertilizing: 'lastFertilizedAt',
   treatment: 'lastTreatedAt',
   repotting: 'lastRepottedAt',
+  harvest: 'lastHarvestedAt',
 }
 
 /**
@@ -67,14 +72,22 @@ export async function listPlantLogs(plantInstanceId: string, userId: string) {
 
 /**
  * Enregistre un geste d'entretien.
+ *
+ * `tx` permet d'enchaîner plusieurs gestes dans une seule transaction — la
+ * tournée d'arrosage de « Tout arrosé ». L'appelant prend alors deux
+ * responsabilités à sa charge : ouvrir la transaction, et invalider le cache
+ * de conseils **une fois** à la fin plutôt qu'à chaque plante.
+ *
  * @throws ServiceError('NOT_FOUND') si la plante n'est pas à l'utilisateur.
  */
 export async function logCare(
   plantInstanceId: string,
   userId: string,
   input: CreateCareLogInput,
+  tx?: Prisma.TransactionClient,
 ) {
-  const { gardenId } = await assertPlantOwned(plantInstanceId, userId)
+  const db = tx ?? prisma
+  const { gardenId } = await assertPlantOwned(plantInstanceId, userId, db)
   const occurredAt = input.occurredAt ? new Date(input.occurredAt) : new Date()
 
   const plantUpdate: Prisma.PlantInstanceUpdateInput = {}
@@ -90,34 +103,108 @@ export async function logCare(
     plantUpdate.healthNote = input.note ?? null
   }
 
-  const [log] = await prisma.$transaction([
-    prisma.careLog.create({
-      data: {
-        plantInstanceId,
-        type: input.type,
-        occurredAt,
-        note: input.note,
-        productUsed: input.productUsed,
-        status: input.status,
-        quantity: input.quantity,
-        unit: input.unit,
-        photoUrl: input.photoUrl,
-      },
-    }),
-    prisma.plantInstance.update({
-      where: { id: plantInstanceId, userId },
-      data: plantUpdate,
-    }),
-  ])
+  const writes = (client: Prisma.TransactionClient) =>
+    Promise.all([
+      client.careLog.create({
+        data: {
+          plantInstanceId,
+          type: input.type,
+          occurredAt,
+          note: input.note,
+          productUsed: input.productUsed,
+          status: input.status,
+          quantity: input.quantity,
+          unit: input.unit,
+          photoUrl: input.photoUrl,
+        },
+      }),
+      client.plantInstance.update({
+        where: { id: plantInstanceId, userId },
+        data: plantUpdate,
+      }),
+    ])
+
+  // Déjà dans une transaction : en ouvrir une seconde à l'intérieur échouerait.
+  const [log] = tx ? await writes(tx) : await prisma.$transaction(writes)
 
   // Le geste accomplit de fait les tâches échues du même type : sans cela,
   // arroser depuis la fiche masquerait la tâche « Arrose ce soir » du planning
   // — le moteur écarte ce qui a été fait aujourd'hui — sans jamais la clore.
   // Elle reviendrait le lendemain, alors que l'utilisateur a bien arrosé.
-  await completeTasksForGesture(userId, plantInstanceId, input.type, occurredAt)
+  await completeTasksForGesture(userId, plantInstanceId, input.type, occurredAt, db)
 
-  if (gardenId) await invalidateGardenAdviceCache(gardenId)
+  if (gardenId && !tx) await invalidateGardenAdviceCache(gardenId)
   return log
+}
+
+/**
+ * Efface un geste et remet la plante dans l'état d'avant.
+ *
+ * La date `last*At` est **recalculée** depuis le dernier geste restant du même
+ * type, jamais simplement remise à `null` : effacer l'arrosage de ce matin ne
+ * doit pas faire croire que la plante n'a jamais été arrosée.
+ *
+ * @throws ServiceError('NOT_FOUND') si le geste n'est pas à l'utilisateur.
+ */
+export async function deleteCareLog(careLogId: string, userId: string) {
+  const log = await prisma.careLog.findFirst({
+    where: { id: careLogId, plantInstance: { userId } },
+    select: { id: true, type: true, plantInstanceId: true, plantInstance: { select: { gardenId: true } } },
+  })
+  if (!log) throw new ServiceError('NOT_FOUND', 'Geste introuvable')
+
+  const type = log.type as CareLogType
+  const dateField = PLANT_DATE_FIELD[type]
+
+  await prisma.$transaction(async (tx) => {
+    await tx.careLog.delete({ where: { id: log.id } })
+
+    if (!dateField) return
+
+    const previous = await tx.careLog.findFirst({
+      where: { plantInstanceId: log.plantInstanceId, type },
+      orderBy: { occurredAt: 'desc' },
+      select: { occurredAt: true },
+    })
+
+    await tx.plantInstance.update({
+      where: { id: log.plantInstanceId, userId },
+      data: { [dateField]: previous?.occurredAt ?? null },
+    })
+  })
+
+  const gardenId = log.plantInstance.gardenId
+  if (gardenId) await invalidateGardenAdviceCache(gardenId)
+
+  return { plantInstanceId: log.plantInstanceId, type, gardenId }
+}
+
+/**
+ * Les gestes notés depuis `since`, avec de quoi les afficher.
+ *
+ * Sert la section « Fait aujourd'hui » : elle a besoin du geste lui-même —
+ * son identifiant, pour l'annuler — là où `findCareTypesByPlantSince` ne
+ * répond qu'à la question « ce geste a-t-il été fait ? ».
+ */
+export async function listCareLogsSince(userId: string, since: Date) {
+  return prisma.careLog.findMany({
+    where: { occurredAt: { gte: since }, plantInstance: { userId } },
+    orderBy: { occurredAt: 'desc' },
+    select: {
+      id: true,
+      type: true,
+      occurredAt: true,
+      plantInstanceId: true,
+      plantInstance: {
+        select: {
+          customName: true,
+          emoji: true,
+          photoUrl: true,
+          catalogPlant: { select: { commonName: true, emoji: true, imageUrl: true } },
+        },
+      },
+    },
+  })
 }
 
 /**

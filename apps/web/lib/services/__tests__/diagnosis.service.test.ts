@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const prismaMock = vi.hoisted(() => ({
   plantInstance: { findFirst: vi.fn() },
   diagnosis: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+  // Les actions déjà acceptées font partie du contexte soumis au modèle.
+  plantTask: { findMany: vi.fn() },
 }))
 const gemini = vi.hoisted(() => ({ generateJson: vi.fn() }))
 const gardenWeather = vi.hoisted(() => ({ getGardenWeather: vi.fn() }))
@@ -101,6 +103,7 @@ beforeEach(() => {
   process.env.GEMINI_API_KEY = 'clé-de-test'
 
   prismaMock.plantInstance.findFirst.mockResolvedValue(plant())
+  prismaMock.plantTask.findMany.mockResolvedValue([])
   prismaMock.diagnosis.create.mockImplementation(({ data }: { data: unknown }) =>
     Promise.resolve({ id: 'diag_1', ...(data as object) }),
   )

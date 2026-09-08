@@ -66,6 +66,31 @@ export function formatDueDate(
   return { label: formatMediumDate(isoDate), late: false }
 }
 
+/** « fin octobre », « fin sept. » — la fin d'une fenêtre, sans jour ni heure. */
+export function formatWindowEnd(isoDate: string, long = true): string {
+  return `fin ${new Date(`${isoDate}T00:00:00`).toLocaleDateString('fr-FR', {
+    month: long ? 'long' : 'short',
+  })}`
+}
+
+/**
+ * L'échéance telle que la carte la dit.
+ *
+ * Une action à fenêtre n'a pas de jour et n'est **jamais** en retard : elle
+ * annonce la fin de sa période. Passer par `formatDueDate` la ferait afficher
+ * en rouge dès le lendemain du premier du mois — c'est précisément ce que la
+ * v2 du planning corrige.
+ */
+export function formatActionWhen(
+  action: { dueDate: string; kind?: 'dated' | 'window'; window?: { start: string; end: string } },
+  now = new Date(),
+): { label: string; late: boolean } {
+  if (action.kind === 'window' && action.window) {
+    return { label: `avant ${formatWindowEnd(action.window.end)}`, late: false }
+  }
+  return formatDueDate(action.dueDate, now)
+}
+
 export function formatShortDate(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString('fr-FR', {
     weekday: 'short',
