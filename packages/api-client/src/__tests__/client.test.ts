@@ -479,7 +479,8 @@ describe('diagnostic', () => {
       jsonResponse({ data: { tasksCreated: 3, tasksPlannedAt: '2026-08-25T09:00:00.000Z' } }),
     )
     await makeClient().diagnosis.planActions('p1', 'diag_1', { supersede: ['t1'] })
-    expect(JSON.parse(String(callArgs().init.body))).toEqual({ supersede: ['t1'] })
+    // `callArgs()` rend le premier appel : c'est le second qu'on inspecte ici.
+    expect(JSON.parse(String(callArgs(1).init.body))).toEqual({ supersede: ['t1'] })
   })
 
   it('lit la revue des actions en cours', async () => {
