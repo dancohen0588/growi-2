@@ -18,8 +18,12 @@ import {
   type CareLogType,
   type DiagnosisPriority,
   type DiagnosisRecommendation,
+  type DiagnosisReview,
+  type DiagnosisSuccess,
   type GardenAction,
+  type PlanDiagnosisInput,
   type PlanDiagnosisResponse,
+  type TaskVerdict,
   diagnosisSuccessSchema,
 } from '@growi/shared'
 import type { PlantTask } from '@prisma/client'
@@ -114,6 +118,7 @@ export async function planDiagnosisActions(
   userId: string,
   plantInstanceId: string,
   diagnosisId: string,
+  input: PlanDiagnosisInput = {},
   now: Date = new Date(),
 ): Promise<PlanDiagnosisResponse> {
   const diagnosis = await prisma.diagnosis.findFirst({
@@ -122,9 +127,40 @@ export async function planDiagnosisActions(
   if (!diagnosis) throw new ServiceError('NOT_FOUND', 'Diagnostic introuvable')
 
   if (diagnosis.tasksPlannedAt) {
-    const tasksCreated = await prisma.plantTask.count({ where: { diagnosisId } })
-    return { tasksCreated, tasksPlannedAt: diagnosis.tasksPlannedAt.toISOString() }
+    const [tasksCreated, superseded] = await Promise.all([
+      prisma.plantTask.count({ where: { diagnosisId } }),
+      prisma.plantTask.count({ where: { supersededByDiagnosisId: diagnosisId } }),
+    ])
+    return {
+      tasksCreated,
+      superseded,
+      tasksPlannedAt: diagnosis.tasksPlannedAt.toISOString(),
+    }
   }
+
+  /**
+   * Les tâches que l'utilisateur a marquées « retirer » dans la revue.
+   *
+   * Retirées, pas faites : elles n'écrivent rien au journal de la plante, et
+   * restent lisibles dans l'historique du diagnostic qui les avait engendrées.
+   * Le filtre sur la plante et sur l'utilisateur est ce qui empêche de retirer
+   * la tâche d'autrui en glissant son identifiant dans le corps de la requête.
+   */
+  const supersede = input.supersede ?? []
+  const superseded = supersede.length
+    ? (
+        await prisma.plantTask.updateMany({
+          where: {
+            id: { in: supersede },
+            userId,
+            plantInstanceId,
+            doneAt: null,
+            supersededAt: null,
+          },
+          data: { supersededAt: now, supersededByDiagnosisId: diagnosisId },
+        })
+      ).count
+    : 0
 
   const parsed = diagnosisSuccessSchema.safeParse(diagnosis.payload)
   if (!parsed.success) {
@@ -150,7 +186,131 @@ export async function planDiagnosisActions(
     prisma.diagnosis.update({ where: { id: diagnosisId }, data: { tasksPlannedAt: now } }),
   ])
 
-  return { tasksCreated: drafts.length, tasksPlannedAt: now.toISOString() }
+  return { tasksCreated: drafts.length, superseded, tasksPlannedAt: now.toISOString() }
+}
+
+// ─── Revue des actions en cours ────────────────────────────────────────────
+
+/**
+ * Ce que devient chaque tâche ouverte de la plante face à un nouveau
+ * diagnostic.
+ *
+ * Deux couches. La **déterministe**, ci-dessous, suffit à elle seule : un
+ * diagnostic qui dit « plante saine » rend caduques les soins prescrits la
+ * semaine passée, et une nouvelle recommandation du même geste remplace
+ * l'ancienne. La seconde, le verdict du modèle (`openTasksReview`), l'emporte
+ * quand elle existe — les diagnostics antérieurs n'en ont pas.
+ *
+ * Rien n'est écrit ici : la revue **propose**, et c'est `planDiagnosisActions`
+ * qui retire ce que l'utilisateur a confirmé.
+ *
+ * @throws ServiceError('NOT_FOUND') si le diagnostic n'est pas à l'utilisateur.
+ */
+export async function reviewOpenTasks(
+  userId: string,
+  plantInstanceId: string,
+  diagnosisId: string,
+): Promise<DiagnosisReview> {
+  const diagnosis = await prisma.diagnosis.findFirst({
+    where: { id: diagnosisId, plantInstanceId, userId },
+  })
+  if (!diagnosis) throw new ServiceError('NOT_FOUND', 'Diagnostic introuvable')
+
+  const [open, supersededRows] = await Promise.all([
+    prisma.plantTask.findMany({
+      where: {
+        userId,
+        plantInstanceId,
+        doneAt: null,
+        supersededAt: null,
+        // Les tâches de ce diagnostic-ci ne se passent pas en revue
+        // elles-mêmes : elles n'existent pas encore, ou viennent d'être créées.
+        NOT: { diagnosisId },
+      },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.plantTask.findMany({
+      where: { userId, plantInstanceId, diagnosisId, supersededAt: { not: null } },
+      select: { id: true, shortLabel: true, supersededAt: true },
+      orderBy: { supersededAt: 'desc' },
+    }),
+  ])
+
+  const parsed = diagnosisSuccessSchema.safeParse(diagnosis.payload)
+  const result = parsed.success ? parsed.data : null
+
+  // Le verdict du modèle, indexé par tâche — absent sur tout l'historique.
+  const fromModel = new Map(
+    (result?.openTasksReview ?? []).map((entry) => [entry.taskId, entry]),
+  )
+  const newTypes = new Set(
+    (result?.recommendations ?? []).map((reco) => reco.actionType ?? 'autre'),
+  )
+
+  const tasks = open.map((task) => {
+    const model = fromModel.get(task.id)
+    if (model) {
+      return {
+        taskId: task.id,
+        type: task.type as ActionType,
+        shortLabel: task.shortLabel,
+        label: task.label,
+        dueDate: task.dueDate,
+        createdAt: task.createdAt.toISOString(),
+        verdict: model.verdict,
+        reason: model.reason,
+        fromModel: true,
+      }
+    }
+
+    const { verdict, reason } = deterministicVerdict(task, result, newTypes)
+    return {
+      taskId: task.id,
+      type: task.type as ActionType,
+      shortLabel: task.shortLabel,
+      label: task.label,
+      dueDate: task.dueDate,
+      createdAt: task.createdAt.toISOString(),
+      verdict,
+      reason,
+      fromModel: false,
+    }
+  })
+
+  return {
+    tasks,
+    superseded: supersededRows.map((row) => ({
+      taskId: row.id,
+      shortLabel: row.shortLabel,
+      supersededAt: row.supersededAt!.toISOString(),
+    })),
+  }
+}
+
+/** La couche déterministe de la revue — voir `reviewOpenTasks`. */
+function deterministicVerdict(
+  task: PlantTask,
+  result: DiagnosisSuccess | null,
+  newTypes: Set<ActionType>,
+): { verdict: TaskVerdict; reason: string } {
+  // Une tâche née du chat n'a pas été prescrite pour soigner quoi que ce soit :
+  // un diagnostic n'a pas à décider de son sort.
+  if (task.source !== 'DIAGNOSIS' || !result) {
+    return { verdict: 'keep', reason: 'Toujours au planning.' }
+  }
+
+  if (result.status === 'HEALTHY') {
+    return { verdict: 'drop', reason: 'Plus nécessaire : la plante va bien.' }
+  }
+
+  if (newTypes.has(task.type as ActionType)) {
+    return {
+      verdict: 'drop',
+      reason: 'Remplacée : une nouvelle recommandation porte sur le même geste.',
+    }
+  }
+
+  return { verdict: 'keep', reason: 'Toujours utile : ce diagnostic ne la remet pas en cause.' }
 }
 
 type TaskWithPlant = PlantTask & {

@@ -73,7 +73,10 @@ Schéma JSON attendu :
       "dueInDays": 0
     }
   ],
-  "followUp": "Phrase de suivi, ou null"
+  "followUp": "Phrase de suivi, ou null",
+  "openTasksReview": [
+    { "taskId": "identifiant repris tel quel du contexte", "verdict": "keep" | "drop", "reason": "Une ligne, tutoiement" }
+  ]
 }
 
 Si la photo ne permet pas de juger (floue, plante non visible, sujet qui n'est pas une plante), réponds :
@@ -97,6 +100,7 @@ Règles :
 - Recommandations faisables par un amateur. Jamais de produit phytosanitaire sans avoir proposé d'abord une alternative douce.
 - Si le contexte manque (pas de météo, pas de fiche catalogue), diagnostique sur ce que tu vois sans le signaler à l'utilisateur.
 - Si la plante photographiée ne correspond PAS à l'espèce enregistrée au contexte, diagnostique quand même ce que tu vois : signale simplement l'écart dans "observations" et baisse "confidence". Ne refuse jamais pour ce motif — la fiche peut avoir été mal renseignée.
+- "openTasksReview" ne concerne QUE les actions listées sous « ACTIONS EN COURS » dans le contexte, et seulement s'il y en a : sinon, omets complètement le champ. Reprends "taskId" tel quel. "drop" pour une action que ton diagnostic rend inutile ou que tes recommandations remplacent, "keep" pour tout le reste — dans le doute, "keep" : c'est l'utilisateur qui décide, et lui reprendre une action qu'il a acceptée serait plus grave que d'en laisser une de trop.
 - "followUp" ne propose que ce que l'utilisateur peut faire seul dans l'app, typiquement relancer un diagnostic après un délai. Écris-le à la 2e personne, sans jamais parler de toi : « Reprends une photo dans 7 jours pour voir l'évolution », et non « … pour que je puisse évaluer ». Tu ne suis pas cette plante, tu ne recontactes personne, et aucun expert n'est joignable : ne le laisse pas entendre.`
 
 // ─── Contexte ──────────────────────────────────────────────────────────────
@@ -112,7 +116,26 @@ export async function buildDiagnosisContext(
   plant: PlantWithRelations,
   now: Date = new Date(),
 ): Promise<string> {
-  return contextBlock(await buildPlantContextText(userId, plant, now), now)
+  const [text, openTasks] = await Promise.all([
+    buildPlantContextText(userId, plant, now),
+    // Les actions déjà acceptées sur cette plante : sans elles, le modèle
+    // prescrit une seconde fois ce qui est déjà au planning, et ne peut pas
+    // dire ce qui n'a plus lieu d'être.
+    prisma.plantTask.findMany({
+      where: { userId, plantInstanceId: plant.id, doneAt: null, supersededAt: null },
+      select: { id: true, shortLabel: true, dueDate: true },
+      orderBy: { dueDate: 'asc' },
+      take: 20,
+    }),
+  ])
+
+  const tasksBlock = openTasks.length
+    ? `\nACTIONS EN COURS (déjà acceptées par l'utilisateur) :\n${openTasks
+        .map((task) => `- taskId=${task.id} · ${task.shortLabel} · pour le ${task.dueDate}`)
+        .join('\n')}\n`
+    : ''
+
+  return contextBlock(`${text}${tasksBlock}`, now)
 }
 
 // ─── Photo ─────────────────────────────────────────────────────────────────

@@ -72,6 +72,8 @@ import type {
   MobileLoginInput,
   MobileRegisterInput,
   OpenConversationInput,
+  DiagnosisReview,
+  PlanDiagnosisInput,
   PlanDiagnosisResponse,
   PlantCatalog,
   PhotoKind,
@@ -498,11 +500,28 @@ export class GrowiApiClient {
     planActions: (
       plantId: string,
       diagnosisId: string,
+      input: PlanDiagnosisInput = {},
       options?: CallOptions,
     ): Promise<PlanDiagnosisResponse> =>
       this.http.request(
         `/api/v1/plants/${encodeURIComponent(plantId)}/diagnoses/${encodeURIComponent(diagnosisId)}/plan`,
-        { ...options, method: 'POST' },
+        { ...options, method: 'POST', body: input },
+      ),
+
+    /**
+     * Ce que devient chaque action déjà ouverte sur la plante.
+     *
+     * Une proposition, verdict par verdict : rien n'est retiré tant que
+     * `planActions` n'a pas reçu les identifiants confirmés.
+     */
+    review: (
+      plantId: string,
+      diagnosisId: string,
+      options?: CallOptions,
+    ): Promise<DiagnosisReview> =>
+      this.http.request(
+        `/api/v1/plants/${encodeURIComponent(plantId)}/diagnoses/${encodeURIComponent(diagnosisId)}/review`,
+        { ...options },
       ),
 
     /** Applique le statut proposé — sur accord explicite de l'utilisateur. */

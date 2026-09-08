@@ -68,7 +68,14 @@ export function usePlanDiagnosisActions(plantId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (diagnosisId: string) => api.diagnosis.planActions(plantId, diagnosisId),
+    mutationFn: ({
+      diagnosisId,
+      supersede,
+    }: {
+      diagnosisId: string
+      /** Les actions en cours que l'utilisateur a marquées « retirer ». */
+      supersede?: string[]
+    }) => api.diagnosis.planActions(plantId, diagnosisId, { supersede }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: diagnosisKeys.list(plantId) })
       void queryClient.invalidateQueries({ queryKey: plantKeys.detail(plantId) })
@@ -76,6 +83,22 @@ export function usePlanDiagnosisActions(plantId: string) {
       void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
       void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
     },
+  })
+}
+
+/**
+ * Ce que devient chaque action déjà ouverte sur la plante, face à ce
+ * diagnostic.
+ *
+ * Une proposition, verdict par verdict : rien n'est retiré tant que la
+ * planification n'a pas reçu les identifiants confirmés. Sans tâche ouverte,
+ * la réponse est vide et la section ne s'affiche pas.
+ */
+export function useDiagnosisReview(plantId: string, diagnosisId: string | null) {
+  return useQuery({
+    queryKey: [...diagnosisKeys.list(plantId), 'review', diagnosisId],
+    queryFn: () => api.diagnosis.review(plantId, diagnosisId!),
+    enabled: Boolean(plantId && diagnosisId),
   })
 }
 

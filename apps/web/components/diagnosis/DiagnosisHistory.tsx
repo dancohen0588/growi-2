@@ -175,13 +175,17 @@ function DiagnosisDetailView({
 
   // Un diagnostic relu se planifie aussi bien qu'un diagnostic frais : on
   // repense souvent à une recommandation après coup.
-  const plan = useCallback(async () => {
+  const plan = useCallback(async (supersede: string[] = []) => {
     setIsPlanning(true)
     setPlanError(null)
     try {
       const res = await fetch(
         `/api/v1/plants/${encodeURIComponent(plantId)}/diagnoses/${encodeURIComponent(diagnosisId)}/plan`,
-        { method: 'POST' },
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ supersede }),
+        },
       )
       if (!res.ok) throw new Error("Les actions n'ont pas pu être planifiées.")
 
@@ -219,6 +223,8 @@ function DiagnosisDetailView({
       // proposition de mise à jour en donnant le statut du diagnostic lui-même.
       currentHealthStatus={detail.status}
       onPlan={plan}
+      plantId={plantId}
+      diagnosisId={diagnosisId}
       isPlanning={isPlanning}
       tasksPlannedAt={plannedAt ?? detail.tasksPlannedAt}
       planError={planError}

@@ -26,6 +26,7 @@ const {
   isoDay,
   listOpenTasksAsActions,
   planDiagnosisActions,
+  reviewOpenTasks,
   toTaskDraft,
 } = await import('../task.service')
 const { ServiceError } = await import('../errors')
@@ -136,8 +137,9 @@ describe('planification', () => {
       ]),
     })
 
-    await expect(planDiagnosisActions(USER, PLANT, DIAG, NOW)).resolves.toEqual({
+    await expect(planDiagnosisActions(USER, PLANT, DIAG, {}, NOW)).resolves.toEqual({
       tasksCreated: 2,
+      superseded: 0,
       tasksPlannedAt: NOW.toISOString(),
     })
 
@@ -165,10 +167,12 @@ describe('planification', () => {
   it('est idempotent : un second appel ne recrée rien', async () => {
     const plannedAt = new Date('2026-08-24T10:00:00.000Z')
     prismaMock.diagnosis.findFirst.mockResolvedValue({ id: DIAG, tasksPlannedAt: plannedAt })
-    prismaMock.plantTask.count.mockResolvedValue(3)
+    // Deux comptes : les tâches créées, et celles que ce diagnostic a retirées.
+    prismaMock.plantTask.count.mockResolvedValueOnce(3).mockResolvedValueOnce(1)
 
-    await expect(planDiagnosisActions(USER, PLANT, DIAG, NOW)).resolves.toEqual({
+    await expect(planDiagnosisActions(USER, PLANT, DIAG, {}, NOW)).resolves.toEqual({
       tasksCreated: 3,
+      superseded: 1,
       tasksPlannedAt: plannedAt.toISOString(),
     })
     expect(prismaMock.plantTask.createMany).not.toHaveBeenCalled()
@@ -182,7 +186,7 @@ describe('planification', () => {
       payload: payload([reco({ priority: 'watch', timeframe: 'ce mois-ci' })]),
     })
 
-    await expect(planDiagnosisActions(USER, PLANT, DIAG, NOW)).resolves.toMatchObject({
+    await expect(planDiagnosisActions(USER, PLANT, DIAG, {}, NOW)).resolves.toMatchObject({
       tasksCreated: 1,
     })
     expect(prismaMock.plantTask.createMany).toHaveBeenCalledWith({
@@ -197,7 +201,7 @@ describe('planification', () => {
       payload: payload([]),
     })
 
-    await expect(planDiagnosisActions(USER, PLANT, DIAG, NOW)).resolves.toMatchObject({
+    await expect(planDiagnosisActions(USER, PLANT, DIAG, {}, NOW)).resolves.toMatchObject({
       tasksCreated: 0,
     })
   })
@@ -205,7 +209,7 @@ describe('planification', () => {
   it('refuse le diagnostic d’un autre compte', async () => {
     prismaMock.diagnosis.findFirst.mockResolvedValue(null)
 
-    await expect(planDiagnosisActions(USER, PLANT, DIAG, NOW)).rejects.toThrow(
+    await expect(planDiagnosisActions(USER, PLANT, DIAG, {}, NOW)).rejects.toThrow(
       /Diagnostic introuvable/,
     )
     expect(prismaMock.$transaction).not.toHaveBeenCalled()
@@ -213,7 +217,7 @@ describe('planification', () => {
 
   it('cherche le diagnostic sous la plante ET sous l’utilisateur', async () => {
     prismaMock.diagnosis.findFirst.mockResolvedValue({ id: DIAG, tasksPlannedAt: NOW })
-    await planDiagnosisActions(USER, PLANT, DIAG, NOW)
+    await planDiagnosisActions(USER, PLANT, DIAG, {}, NOW)
 
     expect(prismaMock.diagnosis.findFirst).toHaveBeenCalledWith({
       where: { id: DIAG, plantInstanceId: PLANT, userId: USER },
@@ -227,7 +231,7 @@ describe('planification', () => {
       payload: { diagnosed: true },
     })
 
-    await expect(planDiagnosisActions(USER, PLANT, DIAG, NOW)).rejects.toThrow(ServiceError)
+    await expect(planDiagnosisActions(USER, PLANT, DIAG, {}, NOW)).rejects.toThrow(ServiceError)
     expect(prismaMock.$transaction).not.toHaveBeenCalled()
   })
 })
@@ -390,5 +394,129 @@ describe('un geste accomplit les tâches échues du même type', () => {
     // `health` note un état, il n'accomplit aucune tâche du planning.
     await expect(completeTasksForGesture(USER, PLANT, 'health', NOW)).resolves.toBe(0)
     expect(prismaMock.plantTask.updateMany).not.toHaveBeenCalled()
+  })
+})
+
+describe('revue des actions en cours', () => {
+  const task = (over: Record<string, unknown> = {}) => ({
+    id: 'task_1',
+    type: 'traitement',
+    label: 'Pulvérise du savon noir',
+    shortLabel: 'Pulvériser du savon noir',
+    dueDate: '2026-08-26',
+    createdAt: NOW,
+    source: 'DIAGNOSIS',
+    ...over,
+  })
+
+  beforeEach(() => {
+    prismaMock.plantTask.findMany.mockResolvedValue([])
+  })
+
+  it('retire tout ce qu’un diagnostic antérieur avait prescrit quand la plante va bien', async () => {
+    prismaMock.diagnosis.findFirst.mockResolvedValue({
+      id: DIAG,
+      payload: { ...payload([]), status: 'HEALTHY' },
+    })
+    prismaMock.plantTask.findMany.mockResolvedValueOnce([task()]).mockResolvedValueOnce([])
+
+    const review = await reviewOpenTasks(USER, PLANT, DIAG)
+
+    expect(review.tasks[0]).toMatchObject({ verdict: 'drop', fromModel: false })
+    expect(review.tasks[0].reason).toMatch(/la plante va bien/)
+  })
+
+  it('remplace une tâche dont le geste revient dans les nouvelles recommandations', async () => {
+    prismaMock.diagnosis.findFirst.mockResolvedValue({
+      id: DIAG,
+      payload: payload([reco({ actionType: 'traitement' })]),
+    })
+    prismaMock.plantTask.findMany.mockResolvedValueOnce([task()]).mockResolvedValueOnce([])
+
+    expect((await reviewOpenTasks(USER, PLANT, DIAG)).tasks[0]).toMatchObject({ verdict: 'drop' })
+  })
+
+  it('garde ce que le diagnostic ne remet pas en cause', async () => {
+    prismaMock.diagnosis.findFirst.mockResolvedValue({
+      id: DIAG,
+      payload: payload([reco({ actionType: 'arrosage' })]),
+    })
+    prismaMock.plantTask.findMany.mockResolvedValueOnce([task()]).mockResolvedValueOnce([])
+
+    expect((await reviewOpenTasks(USER, PLANT, DIAG)).tasks[0]).toMatchObject({ verdict: 'keep' })
+  })
+
+  it('ne décide jamais du sort d’une tâche venue du chat', async () => {
+    prismaMock.diagnosis.findFirst.mockResolvedValue({
+      id: DIAG,
+      payload: { ...payload([]), status: 'HEALTHY' },
+    })
+    prismaMock.plantTask.findMany
+      .mockResolvedValueOnce([task({ source: 'CHAT' })])
+      .mockResolvedValueOnce([])
+
+    expect((await reviewOpenTasks(USER, PLANT, DIAG)).tasks[0]).toMatchObject({ verdict: 'keep' })
+  })
+
+  it('le verdict du modèle l’emporte sur la règle', async () => {
+    prismaMock.diagnosis.findFirst.mockResolvedValue({
+      id: DIAG,
+      payload: {
+        ...payload([reco({ actionType: 'traitement' })]),
+        openTasksReview: [
+          { taskId: 'task_1', verdict: 'keep', reason: 'Continue à retirer les feuilles tachées.' },
+        ],
+      },
+    })
+    prismaMock.plantTask.findMany.mockResolvedValueOnce([task()]).mockResolvedValueOnce([])
+
+    // Le déterministe aurait dit « remplacée » : le modèle a vu autre chose.
+    expect((await reviewOpenTasks(USER, PLANT, DIAG)).tasks[0]).toMatchObject({
+      verdict: 'keep',
+      fromModel: true,
+      reason: 'Continue à retirer les feuilles tachées.',
+    })
+  })
+
+  it('exclut les tâches de ce diagnostic-ci, et refuse un diagnostic d’un autre compte', async () => {
+    prismaMock.diagnosis.findFirst.mockResolvedValue({ id: DIAG, payload: payload([]) })
+    await reviewOpenTasks(USER, PLANT, DIAG)
+
+    expect(prismaMock.plantTask.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          doneAt: null,
+          supersededAt: null,
+          NOT: { diagnosisId: DIAG },
+        }),
+      }),
+    )
+
+    prismaMock.diagnosis.findFirst.mockResolvedValue(null)
+    await expect(reviewOpenTasks(USER, PLANT, DIAG)).rejects.toThrow(/Diagnostic introuvable/)
+  })
+
+  it('retire les tâches confirmées, sans jamais toucher à celles d’autrui', async () => {
+    prismaMock.diagnosis.findFirst.mockResolvedValue({
+      id: DIAG,
+      tasksPlannedAt: null,
+      payload: payload([reco()]),
+    })
+    prismaMock.plantTask.updateMany.mockResolvedValue({ count: 2 })
+
+    await expect(
+      planDiagnosisActions(USER, PLANT, DIAG, { supersede: ['t1', 't2'] }, NOW),
+    ).resolves.toMatchObject({ superseded: 2 })
+
+    expect(prismaMock.plantTask.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['t1', 't2'] },
+        userId: USER,
+        plantInstanceId: PLANT,
+        doneAt: null,
+        supersededAt: null,
+      },
+      data: { supersededAt: NOW, supersededByDiagnosisId: DIAG },
+    })
   })
 })
