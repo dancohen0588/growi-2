@@ -12,6 +12,10 @@ export function errorMessage(error: unknown): string {
   if (error.isNotFound) return "Cet élément n'existe plus."
   if (error.isUnauthorized) return 'Ta session a expiré. Reconnecte-toi.'
   if (error.status === 429) return error.message
+  // Un refus dit toujours quoi faire — « Active ton profil public pour voir la
+  // bourse. » vaut mieux que « une erreur est survenue », qui laissait croire à
+  // une panne là où il manquait un geste.
+  if (error.status === 403) return error.message
   // Les messages de validation viennent de nos propres schémas : ils sont
   // rédigés pour être lus par un humain.
   if (error.isValidationError) return error.message

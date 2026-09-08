@@ -1,5 +1,5 @@
 import { Alert, Pressable, Text, View } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, type Href } from 'expo-router'
 import { ChevronRight, ShieldBan, Users } from 'lucide-react-native'
 import type { CommunityAlertConfig, UpdateAlertConfigInput } from '@growi/shared'
 import { COMMUNITY_RADII_KM, COMMUNITY_RADIUS_LABELS } from '@growi/shared'
@@ -35,6 +35,20 @@ export function CommunitySection({ alerts, onAlertsChange }: CommunitySectionPro
   const settings = useCommunitySettings()
   const update = useUpdateCommunitySettings()
 
+  /**
+   * Le profil est une **modale native** : une destination ouverte par-dessus se
+   * monte *derrière* elle, et la modale reste là — c'est ce qui arrivait à
+   * « Comptes bloqués », comme à « Revoir la présentation ». On referme
+   * d'abord ; la modale glisse vers le bas en découvrant l'écran demandé.
+   *
+   * Les trois destinations d'ici vivent de toute façon dans l'onglet
+   * Communauté : on quitte le profil dans tous les cas.
+   */
+  const leaveProfile = (href: Href) => {
+    router.back()
+    router.navigate(href)
+  }
+
   // Tant que les réglages ne sont pas lus, on n'affiche rien plutôt qu'un état
   // qui se corrigerait sous les yeux de l'utilisateur — comme PushSection.
   if (settings.isPending || settings.isError) return null
@@ -44,7 +58,7 @@ export function CommunitySection({ alerts, onAlertsChange }: CommunitySectionPro
   if (!data.enabled) {
     return (
       <Pressable
-        onPress={() => router.navigate('/(tabs)/communaute/activer')}
+        onPress={() => leaveProfile('/(tabs)/communaute/activer')}
         accessibilityRole="button"
         className="flex-row items-center gap-3 rounded-xl bg-card p-4"
         style={({ pressed }) => (pressed ? { transform: [{ scale: 0.99 }] } : null)}
@@ -96,7 +110,7 @@ export function CommunitySection({ alerts, onAlertsChange }: CommunitySectionPro
   return (
     <View className="gap-3">
       <Pressable
-        onPress={() => router.navigate('/(tabs)/communaute/activer')}
+        onPress={() => leaveProfile('/(tabs)/communaute/activer')}
         accessibilityRole="button"
         className="flex-row items-center gap-3 rounded-xl bg-card p-4"
         style={({ pressed }) => (pressed ? { transform: [{ scale: 0.99 }] } : null)}
@@ -145,7 +159,7 @@ export function CommunitySection({ alerts, onAlertsChange }: CommunitySectionPro
       </View>
 
       <Pressable
-        onPress={() => router.navigate('/(tabs)/communaute/bloques')}
+        onPress={() => leaveProfile('/(tabs)/communaute/bloques')}
         accessibilityRole="button"
         className="flex-row items-center gap-3 rounded-xl bg-card p-4"
         style={({ pressed }) => (pressed ? { transform: [{ scale: 0.99 }] } : null)}

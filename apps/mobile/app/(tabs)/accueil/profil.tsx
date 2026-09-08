@@ -253,7 +253,13 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
       <View className="gap-3">
         <SectionTitle>À propos</SectionTitle>
         <Pressable
-          onPress={() => router.push('/onboarding?from=profil')}
+          onPress={() => {
+            // Le profil est une modale native : la présentation, poussée sur
+            // la pile racine, se monterait *derrière* elle. On la referme
+            // d'abord — elle glisse alors vers le bas en la découvrant.
+            router.back()
+            router.push('/onboarding?from=profil')
+          }}
           accessibilityRole="button"
           className="flex-row items-center gap-3 rounded-xl bg-card p-4"
           style={({ pressed }) => (pressed ? { transform: [{ scale: 0.99 }] } : null)}

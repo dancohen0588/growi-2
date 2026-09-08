@@ -5,6 +5,7 @@ import type { SocialProvider } from '@growi/shared'
 
 import { api, publicApi, setSessionLostHandler } from '@/lib/api'
 import { clearTokens, getRefreshToken, saveTokens } from '@/lib/auth-storage'
+import { clearKeychainOnFreshInstall } from '@/lib/fresh-install'
 import { hasSeenOnboarding } from '@/lib/onboarding-storage'
 import { forgetDeviceForPush } from '@/lib/push'
 import { requestAppleIdentity, requestGoogleIdentity } from '@/lib/social-auth'
@@ -77,8 +78,14 @@ export const useSession = create<SessionState>((set) => ({
    * Le drapeau d'onboarding est lu en parallèle et posé avant de sortir de
    * `restoring` : l'aiguillage est ainsi connu au moment où l'écran de
    * démarrage se lève, sans qu'on aperçoive le login au passage.
+   *
+   * La purge d'installation neuve passe **avant** les deux lectures : le
+   * trousseau survit à la désinstallation, et lire ce qu'on s'apprête à effacer
+   * ferait démarrer l'app sur la session d'une installation précédente.
    */
   restore: async () => {
+    await clearKeychainOnFreshInstall()
+
     const [refreshToken, seen] = await Promise.all([getRefreshToken(), hasSeenOnboarding()])
     set({ onboardingSeen: seen })
 

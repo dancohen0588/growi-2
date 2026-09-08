@@ -6,6 +6,7 @@ import { MessageSquare, Plus, Sprout } from 'lucide-react-native'
 import type { CommunityPost, CommunityRadiusKm, FeedScope } from '@growi/shared'
 import { COMMUNITY_RADII_KM, COMMUNITY_RADIUS_LABELS } from '@growi/shared'
 
+import { CommunityDisabled } from '@/components/community/CommunityDisabled'
 import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { PostCard } from '@/components/community/PostCard'
 import { Button } from '@/components/ui/Button'
@@ -127,12 +128,17 @@ export default function CommunauteScreen() {
   const [radius, setRadius] = useState<CommunityRadiusKm | null>(null)
   const applied = radius ?? settings.data?.radiusKm ?? 20
 
+  // Le serveur refuse les deux fils en 403 tant que le profil public n'est pas
+  // activé. On ne les demande donc pas : l'écran montre l'invitation à
+  // rejoindre, comme le fait déjà le web.
+  const communityOn = settings.data?.enabled === true
+
   const nearby = useFeed(applied, {
-    enabled: scope === 'nearby' && (radius !== null || settings.isSuccess),
+    enabled: communityOn && scope === 'nearby' && (radius !== null || settings.isSuccess),
   })
   // Le fil des abonnements n'est demandé qu'à l'ouverture de son onglet : la
   // plupart des comptes ne suivent encore personne.
-  const following = useFollowingFeed({ enabled: scope === 'following' })
+  const following = useFollowingFeed({ enabled: communityOn && scope === 'following' })
 
   const feed = scope === 'nearby' ? nearby : following
   const toggleLike = useToggleLike()
@@ -178,26 +184,44 @@ export default function CommunauteScreen() {
       <CommunityHeader title="Communauté">
         {/* La bourse et les messages sont les deux autres destinations de la
             communauté : elles vivent dans l'en-tête plutôt que dans un second
-            segment, qui se disputerait la place avec les deux fils. */}
-        <Pressable
-          onPress={() => router.push('/(tabs)/communaute/messages')}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="Mes messages"
-        >
-          <MessageSquare size={24} color="#1E5631" />
-        </Pressable>
-        <Pressable
-          onPress={() => router.push('/(tabs)/communaute/bourse')}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="La bourse aux graines"
-        >
-          <Sprout size={24} color="#1E5631" />
-        </Pressable>
+            segment, qui se disputerait la place avec les deux fils.
+
+            Elles disparaissent tant que le profil n'est pas activé : elles ne
+            mèneraient qu'au même refus, une porte de plus à pousser pour rien. */}
+        {communityOn ? (
+          <>
+            <Pressable
+              onPress={() => router.push('/(tabs)/communaute/messages')}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Mes messages"
+            >
+              <MessageSquare size={24} color="#1E5631" />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/(tabs)/communaute/bourse')}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="La bourse aux graines"
+            >
+              <Sprout size={24} color="#1E5631" />
+            </Pressable>
+          </>
+        ) : null}
       </CommunityHeader>
 
-      {feed.isPending ? (
+      {settings.isPending ? (
+        <View className="px-4">
+          <ListSkeleton count={2} />
+        </View>
+      ) : settings.isError ? (
+        <ErrorState
+          message={errorMessage(settings.error)}
+          onRetry={() => void settings.refetch()}
+        />
+      ) : !communityOn ? (
+        <CommunityDisabled />
+      ) : feed.isPending ? (
         <View className="px-4">
           <ListSkeleton count={2} />
         </View>
