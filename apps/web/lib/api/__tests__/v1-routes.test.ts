@@ -17,7 +17,12 @@ const logService = vi.hoisted(() => ({
   listPlantLogs: vi.fn(),
   logCare: vi.fn(),
 }))
-const adviceService = vi.hoisted(() => ({ markActionDone: vi.fn() }))
+const adviceService = vi.hoisted(() => ({
+  markActionDone: vi.fn(),
+  markActionsDone: vi.fn(),
+  clearPlanningToday: vi.fn(),
+  undoAction: vi.fn(),
+}))
 const plantService = vi.hoisted(() => ({
   listPlantInstances: vi.fn(),
   addIdentifiedPlant: vi.fn(),
@@ -47,6 +52,9 @@ const { GET: listGardens, POST: createGarden } = await import('@/app/api/v1/gard
 const { GET: getGarden } = await import('@/app/api/v1/gardens/[id]/route')
 const { POST: createLog } = await import('@/app/api/v1/plants/[id]/logs/route')
 const { POST: markDone } = await import('@/app/api/v1/planning/actions/done/route')
+const { POST: markDoneBulk } = await import('@/app/api/v1/planning/actions/done-bulk/route')
+const { POST: undoActionRoute } = await import('@/app/api/v1/planning/actions/undo/route')
+const { POST: clearToday } = await import('@/app/api/v1/planning/clear-today/route')
 const { GET: listPlants, POST: addIdentifiedPlant } = await import('@/app/api/v1/plants/route')
 const { GET: getSummary } = await import('@/app/api/v1/summary/route')
 const { GET: getWeather } = await import('@/app/api/v1/weather/route')
@@ -459,14 +467,15 @@ describe('PATCH /api/v1/me/alerts', () => {
 // ─── POST /api/v1/planning/actions/done ────────────────────────────────────
 
 describe('POST /api/v1/planning/actions/done', () => {
-  it('coche la tâche et répond 204 sans corps', async () => {
-    adviceService.markActionDone.mockResolvedValue(undefined)
+  it('coche la tâche et rend le geste écrit, de quoi l’annuler', async () => {
+    adviceService.markActionDone.mockResolvedValue({ careLogId: 'log_1' })
 
     const res = await markDone(
       jsonRequest({ gardenId: 'garden_1', actionType: 'arrosage', plantId: 'plant_1' }),
     )
 
-    expect(res.status).toBe(204)
+    expect(res.status).toBe(200)
+    expect((await res.json()).data).toEqual({ careLogId: 'log_1' })
     expect(adviceService.markActionDone).toHaveBeenCalledWith(USER_ID, {
       gardenId: 'garden_1',
       actionType: 'arrosage',
@@ -490,6 +499,77 @@ describe('POST /api/v1/planning/actions/done', () => {
 
     expect(res.status).toBe(404)
     expect((await res.json()).error.code).toBe('NOT_FOUND')
+  })
+})
+
+// ─── POST /api/v1/planning/actions/done-bulk ───────────────────────────────
+
+describe('POST /api/v1/planning/actions/done-bulk', () => {
+  it('transmet la tournée entière au service', async () => {
+    adviceService.markActionsDone.mockResolvedValue({ done: 2, skipped: 0, careLogIds: ['l1', 'l2'] })
+
+    const items = [
+      { actionType: 'arrosage', plantId: 'plant_1' },
+      { actionType: 'arrosage', plantId: 'plant_2' },
+    ]
+    const res = await markDoneBulk(jsonRequest({ gardenId: 'garden_1', items }))
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).data.done).toBe(2)
+    expect(adviceService.markActionsDone).toHaveBeenCalledWith(USER_ID, {
+      gardenId: 'garden_1',
+      items,
+    })
+  })
+
+  it('refuse une tournée vide', async () => {
+    const res = await markDoneBulk(jsonRequest({ gardenId: 'garden_1', items: [] }))
+
+    expect(res.status).toBe(400)
+    expect(adviceService.markActionsDone).not.toHaveBeenCalled()
+  })
+})
+
+// ─── POST /api/v1/planning/clear-today et /actions/undo ────────────────────
+
+describe('POST /api/v1/planning/clear-today', () => {
+  it('masque les actions du jour, et les rétablit', async () => {
+    adviceService.clearPlanningToday.mockResolvedValue(undefined)
+
+    expect((await clearToday(jsonRequest({ gardenId: 'garden_1' }))).status).toBe(204)
+    expect(adviceService.clearPlanningToday).toHaveBeenCalledWith(USER_ID, {
+      gardenId: 'garden_1',
+    })
+
+    await clearToday(jsonRequest({ gardenId: 'garden_1', undo: true }))
+    expect(adviceService.clearPlanningToday).toHaveBeenLastCalledWith(USER_ID, {
+      gardenId: 'garden_1',
+      undo: true,
+    })
+  })
+})
+
+describe('POST /api/v1/planning/actions/undo', () => {
+  it('annule le geste et répond 204', async () => {
+    adviceService.undoAction.mockResolvedValue(undefined)
+
+    const res = await undoActionRoute(
+      jsonRequest({ gardenId: 'garden_1', careLogId: 'log_1', taskId: 'task_1' }),
+    )
+
+    expect(res.status).toBe(204)
+    expect(adviceService.undoAction).toHaveBeenCalledWith(USER_ID, {
+      gardenId: 'garden_1',
+      careLogId: 'log_1',
+      taskId: 'task_1',
+    })
+  })
+
+  it('exige le geste à effacer', async () => {
+    const res = await undoActionRoute(jsonRequest({ gardenId: 'garden_1' }))
+
+    expect(res.status).toBe(400)
+    expect(adviceService.undoAction).not.toHaveBeenCalled()
   })
 })
 

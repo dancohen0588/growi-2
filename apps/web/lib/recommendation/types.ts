@@ -80,6 +80,8 @@ export interface GardenAction {
   howTo?: string
   /** Règle d'origine (`r1-watering-standard`), pour le débogage et l'admin. */
   ruleId?: string
+  /** Geste écrit au journal — renseigné par la liste « Fait aujourd'hui ». */
+  careLogId?: string
 }
 
 // ─── Alerts ────────────────────────────────────────────────────────────────

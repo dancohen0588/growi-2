@@ -237,14 +237,30 @@ export async function listOpenTasksAsActions(
  * Acquitte une tâche précise.
  * @throws ServiceError('NOT_FOUND') si elle n'est pas à l'utilisateur.
  */
-export async function completeTask(userId: string, taskId: string, now: Date = new Date()) {
-  const task = await prisma.plantTask.findFirst({ where: { id: taskId, userId } })
+export async function completeTask(
+  userId: string,
+  taskId: string,
+  now: Date = new Date(),
+  db: Pick<typeof prisma, 'plantTask'> = prisma,
+) {
+  const task = await db.plantTask.findFirst({ where: { id: taskId, userId } })
   if (!task) throw new ServiceError('NOT_FOUND', 'Tâche introuvable')
 
   // Déjà faite : ne pas déplacer la date, cocher deux fois n'est pas une erreur.
   if (task.doneAt) return task
 
-  return prisma.plantTask.update({ where: { id: taskId }, data: { doneAt: now } })
+  return db.plantTask.update({ where: { id: taskId }, data: { doneAt: now } })
+}
+
+/**
+ * Rouvre une tâche acquittée — le pendant de `completeTask` pour « Annuler ».
+ *
+ * Silencieuse si la tâche n'existe plus ou n'est pas à l'utilisateur : annuler
+ * un geste ne doit pas échouer parce que la tâche qui l'accompagnait a été
+ * supprimée entre-temps.
+ */
+export async function reopenTask(userId: string, taskId: string): Promise<void> {
+  await prisma.plantTask.updateMany({ where: { id: taskId, userId }, data: { doneAt: null } })
 }
 
 /**
@@ -263,11 +279,12 @@ export async function completeTasksForGesture(
   plantInstanceId: string,
   careType: CareLogType,
   now: Date = new Date(),
+  db: Pick<typeof prisma, 'plantTask'> = prisma,
 ): Promise<number> {
   const actionType = ACTION_TYPE_BY_CARE_LOG[careType]
   if (!actionType) return 0
 
-  const { count } = await prisma.plantTask.updateMany({
+  const { count } = await db.plantTask.updateMany({
     where: {
       userId,
       plantInstanceId,

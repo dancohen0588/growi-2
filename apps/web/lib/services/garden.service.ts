@@ -35,12 +35,39 @@ export async function findGarden(gardenId: string, userId: string) {
  * @throws ServiceError('NOT_FOUND') sinon — on ne distingue pas « inexistant »
  * de « appartient à quelqu'un d'autre », pour ne rien révéler.
  */
-export async function assertGardenOwned(gardenId: string, userId: string): Promise<void> {
+export async function assertGardenOwned(
+  gardenId: string,
+  userId: string,
+): Promise<{ id: string; planningClearedOn: string | null }> {
   const garden = await prisma.garden.findFirst({
     where: { id: gardenId, userId },
-    select: { id: true },
+    // `planningClearedOn` est remonté parce que le planning en a besoin juste
+    // après le contrôle : une seconde lecture du même jardin serait gratuite.
+    select: { id: true, planningClearedOn: true },
   })
   if (!garden) throw new ServiceError('NOT_FOUND', 'Jardin introuvable')
+  return garden
+}
+
+/**
+ * Pose ou lève « Ignorer pour aujourd'hui » sur un jardin.
+ *
+ * `day` est le jour **de l'utilisateur** ; `null` rétablit les actions. Aucune
+ * invalidation du cache de conseils n'est nécessaire : le masquage est un
+ * filtre appliqué après lecture, il ne change pas ce qui est calculé.
+ *
+ * @throws ServiceError('NOT_FOUND') si le jardin n'est pas à l'utilisateur.
+ */
+export async function setPlanningClearedOn(
+  gardenId: string,
+  userId: string,
+  day: string | null,
+): Promise<void> {
+  const { count } = await prisma.garden.updateMany({
+    where: { id: gardenId, userId },
+    data: { planningClearedOn: day },
+  })
+  if (count === 0) throw new ServiceError('NOT_FOUND', 'Jardin introuvable')
 }
 
 /**

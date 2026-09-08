@@ -78,8 +78,10 @@ async function assertZoneBelongsToUser(zoneId: string, userId: string): Promise<
 export async function assertPlantOwned(
   plantInstanceId: string,
   userId: string,
+  /** Client transactionnel, quand le contrôle doit voir les écritures en cours. */
+  db: Pick<typeof prisma, 'plantInstance'> = prisma,
 ): Promise<{ gardenId: string | null }> {
-  const instance = await prisma.plantInstance.findFirst({
+  const instance = await db.plantInstance.findFirst({
     where: { id: plantInstanceId, userId },
     select: { gardenId: true },
   })

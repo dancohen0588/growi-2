@@ -147,6 +147,13 @@ export const gardenActionSchema = z.object({
   howTo: z.string().optional(),
   /** Règle d'origine (`r1-watering-standard`), pour le débogage et l'admin. */
   ruleId: z.string().optional(),
+  /**
+   * Geste écrit au journal quand l'action a été faite aujourd'hui.
+   *
+   * Renseigné par la liste « Fait aujourd'hui », et par elle seule : c'est ce
+   * que « Annuler » a besoin d'effacer. Une action à faire n'en a pas.
+   */
+  careLogId: z.string().optional(),
 })
 
 export type GardenAction = z.infer<typeof gardenActionSchema>
@@ -362,6 +369,14 @@ export const gardenPlanningSchema = z.object({
   /** Tâches dues aujourd'hui ou en retard, non encore faites. */
   actions: z.array(gardenActionSchema),
   alerts: z.array(plantAlertSchema),
+  /**
+   * L'utilisateur a demandé « Ignorer pour aujourd'hui » sur ce jardin.
+   *
+   * L'écran l'annonce et propose de rétablir : sans ce drapeau, une liste
+   * vidée ne se distinguerait pas d'une journée sans rien à faire, et le geste
+   * paraîtrait irréversible.
+   */
+  clearedToday: z.boolean().optional(),
 })
 
 export type GardenPlanning = z.infer<typeof gardenPlanningSchema>
@@ -371,6 +386,14 @@ export const todayPlanningSchema = z.object({
   date: z.string(),
   /** Tous les jardins de l'utilisateur, du plus récent au plus ancien. */
   gardens: z.array(gardenPlanningSchema),
+  /**
+   * Les gestes notés aujourd'hui, chacun avec son `careLogId`.
+   *
+   * C'est la section « Fait aujourd'hui » et sa seule source : l'accordéon du
+   * web se souvenait de ce qu'on venait de cocher, mais l'oubliait au premier
+   * rechargement — et son « Annuler » n'effaçait rien.
+   */
+  doneToday: z.array(gardenActionSchema).optional(),
   /** `null` si l'utilisateur n'a pas de coordonnées ou si la météo est indisponible. */
   weather: nullish(planningWeatherSchema),
 })
