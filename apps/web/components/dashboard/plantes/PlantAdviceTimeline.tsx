@@ -14,15 +14,39 @@ interface PlantAdviceTimelineProps {
 export function PlantAdviceTimeline({ advice }: PlantAdviceTimelineProps) {
   const currentMonth = new Date().getMonth()
 
-  // Group tasks by month for the timeline
+  /**
+   * Les mois que chaque action occupe.
+   *
+   * Une action à fenêtre couvre toute sa période : la taille du rosier tient
+   * septembre *et* octobre. La frise ne lisait que `dueDate` et posait donc un
+   * seul point, à la fin de la fenêtre — elle annonçait la taille en octobre
+   * pour une plante qu'on peut tailler dès septembre.
+   */
   const tasksByMonth = useMemo(() => {
-    if (!advice) return new Map<number, PlantAdvice['tasks']>()
     const map = new Map<number, PlantAdvice['tasks']>()
-    for (const task of advice.tasks) {
-      const month = new Date(task.dueDate).getMonth()
+    if (!advice) return map
+
+    const push = (month: number, task: PlantAdvice['tasks'][number]) => {
       if (!map.has(month)) map.set(month, [])
       map.get(month)!.push(task)
     }
+
+    for (const task of advice.tasks) {
+      if (task.kind === 'window' && task.window) {
+        const start = new Date(`${task.window.start}T00:00:00`)
+        const end = new Date(`${task.window.end}T00:00:00`)
+        // Une fenêtre qui enjambe le 31 décembre couvre les deux extrémités
+        // de la frise, qui ne représente qu'une année.
+        const span = Math.min(
+          11,
+          (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth(),
+        )
+        for (let i = 0; i <= span; i += 1) push((start.getMonth() + i) % 12, task)
+        continue
+      }
+      push(new Date(`${task.dueDate}T00:00:00`).getMonth(), task)
+    }
+
     return map
   }, [advice])
 

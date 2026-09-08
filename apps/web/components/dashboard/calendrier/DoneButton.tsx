@@ -22,15 +22,14 @@ export function DoneButton({
 }: DoneButtonProps) {
   const [phase, setPhase] = useState<'idle' | 'loading' | 'done'>('idle')
 
+  // L'écriture est faite par le parent, qui met la liste à jour de façon
+  // optimiste : le bouton n'a donc qu'à cocher. Il simulait jusqu'ici une
+  // attente de 400 ms avec deux `setTimeout` — un délai inventé, ajouté à
+  // celui du serveur.
   function handleClick() {
     if (phase !== 'idle') return
-    setPhase('loading')
-    // Simulate async (will be replaced by API call)
-    // TODO: remplacer par API call PATCH /actions/:id { done: true }
-    setTimeout(() => {
-      setPhase('done')
-      setTimeout(() => onDone(actionId), 200)
-    }, 200)
+    setPhase('done')
+    onDone(actionId)
   }
 
   if (variant === 'icon') {

@@ -7,7 +7,8 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet'
 import { GardenAction, actionTypeDotColor } from '@/lib/mock-actions'
-import { ActionCardMedium } from '../cards/ActionCardMedium'
+import { ActionDetailDialog } from '../ActionDetailDialog'
+import { ActionRowCompact } from '../cards/ActionRowCompact'
 import { cn } from '@/lib/utils'
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
@@ -36,6 +37,9 @@ export function CalendarView({ actions, onDone }: CalendarViewProps) {
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  // La popin s'ouvre par-dessus la feuille du jour : c'est la même que sur la
+  // vue liste, une action se lit pareil d'une vue à l'autre.
+  const [detail, setDetail] = useState<GardenAction | null>(null)
 
   const daysInMonth = getDaysInMonth(year, month)
   const firstDay = getFirstDayOfWeek(year, month)
@@ -209,11 +213,23 @@ export function CalendarView({ actions, onDone }: CalendarViewProps) {
           </SheetHeader>
           <div className="flex flex-col gap-3 pb-6">
             {selectedActions.map(a => (
-              <ActionCardMedium key={a.id} action={a} onDone={id => { onDone(id); setSelectedDate(null) }} />
+              <ActionRowCompact
+                key={a.id}
+                action={a}
+                onDone={id => { onDone(id); setSelectedDate(null) }}
+                onOpenDetail={setDetail}
+              />
             ))}
           </div>
         </SheetContent>
       </Sheet>
+
+      <ActionDetailDialog
+        action={detail}
+        open={detail !== null}
+        onOpenChange={open => !open && setDetail(null)}
+        onDone={id => { onDone(id); setSelectedDate(null) }}
+      />
     </>
   )
 }

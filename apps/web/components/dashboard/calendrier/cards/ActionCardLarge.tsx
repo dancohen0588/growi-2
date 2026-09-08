@@ -1,28 +1,46 @@
-// growi-frontend/components/dashboard/calendrier/cards/ActionCardLarge.tsx
+'use client'
+
 import Image from 'next/image'
-import { Clock } from 'lucide-react'
+import { Clock, Stethoscope } from 'lucide-react'
 import { GardenAction } from '@/lib/mock-actions'
-import { formatDueDate } from '@/lib/calendar-utils'
+import { formatActionWhen } from '@/lib/calendar-utils'
+import { Button } from '@/components/ui/button'
 import { ActionIcon } from '../ActionIcon'
 import { DoneButton } from '../DoneButton'
-import { ActionAskLink, ActionDetail } from '../ActionDetailDialog'
-import { DiagnosisBadge } from '../DiagnosisBadge'
 
 interface ActionCardLargeProps {
   action: GardenAction
   onDone: (id: string) => void
+  onOpenDetail: (action: GardenAction) => void
 }
 
 /**
- * Carte d'un geste à faire aujourd'hui : la photo de la plante en tête, le
- * geste en titre. Même hiérarchie que la carte de l'app mobile — photo, verbe,
- * validation — pour qu'on reconnaisse l'écran d'un support à l'autre.
+ * Carte d'un geste à faire aujourd'hui : photo, verbe, une ligne, deux boutons.
+ *
+ * Rien de plus. La carte empilait la consigne, les notes, la durée estimée,
+ * « Voir le détail » et « Comment faire ? » — un pavé que personne ne lisait
+ * avant d'agir, alors que la décision se prend sur la photo et le verbe. Tout
+ * le texte a migré dans la popin, qu'ouvre le bouton *Détails* ou n'importe
+ * quel point de la carte.
  */
-export function ActionCardLarge({ action, onDone }: ActionCardLargeProps) {
-  const due = formatDueDate(action.dueDate)
+export function ActionCardLarge({ action, onDone, onOpenDetail }: ActionCardLargeProps) {
+  const when = formatActionWhen(action)
+  // Le « pourquoi » de la règle tient lieu de contexte ; sinon, l'échéance.
+  const context = action.why ?? action.detail
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Détails : ${action.label}`}
+      onClick={() => onOpenDetail(action)}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        onOpenDetail(action)
+      }}
+      className="cursor-pointer overflow-hidden rounded-2xl bg-white text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime focus-visible:ring-offset-2"
+    >
       <div className="relative h-40 bg-sand-dark">
         {action.plantPhotoUrl ? (
           <Image
@@ -49,42 +67,53 @@ export function ActionCardLarge({ action, onDone }: ActionCardLargeProps) {
         <div>
           <div className="flex items-center gap-2">
             <ActionIcon type={action.type} size={17} className="shrink-0 text-forest" />
-            <h3 className="font-poppins font-semibold text-forest leading-snug">
+            <h3 className="min-w-0 flex-1 truncate font-poppins font-semibold text-forest leading-snug">
               {action.shortLabel}
             </h3>
-            <DiagnosisBadge action={action} />
+            {/* Pastille seule : le mot « Diagnostic » disait deux fois ce que
+                l'icône dit déjà, sur une carte où chaque ligne compte. */}
+            {action.source === 'task' && (
+              <span
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-lime/25 text-forest"
+                title="Action issue d'un diagnostic que tu as planifié"
+              >
+                <Stethoscope size={13} aria-hidden />
+                <span className="sr-only">Issue d&apos;un diagnostic</span>
+              </span>
+            )}
           </div>
 
-          <div
-            className={`mt-1 flex items-center gap-1.5 font-raleway text-xs ${
-              due.late ? 'font-semibold text-destructive' : 'text-forest/50'
+          <p
+            className={`mt-1 flex items-center gap-1.5 truncate font-raleway text-xs ${
+              when.late ? 'font-semibold text-destructive' : 'text-forest/55'
             }`}
           >
-            {due.late && <Clock size={12} aria-hidden />}
-            <span>
-              {due.label}
-              {action.estimatedMinutes ? ` · ~${action.estimatedMinutes} min` : ''}
-            </span>
-          </div>
-
-          <div className="mt-2 flex flex-col gap-1">
-            <ActionDetail action={action} />
-            <ActionAskLink action={action} />
-          </div>
-
-          {action.notes && (
-            <p className="mt-2 font-raleway text-sm italic leading-relaxed text-forest/60">
-              {action.notes}
-            </p>
-          )}
+            {when.late && <Clock size={12} aria-hidden />}
+            <span className="truncate">{context ?? when.label}</span>
+          </p>
         </div>
 
-        <DoneButton
-          actionId={action.id}
-          actionLabel={action.label}
-          variant="full"
-          onDone={onDone}
-        />
+        {/* Les boutons ne doivent pas ouvrir la popin en même temps qu'agir. */}
+        <div
+          className="flex items-center gap-2"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+          role="presentation"
+        >
+          <DoneButton
+            actionId={action.id}
+            actionLabel={action.label}
+            variant="full"
+            onDone={onDone}
+          />
+          <Button
+            variant="outline"
+            className="shrink-0"
+            onClick={() => onOpenDetail(action)}
+          >
+            Détails
+          </Button>
+        </div>
       </div>
     </div>
   )

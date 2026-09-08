@@ -5,8 +5,9 @@ import { Check, Loader2, Stethoscope } from 'lucide-react'
 import { ACTION_TYPE_LABELS } from '@growi/shared'
 
 import { markActionDoneAction } from '@/app/actions/advice.actions'
+import { ActionDetailDialog } from '@/components/dashboard/calendrier/ActionDetailDialog'
 import { useToast } from '@/components/ui/toast'
-import { formatDueDate } from '@/lib/calendar-utils'
+import { formatActionWhen } from '@/lib/calendar-utils'
 import type { GardenAction } from '@/lib/mock-actions'
 
 /**
@@ -32,6 +33,7 @@ export function PlantTasksSection({
   onDone,
 }: PlantTasksSectionProps) {
   const [completed, setCompleted] = useState<Set<string>>(new Set())
+  const [detail, setDetail] = useState<GardenAction | null>(null)
   const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
 
@@ -85,18 +87,20 @@ export function PlantTasksSection({
               </div>
               <span
                 className={`font-raleway text-xs ${
-                  formatDueDate(task.dueDate).late
-                    ? 'font-semibold text-destructive'
-                    : 'text-forest/55'
+                  formatActionWhen(task).late ? 'font-semibold text-destructive' : 'text-forest/55'
                 }`}
               >
-                {ACTION_TYPE_LABELS[task.type]} · {formatDueDate(task.dueDate).label}
+                {ACTION_TYPE_LABELS[task.type]} · {formatActionWhen(task).label}
               </span>
-              {task.detail && (
-                <span className="font-raleway text-xs text-forest/60 line-clamp-2">
-                  {task.detail}
-                </span>
-              )}
+              {/* La consigne et le « pourquoi » vivent dans la popin : la ligne
+                  dit ce qu'il y a à faire, pas comment. */}
+              <button
+                type="button"
+                onClick={() => setDetail(task)}
+                className="self-start font-raleway text-xs font-semibold text-forest/70 underline underline-offset-2 hover:text-forest"
+              >
+                Détails
+              </button>
             </div>
 
             <button
@@ -116,6 +120,13 @@ export function PlantTasksSection({
           </li>
         ))}
       </ul>
+
+      <ActionDetailDialog
+        action={detail}
+        open={detail !== null}
+        onOpenChange={(open) => !open && setDetail(null)}
+        onDone={() => detail && complete(detail)}
+      />
     </section>
   )
 }

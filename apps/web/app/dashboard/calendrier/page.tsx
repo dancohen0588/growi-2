@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { auth } from '@/auth'
 import { getGardensAdvice } from '@/lib/services/advice.service'
+import { listDoneTodayActions } from '@/lib/services/planning.service'
 import { CalendrierPageInner } from './CalendrierPageInner'
 import type { GardenAction, PlantAlert } from '@/lib/recommendation/types'
 
@@ -16,7 +17,10 @@ export default async function CalendrierPage() {
 
   // Tous les jardins, comme l'Accueil et le Calendrier de l'app : s'en tenir
   // au dernier créé taisait le travail à faire dans les autres.
-  const gardens = await getGardensAdvice(session.user.id)
+  const [gardens, doneToday] = await Promise.all([
+    getGardensAdvice(session.user.id),
+    listDoneTodayActions(session.user.id),
+  ])
 
   if (gardens.length === 0) {
     return (
@@ -58,9 +62,15 @@ export default async function CalendrierPage() {
     <Suspense>
       <CalendrierPageInner
         initialActions={actions}
+        initialDoneToday={doneToday}
         alerts={alerts}
         actionGardenIds={actionGardenIds}
         fallbackGardenId={gardens[0].garden.id}
+        gardenIds={gardens.map(({ garden }) => garden.id)}
+        // Le calendrier réunit tous les jardins : dès que l'un est en pause, la
+        // section du jour le dit — sinon l'utilisateur verrait sa liste maigrir
+        // sans savoir pourquoi ni comment revenir en arrière.
+        clearedToday={gardens.some(({ garden }) => garden.clearedToday)}
       />
     </Suspense>
   )

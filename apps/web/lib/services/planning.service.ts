@@ -31,18 +31,36 @@ const ACTION_TYPE_BY_CARE_LOG = Object.fromEntries(
   Object.entries(CARE_LOG_TYPE_BY_ACTION).map(([action, care]) => [care, action]),
 ) as Record<CareLogType, ActionType>
 
+/**
+ * Les gestes notés depuis le début de la journée **de l'utilisateur**.
+ *
+ * Le jour du serveur ne convient pas : à 1 h du matin à Paris, il aurait déjà
+ * tourné et la soirée de la veille disparaîtrait de « Fait aujourd'hui ».
+ */
+async function readToday(userId: string, now: Date) {
+  const zone = safeTimeZone(await getUserTimezone(userId))
+  return {
+    date: zonedDayIso(now, zone),
+    logs: await listCareLogsSince(userId, startOfZonedDay(now, zone)),
+  }
+}
+
+/** « Fait aujourd'hui », pour les écrans qui n'ont pas besoin du reste. */
+export async function listDoneTodayActions(
+  userId: string,
+  now = new Date(),
+): Promise<GardenAction[]> {
+  const { logs } = await readToday(userId, now)
+  return logs.map(toDoneAction).filter((action): action is GardenAction => !!action)
+}
+
 export async function getTodayPlanning(
   userId: string,
   now = new Date(),
 ): Promise<TodayPlanning> {
-  // Le jour de l'utilisateur, pas celui du serveur : c'est lui qui décide de
-  // ce qui est « fait aujourd'hui » et de ce qui est dû.
-  const zone = safeTimeZone(await getUserTimezone(userId))
-  const date = zonedDayIso(now, zone)
-
-  const [gardensAdvice, logsToday, weather] = await Promise.all([
+  const [{ date, logs: logsToday }, gardensAdvice, weather] = await Promise.all([
+    readToday(userId, now),
     getGardensAdvice(userId, now),
-    listCareLogsSince(userId, startOfZonedDay(now, zone)),
     getTodayWeather(userId),
   ])
 
