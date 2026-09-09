@@ -53,7 +53,18 @@ l'identifiant interne, et `scrubEvent` — le **même code que le web**, dans
 
 Ce geste caché et son écran disparaissent à la fin de la Friends & Family.
 
-### Trois pièges
+### Quatre pièges
+
+- **`@sentry/cli` est déclaré en dépendance directe de cette app**, alors que
+  rien dans notre code ne l'importe : c'est l'étape Xcode d'upload des source
+  maps qui l'exécute, en le résolvant depuis `ios/` avec
+  `require.resolve('@sentry/cli/package.json')`. Sous pnpm, un paquet non
+  déclaré n'est pas dans `node_modules` de l'app, et cette résolution échoue.
+  Le script de Sentry a bien un repli pour pnpm, mais il lit le `NODE_PATH` du
+  shim et le tronque à `/bin` : notre chemin n'en contient pas, si bien qu'il
+  passait le `NODE_PATH` entier à `node` comme s'il s'agissait d'un fichier.
+  D'où l'échec du build iOS avec `node:internal/modules/cjs/loader`. **Ne pas
+  retirer cette dépendance.**
 
 - **`metro.config.js` doit utiliser `getSentryExpoConfig`**, pas
   `getDefaultConfig` : c'est lui qui pose l'identifiant de debug des source
