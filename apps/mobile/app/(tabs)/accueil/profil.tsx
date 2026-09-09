@@ -18,6 +18,7 @@ import type { UpdateAlertConfigInput, UserProfile } from '@growi/shared'
 
 import { CommunitySection } from '@/components/profil/CommunitySection'
 import { PushSection } from '@/components/profil/PushSection'
+import { VersionRow } from '@/components/profil/VersionRow'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Toggle } from '@/components/ui/Toggle'
@@ -309,6 +310,8 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
             </Text>
           </Pressable>
         </View>
+
+        <VersionRow />
       </View>
     </ScrollView>
   )
