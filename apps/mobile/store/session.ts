@@ -6,6 +6,7 @@ import type { SocialProvider } from '@growi/shared'
 import { api, publicApi, setSessionLostHandler } from '@/lib/api'
 import { clearTokens, getRefreshToken, saveTokens } from '@/lib/auth-storage'
 import { clearKeychainOnFreshInstall } from '@/lib/fresh-install'
+import { forgetUser, identifyUser } from '@/lib/observability/sentry'
 import { hasSeenOnboarding } from '@/lib/onboarding-storage'
 import { forgetDeviceForPush } from '@/lib/push'
 import { requestAppleIdentity, requestGoogleIdentity } from '@/lib/social-auth'
@@ -96,12 +97,14 @@ export const useSession = create<SessionState>((set) => ({
 
     try {
       const profile = await api.me.get()
+      identifyUser(profile.id)
       set({
         status: 'authenticated',
         user: { email: profile.email, firstName: profile.firstName || null },
       })
     } catch {
       await clearTokens()
+      forgetUser()
       set({ status: 'unauthenticated', user: null })
     }
   },
@@ -109,6 +112,7 @@ export const useSession = create<SessionState>((set) => ({
   signIn: async ({ email, password }) => {
     const tokens = await publicApi.auth.login({ email, password, deviceInfo: deviceInfo() })
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
+    identifyUser(tokens.user.id)
     set({ status: 'authenticated', user: toSessionUser(tokens.user) })
   },
 
@@ -120,6 +124,7 @@ export const useSession = create<SessionState>((set) => ({
       deviceInfo: deviceInfo(),
     })
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
+    identifyUser(tokens.user.id)
     set({ status: 'authenticated', user: toSessionUser(tokens.user) })
   },
 
@@ -136,6 +141,7 @@ export const useSession = create<SessionState>((set) => ({
 
     const tokens = await publicApi.auth.social(provider, identity)
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
+    identifyUser(tokens.user.id)
     set({ status: 'authenticated', user: toSessionUser(tokens.user) })
     return true
   },
@@ -155,12 +161,16 @@ export const useSession = create<SessionState>((set) => ({
       await publicApi.auth.logout(refreshToken).catch(() => {})
     }
     await clearTokens()
+    // Après l'effacement des jetons : les erreurs qui suivent ne sont plus
+    // celles de personne en particulier.
+    forgetUser()
     set({ status: 'unauthenticated', user: null })
   },
 }))
 
 // Quand le rafraîchissement échoue définitivement, l'app doit revenir au login.
 setSessionLostHandler(() => {
+  forgetUser()
   useSession.setState({ status: 'unauthenticated', user: null })
 })
 

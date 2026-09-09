@@ -2,6 +2,7 @@ import { File, Paths } from 'expo-file-system'
 import * as SecureStore from 'expo-secure-store'
 
 import { clearTokens } from '@/lib/auth-storage'
+import { forgetUser } from '@/lib/observability/sentry'
 import { resetOnboarding } from '@/lib/onboarding-storage'
 
 /**
@@ -48,6 +49,9 @@ export async function clearKeychainOnFreshInstall(): Promise<void> {
 
     if ((await SecureStore.getItemAsync(ADOPTED_KEY)) === '1') {
       await Promise.all([clearTokens(), resetOnboarding()])
+      // L'appareil a changé de mains, ou du moins d'installation : ce qui
+      // sera remonté ensuite ne doit plus porter le compte précédent.
+      forgetUser()
     } else {
       // Installation déjà en place au moment où ce contrôle arrive : on
       // l'adopte telle quelle, session comprise.
