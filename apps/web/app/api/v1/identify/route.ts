@@ -22,5 +22,5 @@ export const POST = withApiErrorHandling(async (request: Request) => {
   enforceRateLimit(`identify:${userId}`, RATE_LIMIT)
 
   const { imageBase64 } = await parseJsonBody(request, identifyRequestSchema)
-  return ok(await identifyPlant(imageBase64))
+  return ok(await identifyPlant(imageBase64, userId))
 })

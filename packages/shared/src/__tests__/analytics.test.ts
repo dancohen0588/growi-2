@@ -27,7 +27,7 @@ const SAMPLE: GrowiEvent[] = [
       output_tokens: 300,
       image_bytes: 850_000,
       candidates_count: 3,
-      top_confidence: 0.82,
+      top_confidence: 'high',
       quota_remaining: 4,
     },
   },

@@ -13,6 +13,7 @@ import {
 } from '@growi/shared'
 import { Prisma } from '@prisma/client'
 
+import { setPersonProperties, trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/errors'
 
@@ -140,6 +141,15 @@ export async function updateSettings(
       data,
       select: SETTINGS_SELECT,
     })
+
+    // Le premier oui seulement : réactiver un profil mis en pause n'est pas
+    // rejoindre la communauté, et le compter ferait enfler la courbe des
+    // arrivées avec des allers-retours.
+    if (enabling) {
+      trackServer(userId, 'community_activated', {})
+      setPersonProperties(userId, { community_activated: true })
+    }
+
     return toSettings(updated)
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -346,6 +356,10 @@ export async function follow(userId: string, handle: string): Promise<FollowResu
     return { followerCount: updated.followerCount, created: true }
   })
 
+  // Même garde-fou que pour la notification : seul un abonnement réellement
+  // créé compte.
+  if (result.created) trackServer(userId, 'user_followed', {})
+
   // **Seulement quand l'abonnement vient d'être créé.** Sans ce garde-fou, un
   // double tap — ou un désabonnement suivi d'un réabonnement — préviendrait la
   // même personne autant de fois, ce qui est précisément la forme la plus
@@ -514,6 +528,10 @@ export async function block(userId: string, handle: string): Promise<BlockResult
       },
     })
   })
+
+  // À surveiller de près pendant la F&F : c'est là que les problèmes humains
+  // apparaissent avant d'arriver en signalement.
+  trackServer(userId, 'user_blocked', {})
 
   return { isBlocked: true }
 }

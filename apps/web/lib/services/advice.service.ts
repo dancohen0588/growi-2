@@ -17,6 +17,7 @@ import {
   type UndoActionInput,
 } from '@growi/shared'
 
+import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import {
   getGardenAdvice as computeGardenAdvice,
@@ -197,9 +198,22 @@ export async function markActionDone(
   // L'appartenance est vérifiée là, et le geste est noté comme pour le moteur.
   if (taskId) await completeTask(userId, taskId)
 
-  const log = plantId && careType ? await logCare(plantId, userId, { type: careType }) : null
+  const log =
+    plantId && careType ? await logCare(plantId, userId, { type: careType }, undefined, 'planning') : null
 
   await invalidateGardenAdviceCache(gardenId)
+
+  // `overdue_days` reste nul : les actions du moteur sont **recalculées** à
+  // chaque évaluation et ne sont persistées nulle part, le serveur ne connaît
+  // donc pas l'échéance de celle qu'on vient de cocher. Le client, lui, la
+  // connaît — c'est là qu'il faudra la prendre le jour où le retard comptera.
+  trackServer(userId, 'planning_action_done', {
+    type: careType ?? 'other',
+    bulk: false,
+    count: 1,
+    overdue_days: null,
+  })
+
   return { careLogId: log?.id ?? null }
 }
 
@@ -235,7 +249,7 @@ export async function markActionsDone(
       const log = await prisma.$transaction(async (tx) => {
         if (item.taskId) await completeTask(userId, item.taskId, new Date(), tx)
         if (!item.plantId || !careType) return null
-        return logCare(item.plantId, userId, { type: careType }, tx)
+        return logCare(item.plantId, userId, { type: careType }, tx, 'planning')
       })
 
       done += 1
@@ -247,6 +261,19 @@ export async function markActionsDone(
   }
 
   await invalidateGardenAdviceCache(input.gardenId)
+
+  // Un seul événement pour la tournée, avec son compte : c'est le geste de
+  // l'utilisateur — « tout arrosé » — et non quatre gestes séparés. Le type
+  // retenu est celui du premier item, tous étant du même geste dans le seul
+  // parcours qui appelle cette route.
+  const bulkType = input.items[0] ? CARE_LOG_TYPE_BY_ACTION[input.items[0].actionType] : undefined
+  trackServer(userId, 'planning_action_done', {
+    type: bulkType ?? 'other',
+    bulk: true,
+    count: done,
+    overdue_days: null,
+  })
+
   return { done, skipped, careLogIds }
 }
 
@@ -264,6 +291,10 @@ export async function clearPlanningToday(
 ): Promise<void> {
   const day = input.undo ? null : await userToday(userId, now)
   await setPlanningClearedOn(input.gardenId, userId, day)
+
+  // Le rétablissement n'est pas un masquage : ne compter que la mise en
+  // sourdine, sinon le taux d'« ignoré » doublerait chez qui se ravise.
+  if (!input.undo) trackServer(userId, 'planning_cleared_today', { count: null })
 }
 
 /**
@@ -283,4 +314,6 @@ export async function undoAction(userId: string, input: UndoActionInput): Promis
   if (input.taskId) await reopenTask(userId, input.taskId)
 
   await invalidateGardenAdviceCache(input.gardenId)
+
+  trackServer(userId, 'planning_action_undone', {})
 }

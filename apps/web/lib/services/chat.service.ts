@@ -43,6 +43,7 @@ import {
 } from '@growi/shared'
 import type { Conversation as PrismaConversation, Message as PrismaMessage } from '@prisma/client'
 
+import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { markActionDone } from '@/lib/services/advice.service'
 import {
@@ -63,6 +64,7 @@ import {
   type ChatPart,
   type ChatTurn,
   type GeminiImage,
+  type GeminiUsage,
 } from '@/lib/services/gemini'
 import { logCare } from '@/lib/services/log.service'
 import { buildPlantContext, contextBlock } from '@/lib/services/plant-context'
@@ -525,6 +527,7 @@ export async function sendMessage(
   const user = await requireUser(userId)
   const quota = await buildQuota(userId, user, now)
   if (quota.remaining !== null && quota.remaining <= 0) {
+    trackServer(userId, 'assistant_quota_hit', {})
     throw new ServiceError(
       'QUOTA_EXCEEDED',
       `Tu as utilisé tes ${quota.limit} messages du jour. Ça se réinitialise demain.`,
@@ -544,6 +547,14 @@ export async function sendMessage(
 
   const userMessage = await prisma.message.create({
     data: { conversationId, userId, role: 'user', content: input.content, photoUrl },
+  })
+
+  // Le tour de conversation, jamais son contenu : le catalogue interdit le
+  // texte libre, et un message de chat en est la définition même.
+  const turn = await prisma.message.count({ where: { conversationId, role: 'user' } })
+  trackServer(userId, 'assistant_message_sent', {
+    conversation_turn: turn,
+    has_tools: Boolean(conversation.plantInstanceId),
   })
 
   return {
@@ -584,6 +595,7 @@ async function* streamReply(ctx: {
   let text = ''
   let model: string | null = null
   let failure: string | null = null
+  let usage: GeminiUsage | undefined
   const drafts: ToolCallDraft[] = []
 
   for await (const event of streamChat({
@@ -610,6 +622,7 @@ async function* streamReply(ctx: {
       }
       case 'done':
         model = event.model
+        usage = event.usage
         break
       case 'error':
         failure = event.reason
@@ -651,6 +664,18 @@ async function* streamReply(ctx: {
   console.log(
     `${LOG} réponse conversation=${conversation.id} model=${model ?? 'aucun'} propositions=${proposals.length} durée=${Date.now() - startedAt}ms${failure ? ' interrompue' : ''}`,
   )
+
+  trackServer(ctx.userId, 'assistant_reply_completed', {
+    model: model ?? 'aucun',
+    // La durée du flux entier : c'est ce que l'utilisateur attend avant de
+    // pouvoir répondre. Le temps jusqu'au premier mot est mesuré à part, dans
+    // le span `gemini.generate`.
+    latency_ms: Date.now() - startedAt,
+    input_tokens: usage?.inputTokens ?? null,
+    output_tokens: usage?.outputTokens ?? null,
+    tools_called: drafts.map((draft) => draft.kind),
+    truncated: Boolean(failure),
+  })
 
   if (proposals.length > 0) yield { event: 'proposals', data: { proposals } }
 
@@ -711,6 +736,8 @@ export async function acceptProposal(
 
   const result = await executeProposal(userId, conversation, proposal, now)
 
+  trackServer(userId, 'assistant_proposal_accepted', { proposal_type: proposal.kind })
+
   const updated = await prisma.message.update({
     where: { id: message.id },
     data: {
@@ -750,12 +777,18 @@ async function executeProposal(
 
   if (proposal.kind === 'care_log') {
     const { type, note, productUsed, occurredAt } = proposal.payload
-    const log = await logCare(plantInstanceId, userId, {
-      type,
-      note,
-      productUsed,
-      occurredAt: occurredAt ? new Date(`${occurredAt}T12:00:00.000Z`).toISOString() : undefined,
-    })
+    const log = await logCare(
+      plantInstanceId,
+      userId,
+      {
+        type,
+        note,
+        productUsed,
+        occurredAt: occurredAt ? new Date(`${occurredAt}T12:00:00.000Z`).toISOString() : undefined,
+      },
+      undefined,
+      'chat',
+    )
     return { careLogId: log.id }
   }
 
@@ -783,6 +816,6 @@ async function executeProposal(
   // invalider.
   if (conversation.taskId) await completeTask(userId, conversation.taskId, now)
   const careType = CARE_LOG_TYPE_BY_ACTION[actionType]
-  if (careType) await logCare(plantInstanceId, userId, { type: careType })
+  if (careType) await logCare(plantInstanceId, userId, { type: careType }, undefined, 'chat')
   return {}
 }

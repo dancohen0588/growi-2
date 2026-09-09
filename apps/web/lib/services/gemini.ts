@@ -158,7 +158,20 @@ export type GeminiSuccess = {
   /** Vrai si le premier modèle a échoué et qu'on est retombé sur le suivant. */
   fallback: boolean
 }
-export type GeminiFailure = { ok: false; reason: string }
+/**
+ * Cause d'un échec, telle que le code la distingue — à ne pas confondre avec
+ * `reason`, qui est la phrase montrée à l'utilisateur. La mesure a besoin
+ * d'une valeur stable ; rapprocher des messages français pour retrouver la
+ * cause casserait à la première reformulation.
+ */
+export type GeminiFailureCause =
+  | 'quota'
+  | 'gemini_unavailable'
+  | 'bad_image'
+  | 'truncated'
+  | 'unknown'
+
+export type GeminiFailure = { ok: false; reason: string; cause: GeminiFailureCause }
 
 /** Jetons consommés, quand la réponse les porte. */
 function usageOf(response: GenerateContentResponse): GeminiUsage | undefined {
@@ -189,6 +202,20 @@ export const GEMINI_FAILURE_MESSAGES = {
   badImage: "Cette photo n'a pas pu être lue. Essaie une autre image, en JPEG ou PNG.",
   failed: "Erreur d'analyse, veuillez réessayer.",
 } as const
+
+/** Cause d'après le statut du dernier échec, et la troncature éventuelle. */
+function failureCause(lastStatus: number | null, truncated: boolean): GeminiFailureCause {
+  switch (lastStatus) {
+    case 503:
+      return 'gemini_unavailable'
+    case 429:
+      return 'quota'
+    case 400:
+      return 'bad_image'
+    default:
+      return truncated ? 'truncated' : 'unknown'
+  }
+}
 
 /** Message à afficher d'après le statut du dernier échec. */
 function failureReason(lastStatus: number | null): string {
@@ -223,6 +250,7 @@ export async function generateJson(
 ): Promise<GeminiSuccess | GeminiFailure> {
   const genAI = new GoogleGenerativeAI(options.apiKey)
   let lastStatus: number | null = null
+  let truncated = false
 
   for (const [index, modelName] of GEMINI_MODELS.entries()) {
     const model = genAI.getGenerativeModel({
@@ -290,6 +318,7 @@ export async function generateJson(
     )
 
     if (attempt.kind === 'success') return attempt.value
+    if (attempt.kind === 'truncated') truncated = true
     if (attempt.kind === 'error') {
       lastStatus = attempt.status
       // On ne réessaie que sur les erreurs transitoires : surcharge (503) ou quota (429).
@@ -297,7 +326,11 @@ export async function generateJson(
     }
   }
 
-  return { ok: false, reason: failureReason(lastStatus) }
+  return {
+    ok: false,
+    reason: failureReason(lastStatus),
+    cause: failureCause(lastStatus, truncated),
+  }
 }
 
 /** Issue d'une tentative de modèle, remontée hors du span pour piloter le repli. */

@@ -186,6 +186,9 @@ describe('generateJson', () => {
     await expect(generateJson(parts, options)).resolves.toEqual({
       ok: false,
       reason: "Erreur d'analyse, veuillez réessayer.",
+      // La cause est lisible par machine, à côté du message affichable : la
+      // mesure a besoin d'une valeur stable, pas d'une phrase française.
+      cause: 'truncated',
     })
     expect(generateContent).toHaveBeenCalledTimes(GEMINI_MODELS.length)
   })
@@ -226,6 +229,7 @@ describe('generateJson', () => {
     await expect(generateJson(parts, options)).resolves.toEqual({
       ok: false,
       reason: "Cette photo n'a pas pu être lue. Essaie une autre image, en JPEG ou PNG.",
+      cause: 'bad_image',
     })
   })
 
@@ -234,7 +238,9 @@ describe('generateJson', () => {
 
     await expect(generateJson(parts, options)).resolves.toEqual({
       ok: false,
-      reason: 'Service Gemini momentanément surchargé. Veuillez réessayer dans quelques instants.',
+      reason:
+        'Service Gemini momentanément surchargé. Veuillez réessayer dans quelques instants.',
+      cause: 'gemini_unavailable',
     })
     expect(generateContent).toHaveBeenCalledTimes(GEMINI_MODELS.length)
   })
@@ -245,6 +251,7 @@ describe('generateJson', () => {
     await expect(generateJson(parts, options)).resolves.toEqual({
       ok: false,
       reason: 'Quota Gemini dépassé pour le moment. Veuillez réessayer plus tard.',
+      cause: 'quota',
     })
   })
 

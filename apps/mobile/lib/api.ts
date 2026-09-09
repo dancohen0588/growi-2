@@ -1,3 +1,4 @@
+import { Platform } from 'react-native'
 import { createGrowiApiClient } from '@growi/api-client'
 import { fetch as expoFetch } from 'expo/fetch'
 
@@ -89,6 +90,10 @@ export const api = createGrowiApiClient({
   baseUrl: API_BASE_URL,
   getAccessToken,
   onUnauthorized: refreshSession,
+  // Le serveur ne peut pas distinguer iOS d'Android : le jeton d'accès ne le
+  // dit pas. Cet en-tête lui permet de tenir `last_platform` à jour sur le
+  // profil PostHog — et, le jour venu, de servir une réponse adaptée.
+  defaultHeaders: { 'x-growi-platform': Platform.OS },
 })
 
 /** Client sans rafraîchissement — pour la connexion et l'inscription. */

@@ -144,7 +144,15 @@ describe('cocher une action', () => {
     })
 
     expect(taskService.completeTask).toHaveBeenCalledWith(USER, 't1')
-    expect(logService.logCare).toHaveBeenCalledWith('p1', USER, { type: 'treatment' })
+    // La source dit d'où vient le geste : c'est elle qui dira si le planning
+    // fait faire des gestes, ou s'il ne fait que les enregistrer.
+    expect(logService.logCare).toHaveBeenCalledWith(
+      'p1',
+      USER,
+      { type: 'treatment' },
+      undefined,
+      'planning',
+    )
     expect(engine.invalidateGardenAdviceCache).toHaveBeenCalledWith(GARDEN)
   })
 
@@ -153,7 +161,13 @@ describe('cocher une action', () => {
     await markActionDone(USER, { gardenId: GARDEN, actionType: 'arrosage', plantId: 'p1' })
 
     expect(taskService.completeTask).not.toHaveBeenCalled()
-    expect(logService.logCare).toHaveBeenCalledWith('p1', USER, { type: 'watering' })
+    expect(logService.logCare).toHaveBeenCalledWith(
+      'p1',
+      USER,
+      { type: 'watering' },
+      undefined,
+      'planning',
+    )
   })
 
   it('refuse avant d’écrire quoi que ce soit si le jardin n’est pas à l’utilisateur', async () => {

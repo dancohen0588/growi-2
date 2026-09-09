@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import type { AuthTokens, AuthUser, SocialLoginInput, SocialProvider } from '@growi/shared'
 
+import { setPersonProperties, trackAnonymous, trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import {
   ACCESS_TOKEN_TTL_SECONDS,
@@ -102,6 +103,9 @@ export async function register(input: {
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id }, select: USER_FIELDS })
 
+  trackServer(id, 'signup_completed', { method: 'email' })
+  setPersonProperties(id, { signup_method: 'email', signup_at: new Date().toISOString() })
+
   return issueTokens(user, input.deviceInfo)
 }
 
@@ -118,8 +122,13 @@ export async function login(input: {
 }): Promise<AuthTokens> {
   const user = await verifyCredentials(input.email, input.password)
   if (!user) {
+    // Sans compte reconnu, l'échec ne se rattache à personne : il compte pour
+    // lui-même, sans créer de profil (voir `trackAnonymous`).
+    trackAnonymous('login_failed', { method: 'email', reason: 'bad_credentials' })
     throw new ServiceError('UNAUTHENTICATED', 'Email ou mot de passe incorrect')
   }
+
+  trackServer(user.id, 'login_completed', { method: 'email' })
   return issueTokens(user, input.deviceInfo)
 }
 
@@ -151,6 +160,7 @@ export async function loginWithProvider(
 
   if (linked) {
     assertActive(linked.user)
+    trackServer(linked.user.id, 'login_completed', { method: provider })
     return issueTokens(linked.user, input.deviceInfo)
   }
 
@@ -176,6 +186,7 @@ export async function loginWithProvider(
       // une porte dérobée sur un compte fermé.
       assertActive(existing)
       await linkAccount(existing.id, provider, identity.subject)
+      trackServer(existing.id, 'login_completed', { method: provider })
       return issueTokens(existing, input.deviceInfo)
     }
   }
@@ -205,6 +216,7 @@ export async function loginWithProvider(
     // refuse plutôt que de rattacher. Déclarer l'adresse d'un tiers suffirait
     // sinon à entrer dans son jardin.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      trackAnonymous('login_failed', { method: provider, reason: 'email_taken' })
       throw new ServiceError(
         'CONFLICT',
         `Un compte existe déjà avec cette adresse. Connecte-toi avec ton mot de passe, ${label} pourra être rattaché ensuite.`,
@@ -214,6 +226,15 @@ export async function loginWithProvider(
   }
 
   await linkAccount(created.id, provider, identity.subject)
+
+  // Le premier passage par un fournisseur vaut inscription : il n'y a pas de
+  // parcours de création séparé.
+  trackServer(created.id, 'signup_completed', { method: provider })
+  setPersonProperties(created.id, {
+    signup_method: provider,
+    signup_at: new Date().toISOString(),
+  })
+
   return issueTokens(created, input.deviceInfo)
 }
 

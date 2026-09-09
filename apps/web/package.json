@@ -11,6 +11,7 @@
     "test": "vitest run",
     "postinstall": "prisma generate",
     "admin:promote": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/scripts/promote-admin.ts",
+    "posthog:testers": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/posthog-mark-testers.ts",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui"
   },
@@ -40,6 +41,7 @@
     "@sentry/nextjs": "^10.73.0",
     "@turf/turf": "^7.4.0",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/functions": "^3.9.5",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
@@ -54,6 +56,7 @@
     "next-auth": "5.0.0-beta.30",
     "next-mdx-remote": "^6.0.0",
     "posthog-js": "^1.428.6",
+    "posthog-node": "^5.51.7",
     "prisma": "^6.19.3",
     "react": "^18",
     "react-dom": "^18",

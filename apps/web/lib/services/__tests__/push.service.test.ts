@@ -6,7 +6,13 @@ import { DEFAULT_ALERT_CONFIG, type AlertConfig } from '@growi/shared'
 
 const prismaMock = vi.hoisted(() => ({
   user: { findMany: vi.fn() },
-  pushToken: { upsert: vi.fn(), deleteMany: vi.fn() },
+  pushToken: {
+      upsert: vi.fn(),
+      deleteMany: vi.fn(),
+      // Les jetons morts sont lus avant d'être supprimés : après, il ne
+      // resterait ni propriétaire ni plateforme à mettre sur l'événement.
+      findMany: vi.fn().mockResolvedValue([]),
+    },
 }))
 const planningService = vi.hoisted(() => ({ getTodayPlanning: vi.fn() }))
 const expoPush = vi.hoisted(() => ({ sendPushMessages: vi.fn() }))

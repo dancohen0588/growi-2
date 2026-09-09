@@ -153,12 +153,20 @@ describe('noter un geste', () => {
 
     await acceptProposal(USER, CONV, { messageId: MSG, proposalId: 'prop_1' }, NOW)
 
-    expect(logService.logCare).toHaveBeenCalledWith(PLANT, USER, {
-      type: 'watering',
-      note: 'Un demi-arrosoir',
-      productUsed: undefined,
-      occurredAt: '2026-08-31T12:00:00.000Z',
-    })
+    // La source `chat` distingue les gestes proposés par l'assistant de ceux
+    // notés à la main : c'est ce qui dira si l'assistant sert à quelque chose.
+    expect(logService.logCare).toHaveBeenCalledWith(
+      PLANT,
+      USER,
+      {
+        type: 'watering',
+        note: 'Un demi-arrosoir',
+        productUsed: undefined,
+        occurredAt: '2026-08-31T12:00:00.000Z',
+      },
+      undefined,
+      'chat',
+    )
     expect(savedProposals()[0]).toMatchObject({ result: { careLogId: 'log_neuf' } })
   })
 })
@@ -199,7 +207,13 @@ describe('cocher une action', () => {
     await acceptProposal(USER, CONV, { messageId: MSG, proposalId: 'prop_1' }, NOW)
 
     expect(adviceService.markActionDone).not.toHaveBeenCalled()
-    expect(logService.logCare).toHaveBeenCalledWith(PLANT, USER, { type: 'watering' })
+    expect(logService.logCare).toHaveBeenCalledWith(
+      PLANT,
+      USER,
+      { type: 'watering' },
+      undefined,
+      'chat',
+    )
   })
 
   it('refuse de cocher depuis un fil qui ne porte pas sur une action', async () => {

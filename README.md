@@ -87,3 +87,30 @@ Friends & Family.
 Les instrumentations manuelles à connaître : `gemini.generate` (une par
 tentative de modèle, avec jetons, repli et troncature), `weather.fetch`
 (Open-Meteo) et `push.send` (tournée du matin).
+
+### Analyse produit (PostHog)
+
+Le catalogue d'événements est dans `packages/shared/src/analytics/events.ts` —
+**une union discriminée : un nom hors catalogue ne compile pas**. Trois
+émetteurs le consomment :
+
+| Émetteur | Où | Pour quoi |
+|---|---|---|
+| `useTrack()` | `apps/web/lib/analytics/client.tsx` | Ce que l'utilisateur *fait* sur le web |
+| `useTrack()` | `apps/mobile/lib/analytics/posthog.ts` | Idem sur mobile |
+| `trackServer()` | `apps/web/lib/analytics/server.ts` | Ce qui *se produit* — résultat d'une IA, jetons, tournée de push |
+
+- **Rien ne part en local**, ni sans clé, ni sous Vitest.
+- **L'envoi serveur passe par `waitUntil`** : sur Vercel la fonction gèle dès
+  la réponse rendue, souvent avant que le lot ne parte. `flushAt` seul
+  perdrait les événements des requêtes isolées, c'est-à-dire presque toutes.
+- **Les événements serveur portent `surface: 'server'`**, jamais `web`/`mobile` :
+  le serveur ne sait pas d'où vient l'appel. La plateforme de l'utilisateur est
+  la propriété de personne `last_platform`, posée dans `lib/api/auth-context.ts`
+  au rythme de la trace d'activité (au plus une fois par heure).
+- **`is_tester_ff` n'est jamais posée par le code** : rien dans un parcours ne
+  distingue un testeur. Elle se pose à la main, sur une liste écrite :
+
+```bash
+pnpm --filter web posthog:testers testeurs.txt
+```

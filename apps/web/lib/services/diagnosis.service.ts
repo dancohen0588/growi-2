@@ -26,6 +26,7 @@ import {
 } from '@growi/shared'
 import type { Diagnosis } from '@prisma/client'
 
+import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/errors'
 import {
@@ -220,17 +221,25 @@ export async function diagnosePlant(
 
   const context = await buildDiagnosisContext(userId, plant)
 
+  // Comme pour l'identification : on mesure l'appel au modèle, pas la requête
+  // entière — le dépôt de la photo qui suit ne dit rien du coût de l'IA.
+  const startedAt = Date.now()
   const response = await generateJson(
     [{ text: SYSTEM_PROMPT }, { text: context }, { inlineData: image }],
     { apiKey, maxOutputTokens: 2000, logLabel: 'diagnose-plant' },
   )
+  const latencyMs = Date.now() - startedAt
 
-  if (!response.ok) return failure(response.reason, plant)
+  if (!response.ok) {
+    trackServer(userId, 'diagnosis_failed', { reason: response.cause })
+    return failure(response.reason, plant)
+  }
 
   let parsed: unknown
   try {
     parsed = JSON.parse(stripFence(response.raw))
   } catch {
+    trackServer(userId, 'diagnosis_failed', { reason: 'parse' })
     return failure("Erreur d'analyse, veuillez réessayer.", plant)
   }
 
@@ -238,6 +247,8 @@ export async function diagnosePlant(
   // et non comme une erreur serveur : l'utilisateur peut réessayer.
   const success = diagnosisSuccessSchema.safeParse(parsed)
   if (!success.success) {
+    trackServer(userId, 'diagnosis_failed', { reason: 'parse' })
+
     const declared = diagnosisFailureSchema.safeParse(parsed)
     if (declared.success) return failure(declared.data.reason, plant)
 
@@ -264,6 +275,15 @@ export async function diagnosePlant(
       payload: result,
       model: response.model,
     },
+  })
+
+  trackServer(userId, 'diagnosis_completed', {
+    model: response.model,
+    latency_ms: latencyMs,
+    input_tokens: response.usage?.inputTokens ?? null,
+    output_tokens: response.usage?.outputTokens ?? null,
+    severity: result.status,
+    actions_proposed: result.recommendations.length,
   })
 
   return {

@@ -14,7 +14,7 @@ import { StatusBar } from 'expo-status-bar'
 import { X } from 'lucide-react-native'
 
 import { Button } from '@/components/ui/Button'
-import { useTrack } from '@/lib/analytics/posthog'
+import { analytics, useTrack } from '@/lib/analytics/posthog'
 import { markOnboardingSeen } from '@/lib/onboarding-storage'
 import { useReducedMotion } from '@/lib/use-reduced-motion'
 import { useSession } from '@/store/session'
@@ -95,6 +95,9 @@ export function OnboardingCarousel() {
       if (!replay) {
         if (skipped) track('onboarding_skipped', { at_step: index + 1 })
         track('onboarding_completed', { duration_s: elapsedSeconds(), skipped })
+        // La présentation précède la connexion : la propriété est posée sur le
+        // profil anonyme, que `identify` rattachera au compte créé juste après.
+        analytics().setPersonProperties({ onboarding_completed: !skipped })
       }
       await markOnboardingSeen()
       setOnboardingSeen(true)

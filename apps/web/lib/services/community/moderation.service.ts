@@ -8,6 +8,7 @@ import {
 } from '@growi/shared'
 import { Prisma } from '@prisma/client'
 
+import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { addresses, getResendClient } from '@/lib/services/contact.service'
 import { ServiceError } from '@/lib/services/errors'
@@ -93,7 +94,10 @@ export async function report(
   })
 
   // Rien de neuf ⇒ rien à réévaluer : le seuil n'a pas pu être franchi par un
-  // signalement qui n'a pas été écrit.
+  // signalement qui n'a pas été écrit. Même règle pour la mesure : un
+  // doublon ignoré ne compte pas.
+  if (count > 0) trackServer(userId, 'content_reported', { reason: input.reason })
+
   if (count > 0 && isContentTarget(input.targetType)) {
     await autoHideIfNeeded(input.targetType, input.targetId)
   }

@@ -9,6 +9,7 @@
 import type { AlertConfig, RegisterPushTokenInput } from '@growi/shared'
 import { DEFAULT_ALERT_CONFIG } from '@growi/shared'
 
+import { setPersonProperties, trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { sendPushMessages, type PushMessage } from '@/lib/push/expo-push'
 import { getTodayPlanning } from '@/lib/services/planning.service'
@@ -29,6 +30,11 @@ export async function registerPushToken(
     create: { userId, token: input.token, platform: input.platform },
     update: { userId, platform: input.platform },
   })
+
+  // Un jeton enregistré vaut permission accordée : l'app ne l'obtient pas
+  // autrement. C'est la seule mesure fiable du « % de push accordé », les
+  // réglages du téléphone étant hors de portée.
+  setPersonProperties(userId, { push_granted: true })
 }
 
 /**
@@ -42,7 +48,23 @@ export async function unregisterPushToken(userId: string, token: string): Promis
 /** Supprime les jetons qu'Expo déclare morts. */
 export async function forgetInvalidTokens(tokens: string[]): Promise<void> {
   if (tokens.length === 0) return
+
+  // Lus avant la suppression : après, il ne reste ni propriétaire ni
+  // plateforme à mettre sur l'événement. Un jeton mort qui grimpe, c'est une
+  // désinstallation ou un enregistrement cassé — la distinction se fait sur
+  // la plateforme.
+  const doomed = await prisma.pushToken.findMany({
+    where: { token: { in: tokens } },
+    select: { userId: true, platform: true },
+  })
+
   await prisma.pushToken.deleteMany({ where: { token: { in: tokens } } })
+
+  for (const { userId, platform } of doomed) {
+    trackServer(userId, 'push_token_invalid', {
+      platform: platform === 'ios' ? 'ios' : 'android',
+    })
+  }
 }
 
 // ─── Rappels du matin ──────────────────────────────────────────────────────
@@ -159,6 +181,14 @@ export async function sendToUser(
       user.pushTokens.map(({ token }) => ({ ...message, to: token })),
       options.fetchImpl ?? fetch,
     )
+
+    // Cet envoyeur ne sert aujourd'hui qu'à la communauté ; les rappels du
+    // jardin composent leur propre lot, plus bas.
+    trackServer(userId, 'push_sent', {
+      kind: 'community',
+      tokens_count: user.pushTokens.length,
+    })
+
     await forgetInvalidTokens(outcome.invalidTokens)
   } catch (error) {
     console.error('[push] envoi à', userId, 'impossible :', error)
@@ -267,6 +297,11 @@ export async function sendDailyReminders(
     )
 
     result.notified += 1
+    trackServer(user.id, 'push_sent', {
+      kind: 'planning',
+      tokens_count: user.pushTokens.length,
+    })
+
     for (const { token } of user.pushTokens) {
       messages.push({
         to: token,

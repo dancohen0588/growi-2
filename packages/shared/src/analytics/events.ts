@@ -43,13 +43,22 @@ export type LoginFailureReason =
 /** D'où vient une plante ajoutée. */
 export type PlantSource = 'catalog' | 'identify' | 'manual'
 
-/** Cause d'un échec d'appel au modèle. */
+/**
+ * Cause d'un échec d'appel au modèle.
+ *
+ * Ces valeurs sont celles que le serveur sait réellement distinguer (voir
+ * `GeminiFailureCause` dans `lib/services/gemini.ts`) : le statut rendu par
+ * l'API, la troncature, et l'échec de lecture du JSON. La spec citait
+ * `image_too_large` — une image trop lourde est refusée bien avant l'appel,
+ * par la validation, et ne produit donc aucun événement.
+ */
 export type AiFailureReason =
   | 'quota'
   | 'rate_limited'
   | 'gemini_unavailable'
+  | 'bad_image'
+  | 'truncated'
   | 'parse'
-  | 'image_too_large'
   | 'unknown'
 
 /** Nature d'une notification poussée. */
@@ -95,7 +104,12 @@ export type GrowiEvent =
         output_tokens: number | null
         image_bytes: number
         candidates_count: number
-        top_confidence: number | null
+        /**
+         * Le modèle rend un niveau, pas un score : `high | medium | low`.
+         * Inventer un nombre à partir de là donnerait une fausse précision,
+         * et les moyennes qu'on en tirerait ne voudraient rien dire.
+         */
+        top_confidence: 'high' | 'medium' | 'low' | null
         quota_remaining: number | null
       }
     }
@@ -131,7 +145,13 @@ export type GrowiEvent =
       props: { type: CareLogType; bulk: boolean; count: number; overdue_days: number | null }
     }
   | { name: 'planning_action_undone'; props: Record<string, never> }
-  | { name: 'planning_cleared_today'; props: { count: number } }
+  /**
+   * `count` est nul quand le serveur ne sait pas combien d'actions ont été
+   * mises en sourdine : le masquage pose une date sur le jardin, il ne
+   * parcourt pas le planning — le recalculer pour compter coûterait plus cher
+   * que le geste lui-même.
+   */
+  | { name: 'planning_cleared_today'; props: { count: number | null } }
   | { name: 'alert_shown'; props: { kind: AlertType } }
   | { name: 'alert_opened'; props: { kind: AlertType } }
 
