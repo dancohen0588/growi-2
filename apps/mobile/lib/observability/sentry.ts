@@ -111,7 +111,7 @@ export function initSentry(): void {
       beforeSend: scrubEvent,
       beforeSendSpan: (span) => {
         const url = span.data?.['url']
-        if (typeof url === 'string') span.data['url'] = normalizeUrl(url)
+        if (span.data && typeof url === 'string') span.data['url'] = normalizeUrl(url)
         if (span.description) span.description = normalizeSpanDescription(span.description)
         return span
       },

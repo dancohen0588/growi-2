@@ -246,7 +246,7 @@ growi-2/
 
 ### `apps/mobile`
 
-App Expo (SDK 57, React Native 0.86, React 19) en Expo Router, stylée avec NativeWind 4.
+App Expo (SDK 54, React Native 0.81, React 19) en Expo Router, stylée avec NativeWind 4.
 
 ```bash
 pnpm --filter mobile start     # Metro + QR code pour Expo Go
