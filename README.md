@@ -49,6 +49,14 @@ région UE). PostHog viendra ensuite pour l'analyse produit. Spec :
 | `apps/web/instrumentation.ts` | Charge la bonne configuration au démarrage |
 | `apps/web/lib/observability/report.ts` | Ce qu'on remonte, et sous quel nom de route |
 
+**Prérequis Vercel** : la case *Enable access to System Environment Variables*
+(Projet → Settings → Environment Variables) doit rester cochée. C'est elle qui
+pose `NEXT_PUBLIC_VERCEL_ENV` et `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA`, les
+seules variantes que le navigateur puisse lire — Next n'inline que les
+`NEXT_PUBLIC_*`. Sans elles, le serveur reste bien étiqueté (repli sur
+`VERCEL_ENV`) mais **toutes les erreurs du navigateur seraient prises pour du
+développement, donc jamais envoyées**.
+
 **En local, rien ne part** : sans `NEXT_PUBLIC_SENTRY_DSN` on n'initialise pas,
 et hors Vercel `enabled` reste faux même si un DSN traîne dans `.env.local`.
 C'est délibéré — un `console.error` de développement n'a pas à consommer le
