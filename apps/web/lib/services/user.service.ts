@@ -25,6 +25,7 @@ const PROFILE_SELECT = {
   alertConfig: true,
   latitude: true,
   longitude: true,
+  analyticsOptOut: true,
 } as const
 
 type ProfileRow = {
@@ -40,6 +41,7 @@ type ProfileRow = {
   alertConfig: Prisma.JsonValue | null
   latitude: number | null
   longitude: number | null
+  analyticsOptOut: boolean
 }
 
 /** Ligne Prisma → profil exposé au client. */
@@ -62,6 +64,7 @@ export function toProfile(user: ProfileRow): UserProfile {
     },
     latitude: user.latitude,
     longitude: user.longitude,
+    analyticsOptOut: user.analyticsOptOut,
   }
 }
 
@@ -126,6 +129,22 @@ export async function getUserTimezone(userId: string): Promise<string> {
     select: { timezone: true },
   })
   return user?.timezone ?? 'Europe/Paris'
+}
+
+/**
+ * Le compte refuse-t-il l'analyse d'usage ?
+ *
+ * Lu à part du profil complet : le layout du dashboard n'a besoin que de ce
+ * booléen, et le charger avec le reste ferait une requête plus large sur
+ * chaque page. En cas de compte introuvable, on répond « refuse » — le silence
+ * est le repli sûr.
+ */
+export async function getAnalyticsOptOut(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { analyticsOptOut: true },
+  })
+  return user?.analyticsOptOut ?? true
 }
 
 /** Localisation de l'utilisateur, pour la météo et les conseils. */

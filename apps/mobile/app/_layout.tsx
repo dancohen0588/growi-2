@@ -21,6 +21,8 @@ import {
 } from '@expo-google-fonts/raleway'
 
 import { ToastProvider } from '@/components/ui/Toast'
+import { initAnalytics } from '@/lib/analytics/posthog'
+import { useScreenTracking } from '@/lib/analytics/use-screen-tracking'
 import { initSentry, navigationIntegration } from '@/lib/observability/sentry'
 import { queryClient } from '@/lib/query-client'
 import { useSession } from '@/store/session'
@@ -30,6 +32,7 @@ import { useSession } from '@/store/session'
 // justement celle qu'aucun simulateur ne reproduit. L'appel ne fait rien en
 // développement ni sans DSN.
 initSentry()
+initAnalytics()
 
 // L'écran de démarrage reste affiché tant que les polices ne sont pas prêtes et
 // que la session n'est pas restaurée : sans cela, l'app apparaîtrait une
@@ -38,6 +41,8 @@ initSentry()
 SplashScreen.preventAutoHideAsync()
 
 function RootLayout() {
+  useScreenTracking()
+
   // Le conteneur de navigation d'expo-router, remis à Sentry pour qu'une
   // transaction porte le nom de l'écran (`(tabs)/jardins/[id]`) plutôt qu'un
   // identifiant. Le ref n'existe qu'au premier rendu, d'où l'effet.

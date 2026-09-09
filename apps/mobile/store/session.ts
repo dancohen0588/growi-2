@@ -6,6 +6,7 @@ import type { SocialProvider } from '@growi/shared'
 import { api, publicApi, setSessionLostHandler } from '@/lib/api'
 import { clearTokens, getRefreshToken, saveTokens } from '@/lib/auth-storage'
 import { clearKeychainOnFreshInstall } from '@/lib/fresh-install'
+import { analytics, applyAnalyticsOptOut } from '@/lib/analytics/posthog'
 import { forgetUser, identifyUser } from '@/lib/observability/sentry'
 import { hasSeenOnboarding } from '@/lib/onboarding-storage'
 import { forgetDeviceForPush } from '@/lib/push'
@@ -98,6 +99,10 @@ export const useSession = create<SessionState>((set) => ({
     try {
       const profile = await api.me.get()
       identifyUser(profile.id)
+      analytics().identify(profile.id)
+      // Le refus est stocké sur le compte, pas sur l'appareil : il doit donc
+      // être appliqué à chaque restauration, avant tout événement.
+      applyAnalyticsOptOut(profile.analyticsOptOut)
       set({
         status: 'authenticated',
         user: { email: profile.email, firstName: profile.firstName || null },
@@ -105,6 +110,7 @@ export const useSession = create<SessionState>((set) => ({
     } catch {
       await clearTokens()
       forgetUser()
+      analytics().reset()
       set({ status: 'unauthenticated', user: null })
     }
   },
@@ -113,6 +119,7 @@ export const useSession = create<SessionState>((set) => ({
     const tokens = await publicApi.auth.login({ email, password, deviceInfo: deviceInfo() })
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
     identifyUser(tokens.user.id)
+    analytics().identify(tokens.user.id)
     set({ status: 'authenticated', user: toSessionUser(tokens.user) })
   },
 
@@ -125,6 +132,7 @@ export const useSession = create<SessionState>((set) => ({
     })
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
     identifyUser(tokens.user.id)
+    analytics().identify(tokens.user.id)
     set({ status: 'authenticated', user: toSessionUser(tokens.user) })
   },
 
@@ -142,6 +150,7 @@ export const useSession = create<SessionState>((set) => ({
     const tokens = await publicApi.auth.social(provider, identity)
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
     identifyUser(tokens.user.id)
+    analytics().identify(tokens.user.id)
     set({ status: 'authenticated', user: toSessionUser(tokens.user) })
     return true
   },
@@ -164,6 +173,7 @@ export const useSession = create<SessionState>((set) => ({
     // Après l'effacement des jetons : les erreurs qui suivent ne sont plus
     // celles de personne en particulier.
     forgetUser()
+    analytics().reset()
     set({ status: 'unauthenticated', user: null })
   },
 }))
@@ -171,6 +181,7 @@ export const useSession = create<SessionState>((set) => ({
 // Quand le rafraîchissement échoue définitivement, l'app doit revenir au login.
 setSessionLostHandler(() => {
   forgetUser()
+  analytics().reset()
   useSession.setState({ status: 'unauthenticated', user: null })
 })
 

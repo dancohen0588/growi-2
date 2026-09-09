@@ -82,7 +82,8 @@
           "project": "growi-mobile",
           "url": "https://de.sentry.io/"
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true

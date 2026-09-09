@@ -44,5 +44,7 @@ allowBuilds:
   # Son script d'installation télécharge le binaire `sentry-cli`, sans lequel
   # `withSentryConfig` ne peut pas téléverser les source maps au build.
   '@sentry/cli': true
+  # Son script d'installation n'affiche qu'un message de financement.
+  core-js: false
   prisma: true
   unrs-resolver: true

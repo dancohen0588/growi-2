@@ -28,6 +28,21 @@ const nextConfig = {
       { source: '/pro',    destination: '/contact',  permanent: true },
     ]
   },
+  /**
+   * Ingestion PostHog par notre propre domaine.
+   *
+   * Appelée directement, `eu.i.posthog.com` est bloquée par les bloqueurs de
+   * publicité — c'est-à-dire chez les utilisateurs les plus outillés, dont on
+   * perdrait précisément les parcours. `skipTrailingSlashRedirect` évite que
+   * Next transforme l'appel en redirection, que le SDK ne suit pas.
+   */
+  skipTrailingSlashRedirect: true,
+  async rewrites() {
+    return [
+      { source: '/ingest/static/:path*', destination: 'https://eu-assets.i.posthog.com/static/:path*' },
+      { source: '/ingest/:path*',        destination: 'https://eu.i.posthog.com/:path*' },
+    ]
+  },
   // En-têtes de sécurité appliqués à toutes les réponses. Vercel ajoute déjà
   // Strict-Transport-Security ; le reste manquait.
   async headers() {

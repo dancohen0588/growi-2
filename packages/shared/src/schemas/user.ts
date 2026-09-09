@@ -124,6 +124,12 @@ export const userProfileSchema = z.object({
   latitude: nullish(z.number()),
   longitude: nullish(z.number()),
   alertConfig: alertConfigSchema,
+  /**
+   * L'utilisateur s'oppose à l'analyse d'usage. Les rapports de plantage
+   * restent actifs : ils ne servent qu'à corriger des bugs, et l'app en
+   * dépend pour ne pas rester cassée sans que personne le sache.
+   */
+  analyticsOptOut: z.boolean(),
 })
 
 export type UserProfile = z.infer<typeof userProfileSchema>
@@ -140,6 +146,8 @@ export const updateProfileSchema = z.object({
   avatarColor: nullish(z.string()),
   latitude: nullish(z.number()),
   longitude: nullish(z.number()),
+  /** Opposition à l'analyse d'usage — voir `userProfileSchema`. */
+  analyticsOptOut: z.boolean().optional(),
 })
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
