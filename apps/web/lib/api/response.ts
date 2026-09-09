@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server'
 import { ZodError, type ZodType } from 'zod'
 
+import { captureApiException, normalizeRoute } from '@/lib/observability/report'
 import { SERVICE_ERROR_STATUS, ServiceError, isServiceError } from '@/lib/services/errors'
 
 /**
@@ -76,6 +77,11 @@ function isNextControlFlowError(err: unknown): boolean {
 /**
  * Enveloppe un handler de route : traduit les `ServiceError` en réponses HTTP
  * et transforme toute autre exception en 500 sans fuiter de détail interne.
+ *
+ * C'est aussi le point unique où l'API remonte ses erreurs à Sentry : rien ne
+ * ressort d'une route sans passer par ici, et `captureApiException` écarte les
+ * codes qui ne sont que des réponses (401, 404, 429…). Un `ZodError` en fait
+ * partie : un corps invalide est une faute du client, pas un incident.
  */
 export function withApiErrorHandling<Args extends unknown[]>(
   handler: (...args: Args) => Promise<NextResponse>,
@@ -86,11 +92,13 @@ export function withApiErrorHandling<Args extends unknown[]>(
     } catch (err) {
       if (isNextControlFlowError(err)) throw err
       if (isServiceError(err)) {
+        captureApiException(err, normalizeRoute(args))
         return fail(err.code, err.message, SERVICE_ERROR_STATUS[err.code])
       }
       if (err instanceof ZodError) {
         return fail('INVALID_INPUT', formatZodError(err), 400)
       }
+      captureApiException(err, normalizeRoute(args))
       console.error('[api/v1] erreur non gérée :', err)
       return fail('INTERNAL', 'Une erreur interne est survenue.', 500)
     }
