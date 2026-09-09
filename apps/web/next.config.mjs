@@ -86,6 +86,13 @@ export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Notre organisation est stockée en région UE : ses API répondent sur
+  // `de.sentry.io`, pas sur `sentry.io` (le défaut du SDK, valable pour les
+  // organisations américaines). Avec la mauvaise valeur, le build passe et
+  // les source maps ne sont jamais téléversées — on ne s'en aperçoit qu'en
+  // lisant une pile de production illisible. `SENTRY_URL` permet de la
+  // changer sans toucher au code.
+  sentryUrl: process.env.SENTRY_URL ?? 'https://de.sentry.io/',
   // Bavard en CI (les logs y sont la seule trace d'un téléversement raté),
   // silencieux en local.
   silent: !process.env.CI,
