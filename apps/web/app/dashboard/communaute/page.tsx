@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { getFeed } from '@/lib/services/community/post.service'
 import { getSettings } from '@/lib/services/community/profile.service'
 import { isServiceError } from '@/lib/services/errors'
+import { TrackView } from '@/components/analytics/TrackView'
 
 export const metadata: Metadata = {
   title: 'Communauté — Growi',
@@ -102,6 +103,12 @@ export default async function CommunautePage({
 
   return (
     <div className="space-y-6">
+      <TrackView
+        event="community_feed_viewed"
+        props={{ posts_count: feed.items.length, scope }}
+        dedupeKey={`${scope}:${readParam(searchParams, 'apres') ?? ''}`}
+      />
+
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-poppins text-2xl font-semibold text-forest">Communauté</h1>
 

@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/Input'
 import { Toggle } from '@/components/ui/Toggle'
 import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
+import { useTrack } from '@/lib/analytics/posthog'
 import { WEB_BASE_URL } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { useProfile, useUpdateAlerts, useUpdateProfile } from '@/lib/queries/me'
@@ -47,6 +48,7 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
   const toast = useToast()
   const updateProfile = useUpdateProfile()
   const updateAlerts = useUpdateAlerts()
+  const track = useTrack()
   const signOut = useSession((s) => s.signOut)
 
   const [city, setCity] = useState(profile.city ?? '')
@@ -83,6 +85,8 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
     setLocating(true)
     try {
       const { status } = await Location.requestForegroundPermissionsAsync()
+      track('location_permission_answered', { granted: status === 'granted' })
+
       if (status !== 'granted') {
         Alert.alert(
           'Localisation refusée',

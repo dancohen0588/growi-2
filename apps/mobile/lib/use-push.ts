@@ -3,7 +3,8 @@ import { AppState } from 'react-native'
 import { useRouter } from 'expo-router'
 import * as Notifications from 'expo-notifications'
 
-import { notificationRoute } from '@/lib/notifications'
+import { analytics } from '@/lib/analytics/posthog'
+import { notificationKind, notificationRoute } from '@/lib/notifications'
 import { clearBadge, registerDeviceForPush } from '@/lib/push'
 import { useProfile } from '@/lib/queries/me'
 
@@ -80,7 +81,10 @@ export function usePushNotifications(enabled: boolean): void {
     // Les cibles de la communauté vivent dans la pile Accueil : `navigate`
     // avec le chemin complet sélectionne d'abord cet onglet, sans quoi le
     // geste de retour ramènerait sur l'onglet d'où l'on venait.
-    const route = notificationRoute(response.notification.request.content.data)
+    const data = response.notification.request.content.data
+    analytics().track('push_opened', { kind: notificationKind(data) })
+
+    const route = notificationRoute(data)
     if (route) router.navigate(route)
   }, [enabled, response, router])
 }

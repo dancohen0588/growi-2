@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +11,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
-import { useRouter } from 'expo-router'
+import { usePathname, useRouter } from 'expo-router'
 import {
   Camera,
   ChevronLeft,
@@ -45,6 +45,7 @@ import { TaskRow } from '@/components/planning/TaskRow'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
+import { useTrack } from '@/lib/analytics/posthog'
 import { formatLogDate } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { PermissionDeniedError, pickPhoto, takePhoto } from '@/lib/photo'
@@ -122,11 +123,37 @@ export interface PlantDetailProps {
  * n'a plus d'onglet mais reste montée. Chacune a sa navigation, pour que le
  * retour ramène là d'où l'on vient, mais l'écran doit rester le même.
  */
+/**
+ * D'où l'on ouvre la fiche.
+ *
+ * La même fiche vit dans quatre piles ; plutôt que d'ajouter une prop à
+ * chacun des quatre écrans qui l'enveloppent, on lit le chemin — il porte
+ * déjà l'information, et une pile de plus la donnera sans rien changer ici.
+ */
+function openedFrom(pathname: string): 'garden' | 'list' | 'calendar' | 'identify' | 'community' {
+  if (pathname.startsWith('/jardins')) return 'garden'
+  if (pathname.startsWith('/calendrier')) return 'calendar'
+  if (pathname.startsWith('/identifier')) return 'identify'
+  if (pathname.startsWith('/communaute')) return 'community'
+  return 'list'
+}
+
 export function PlantDetail({ plantId, onEdit, onDiagnose, onChat }: PlantDetailProps) {
   const router = useRouter()
   const toast = useToast()
 
   const plant = usePlant(plantId)
+
+  // Une vue par plante ouverte, pas une par rendu.
+  const track = useTrack()
+  const pathname = usePathname()
+  const viewed = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (viewed.current === plantId) return
+    viewed.current = plantId
+    track('plant_detail_viewed', { from: openedFrom(pathname) })
+  }, [pathname, plantId, track])
   const logs = usePlantLogs(plantId)
   const actions = usePlantActions(plantId)
   const diagnoses = useDiagnoses(plantId)

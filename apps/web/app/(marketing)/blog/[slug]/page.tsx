@@ -9,6 +9,7 @@ import { getPost, listRelatedPosts, listSlugs } from '@/lib/blog/content'
 import { webMdxComponents } from '@/lib/blog/mdx-components'
 import { mdxOptions } from '@/lib/blog/mdx-options'
 import { SITE_URL } from '@/lib/site-url'
+import { TrackView } from '@/components/analytics/TrackView'
 import { CTABottom } from '../../fonctionnalites/components/CTABottom'
 import { PostCard } from '../components/PostCard'
 import { PostMeta } from '../components/PostMeta'
@@ -100,6 +101,14 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
+      {/* La page est prérendue au build : la mesure est le seul morceau
+          client, et n'empêche donc pas le rendu statique. */}
+      <TrackView
+        event="article_viewed"
+        props={{ slug: summary.slug, from: 'list' }}
+        dedupeKey={summary.slug}
       />
 
       <article className="bg-sand">

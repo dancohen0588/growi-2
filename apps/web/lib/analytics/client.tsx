@@ -28,6 +28,7 @@ import posthog from 'posthog-js'
 import { PostHogProvider as PostHogReactProvider } from 'posthog-js/react'
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react'
 
+import { analyticsEnabled } from '@/lib/analytics/enabled'
 import { resolveEnvironment, resolveRelease } from '@/lib/observability/sentry-options'
 
 const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY
@@ -46,9 +47,10 @@ const UI_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://eu.posthog.com'
 let started = false
 
 function startPostHog(): boolean {
-  const environment = resolveEnvironment()
-  if (!KEY || environment === 'development') return false
+  if (!KEY || !analyticsEnabled()) return false
   if (started) return true
+
+  const environment = resolveEnvironment()
 
   posthog.init(KEY, {
     api_host: INGEST_PATH,

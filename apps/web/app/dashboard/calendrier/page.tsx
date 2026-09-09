@@ -1,5 +1,8 @@
 import { Suspense } from 'react'
+import { actionHorizon } from '@growi/shared'
+
 import { auth } from '@/auth'
+import { TrackView } from '@/components/analytics/TrackView'
 import { getGardensAdvice } from '@/lib/services/advice.service'
 import { listDoneTodayActions } from '@/lib/services/planning.service'
 import { CalendrierPageInner } from './CalendrierPageInner'
@@ -58,8 +61,16 @@ export default async function CalendrierPage() {
     }
   }
 
+  // `actionHorizon` compare des jours en chaîne `YYYY-MM-DD`, pas des dates.
+  const today = new Date().toISOString().slice(0, 10)
+  const actionsToday = actions.filter((action) => actionHorizon(action, today) === 'today')
+
   return (
     <Suspense>
+      <TrackView
+        event="planning_viewed"
+        props={{ horizon: 'today', actions_today: actionsToday.length }}
+      />
       <CalendrierPageInner
         initialActions={actions}
         initialDoneToday={doneToday}

@@ -21,6 +21,7 @@ import { IdentifyResult } from '@/components/identify/IdentifyResult'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { errorMessage } from '@/lib/errors'
+import { useTrack } from '@/lib/analytics/posthog'
 import { PermissionDeniedError, pickPhoto, takePhoto, type Photo } from '@/lib/photo'
 import { useAddIdentifiedPlant, useIdentifyPlant } from '@/lib/queries/identify'
 import { useUploadPhoto } from '@/lib/queries/uploads'
@@ -30,14 +31,20 @@ export default function IdentifierScreen() {
   const toast = useToast()
 
   const [photo, setPhoto] = useState<Photo | null>(null)
+  const [photoSource, setPhotoSource] = useState<'camera' | 'library'>('camera')
   const [result, setResult] = useState<IdentifyApiResponse | null>(null)
   const [addedPlantId, setAddedPlantId] = useState<string | null>(null)
+  const track = useTrack()
 
   const identify = useIdentifyPlant()
   const addPlant = useAddIdentifiedPlant()
   const uploadPhoto = useUploadPhoto()
 
   const reset = () => {
+    // Une espèce reconnue qu'on quitte sans l'ajouter, c'est une proposition
+    // refusée — le seul signal de qualité du modèle que l'app puisse donner.
+    if (result?.identified && !addedPlantId) track('identify_result_rejected', {})
+
     setPhoto(null)
     setResult(null)
     setAddedPlantId(null)
@@ -54,6 +61,7 @@ export default function IdentifierScreen() {
       if (!picked) return
 
       setPhoto(picked)
+      setPhotoSource(source)
       setResult(null)
       setAddedPlantId(null)
     } catch (error) {
@@ -70,6 +78,8 @@ export default function IdentifierScreen() {
 
   const analyse = () => {
     if (!photo) return
+
+    track('identify_started', { source: photoSource })
 
     identify.mutate(photo.dataUrl, {
       onSuccess: setResult,
@@ -106,6 +116,10 @@ export default function IdentifierScreen() {
       },
       {
         onSuccess: (plant) => {
+          // Le service ne rend qu'une espèce : le rang vaut donc toujours 1.
+          // Le jour où l'API proposera plusieurs candidats, c'est ici que le
+          // choix se lira.
+          track('identify_result_accepted', { rank: 1 })
           setAddedPlantId(plant.id)
           toast('Plante ajoutée à ton jardin 🌱')
         },

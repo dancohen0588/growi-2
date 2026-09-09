@@ -1,3 +1,4 @@
+import type { PushKind } from '@growi/shared'
 import type { Href } from 'expo-router'
 
 /**
@@ -28,6 +29,27 @@ const SCREENS = {
 } as const
 
 type ScreenKey = keyof typeof SCREENS
+
+/**
+ * Nature d'une notification, pour la mesure.
+ *
+ * Le serveur n'envoie pas de champ dédié : on le déduit de ce qu'elle vise.
+ * Une cible de la communauté (publication, fil, annonce, profil) ou un `kind`
+ * de la communauté valent `community` ; le rappel du matin vise le
+ * calendrier. Dans le doute, `planning` — c'est ce que le serveur envoie le
+ * plus.
+ */
+export function notificationKind(data: unknown): PushKind {
+  if (typeof data !== 'object' || data === null) return 'planning'
+
+  const target = data as NotificationTargetLike & { kind?: unknown }
+
+  if (target.postId || target.threadId || target.listingId || target.handle) return 'community'
+  if (target.screen === 'communaute') return 'community'
+  if (typeof target.kind === 'string' && target.kind) return 'community'
+
+  return 'planning'
+}
 
 /**
  * La destination d'une notification, ou `null` si rien n'est reconnu.

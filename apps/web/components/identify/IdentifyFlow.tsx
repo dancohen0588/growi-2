@@ -22,6 +22,7 @@ import type {
   IdentifyDifficulty,
   IdentifySuccess,
 } from '@/lib/types/identify'
+import { useTrack } from '@/lib/analytics/client'
 
 /** Le résultat tel que le voit l'appelant : identifié, fiche encyclopédie comprise. */
 export type IdentifiedPlant = IdentifySuccess & {
@@ -86,6 +87,12 @@ export function IdentifyFlow({ title, intro, renderActions }: IdentifyFlowProps)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
 
+  const track = useTrack()
+  // D'où vient la photo : sur un ordinateur, le bouton « appareil photo »
+  // ouvre le même sélecteur de fichiers, mais l'intention diffère et c'est
+  // elle qu'on mesure.
+  const sourceRef = useRef<'camera' | 'library'>('library')
+
   useEffect(() => {
     if (step !== 'loading') return
     setLoadingIdx(0)
@@ -96,13 +103,18 @@ export function IdentifyFlow({ title, intro, renderActions }: IdentifyFlowProps)
   }, [step])
 
   const handleReset = useCallback(() => {
+    // Une espèce reconnue qu'on quitte pour recommencer, c'est une
+    // proposition refusée — le seul signal de qualité du modèle que
+    // l'interface puisse donner tant qu'elle n'affiche qu'un candidat.
+    if (result?.identified) track('identify_result_rejected', {})
+
     setStep('upload')
     setPreview(null)
     setResult(null)
     setErrorMsg(null)
     if (cameraInputRef.current) cameraInputRef.current.value = ''
     if (galleryInputRef.current) galleryInputRef.current.value = ''
-  }, [])
+  }, [result, track])
 
   const handleFile = useCallback(async (file: File) => {
     const prepared = await prepareImageFile(file)
@@ -116,6 +128,7 @@ export function IdentifyFlow({ title, intro, renderActions }: IdentifyFlowProps)
 
   const handleAnalyze = useCallback(async () => {
     if (!preview) return
+    track('identify_started', { source: sourceRef.current })
     setStep('loading')
     setErrorMsg(null)
     try {
@@ -137,7 +150,8 @@ export function IdentifyFlow({ title, intro, renderActions }: IdentifyFlowProps)
       setErrorMsg(err instanceof Error ? err.message : 'Erreur inconnue')
       setStep('error')
     }
-  }, [preview])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview, track])
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl mx-auto w-full">
@@ -162,6 +176,9 @@ export function IdentifyFlow({ title, intro, renderActions }: IdentifyFlowProps)
           onFile={handleFile}
           onAnalyze={handleAnalyze}
           onClear={handleReset}
+          onChooseSource={(source) => {
+            sourceRef.current = source
+          }}
         />
       )}
 
@@ -223,6 +240,8 @@ interface UploadStepProps {
   onFile: (file: File) => void
   onAnalyze: () => void
   onClear: () => void
+  /** Appareil photo ou galerie — l'intention, pas le sélecteur de fichiers. */
+  onChooseSource: (source: 'camera' | 'library') => void
 }
 
 function UploadStep({
@@ -233,6 +252,7 @@ function UploadStep({
   onFile,
   onAnalyze,
   onClear,
+  onChooseSource,
 }: UploadStepProps) {
   const [isDragging, setIsDragging] = useState(false)
 
@@ -315,7 +335,10 @@ function UploadStep({
           <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
             <button
               type="button"
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={() => {
+                onChooseSource('camera')
+                cameraInputRef.current?.click()
+              }}
               className="flex-1 rounded-xl bg-forest text-white font-poppins font-semibold text-sm px-4 py-3 hover:bg-forest/90 transition-colors inline-flex items-center justify-center gap-2"
             >
               <Camera size={18} aria-hidden />
@@ -323,7 +346,10 @@ function UploadStep({
             </button>
             <button
               type="button"
-              onClick={() => galleryInputRef.current?.click()}
+              onClick={() => {
+                onChooseSource('library')
+                galleryInputRef.current?.click()
+              }}
               className="flex-1 rounded-xl bg-lime/20 text-forest font-poppins font-semibold text-sm px-4 py-3 hover:bg-lime/30 transition-colors inline-flex items-center justify-center gap-2"
             >
               <ImageIcon size={18} aria-hidden />

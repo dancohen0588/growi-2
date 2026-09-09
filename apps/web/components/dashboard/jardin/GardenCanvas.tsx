@@ -11,6 +11,7 @@ import type { PlantCatalog } from '@prisma/client'
 
 import { useGarden } from '@/hooks/useGarden'
 import { useGardenList } from '@/hooks/useGardenList'
+import { useTrack } from '@/lib/analytics/client'
 import { useUserProfile } from '@/hooks/useUserProfile'
 import type { ParcelDetail } from '@growi/shared'
 import type { GardenElement, GardenPoint } from '@/lib/garden/types'
@@ -406,6 +407,16 @@ export function GardenCanvas() {
   useEffect(() => {
     if (loadedGardenId) onGardenLoaded(loadedGardenId)
   }, [loadedGardenId, onGardenLoaded])
+
+  // Une ouverture par jardin : changer de jardin dans le sélecteur en est une
+  // nouvelle, un simple redessin du canevas non.
+  const track = useTrack()
+  const planTracked = useRef<string | null>(null)
+  useEffect(() => {
+    if (!loadedGardenId || planTracked.current === loadedGardenId) return
+    planTracked.current = loadedGardenId
+    track('garden_plan_opened', { garden_id: loadedGardenId })
+  }, [loadedGardenId, track])
 
   const handleDeleteGarden = useCallback(async () => {
     if (!loadedGardenId) return
