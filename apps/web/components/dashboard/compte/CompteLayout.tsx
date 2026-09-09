@@ -3,19 +3,20 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, Bell, Users } from 'lucide-react'
+import { User, Bell, Users, ShieldCheck } from 'lucide-react'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProfilForm } from './ProfilForm'
 import { AlertesForm } from './AlertesForm'
 import { CommunauteForm } from './CommunauteForm'
+import { ConfidentialiteForm } from './ConfidentialiteForm'
 import { useUserProfile } from '@/hooks/useUserProfile'
 
 interface CompteLayoutProps {
   initialSession: { id: string; firstName: string; email: string }
 }
 
-type TabValue = 'profil' | 'alertes' | 'communaute'
+type TabValue = 'profil' | 'alertes' | 'communaute' | 'confidentialite'
 
 export function CompteLayout({ initialSession }: CompteLayoutProps) {
   const router = useRouter()
@@ -26,7 +27,9 @@ export function CompteLayout({ initialSession }: CompteLayoutProps) {
   // Sync with URL hash on mount
   useEffect(() => {
     const hash = window.location.hash.replace('#', '')
-    if (hash === 'alertes' || hash === 'communaute') setActiveTab(hash)
+    if (hash === 'alertes' || hash === 'communaute' || hash === 'confidentialite') {
+      setActiveTab(hash)
+    }
   }, [])
 
   function handleTabChange(value: string) {
@@ -67,6 +70,13 @@ export function CompteLayout({ initialSession }: CompteLayoutProps) {
           >
             <Users size={15} aria-hidden />
             Profil public
+          </TabsTrigger>
+          <TabsTrigger
+            value="confidentialite"
+            className="flex items-center gap-2 px-4 py-2.5 font-raleway text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-lime data-[state=active]:text-forest data-[state=active]:font-semibold text-forest/60 hover:text-forest transition-colors bg-transparent shadow-none"
+          >
+            <ShieldCheck size={15} aria-hidden />
+            Confidentialité
           </TabsTrigger>
         </TabsList>
 
@@ -123,6 +133,20 @@ export function CompteLayout({ initialSession }: CompteLayoutProps) {
             vit ici, et non dans une page à part. */}
         <TabsContent value="communaute" className="mt-6 animate-in fade-in-0 duration-200">
           <CommunauteForm />
+        </TabsContent>
+
+        <TabsContent value="confidentialite" className="mt-6 animate-in fade-in-0 duration-200">
+          {profile ? (
+            <ConfidentialiteForm profile={profile} updateProfile={updateProfile} />
+          ) : (
+            !isLoading && (
+              <div className="bg-white rounded-2xl shadow-card p-8 text-center">
+                <p className="font-raleway text-forest/70">
+                  Configure d&apos;abord ton profil pour accéder à ce réglage.
+                </p>
+              </div>
+            )
+          )}
         </TabsContent>
       </Tabs>
     </div>

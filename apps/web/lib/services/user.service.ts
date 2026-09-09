@@ -117,6 +117,17 @@ export async function updateProfile(
   }
 }
 
+/*
+ * OBS-delete-person — à faire le jour où la suppression de compte existe.
+ *
+ * Supprimer un compte doit aussi effacer la personne dans PostHog et détacher
+ * l'identité côté Sentry : sans cela, un compte parti continuerait d'exister
+ * chez deux prestataires, et la page de confidentialité promettrait quelque
+ * chose de faux. La fonction n'existe pas encore (elle vient avec le chantier
+ * « suppression de compte » demandé par Google Play) ; ce commentaire marque
+ * l'endroit où le raccrocher, à côté des autres écritures sur le compte.
+ */
+
 /**
  * Fuseau de l'utilisateur — celui dans lequel se compte « aujourd'hui ».
  *

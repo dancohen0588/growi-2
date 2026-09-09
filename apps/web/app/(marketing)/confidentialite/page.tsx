@@ -277,12 +277,62 @@ export default function ConfidentialitePage() {
           La fréquentation des pages est mesurée avec Vercel Web Analytics, qui{' '}
           <strong>ne dépose aucun cookie</strong>, ne crée aucun identifiant persistant et ne
           permet pas de te reconnaître d&apos;une visite à l&apos;autre. Il compte des pages
-          vues, pas des personnes. C&apos;est pourquoi aucune bannière de consentement ne
-          t&apos;est présentée.
+          vues, pas des personnes.
+        </p>
+        <p>
+          La mesure d&apos;usage du service, elle, est décrite juste en dessous : elle
+          conserve un identifiant technique dans ton navigateur ou ton téléphone, et tu peux
+          la refuser.
         </p>
         <p>
           Dans l&apos;application mobile, la session est conservée dans le trousseau sécurisé
           de ton téléphone, et non dans un cookie.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Mesure d’audience et diagnostic technique">
+        <p>
+          Deux outils nous disent si Growi fonctionne et à quoi il sert. Tous deux sont
+          hébergés dans l&apos;Union européenne, à Francfort.
+        </p>
+        <p>
+          <strong>Sentry</strong> reçoit les erreurs et les plantages : la version de
+          l&apos;app, le modèle d&apos;appareil, le détail technique de l&apos;erreur, et un
+          identifiant interne de compte pour savoir combien de personnes sont touchées. Sans
+          lui, un bug peut rester des semaines à l&apos;écran de quelqu&apos;un sans que
+          personne l&apos;apprenne.
+        </p>
+        <p>
+          <strong>PostHog</strong> reçoit ce que tu fais dans le service : les écrans
+          ouverts, et une liste fermée de gestes — une plante ajoutée, une identification
+          lancée, un article lu. C&apos;est ce qui nous dit ce qui sert vraiment, et où l&apos;on
+          décroche.
+        </p>
+        <p>
+          <strong>Ce que ces outils ne reçoivent jamais</strong> : tes photos, le contenu de
+          tes messages et de tes discussions avec l&apos;assistant, ton journal d&apos;entretien,
+          ton adresse e-mail, ton pseudo, ni les coordonnées de ton jardin. Les
+          enregistrements d&apos;écran, quand ils ont lieu, masquent tout le texte et toutes
+          les images avant de partir.
+        </p>
+        <p>
+          <strong>Durées</strong> : 30 jours pour les rapports de plantage, 12 mois pour la
+          mesure d&apos;usage.
+        </p>
+        <p>
+          <strong>Base légale et opposition</strong> : notre intérêt légitime à faire
+          fonctionner et à améliorer le service. Tu peux refuser la mesure d&apos;usage à tout
+          moment, depuis ton profil dans l&apos;application ou depuis ton compte sur le site —
+          l&apos;interrupteur « Aider à améliorer Growi ». Les rapports de plantage, eux,
+          restent actifs : ils ne servent qu&apos;à corriger des bugs, et ne contiennent rien
+          de ce que tu écris.
+        </p>
+        <p>
+          Pour toute question sur ce point :{' '}
+          <a className="underline" href="mailto:info@growi-garden.fr">
+            info@growi-garden.fr
+          </a>
+          .
         </p>
       </LegalSection>
 
