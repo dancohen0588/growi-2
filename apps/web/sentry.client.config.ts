@@ -1,8 +1,10 @@
 /**
  * Sentry — navigateur.
  *
- * Next 14 charge ce fichier via le plugin `withSentryConfig` (le
- * `instrumentation-client.ts` des versions récentes demande Next 15.3+).
+ * Next 14 charge ce fichier via le plugin `withSentryConfig`. Le SDK affiche
+ * au build un avertissement de dépréciation invitant à passer à
+ * `instrumentation-client.ts` : **ne pas le suivre tant qu'on est en Next 14**,
+ * ce fichier-là demande Next 15.3+ et Sentry serait alors absent du navigateur.
  *
  * Le replay de session est **éteint par défaut** : on n'enregistre que les
  * sessions où une erreur survient, et encore, avec tout le texte masqué et

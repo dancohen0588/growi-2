@@ -69,7 +69,7 @@ jeton, à toute profondeur.
 **Vérifier la chaîne** (déploiement preview, `DEBUG_TOKEN` posé dans Vercel) :
 
 ```bash
-curl -H "x-debug-token: $DEBUG_TOKEN" https://<deploiement>.vercel.app/api/v1/_debug/sentry
+curl -H "x-debug-token: $DEBUG_TOKEN" https://<deploiement>.vercel.app/api/v1/debug/sentry
 ```
 
 L'issue doit apparaître dans `growi-web` avec `environment: preview` et le SHA
