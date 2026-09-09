@@ -4,6 +4,11 @@ import { isApiError } from '@growi/api-client'
  * Traduit une erreur en message affichable.
  *
  * Règle du design system : dire quoi faire, jamais le code technique.
+ *
+ * Cette fonction ne remonte rien à Sentry, et c'est volontaire : elle est
+ * appelée pour des cas parfaitement attendus — réseau coupé, session expirée,
+ * quota atteint. La remontée se décide dans `lib/observability/report.ts`,
+ * branché sur les deux caches React Query par où passent ces mêmes erreurs.
  */
 export function errorMessage(error: unknown): string {
   if (!isApiError(error)) return "Une erreur inattendue s'est produite. Réessaie."
