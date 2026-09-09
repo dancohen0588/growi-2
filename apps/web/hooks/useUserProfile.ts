@@ -6,6 +6,8 @@ import type { UserProfile, AlertConfig } from '@/lib/user-types'
 import { defaultAlertConfig } from '@/lib/user-types'
 
 interface InitialSession {
+  /** Identifiant du compte, tenu de la session : le repli ci-dessous en a besoin. */
+  id: string
   firstName: string
   email: string
 }
@@ -29,6 +31,7 @@ export function useUserProfile(initial?: InitialSession) {
         if (!cancelled && initial) {
           // Fallback to a session-derived stub so the form is at least usable
           setProfile({
+            id: initial.id,
             firstName: initial.firstName,
             lastName: '',
             email: initial.email,

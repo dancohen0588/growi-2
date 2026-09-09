@@ -12,7 +12,7 @@ import { CommunauteForm } from './CommunauteForm'
 import { useUserProfile } from '@/hooks/useUserProfile'
 
 interface CompteLayoutProps {
-  initialSession: { firstName: string; email: string }
+  initialSession: { id: string; firstName: string; email: string }
 }
 
 type TabValue = 'profil' | 'alertes' | 'communaute'

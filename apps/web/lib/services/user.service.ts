@@ -13,6 +13,7 @@ import { refreshFuzzyPosition } from '@/lib/services/community/profile.service'
 import { ServiceError } from '@/lib/services/errors'
 
 const PROFILE_SELECT = {
+  id: true,
   firstName: true,
   lastName: true,
   name: true,
@@ -27,6 +28,7 @@ const PROFILE_SELECT = {
 } as const
 
 type ProfileRow = {
+  id: string
   firstName: string | null
   lastName: string | null
   name: string | null
@@ -43,6 +45,7 @@ type ProfileRow = {
 /** Ligne Prisma → profil exposé au client. */
 export function toProfile(user: ProfileRow): UserProfile {
   return {
+    id: user.id,
     firstName: user.firstName ?? user.name ?? '',
     lastName: user.lastName ?? '',
     email: user.email,
