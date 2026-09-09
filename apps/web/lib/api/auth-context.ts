@@ -14,6 +14,7 @@
  */
 
 import type { ActivitySurface } from '@growi/shared'
+import * as Sentry from '@sentry/nextjs'
 import { headers } from 'next/headers'
 
 import { auth } from '@/auth'
@@ -61,6 +62,12 @@ export async function getUserId(): Promise<string | null> {
   if (!account || account.disabledAt) return null
 
   touchActivity(userId, surface)
+
+  // Sur qui porte l'erreur, et combien de personnes une régression touche :
+  // c'est le seul tri qui vaille dans la boîte Issues. **L'identifiant interne
+  // et rien d'autre** — pas d'e-mail, pas de nom, pas de pseudo. Sentry isole
+  // le scope par requête, l'identité ne déborde donc pas sur la suivante.
+  Sentry.setUser({ id: userId })
 
   return userId
 }
