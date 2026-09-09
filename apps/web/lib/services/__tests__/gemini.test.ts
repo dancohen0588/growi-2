@@ -36,8 +36,8 @@ function imageOf(bytes: number): string {
   return `data:image/jpeg;base64,${'A'.repeat(Math.ceil((bytes * 4) / 3))}`
 }
 
-function reply(text: string, finishReason = 'STOP') {
-  return { response: { text: () => text, candidates: [{ finishReason }] } }
+function reply(text: string, finishReason = 'STOP', usageMetadata?: unknown) {
+  return { response: { text: () => text, candidates: [{ finishReason }], usageMetadata } }
 }
 
 function httpError(status: number) {
@@ -119,9 +119,31 @@ describe('generateJson', () => {
       ok: true,
       raw: '{"ok":true}',
       model: GEMINI_MODELS[0],
+      fallback: false,
     })
     expect(generateContent).toHaveBeenCalledOnce()
     expect(generateContent).toHaveBeenCalledWith(parts)
+  })
+
+  it('remonte les jetons facturés quand le modèle les rapporte', async () => {
+    generateContent.mockResolvedValueOnce(
+      reply('{}', 'STOP', {
+        promptTokenCount: 1200,
+        candidatesTokenCount: 300,
+        totalTokenCount: 1500,
+      }),
+    )
+
+    // C'est la seule mesure fiable du coût d'un appel : l'image pèse
+    // l'essentiel du prompt, et aucune estimation locale ne la voit.
+    await expect(generateJson(parts, options)).resolves.toMatchObject({
+      usage: { inputTokens: 1200, outputTokens: 300, totalTokens: 1500 },
+    })
+  })
+
+  it("n'invente pas de jetons quand la réponse n'en porte pas", async () => {
+    generateContent.mockResolvedValueOnce(reply('{}'))
+    await expect(generateJson(parts, options)).resolves.toMatchObject({ usage: undefined })
   })
 
   it('demande du JSON à température nulle, sans laisser le modèle penser', async () => {
@@ -152,6 +174,9 @@ describe('generateJson', () => {
       ok: true,
       raw: '{"ok":1}',
       model: GEMINI_MODELS[1],
+      // Le repli est noté dans le résultat : sans ce drapeau, un basculement
+      // systématique vers le modèle de secours passerait inaperçu.
+      fallback: true,
     })
   })
 
@@ -172,6 +197,7 @@ describe('generateJson', () => {
       ok: true,
       raw: '{"ok":1}',
       model: GEMINI_MODELS[1],
+      fallback: true,
     })
   })
 

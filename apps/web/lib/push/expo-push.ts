@@ -11,6 +11,8 @@
  *   réputation de l'expéditeur.
  */
 
+import * as Sentry from '@sentry/nextjs'
+
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
 
 /** Limite imposée par Expo. */
@@ -60,6 +62,32 @@ export async function sendPushMessages(
   const result: PushSendResult = { sent: 0, invalidTokens: [], failed: 0 }
   if (messages.length === 0) return result
 
+  // La tournée du matin part d'un cron : sans span, sa durée et son issue
+  // n'apparaissent nulle part — personne n'est là pour la voir échouer.
+  return Sentry.startSpan(
+    {
+      name: 'push.send',
+      op: 'queue.publish',
+      attributes: { tokens_count: messages.length },
+    },
+    async (span) => {
+      await sendBatches(messages, fetchImpl, result)
+      span.setAttributes({
+        'push.sent': result.sent,
+        'push.failed': result.failed,
+        'push.invalid_tokens': result.invalidTokens.length,
+      })
+      return result
+    },
+  )
+}
+
+/** Le corps de l'envoi, par lots de cent. Alimente `result` au fil de l'eau. */
+async function sendBatches(
+  messages: PushMessage[],
+  fetchImpl: typeof fetch,
+  result: PushSendResult,
+): Promise<void> {
   for (const batch of chunk(messages, MAX_MESSAGES_PER_REQUEST)) {
     try {
       const response = await fetchImpl(EXPO_PUSH_URL, {
@@ -103,6 +131,4 @@ export async function sendPushMessages(
       result.failed += batch.length
     }
   }
-
-  return result
 }

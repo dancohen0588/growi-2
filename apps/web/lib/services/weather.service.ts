@@ -6,6 +6,8 @@
  * s'appuient toutes deux sur ce service.
  */
 
+import * as Sentry from '@sentry/nextjs'
+
 import { parseOpenMeteoResponse, reverseGeocode } from '@/lib/weather-api'
 import { ServiceError } from '@/lib/services/errors'
 import type { WeatherData } from '@/types/weather'
@@ -49,9 +51,22 @@ export async function getWeatherForecast(lat: number, lon: number): Promise<Weat
   })
 
   const [weatherRes, locationName] = await Promise.all([
-    fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`, {
-      next: { revalidate: WEATHER_REVALIDATE_SECONDS },
-    }),
+    // Open-Meteo est gratuit mais plafonné en usage non commercial : ce span
+    // dit combien d'appels partent vraiment, et à quelle vitesse ils
+    // reviennent. Le cache de Next absorbe la majorité d'entre eux, et un
+    // appel servi par le cache ne crée pas de span — c'est bien ce qu'on veut
+    // compter.
+    Sentry.startSpan(
+      {
+        name: 'weather.fetch',
+        op: 'http.client',
+        attributes: { 'weather.provider': 'open-meteo' },
+      },
+      () =>
+        fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`, {
+          next: { revalidate: WEATHER_REVALIDATE_SECONDS },
+        }),
+    ),
     reverseGeocode(lat, lon).catch(() => `${lat.toFixed(2)}, ${lon.toFixed(2)}`),
   ])
 

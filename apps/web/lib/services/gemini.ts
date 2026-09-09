@@ -10,9 +10,11 @@ import {
   GoogleGenerativeAI,
   type Content,
   type FunctionDeclaration,
+  type GenerateContentResponse,
   type GenerationConfig,
   type Part,
 } from '@google/generative-ai'
+import * as Sentry from '@sentry/nextjs'
 
 import { ServiceError } from '@/lib/services/errors'
 
@@ -139,8 +141,35 @@ function httpStatusOf(err: unknown): number | null {
     : null
 }
 
-export type GeminiSuccess = { ok: true; raw: string; model: string }
+/**
+ * Jetons facturés par un appel, tels que le modèle les rapporte.
+ *
+ * C'est la seule mesure fiable du coût de l'IA : nos propres estimations à
+ * partir de la longueur du prompt ignorent l'image, qui pèse l'essentiel.
+ */
+export type GeminiUsage = { inputTokens: number; outputTokens: number; totalTokens: number }
+
+export type GeminiSuccess = {
+  ok: true
+  raw: string
+  model: string
+  /** Absent si le modèle n'a pas rapporté `usageMetadata`. */
+  usage?: GeminiUsage
+  /** Vrai si le premier modèle a échoué et qu'on est retombé sur le suivant. */
+  fallback: boolean
+}
 export type GeminiFailure = { ok: false; reason: string }
+
+/** Jetons consommés, quand la réponse les porte. */
+function usageOf(response: GenerateContentResponse): GeminiUsage | undefined {
+  const meta = response.usageMetadata
+  if (!meta) return undefined
+  return {
+    inputTokens: meta.promptTokenCount ?? 0,
+    outputTokens: meta.candidatesTokenCount ?? 0,
+    totalTokens: meta.totalTokenCount ?? 0,
+  }
+}
 
 /**
  * Message d'échec destiné à l'utilisateur, par cause.
@@ -195,37 +224,87 @@ export async function generateJson(
   const genAI = new GoogleGenerativeAI(options.apiKey)
   let lastStatus: number | null = null
 
-  for (const modelName of GEMINI_MODELS) {
+  for (const [index, modelName] of GEMINI_MODELS.entries()) {
     const model = genAI.getGenerativeModel({
       model: modelName,
       generationConfig: generationConfig(options.maxOutputTokens),
     })
 
-    try {
-      const response = await model.generateContent(parts)
+    // Un span par **tentative**, pas par appel : c'est la seule façon de voir
+    // ce que coûte un repli, et de lire une latence qui ne mélange pas un
+    // essai raté à 30 s avec la réponse qui a suivi.
+    const attempt = await Sentry.startSpan(
+      {
+        name: 'gemini.generate',
+        op: 'ai.run',
+        attributes: {
+          'gemini.model': modelName,
+          'gemini.label': options.logLabel,
+          'gemini.fallback': index > 0,
+        },
+      },
+      async (span): Promise<Attempt> => {
+        try {
+          const response = await model.generateContent(parts)
+          const usage = usageOf(response.response)
+          if (usage) {
+            span.setAttributes({
+              'gemini.input_tokens': usage.inputTokens,
+              'gemini.output_tokens': usage.outputTokens,
+              'gemini.total_tokens': usage.totalTokens,
+            })
+          }
 
-      // Une réponse tronquée n'est pas une erreur pour le SDK : elle revient
-      // avec un texte incomplet et un `finishReason`. Sans ce contrôle, on
-      // rendait du JSON coupé à l'appelant, et le repli ne jouait jamais.
-      if (response.response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
-        console.error(
-          `[${options.logLabel}] réponse tronquée (model=${modelName}, maxOutputTokens=${options.maxOutputTokens})`,
-        )
-        continue
-      }
+          // Une réponse tronquée n'est pas une erreur pour le SDK : elle revient
+          // avec un texte incomplet et un `finishReason`. Sans ce contrôle, on
+          // rendait du JSON coupé à l'appelant, et le repli ne jouait jamais.
+          if (response.response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
+            span.setAttribute('gemini.truncated', true)
+            console.error(
+              `[${options.logLabel}] réponse tronquée (model=${modelName}, maxOutputTokens=${options.maxOutputTokens})`,
+            )
+            return { kind: 'truncated' }
+          }
 
-      return { ok: true, raw: response.response.text(), model: modelName }
-    } catch (err) {
-      const status = httpStatusOf(err)
-      lastStatus = status
-      console.error(`[${options.logLabel}] Gemini error (model=${modelName}, status=${status})`, err)
+          span.setAttribute('gemini.truncated', false)
+          return {
+            kind: 'success',
+            value: {
+              ok: true,
+              raw: response.response.text(),
+              model: modelName,
+              usage,
+              fallback: index > 0,
+            },
+          }
+        } catch (err) {
+          const status = httpStatusOf(err)
+          span.setAttribute('gemini.status', status ?? 0)
+          console.error(
+            `[${options.logLabel}] Gemini error (model=${modelName}, status=${status})`,
+            err,
+          )
+          return { kind: 'error', status }
+        }
+      },
+    )
+
+    if (attempt.kind === 'success') return attempt.value
+    if (attempt.kind === 'error') {
+      lastStatus = attempt.status
       // On ne réessaie que sur les erreurs transitoires : surcharge (503) ou quota (429).
-      if (status !== 503 && status !== 429) break
+      if (attempt.status !== 503 && attempt.status !== 429) break
     }
   }
 
   return { ok: false, reason: failureReason(lastStatus) }
 }
+
+/** Issue d'une tentative de modèle, remontée hors du span pour piloter le repli. */
+type Attempt =
+  | { kind: 'success'; value: GeminiSuccess }
+  | { kind: 'truncated' }
+  | { kind: 'error'; status: number | null }
 
 // ─── Conversation ──────────────────────────────────────────────────────────
 
@@ -236,7 +315,7 @@ export type ChatTurn = { role: 'user' | 'model'; parts: ChatPart[] }
 export type GeminiChatEvent =
   | { type: 'text'; delta: string }
   | { type: 'functionCall'; name: string; args: unknown }
-  | { type: 'done'; model: string }
+  | { type: 'done'; model: string; usage?: GeminiUsage }
   | { type: 'error'; reason: string }
 
 /**
@@ -269,13 +348,29 @@ export async function* streamChat(input: {
   const genAI = new GoogleGenerativeAI(input.apiKey)
   let lastStatus: number | null = null
 
-  for (const modelName of GEMINI_MODELS) {
+  for (const [index, modelName] of GEMINI_MODELS.entries()) {
     const model = genAI.getGenerativeModel({
       model: modelName,
       generationConfig: chatGenerationConfig(input.maxOutputTokens),
       systemInstruction: input.systemInstruction,
       ...(input.tools?.length ? { tools: [{ functionDeclarations: input.tools }] } : {}),
     })
+
+    // Span **inactif** et non `startSpan` : la durée d'un flux court d'un bout
+    // à l'autre de l'itération du consommateur, qu'un rappel ne peut pas
+    // englober. Le `finally` le ferme dans tous les cas, y compris quand le
+    // fil est abandonné en cours de lecture.
+    const span = Sentry.startInactiveSpan({
+      name: 'gemini.generate',
+      op: 'ai.run',
+      attributes: {
+        'gemini.model': modelName,
+        'gemini.label': input.logLabel,
+        'gemini.fallback': index > 0,
+        'gemini.stream': true,
+      },
+    })
+    const startedAt = Date.now()
 
     let streamed = false
     try {
@@ -287,6 +382,9 @@ export async function* streamChat(input: {
         // (sécurité, récitation) : le catch ci-dessous s'en charge.
         const delta = chunk.text()
         if (delta) {
+          // Ce qu'attend vraiment l'utilisateur, c'est le premier mot : la
+          // durée totale d'un flux dit surtout combien le modèle a écrit.
+          if (!streamed) span.setAttribute('gemini.ttft_ms', Date.now() - startedAt)
           streamed = true
           yield { type: 'text', delta }
         }
@@ -295,11 +393,27 @@ export async function* streamChat(input: {
         }
       }
 
-      yield { type: 'done', model: modelName }
+      // Les jetons ne sont connus qu'une fois le flux agrégé. La promesse est
+      // déjà résolue à ce stade ; un échec ici ne doit pas transformer une
+      // réponse lue par l'utilisateur en erreur — d'où le `Promise.resolve`,
+      // qui absorbe aussi une réponse absente sans lever sur place.
+      const usage = await Promise.resolve(result.response)
+        .then(usageOf)
+        .catch(() => undefined)
+      if (usage) {
+        span.setAttributes({
+          'gemini.input_tokens': usage.inputTokens,
+          'gemini.output_tokens': usage.outputTokens,
+          'gemini.total_tokens': usage.totalTokens,
+        })
+      }
+
+      yield { type: 'done', model: modelName, usage }
       return
     } catch (err) {
       const status = httpStatusOf(err)
       lastStatus = status
+      span.setAttribute('gemini.status', status ?? 0)
       console.error(
         `[${input.logLabel}] Gemini stream error (model=${modelName}, status=${status}, streamed=${streamed})`,
         err,
@@ -307,6 +421,8 @@ export async function* streamChat(input: {
       if (streamed) break
       // Comme pour `generateJson` : on ne réessaie que sur surcharge ou quota.
       if (status !== 503 && status !== 429) break
+    } finally {
+      span.end()
     }
   }
 
