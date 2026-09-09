@@ -37,6 +37,7 @@
     "@radix-ui/react-switch": "^1.0.0",
     "@radix-ui/react-tabs": "^1.0.0",
     "@radix-ui/react-tooltip": "^1.0.0",
+    "@sentry/nextjs": "^10.73.0",
     "@turf/turf": "^7.4.0",
     "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^2.4.3",

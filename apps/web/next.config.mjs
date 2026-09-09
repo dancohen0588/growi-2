@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -11,6 +13,10 @@ const nextConfig = {
   // Required to prevent build worker timeouts when these packages are imported in Server Components.
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs', '@auth/prisma-adapter'],
+    // Autorise `instrumentation.ts`, qui initialise Sentry côté serveur. En
+    // Next 14 le fichier est ignoré sans ce drapeau — et Sentry serait muet
+    // sur toute l'API, sans la moindre erreur pour le signaler.
+    instrumentationHook: true,
   },
   // `/tarifs` et `/pro` ont été retirées : rien n'existe derrière (ni paiement,
   // ni offre B2B) et la première était la cible du CTA principal du site. Les
@@ -62,4 +68,27 @@ const nextConfig = {
   },
 }
 
-export default nextConfig
+/**
+ * Enveloppe Sentry : injection des trois `sentry.*.config.ts` et téléversement
+ * des source maps au build.
+ *
+ * - `org` / `project` / `authToken` viennent de l'environnement : rien de
+ *   sensible dans ce fichier versionné. Sans `SENTRY_AUTH_TOKEN` — le cas en
+ *   local — le plugin saute simplement le téléversement, le build passe.
+ * - `tunnelRoute` fait transiter les événements par notre propre domaine :
+ *   sans lui, un bloqueur de publicité avale les erreurs de ceux qui en ont un,
+ *   c'est-à-dire précisément celles qu'on ne verrait jamais autrement.
+ * - Les source maps ne sont pas servies au public : depuis la v9 du SDK, elles
+ *   sont supprimées du build après téléversement (`deleteSourcemapsAfterUpload`,
+ *   vrai par défaut). L'ancienne option `hideSourceMaps` n'existe plus.
+ */
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Bavard en CI (les logs y sont la seule trace d'un téléversement raté),
+  // silencieux en local.
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  tunnelRoute: '/monitoring',
+})
