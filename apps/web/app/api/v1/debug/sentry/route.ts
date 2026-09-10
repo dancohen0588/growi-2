@@ -15,7 +15,9 @@
  * - jeton fourni différent.
  */
 
-import { fail, withApiErrorHandling } from '@/lib/api/response'
+import * as Sentry from '@sentry/nextjs'
+
+import { fail, ok, withApiErrorHandling } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +28,26 @@ export const GET = withApiErrorHandling(async (request: Request) => {
   if (!expected) return NOT_FOUND()
 
   if (request.headers.get('x-debug-token') !== expected) return NOT_FOUND()
+
+  /*
+   * `?check=1` — ce que le **serveur** voit de Sentry.
+   *
+   * Une erreur qui ne remonte pas a deux causes possibles et indiscernables
+   * de l'extérieur : le SDK n'est pas initialisé (`instrumentation.ts` non
+   * exécuté, DSN absent), ou il l'est et l'événement se perd en route. Cette
+   * réponse tranche, sans rien révéler : des booléens, l'environnement et la
+   * release — jamais le DSN lui-même.
+   */
+  if (new URL(request.url).searchParams.get('check')) {
+    const options = Sentry.getClient()?.getOptions()
+    return ok({
+      initialized: Boolean(options),
+      dsnConfigured: Boolean(options?.dsn),
+      enabled: options?.enabled ?? null,
+      environment: options?.environment ?? null,
+      release: options?.release ?? null,
+    })
+  }
 
   throw new Error('Erreur volontaire — vérification de la chaîne Sentry (/api/v1/debug/sentry)')
 })
