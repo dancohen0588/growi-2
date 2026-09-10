@@ -406,20 +406,13 @@ async function communityStats(now: Date): Promise<CommunityStats> {
   // elles ont trouvé leur public.
   const judgedBefore = new Date(now.getTime() - 48 * 3_600_000)
 
-  const [
-    enabledProfiles,
-    posts,
-    postRows,
-    engaged,
-    judged,
-    activeListings,
-    doneListings,
-    closedListings,
-    threads,
-    listingsWithThreads,
-    openReports,
-    reports,
-  ] = await Promise.all([
+  /*
+   * Deux groupes, et non un seul de douze : c'est la section la plus large du
+   * tableau de bord, et celle qui expirait en premier sur un pool d'une seule
+   * connexion (la pile de l'erreur pointait `prisma.post.count()`). Voir
+   * `computeStats` pour le raisonnement complet.
+   */
+  const [enabledProfiles, posts, postRows, engaged, judged] = await Promise.all([
     prisma.user.count({ where: { communityEnabled: true, disabledAt: null } }),
     prisma.post.count({ where: { status: { not: 'deleted' } } }),
     prisma.$queryRaw<{ week: Date; count: number }[]>(Prisma.sql`
@@ -453,6 +446,17 @@ async function communityStats(now: Date): Promise<CommunityStats> {
     prisma.post.count({
       where: { status: { not: 'deleted' }, createdAt: { lte: judgedBefore } },
     }),
+  ])
+
+  const [
+    activeListings,
+    doneListings,
+    closedListings,
+    threads,
+    listingsWithThreads,
+    openReports,
+    reports,
+  ] = await Promise.all([
     prisma.listing.count({ where: { status: { in: ['active', 'reserved'] } } }),
     prisma.listing.count({ where: { status: 'done' } }),
     prisma.listing.count({ where: { status: { in: ['done', 'expired'] } } }),
@@ -498,15 +502,29 @@ export type AdminStats = {
 
 /** Sans cache — c'est cette fonction que les tests appellent. */
 export async function computeStats(now: Date = new Date()): Promise<AdminStats> {
-  const [accounts, active, retentionPoints, garden, ai, community, ops] = await Promise.all([
-    accountStats(now),
-    activeStats(now),
-    retention(now),
-    gardenStats(now),
-    aiStats(now),
-    communityStats(now),
-    opsStats(),
-  ])
+  /*
+   * **Les sections s'exécutent l'une après l'autre**, et ce n'est pas un
+   * oubli de `Promise.all`.
+   *
+   * Lancées ensemble, les sept sections mettaient une trentaine de requêtes en
+   * vol simultanément. Le pool de connexions de Prisma vaut 1 en production
+   * (`connection_limit=1` dans `DATABASE_URL`, pooler transactionnel Supabase) :
+   * les requêtes s'y empilaient derrière une seule connexion, et celles qui
+   * attendaient encore au bout de dix secondes abandonnaient — `P2024`, page
+   * blanche, « Application error » sans plus d'explication.
+   *
+   * Le parallélisme n'achetait rien : avec une connexion, tout est de toute
+   * façon sérialisé côté base. Il ne créait qu'une file d'attente capable
+   * d'expirer. La page est mise en cache dix minutes juste en dessous, un
+   * rendu à froid un peu plus lent ne se voit pas.
+   */
+  const accounts = await accountStats(now)
+  const active = await activeStats(now)
+  const retentionPoints = await retention(now)
+  const garden = await gardenStats(now)
+  const ai = await aiStats(now)
+  const community = await communityStats(now)
+  const ops = await opsStats()
 
   return {
     accounts,
