@@ -18,7 +18,7 @@
  * repérer les fautes de frappe dans la liste d'invitation.
  */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 import { PrismaClient } from '@prisma/client'
 import { PostHog } from 'posthog-node'
@@ -45,6 +45,17 @@ async function main() {
   const key = process.env.POSTHOG_KEY ?? process.env.NEXT_PUBLIC_POSTHOG_KEY
   if (!key) {
     console.error('POSTHOG_KEY absente : rien à faire.')
+    process.exitCode = 1
+    return
+  }
+
+  if (!existsSync(path)) {
+    // Le premier réflexe est de lancer la commande avant d'avoir écrit la
+    // liste : une trace de pile ENOENT ne le dit pas, cette phrase si.
+    console.error(
+      `Aucun fichier à ${path}. Crée-le avec une adresse par ligne — les lignes ` +
+        'vides et celles commençant par # sont ignorées.',
+    )
     process.exitCode = 1
     return
   }
