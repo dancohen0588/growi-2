@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -12,6 +13,19 @@ import { AddToGardenCta } from '../_components/AddToGardenCta'
 
 export const revalidate = 86400 // ISR: 24h
 export const dynamicParams = true
+
+/**
+ * La fiche, lue **une seule fois par requête**.
+ *
+ * `generateMetadata` et le composant ont besoin de la même plante : sans
+ * `cache()`, chaque affichage faisait deux `findUnique` sur le même slug — et
+ * deux fois plus de travail à la génération des 535 fiches. Le cache de React
+ * ne dure que le temps d'une requête : rien à invalider, et l'ISR continue de
+ * décider seul quand la page est refaite.
+ */
+const findPlantBySlug = cache(async (slug: string) => {
+  return prisma.plantCatalog.findUnique({ where: { slug } })
+})
 
 /**
  * Une partie du catalogue seulement — voir `lib/encyclopedie/prerender.ts`.
@@ -29,13 +43,10 @@ export async function generateMetadata({
 }: {
   params: { slug: string }
 }): Promise<Metadata> {
-  const plant = await prisma.plantCatalog.findUnique({
-    where: { slug: params.slug },
-    select: {
-      commonName: true, scientificName: true, descriptionShort: true, imageUrl: true, slug: true,
-    },
-  })
+  const plant = await findPlantBySlug(params.slug)
 
+  // Le composant appellera `notFound()` juste après : ces métadonnées-là ne
+  // sont jamais servies telles quelles, elles évitent seulement de lever ici.
   if (!plant) return { title: 'Plante introuvable — Growi' }
 
   const title = `${plant.commonName} | Encyclopédie Growi`
@@ -61,10 +72,11 @@ export default async function PlantDetailPage({
 }: {
   params: { slug: string }
 }) {
-  const plant = await prisma.plantCatalog.findUnique({
-    where: { slug: params.slug },
-  })
+  const plant = await findPlantBySlug(params.slug)
 
+  // Un slug inconnu — une fiche retirée du catalogue, une URL inventée — rend
+  // une vraie 404, et jamais une page vide. `dynamicParams` ne change rien à
+  // cela : il autorise la génération à la demande, pas l'invention de fiches.
   if (!plant) notFound()
 
   const description = plant.descriptionLong ?? plant.descriptionShort ?? ''
