@@ -11,6 +11,7 @@
  */
 
 import * as Sentry from '@sentry/nextjs'
+import { waitUntil } from '@vercel/functions'
 
 import { isServiceError, type ServiceErrorCode } from '@/lib/services/errors'
 
@@ -93,6 +94,19 @@ export function captureApiException(err: unknown, route?: string): void {
     if (isServiceError(err)) tags.service_code = err.code
 
     Sentry.captureException(err, { tags })
+
+    /*
+     * `captureException` ne fait que **mettre en file**. Sur Vercel, la
+     * fonction est gelée dès la réponse rendue : sans cette poussée, un
+     * événement capturé sur une requête isolée — c'est-à-dire presque toutes —
+     * meurt avec la fonction, sans la moindre trace.
+     *
+     * `waitUntil` garde la fonction en vie le temps de l'envoi, sans retarder
+     * la réponse d'une milliseconde. Hors de Vercel, c'est un no-op et la
+     * promesse suit son cours. Deux secondes suffisent : au-delà, mieux vaut
+     * perdre l'événement que retenir une fonction.
+     */
+    waitUntil(Sentry.flush(2000))
   } catch (reportingError) {
     console.error('[observability] remontée Sentry impossible', reportingError)
   }
