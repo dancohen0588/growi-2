@@ -6,20 +6,22 @@ import {
   ChevronRight, Droplets, Sun, Thermometer, Layers, Ruler, Scissors, AlertTriangle, Apple, Leaf,
 } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
+import { prerenderedPlantSlugs } from '@/lib/encyclopedie/prerender'
 import { cn } from '@/lib/utils'
 import { AddToGardenCta } from '../_components/AddToGardenCta'
 
 export const revalidate = 86400 // ISR: 24h
 export const dynamicParams = true
 
+/**
+ * Une partie du catalogue seulement — voir `lib/encyclopedie/prerender.ts`.
+ *
+ * Les fiches absentes d'ici ne disparaissent pas : `dynamicParams` les fait
+ * générer à la première visite, et `revalidate` les garde ensuite en cache
+ * vingt-quatre heures, exactement comme les fiches prérendues.
+ */
 export async function generateStaticParams() {
-  const plants = await prisma.plantCatalog.findMany({
-    where: { slug: { not: null } },
-    select: { slug: true },
-  })
-  return plants
-    .filter(p => !!p.slug)
-    .map(p => ({ slug: p.slug! }))
+  return prerenderedPlantSlugs()
 }
 
 export async function generateMetadata({
