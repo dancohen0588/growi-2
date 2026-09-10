@@ -45,6 +45,11 @@ const gemini = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/services/gemini', () => gemini)
 
+const bcrypt = vi.hoisted(() => ({
+  default: { hash: vi.fn(async () => '$2a$hashé'), compare: vi.fn(async () => true) },
+}))
+vi.mock('bcryptjs', () => bcrypt)
+
 vi.mock('@/lib/recommendation/garden-advice-service', () => ({
   invalidateGardenAdviceCache: vi.fn(),
 }))
@@ -53,6 +58,7 @@ vi.mock('@/lib/storage', () => ({ deletePhotoByUrl: vi.fn(), uploadPhoto: vi.fn(
 const { identifyPlant } = await import('@/lib/services/identify.service')
 const { createGarden } = await import('@/lib/services/garden.service')
 const { registerPushToken, forgetInvalidTokens } = await import('@/lib/services/push.service')
+const { createUser, verifyCredentials } = await import('@/lib/services/user.service')
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -182,5 +188,78 @@ describe('notifications', () => {
   it('ne fait rien sur une liste vide', async () => {
     await forgetInvalidTokens([])
     expect(prismaMock.pushToken.findMany).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * Inscription et connexion : la mesure est posée sur le **point de passage
+ * commun** aux deux surfaces, pas dans le service d'authentification.
+ *
+ * Ces quatre tests existent parce que l'inverse est arrivé : l'événement vivait
+ * dans `auth.service`, que seule l'API mobile emprunte, et les inscriptions du
+ * web ne laissaient aucune trace. Rien ne le signalait — l'entonnoir
+ * d'activation restait simplement vide.
+ */
+describe('authentification', () => {
+  it("compte l'inscription, quelle que soit la surface", async () => {
+    prismaMock.user.create.mockResolvedValue({ id: 'user_neuf' })
+
+    await createUser({ email: 'jardinier@exemple.fr', password: 'motdepasse', firstName: 'Sophie' })
+
+    expect(analytics.trackServer).toHaveBeenCalledWith('user_neuf', 'signup_completed', {
+      method: 'email',
+    })
+    expect(analytics.setPersonProperties).toHaveBeenCalledWith(
+      'user_neuf',
+      expect.objectContaining({ signup_method: 'email' }),
+    )
+  })
+
+  it('compte la connexion réussie', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user_1',
+      password: '$2a$hashé',
+      disabledAt: null,
+    })
+
+    await verifyCredentials('jardinier@exemple.fr', 'motdepasse')
+
+    expect(analytics.trackServer).toHaveBeenCalledWith('user_1', 'login_completed', {
+      method: 'email',
+    })
+  })
+
+  it("n'attribue pas un échec à un compte, même quand l'adresse existe", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user_1',
+      password: '$2a$hashé',
+      disabledAt: null,
+    })
+    bcrypt.default.compare.mockResolvedValueOnce(false)
+
+    await verifyCredentials('jardinier@exemple.fr', 'faux')
+
+    // Rattacher l'échec au compte reviendrait à confirmer que l'adresse est
+    // enregistrée — la raison même pour laquelle les messages sont indistincts.
+    expect(analytics.trackAnonymous).toHaveBeenCalledWith('login_failed', {
+      method: 'email',
+      reason: 'bad_credentials',
+    })
+    expect(analytics.trackServer).not.toHaveBeenCalled()
+  })
+
+  it('distingue un compte désactivé, sans le dire à qui essaie', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user_1',
+      password: '$2a$hashé',
+      disabledAt: new Date(),
+    })
+
+    await verifyCredentials('jardinier@exemple.fr', 'motdepasse')
+
+    expect(analytics.trackAnonymous).toHaveBeenCalledWith('login_failed', {
+      method: 'email',
+      reason: 'account_disabled',
+    })
   })
 })

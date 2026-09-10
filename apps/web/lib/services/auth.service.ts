@@ -103,9 +103,7 @@ export async function register(input: {
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id }, select: USER_FIELDS })
 
-  trackServer(id, 'signup_completed', { method: 'email' })
-  setPersonProperties(id, { signup_method: 'email', signup_at: new Date().toISOString() })
-
+  // `signup_completed` est émis par `createUser`, que le web emprunte aussi.
   return issueTokens(user, input.deviceInfo)
 }
 
@@ -120,15 +118,13 @@ export async function login(input: {
   password: string
   deviceInfo?: string
 }): Promise<AuthTokens> {
+  // `login_completed` et `login_failed` sont émis par `verifyCredentials`,
+  // que NextAuth emprunte aussi côté web.
   const user = await verifyCredentials(input.email, input.password)
   if (!user) {
-    // Sans compte reconnu, l'échec ne se rattache à personne : il compte pour
-    // lui-même, sans créer de profil (voir `trackAnonymous`).
-    trackAnonymous('login_failed', { method: 'email', reason: 'bad_credentials' })
     throw new ServiceError('UNAUTHENTICATED', 'Email ou mot de passe incorrect')
   }
 
-  trackServer(user.id, 'login_completed', { method: 'email' })
   return issueTokens(user, input.deviceInfo)
 }
 

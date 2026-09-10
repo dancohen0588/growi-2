@@ -40,7 +40,10 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json(await identifyPlant(body?.imageBase64))
+    // L'identifiant est transmis quand il y en a un : c'est lui qui rattache
+    // `identify_completed` — modèle, latence, jetons — à un compte. Un visiteur
+    // anonyme n'en a pas, et le service n'émet alors rien.
+    return NextResponse.json(await identifyPlant(body?.imageBase64, session?.user?.id ?? null))
   } catch (err) {
     if (isServiceError(err)) {
       const status = err.code === 'UNAVAILABLE' ? 503 : 400

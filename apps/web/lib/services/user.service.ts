@@ -7,6 +7,7 @@ import { DEFAULT_ALERT_CONFIG, type AlertConfig, type UserProfile } from '@growi
 import { Prisma } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
+import { setPersonProperties, trackAnonymous, trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 import { refreshFuzzyPosition } from '@/lib/services/community/profile.service'
@@ -217,7 +218,7 @@ export async function createUser(input: {
   const hashedPassword = await bcrypt.hash(input.password, 12)
 
   try {
-    return await prisma.user.create({
+    const created = await prisma.user.create({
       data: {
         email: input.email,
         name: input.firstName,
@@ -225,6 +226,23 @@ export async function createUser(input: {
       },
       select: { id: true },
     })
+
+    /*
+     * L'événement est émis **ici**, et non dans `auth.service.register()`.
+     *
+     * Deux parcours créent un compte par mot de passe : l'API v1 (mobile) et
+     * la Server Action `registerAction` (web). Posé dans le service d'auth, il
+     * ne couvrait que le premier — le web s'inscrivait sans laisser de trace,
+     * et l'entonnoir d'activation restait vide sans que rien ne le signale.
+     * `createUser` est le seul point que les deux traversent.
+     */
+    trackServer(created.id, 'signup_completed', { method: 'email' })
+    setPersonProperties(created.id, {
+      signup_method: 'email',
+      signup_at: new Date().toISOString(),
+    })
+
+    return created
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       throw new ServiceError('CONFLICT', 'Un compte existe déjà avec cet email.')
@@ -280,11 +298,26 @@ export async function verifyCredentials(email: string, password: string) {
   const hash = user?.password ?? DUMMY_PASSWORD_HASH
   const passwordsMatch = await bcrypt.compare(password, hash)
 
-  if (!user?.password || !passwordsMatch) return null
+  /*
+   * Comme pour l'inscription, la mesure est posée au point de passage commun :
+   * NextAuth (web) et `auth.service.login()` (mobile) appellent tous deux
+   * cette fonction. L'échec ne se rattache à personne — même quand le compte
+   * existe, le dire reviendrait à confirmer que l'adresse est enregistrée.
+   */
+  if (!user?.password || !passwordsMatch) {
+    trackAnonymous('login_failed', { method: 'email', reason: 'bad_credentials' })
+    return null
+  }
+
   // Un compte désactivé se comporte comme un mot de passe faux : lui répondre
   // « votre compte est désactivé » indiquerait aussi que l'adresse existe et
   // que le mot de passe présenté était le bon.
-  if (user.disabledAt) return null
+  if (user.disabledAt) {
+    trackAnonymous('login_failed', { method: 'email', reason: 'account_disabled' })
+    return null
+  }
+
+  trackServer(user.id, 'login_completed', { method: 'email' })
   return user
 }
 
