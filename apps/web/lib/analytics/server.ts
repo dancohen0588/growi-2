@@ -184,6 +184,31 @@ export function setPersonProperties(
 }
 
 /**
+ * Ce que le serveur voit de PostHog — **sans rien révéler**.
+ *
+ * Une mesure qui n'arrive pas a plusieurs causes indiscernables de
+ * l'extérieur : clé absente, environnement pris pour du développement, client
+ * jamais construit. Cette fonction les sépare, et ne rend que des booléens,
+ * un nom de variable et l'hôte — jamais la clé.
+ *
+ * Lue par `/api/v1/debug/sentry?check=1`, qui disparaîtra avec elle à la fin
+ * de la Friends & Family.
+ */
+export function analyticsDiagnostics() {
+  return {
+    keyConfigured: Boolean(KEY),
+    keySource: process.env.POSTHOG_KEY
+      ? 'POSTHOG_KEY'
+      : process.env.NEXT_PUBLIC_POSTHOG_KEY
+        ? 'NEXT_PUBLIC_POSTHOG_KEY'
+        : null,
+    enabled: analyticsEnabled(),
+    clientCreated: Boolean(getClient()),
+    host: HOST,
+  }
+}
+
+/**
  * Vide la file et ferme le client.
  *
  * Réservé aux scripts qui tournent hors serveur (`scripts/`), où il n'y a ni

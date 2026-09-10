@@ -54,14 +54,19 @@ describe('GET /api/v1/debug/sentry', () => {
     )
 
     expect(response.status).toBe(200)
-    const body = (await response.json()) as { data: Record<string, unknown> }
-    expect(body.data).toEqual({
+    const body = (await response.json()) as {
+      data: { sentry: Record<string, unknown>; analytics: Record<string, unknown> }
+    }
+    expect(body.data.sentry).toEqual({
       initialized: true,
       dsnConfigured: true,
       enabled: true,
       environment: 'preview',
       release: 'abc1234',
     })
+    // L'état de PostHog est rendu à côté de celui de Sentry : une mesure qui
+    // n'arrive pas peut venir de l'un comme de l'autre.
+    expect(body.data.analytics).toMatchObject({ enabled: false })
     // Le DSN dit l'organisation et le projet : il n'a rien à faire dans une
     // réponse, fût-elle protégée par un jeton.
     expect(JSON.stringify(body)).not.toContain('ingest')

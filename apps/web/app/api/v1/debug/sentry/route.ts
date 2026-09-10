@@ -17,6 +17,7 @@
 
 import * as Sentry from '@sentry/nextjs'
 
+import { analyticsDiagnostics } from '@/lib/analytics/server'
 import { fail, ok, withApiErrorHandling } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
@@ -41,6 +42,15 @@ export const GET = withApiErrorHandling(async (request: Request) => {
   if (new URL(request.url).searchParams.get('check')) {
     const options = Sentry.getClient()?.getOptions()
     return ok({
+      sentry: {
+        initialized: Boolean(options),
+        dsnConfigured: Boolean(options?.dsn),
+        enabled: options?.enabled ?? null,
+        environment: options?.environment ?? null,
+        release: options?.release ?? null,
+      },
+      analytics: analyticsDiagnostics(),
+      // Conservés à plat : les vérifications déjà écrites les lisent ici.
       initialized: Boolean(options),
       dsnConfigured: Boolean(options?.dsn),
       enabled: options?.enabled ?? null,
