@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Pressable, Share, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -6,6 +7,7 @@ import { ChevronLeft, Share2 } from 'lucide-react-native'
 import { ArticleView } from '@/components/blog/ArticleView'
 import { PostCardSkeleton } from '@/components/blog/PostCardSkeleton'
 import { ErrorState } from '@/components/ui/states'
+import { useTrack } from '@/lib/analytics/posthog'
 import { WEB_BASE_URL } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { useBlogPost } from '@/lib/queries/blog'
@@ -19,6 +21,16 @@ import { useBlogPost } from '@/lib/queries/blog'
 export default function ArticleScreen() {
   const router = useRouter()
   const { slug } = useLocalSearchParams<{ slug: string }>()
+  const { from } = useLocalSearchParams<{ from?: string }>()
+  const track = useTrack()
+
+  useEffect(() => {
+    if (!slug) return
+    // `from` est posé par le carrousel de l'accueil et par la liste ; une
+    // notification pourra le poser aussi le jour où l'on poussera un article.
+    const origin = from === 'list' || from === 'push' ? from : 'home'
+    track('article_viewed', { slug, from: origin })
+  }, [from, slug, track])
   const query = useBlogPost(slug ?? '')
 
   /**

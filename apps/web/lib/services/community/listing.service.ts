@@ -18,6 +18,7 @@ import {
 } from '@growi/shared'
 import { Prisma } from '@prisma/client'
 
+import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/errors'
 import { deletePhotoByUrl } from '@/lib/storage'
@@ -160,6 +161,8 @@ export async function createListing(
     },
     include: LISTING_INCLUDE,
   })
+
+  trackServer(userId, 'listing_published', { kind: input.kind })
 
   return toListing(listing, null, userId, null)
 }
@@ -572,6 +575,8 @@ export async function expressInterest(listingId: string, userId: string): Promis
     return created
   })
 
+  trackServer(userId, 'listing_interest_sent', {})
+
   const me = await prisma.user.findUnique({ where: { id: userId }, select: { handle: true } })
   void notifyListingInterest(
     { id: userId, handle: me?.handle ?? null },
@@ -765,6 +770,11 @@ export async function sendMessage(
 
     return created
   })
+
+  // Tous les fils sont rattachés à une annonce : la messagerie directe
+  // n'existe pas, et `thread_kind` ne prendra une autre valeur que le jour où
+  // elle existera.
+  trackServer(userId, 'thread_message_sent', { thread_kind: 'listing' })
 
   const me = await prisma.user.findUnique({ where: { id: userId }, select: { handle: true } })
   void notifyListingMessage(

@@ -14,13 +14,29 @@
  */
 
 import type { ActivitySurface } from '@growi/shared'
+import * as Sentry from '@sentry/nextjs'
 import { headers } from 'next/headers'
 
 import { auth } from '@/auth'
+import { setPersonProperties } from '@/lib/analytics/server'
 import { parseBearerToken, verifyAccessToken } from '@/lib/auth/tokens'
 import { prisma } from '@/lib/prisma'
 import { touchActivity } from '@/lib/services/activity.service'
 import { ServiceError } from '@/lib/services/errors'
+
+/**
+ * Plateforme de l'appelant.
+ *
+ * Le jeton d'accès ne dit pas d'où il vient : l'app pose un en-tête
+ * (`lib/api.ts` côté mobile). Sans lui — client plus ancien, appel direct —
+ * on s'en tient à `web`, qui est de toute façon le seul cas possible sans
+ * Bearer.
+ */
+function callerPlatform(surface: ActivitySurface): 'ios' | 'android' | 'web' {
+  if (surface !== 'mobile') return 'web'
+  const declared = headers().get('x-growi-platform')
+  return declared === 'ios' || declared === 'android' ? declared : 'ios'
+}
 
 /**
  * Identifiant de l'utilisateur courant, ou `null` si la requête est anonyme.
@@ -60,7 +76,18 @@ export async function getUserId(): Promise<string | null> {
   })
   if (!account || account.disabledAt) return null
 
-  touchActivity(userId, surface)
+  // `touchActivity` n'écrit qu'une fois par heure et par utilisateur, et rend
+  // `true` quand elle a écrit : on se cale dessus pour ne pas réécrire la
+  // propriété de personne à chaque requête.
+  if (touchActivity(userId, surface)) {
+    setPersonProperties(userId, { last_platform: callerPlatform(surface) })
+  }
+
+  // Sur qui porte l'erreur, et combien de personnes une régression touche :
+  // c'est le seul tri qui vaille dans la boîte Issues. **L'identifiant interne
+  // et rien d'autre** — pas d'e-mail, pas de nom, pas de pseudo. Sentry isole
+  // le scope par requête, l'identité ne déborde donc pas sur la suivante.
+  Sentry.setUser({ id: userId })
 
   return userId
 }

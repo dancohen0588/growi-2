@@ -13,6 +13,8 @@ import type {
 } from '@growi/shared'
 import type { PlantCatalog } from '@prisma/client'
 
+import { countPlants, refreshGardenCounts } from '@/lib/analytics/person'
+import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import type { PlantInstanceWithRelations } from '@/lib/plant-mapper'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
@@ -96,6 +98,29 @@ export async function assertPlantOwned(
  * Les caractéristiques d'entretien manquantes sont héritées de la fiche
  * catalogue quand la plante y est reliée.
  */
+/**
+ * Note l'ajout d'une plante, sans rien faire attendre à l'appelant.
+ *
+ * Le décompte demande une requête de plus : elle part hors du chemin
+ * critique, comme la trace d'activité. `plants_total` est ce qui permet de
+ * lire l'activation — « a-t-on ajouté une plante le premier jour ? » — sans
+ * recouper deux tableaux.
+ */
+function notePlantAdded(
+  userId: string,
+  source: 'catalog' | 'identify' | 'manual',
+  gardenId: string | null,
+): void {
+  void countPlants(userId)
+    .then((plantsTotal) => {
+      trackServer(userId, 'plant_added', { source, garden_id: gardenId, plants_total: plantsTotal })
+      refreshGardenCounts(userId)
+    })
+    .catch(() => {
+      // Silencieux : une mesure manquée ne vaut pas un bruit de plus.
+    })
+}
+
 export async function createPlantInstance(
   userId: string,
   input: CreatePlantInstanceInput,
@@ -139,6 +164,8 @@ export async function createPlantInstance(
   // Sans cela, la plante n'apparaîtrait dans le planning qu'à l'expiration du
   // cache de conseils — jusqu'à six heures plus tard.
   if (gardenId) await invalidateGardenAdviceCache(gardenId)
+
+  notePlantAdded(userId, input.catalogPlantId ? 'catalog' : 'manual', gardenId ?? null)
 
   return prisma.plantInstance.findUniqueOrThrow({
     where: { id: created.id },
@@ -188,6 +215,8 @@ export async function addIdentifiedPlant(
   })
 
   if (defaultGarden?.id) await invalidateGardenAdviceCache(defaultGarden.id)
+
+  notePlantAdded(userId, 'identify', defaultGarden?.id ?? null)
 
   // La fiche complète plutôt que le seul identifiant : l'app y navigue juste
   // après, et le web y lit le même `id`.
@@ -284,6 +313,13 @@ export async function deletePlantInstance(plantInstanceId: string, userId: strin
   ])
 
   if (gardenId) await invalidateGardenAdviceCache(gardenId)
+
+  void countPlants(userId)
+    .then((plantsTotal) => {
+      trackServer(userId, 'plant_removed', { plants_total: plantsTotal })
+      refreshGardenCounts(userId)
+    })
+    .catch(() => {})
 }
 
 // ─── Catalogue d'espèces ───────────────────────────────────────────────────

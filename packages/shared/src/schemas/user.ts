@@ -106,6 +106,13 @@ export type PublicUser = z.infer<typeof publicUserSchema>
 
 /** Profil tel que consommé par l'écran Paramètres (web) et l'onglet Profil (mobile). */
 export const userProfileSchema = z.object({
+  /**
+   * Identifiant interne du compte. Le mobile le reçoit à la connexion, mais
+   * pas au redémarrage suivant : les jetons stockés ne le portent pas. C'est
+   * pourtant la seule chose qu'on attache aux remontées d'erreurs et à
+   * l'analyse d'usage — d'où sa présence ici, où le profil est relu.
+   */
+  id: idSchema,
   firstName: z.string(),
   lastName: z.string(),
   email: z.string(),
@@ -117,6 +124,12 @@ export const userProfileSchema = z.object({
   latitude: nullish(z.number()),
   longitude: nullish(z.number()),
   alertConfig: alertConfigSchema,
+  /**
+   * L'utilisateur s'oppose à l'analyse d'usage. Les rapports de plantage
+   * restent actifs : ils ne servent qu'à corriger des bugs, et l'app en
+   * dépend pour ne pas rester cassée sans que personne le sache.
+   */
+  analyticsOptOut: z.boolean(),
 })
 
 export type UserProfile = z.infer<typeof userProfileSchema>
@@ -133,6 +146,8 @@ export const updateProfileSchema = z.object({
   avatarColor: nullish(z.string()),
   latitude: nullish(z.number()),
   longitude: nullish(z.number()),
+  /** Opposition à l'analyse d'usage — voir `userProfileSchema`. */
+  analyticsOptOut: z.boolean().optional(),
 })
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>

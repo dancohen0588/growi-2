@@ -32,6 +32,7 @@ import { ErrorState, ListSkeleton } from '@/components/ui/states'
 import { formatDueDate } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { PermissionDeniedError, pickPhoto, takePhoto, type Photo } from '@/lib/photo'
+import { useTrack } from '@/lib/analytics/posthog'
 import { useChatThread } from '@/lib/queries/chat'
 
 /**
@@ -158,6 +159,20 @@ export interface ChatScreenProps {
 export function ChatScreen({ anchor, draft }: ChatScreenProps) {
   const router = useRouter()
   const thread = useChatThread(anchor)
+
+  // Une ouverture par ancrage : le fil se rouvre au même endroit d'un rendu à
+  // l'autre, seul un changement d'ancrage est une nouvelle ouverture.
+  const track = useTrack()
+  const opened = useRef<string | null>(null)
+
+  useEffect(() => {
+    const key = `${anchor.kind}:${'plantInstanceId' in anchor ? anchor.plantInstanceId : ''}`
+    if (opened.current === key) return
+    opened.current = key
+    // Le catalogue ne connaît pas `diagnosis` : l'ancrage d'un diagnostic
+    // part toujours d'une fiche plante, c'est bien de là qu'on vient.
+    track('assistant_opened', { from: anchor.kind === 'action' ? 'action' : 'plant' })
+  }, [anchor, track])
 
   const [input, setInput] = useState(draft ?? '')
   const [photo, setPhoto] = useState<Photo | null>(null)

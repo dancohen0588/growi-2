@@ -17,6 +17,7 @@ import type { ContactMessageSource, ContactMessageStatus } from '@growi/shared'
 import type { Prisma } from '@prisma/client'
 import { Resend } from 'resend'
 
+import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { CONTACT_SUBJECTS } from '@/lib/schemas/contact-schema'
 import { ServiceError } from '@/lib/services/errors'
@@ -118,6 +119,11 @@ export async function receive(input: ReceiveInput) {
     console.error('[contact] écriture du message impossible', err)
     throw new ServiceError('UNAVAILABLE', 'Une erreur est survenue. Réessaie dans quelques instants.')
   }
+
+  // Rattaché au compte quand l'adresse en désigne un ; sinon rien n'est émis.
+  // Un message de contact vient souvent de quelqu'un qui n'a pas de compte, et
+  // inventer un identifiant pour lui n'apprendrait rien.
+  if (account) trackServer(account.id, 'contact_sent', {})
 
   // À partir d'ici, plus rien ne peut faire échouer la réception : le message
   // est acquis. La notification n'est qu'un confort pour l'équipe.

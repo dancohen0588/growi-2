@@ -28,6 +28,7 @@ import {
 } from '@growi/shared'
 import type { PlantTask } from '@prisma/client'
 
+import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/errors'
 
@@ -185,6 +186,15 @@ export async function planDiagnosisActions(
     }),
     prisma.diagnosis.update({ where: { id: diagnosisId }, data: { tasksPlannedAt: now } }),
   ])
+
+  trackServer(userId, 'diagnosis_actions_applied', {
+    actions_count: drafts.length,
+    // « Modifié » au sens de la revue : l'utilisateur a décoché au moins une
+    // tâche ouverte, plutôt que d'accepter la proposition telle quelle. On ne
+    // peut pas en dire plus — le client n'envoie que les identifiants à
+    // retirer, jamais les verdicts qu'on lui avait proposés.
+    actions_edited: supersede.length > 0,
+  })
 
   return { tasksCreated: drafts.length, superseded, tasksPlannedAt: now.toISOString() }
 }

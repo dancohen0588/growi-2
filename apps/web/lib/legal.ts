@@ -59,6 +59,18 @@ export const DATA_COLLECTED = [
     retention: 'Jusqu\'à la suppression du compte.',
   },
   {
+    category: 'Usage et diagnostic technique',
+    items:
+      'Identifiant technique de ton compte, version de l\'app, plateforme, modèle d\'appareil, '
+      + 'écrans ouverts, gestes effectués, erreurs rencontrées. Jamais le contenu de tes '
+      + 'photos, de tes messages ni de ton journal.',
+    why:
+      'Corriger les pannes, et savoir ce qui sert vraiment pour améliorer le service. '
+      + 'La mesure d\'usage peut être refusée depuis ton profil ; les rapports de plantage, eux, '
+      + 'restent actifs — sans eux, un bug peut rester des semaines sans que personne le sache.',
+    retention: '30 jours pour les rapports de plantage, 12 mois pour la mesure d\'usage.',
+  },
+  {
     category: 'Localisation',
     items: 'Ville, adresse si tu la renseignes, latitude et longitude approximatives.',
     why: 'Obtenir la météo de ton jardin et adapter les conseils d\'entretien.',
@@ -211,6 +223,22 @@ export const PROCESSORS = [
     location: 'France',
   },
   {
+    name: 'Functional Software, Inc. (Sentry)',
+    role: 'Rapports de plantage et diagnostic technique',
+    data:
+      'Un identifiant technique de compte, la version de l\'app, le modèle d\'appareil, '
+      + 'et le détail de l\'erreur. Ni photo, ni message, ni adresse.',
+    location: 'Union européenne (Francfort)',
+  },
+  {
+    name: 'PostHog, Inc.',
+    role: 'Mesure d\'usage du service — quelles fonctions servent, où l\'on décroche',
+    data:
+      'Un identifiant technique de compte, les écrans ouverts et les gestes du catalogue '
+      + 'd\'événements. Aucun contenu que tu écris ou photographies.',
+    location: 'Union européenne (Francfort)',
+  },
+  {
     name: 'Expo (Expo Push, 650 Industries)',
     role: 'Acheminement des notifications de rappel vers ton téléphone',
     data:
@@ -220,7 +248,7 @@ export const PROCESSORS = [
 ] as const
 
 /** Dernière révision des textes légaux, affichée en tête de page. */
-export const LEGAL_UPDATED_AT = '2026-09-03'
+export const LEGAL_UPDATED_AT = '2026-09-09'
 
 /** Vrai tant que l'identité de l'éditeur n'est pas renseignée. */
 export function hasLegalPlaceholders(): boolean {

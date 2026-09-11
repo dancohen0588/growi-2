@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   FlatList,
   Pressable,
@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar'
 import { X } from 'lucide-react-native'
 
 import { Button } from '@/components/ui/Button'
+import { analytics, useTrack } from '@/lib/analytics/posthog'
 import { markOnboardingSeen } from '@/lib/onboarding-storage'
 import { useReducedMotion } from '@/lib/use-reduced-motion'
 import { useSession } from '@/store/session'
@@ -62,6 +63,21 @@ export function OnboardingCarousel() {
   const slide = SLIDES[index]
   const isLast = index === SLIDES.length - 1
 
+  /*
+   * Mesure de la présentation. Rien n'est émis en mode « revoir » : c'est le
+   * premier passage qui dit où l'on décroche, et mêler les relectures depuis
+   * le profil fausserait l'entonnoir d'activation.
+   */
+  const track = useTrack()
+  const startedAt = useRef(Date.now())
+
+  useEffect(() => {
+    if (replay) return
+    track('onboarding_screen_viewed', { step: index + 1, screen_id: slide.id })
+  }, [index, replay, slide.id, track])
+
+  const elapsedSeconds = () => Math.round((Date.now() - startedAt.current) / 1000)
+
   // FlatList exige des références stables : redéfinir ces deux valeurs à chaque
   // rendu lui fait lever « Changing onViewableItemsChanged on the fly ».
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 })
@@ -75,12 +91,20 @@ export function OnboardingCarousel() {
   }, [index, reducedMotion])
 
   const leave = useCallback(
-    async (to: '/(auth)/login' | '/(auth)/register') => {
+    async (to: '/(auth)/login' | '/(auth)/register', skipped = false) => {
+      if (!replay) {
+        if (skipped) track('onboarding_skipped', { at_step: index + 1 })
+        track('onboarding_completed', { duration_s: elapsedSeconds(), skipped })
+        // La présentation précède la connexion : la propriété est posée sur le
+        // profil anonyme, que `identify` rattachera au compte créé juste après.
+        analytics().setPersonProperties({ onboarding_completed: !skipped })
+      }
       await markOnboardingSeen()
       setOnboardingSeen(true)
       router.replace(to)
     },
-    [router, setOnboardingSeen],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [index, replay, router, setOnboardingSeen, track],
   )
 
   /** Sortie du mode « revoir » : on revient d'où l'on vient, sans rien écrire. */
@@ -126,7 +150,7 @@ export function OnboardingCarousel() {
 
           {!replay && !isLast ? (
             <Pressable
-              onPress={() => void leave('/(auth)/login')}
+              onPress={() => void leave('/(auth)/login', true)}
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel="Passer la présentation"

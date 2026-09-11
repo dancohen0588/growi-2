@@ -35,3 +35,89 @@ pnpm --filter web e2e       # Tests end-to-end (Playwright)
 pnpm build                  # Build de tous les packages (Turborepo)
 pnpm typecheck              # Vérification des types sur tout le monorepo
 ```
+
+## Observabilité
+
+Sentry couvre les erreurs et les traces du web, de l'API et de l'app
+(projets `growi-web` et `growi-mobile`, région UE) ; PostHog l'analyse produit
+des trois surfaces. Spec : `~/Growi/Documentation/spec/09-spec-observabilite.md`.
+Le mobile a sa propre section dans `apps/mobile/README.md`.
+
+| Fichier | Rôle |
+|---|---|
+| `packages/shared/src/observability/` | `scrubEvent` — la barrière aux données personnelles — et la normalisation des URL, partagés web et mobile |
+| `apps/web/lib/observability/sentry-options.ts` | Réglages communs aux trois runtimes du web |
+| `apps/web/sentry.{client,server,edge}.config.ts` | Un `Sentry.init` par runtime ; seul le serveur ajoute `prismaIntegration` |
+| `apps/web/instrumentation.ts` | Charge la bonne configuration au démarrage |
+| `apps/web/lib/observability/report.ts` | Ce qu'on remonte, et sous quel nom de route |
+
+**Prérequis Vercel** : la case *Enable access to System Environment Variables*
+(Projet → Settings → Environment Variables) doit rester cochée. C'est elle qui
+pose `NEXT_PUBLIC_VERCEL_ENV` et `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA`, les
+seules variantes que le navigateur puisse lire — Next n'inline que les
+`NEXT_PUBLIC_*`. Sans elles, le serveur reste bien étiqueté (repli sur
+`VERCEL_ENV`) mais **toutes les erreurs du navigateur seraient prises pour du
+développement, donc jamais envoyées**.
+
+**En local, rien ne part** : sans `NEXT_PUBLIC_SENTRY_DSN` on n'initialise pas,
+et hors Vercel `enabled` reste faux même si un DSN traîne dans `.env.local`.
+C'est délibéré — un `console.error` de développement n'a pas à consommer le
+quota du plan gratuit (5 000 erreurs par mois).
+
+**Ce qui n'est volontairement pas remonté** : les `ServiceError` dont le code
+est `UNAUTHENTICATED`, `NOT_FOUND`, `FORBIDDEN`, `INVALID_INPUT`, `CONFLICT`,
+`RATE_LIMITED` ou `QUOTA_EXCEEDED`, ainsi que les erreurs de validation Zod. Ce
+sont des réponses, pas des pannes : les capturer noierait les vraies en
+quelques heures. Restent `INTERNAL` et `UNAVAILABLE`, taguées `service_code` et
+`route`.
+
+**Aucune donnée personnelle** : `sendDefaultPii: false`, `Sentry.setUser` ne
+pose que l'identifiant interne, et `scrubEvent` retire cookie, `Authorization`,
+photo (`imageBase64` → `[image]`) et toute clé nommée e-mail, mot de passe ou
+jeton, à toute profondeur.
+
+**Vérifier la chaîne** (déploiement preview, `DEBUG_TOKEN` posé dans Vercel) :
+
+```bash
+curl -H "x-debug-token: $DEBUG_TOKEN" https://<deploiement>.vercel.app/api/v1/debug/sentry
+```
+
+L'issue doit apparaître dans `growi-web` avec `environment: preview` et le SHA
+du commit en release. Cette route et son jeton disparaîtront à la fin de la
+Friends & Family.
+
+Les instrumentations manuelles à connaître : `gemini.generate` (une par
+tentative de modèle, avec jetons, repli et troncature), `weather.fetch`
+(Open-Meteo) et `push.send` (tournée du matin).
+
+### Analyse produit (PostHog)
+
+Le catalogue d'événements est dans `packages/shared/src/analytics/events.ts` —
+**une union discriminée : un nom hors catalogue ne compile pas**. Trois
+émetteurs le consomment :
+
+| Émetteur | Où | Pour quoi |
+|---|---|---|
+| `useTrack()` | `apps/web/lib/analytics/client.tsx` | Ce que l'utilisateur *fait* sur le web |
+| `useTrack()` | `apps/mobile/lib/analytics/posthog.ts` | Idem sur mobile |
+| `trackServer()` | `apps/web/lib/analytics/server.ts` | Ce qui *se produit* — résultat d'une IA, jetons, tournée de push |
+
+- **Rien ne part en local**, ni sans clé, ni sous Vitest.
+- **L'envoi serveur passe par `waitUntil`** : sur Vercel la fonction gèle dès
+  la réponse rendue, souvent avant que le lot ne parte. `flushAt` seul
+  perdrait les événements des requêtes isolées, c'est-à-dire presque toutes.
+- **Les événements serveur portent `surface: 'server'`**, jamais `web`/`mobile` :
+  le serveur ne sait pas d'où vient l'appel. La plateforme de l'utilisateur est
+  la propriété de personne `last_platform`, posée dans `lib/api/auth-context.ts`
+  au rythme de la trace d'activité (au plus une fois par heure).
+- **Le refus d'analyse est posé sur le compte** (`User.analyticsOptOut`,
+  onglet Confidentialité du compte web, interrupteur du profil mobile). Les
+  SDK des appareils le lisent à l'ouverture de session ; le serveur le relit
+  avant chaque émission, au plus une fois par heure et par compte. Une
+  émission qui contournerait `trackServer` contournerait aussi ce refus.
+- **`is_tester_ff` n'est jamais posée par le code** : rien dans un parcours ne
+  distingue un testeur. Elle se pose à la main, sur une liste écrite :
+
+```bash
+pnpm --filter web posthog:testers testeurs.txt
+```

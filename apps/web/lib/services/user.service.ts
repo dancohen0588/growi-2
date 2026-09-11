@@ -7,12 +7,19 @@ import { DEFAULT_ALERT_CONFIG, type AlertConfig, type UserProfile } from '@growi
 import { Prisma } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
+import {
+  rememberOptOut,
+  setPersonProperties,
+  trackAnonymous,
+  trackServer,
+} from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 import { refreshFuzzyPosition } from '@/lib/services/community/profile.service'
 import { ServiceError } from '@/lib/services/errors'
 
 const PROFILE_SELECT = {
+  id: true,
   firstName: true,
   lastName: true,
   name: true,
@@ -24,9 +31,11 @@ const PROFILE_SELECT = {
   alertConfig: true,
   latitude: true,
   longitude: true,
+  analyticsOptOut: true,
 } as const
 
 type ProfileRow = {
+  id: string
   firstName: string | null
   lastName: string | null
   name: string | null
@@ -38,11 +47,13 @@ type ProfileRow = {
   alertConfig: Prisma.JsonValue | null
   latitude: number | null
   longitude: number | null
+  analyticsOptOut: boolean
 }
 
 /** Ligne Prisma → profil exposé au client. */
 export function toProfile(user: ProfileRow): UserProfile {
   return {
+    id: user.id,
     firstName: user.firstName ?? user.name ?? '',
     lastName: user.lastName ?? '',
     email: user.email,
@@ -59,6 +70,7 @@ export function toProfile(user: ProfileRow): UserProfile {
     },
     latitude: user.latitude,
     longitude: user.longitude,
+    analyticsOptOut: user.analyticsOptOut,
   }
 }
 
@@ -102,6 +114,11 @@ export async function updateProfile(
       ])
     }
 
+    // Le refus prend effet sur cette instance à l'instant, sans attendre que
+    // la mémoire d'une heure expire ; l'événement `care_logged` qui suivrait
+    // dans la même minute ne partirait pas.
+    if (input.analyticsOptOut !== undefined) rememberOptOut(userId, updated.analyticsOptOut)
+
     return toProfile(updated)
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -110,6 +127,17 @@ export async function updateProfile(
     throw err
   }
 }
+
+/*
+ * OBS-delete-person — à faire le jour où la suppression de compte existe.
+ *
+ * Supprimer un compte doit aussi effacer la personne dans PostHog et détacher
+ * l'identité côté Sentry : sans cela, un compte parti continuerait d'exister
+ * chez deux prestataires, et la page de confidentialité promettrait quelque
+ * chose de faux. La fonction n'existe pas encore (elle vient avec le chantier
+ * « suppression de compte » demandé par Google Play) ; ce commentaire marque
+ * l'endroit où le raccrocher, à côté des autres écritures sur le compte.
+ */
 
 /**
  * Fuseau de l'utilisateur — celui dans lequel se compte « aujourd'hui ».
@@ -123,6 +151,22 @@ export async function getUserTimezone(userId: string): Promise<string> {
     select: { timezone: true },
   })
   return user?.timezone ?? 'Europe/Paris'
+}
+
+/**
+ * Le compte refuse-t-il l'analyse d'usage ?
+ *
+ * Lu à part du profil complet : le layout du dashboard n'a besoin que de ce
+ * booléen, et le charger avec le reste ferait une requête plus large sur
+ * chaque page. En cas de compte introuvable, on répond « refuse » — le silence
+ * est le repli sûr.
+ */
+export async function getAnalyticsOptOut(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { analyticsOptOut: true },
+  })
+  return user?.analyticsOptOut ?? true
 }
 
 /** Localisation de l'utilisateur, pour la météo et les conseils. */
@@ -184,7 +228,7 @@ export async function createUser(input: {
   const hashedPassword = await bcrypt.hash(input.password, 12)
 
   try {
-    return await prisma.user.create({
+    const created = await prisma.user.create({
       data: {
         email: input.email,
         name: input.firstName,
@@ -192,6 +236,23 @@ export async function createUser(input: {
       },
       select: { id: true },
     })
+
+    /*
+     * L'événement est émis **ici**, et non dans `auth.service.register()`.
+     *
+     * Deux parcours créent un compte par mot de passe : l'API v1 (mobile) et
+     * la Server Action `registerAction` (web). Posé dans le service d'auth, il
+     * ne couvrait que le premier — le web s'inscrivait sans laisser de trace,
+     * et l'entonnoir d'activation restait vide sans que rien ne le signale.
+     * `createUser` est le seul point que les deux traversent.
+     */
+    trackServer(created.id, 'signup_completed', { method: 'email' })
+    setPersonProperties(created.id, {
+      signup_method: 'email',
+      signup_at: new Date().toISOString(),
+    })
+
+    return created
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       throw new ServiceError('CONFLICT', 'Un compte existe déjà avec cet email.')
@@ -247,11 +308,26 @@ export async function verifyCredentials(email: string, password: string) {
   const hash = user?.password ?? DUMMY_PASSWORD_HASH
   const passwordsMatch = await bcrypt.compare(password, hash)
 
-  if (!user?.password || !passwordsMatch) return null
+  /*
+   * Comme pour l'inscription, la mesure est posée au point de passage commun :
+   * NextAuth (web) et `auth.service.login()` (mobile) appellent tous deux
+   * cette fonction. L'échec ne se rattache à personne — même quand le compte
+   * existe, le dire reviendrait à confirmer que l'adresse est enregistrée.
+   */
+  if (!user?.password || !passwordsMatch) {
+    trackAnonymous('login_failed', { method: 'email', reason: 'bad_credentials' })
+    return null
+  }
+
   // Un compte désactivé se comporte comme un mot de passe faux : lui répondre
   // « votre compte est désactivé » indiquerait aussi que l'adresse existe et
   // que le mot de passe présenté était le bon.
-  if (user.disabledAt) return null
+  if (user.disabledAt) {
+    trackAnonymous('login_failed', { method: 'email', reason: 'account_disabled' })
+    return null
+  }
+
+  trackServer(user.id, 'login_completed', { method: 'email' })
   return user
 }
 

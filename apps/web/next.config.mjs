@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -11,6 +13,10 @@ const nextConfig = {
   // Required to prevent build worker timeouts when these packages are imported in Server Components.
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs', '@auth/prisma-adapter'],
+    // Autorise `instrumentation.ts`, qui initialise Sentry côté serveur. En
+    // Next 14 le fichier est ignoré sans ce drapeau — et Sentry serait muet
+    // sur toute l'API, sans la moindre erreur pour le signaler.
+    instrumentationHook: true,
   },
   // `/tarifs` et `/pro` ont été retirées : rien n'existe derrière (ni paiement,
   // ni offre B2B) et la première était la cible du CTA principal du site. Les
@@ -20,6 +26,21 @@ const nextConfig = {
     return [
       { source: '/tarifs', destination: '/register', permanent: true },
       { source: '/pro',    destination: '/contact',  permanent: true },
+    ]
+  },
+  /**
+   * Ingestion PostHog par notre propre domaine.
+   *
+   * Appelée directement, `eu.i.posthog.com` est bloquée par les bloqueurs de
+   * publicité — c'est-à-dire chez les utilisateurs les plus outillés, dont on
+   * perdrait précisément les parcours. `skipTrailingSlashRedirect` évite que
+   * Next transforme l'appel en redirection, que le SDK ne suit pas.
+   */
+  skipTrailingSlashRedirect: true,
+  async rewrites() {
+    return [
+      { source: '/ingest/static/:path*', destination: 'https://eu-assets.i.posthog.com/static/:path*' },
+      { source: '/ingest/:path*',        destination: 'https://eu.i.posthog.com/:path*' },
     ]
   },
   // En-têtes de sécurité appliqués à toutes les réponses. Vercel ajoute déjà
@@ -62,4 +83,34 @@ const nextConfig = {
   },
 }
 
-export default nextConfig
+/**
+ * Enveloppe Sentry : injection des trois `sentry.*.config.ts` et téléversement
+ * des source maps au build.
+ *
+ * - `org` / `project` / `authToken` viennent de l'environnement : rien de
+ *   sensible dans ce fichier versionné. Sans `SENTRY_AUTH_TOKEN` — le cas en
+ *   local — le plugin saute simplement le téléversement, le build passe.
+ * - `tunnelRoute` fait transiter les événements par notre propre domaine :
+ *   sans lui, un bloqueur de publicité avale les erreurs de ceux qui en ont un,
+ *   c'est-à-dire précisément celles qu'on ne verrait jamais autrement.
+ * - Les source maps ne sont pas servies au public : depuis la v9 du SDK, elles
+ *   sont supprimées du build après téléversement (`deleteSourcemapsAfterUpload`,
+ *   vrai par défaut). L'ancienne option `hideSourceMaps` n'existe plus.
+ */
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Notre organisation est stockée en région UE : ses API répondent sur
+  // `de.sentry.io`, pas sur `sentry.io` (le défaut du SDK, valable pour les
+  // organisations américaines). Avec la mauvaise valeur, le build passe et
+  // les source maps ne sont jamais téléversées — on ne s'en aperçoit qu'en
+  // lisant une pile de production illisible. `SENTRY_URL` permet de la
+  // changer sans toucher au code.
+  sentryUrl: process.env.SENTRY_URL ?? 'https://de.sentry.io/',
+  // Bavard en CI (les logs y sont la seule trace d'un téléversement raté),
+  // silencieux en local.
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  tunnelRoute: '/monitoring',
+})

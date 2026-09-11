@@ -75,7 +75,15 @@
           "resizeMode": "contain",
           "backgroundColor": "#F9F7E8"
         }
-      ]
+      ],
+      [
+        "@sentry/react-native",
+        {
+          "project": "growi-mobile",
+          "url": "https://de.sentry.io/"
+        }
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true

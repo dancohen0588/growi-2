@@ -3,6 +3,7 @@ import Constants from 'expo-constants'
 import * as Device from 'expo-device'
 import * as Notifications from 'expo-notifications'
 
+import { analytics } from '@/lib/analytics/posthog'
 import { api } from '@/lib/api'
 
 /**
@@ -106,6 +107,9 @@ export async function registerDeviceForPush(request = false): Promise<PushRegist
     if (state !== 'granted' && request && permission.canAskAgain) {
       const asked = await Notifications.requestPermissionsAsync()
       state = asked.status
+      // Émis seulement quand la fenêtre système a réellement été présentée :
+      // compter les cas où l'on n'a rien demandé ferait croire à des refus.
+      analytics().track('push_permission_answered', { granted: state === 'granted' })
     }
   } catch {
     return { state: 'undetermined', registered: false }

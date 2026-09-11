@@ -19,6 +19,7 @@ import {
 } from '@/components/dashboard/chat/ChatPanelProvider'
 import { DiagnosisResult } from '@/components/diagnosis/DiagnosisResult'
 import { prepareImageFile } from '@/lib/image-compression'
+import { useTrack } from '@/lib/analytics/client'
 
 /**
  * Parcours de diagnostic d'une plante, en trois temps : choix de la photo,
@@ -64,6 +65,7 @@ export function DiagnosisFlow({
   onPlanned,
 }: DiagnosisFlowProps) {
   const openChat = useChatPanel()
+  const track = useTrack()
   const [step, setStep] = useState<Step>('photo')
   const [preview, setPreview] = useState<string | null>(null)
   const [response, setResponse] = useState<DiagnoseApiResponse | null>(null)
@@ -123,6 +125,9 @@ export function DiagnosisFlow({
 
   const analyze = useCallback(
     async (body: { imageBase64: string } | { useExistingPhoto: true }) => {
+      // Le parcours n'a pas de champ « décris les symptômes » : la photo est
+      // le seul intrant, d'où `has_symptoms_text` toujours faux.
+      track('diagnosis_started', { has_photo: true, has_symptoms_text: false })
       setStep('loading')
       setErrorMsg(null)
       try {
@@ -147,7 +152,7 @@ export function DiagnosisFlow({
         setStep('photo')
       }
     },
-    [plantId, onDiagnosed],
+    [plantId, onDiagnosed, track],
   )
 
   const handleApply = useCallback(async () => {

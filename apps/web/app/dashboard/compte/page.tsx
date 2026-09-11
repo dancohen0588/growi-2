@@ -17,6 +17,7 @@ export default async function ComptePage() {
   return (
     <CompteLayout
       initialSession={{
+        id: session.user.id,
         firstName: session.user.firstName ?? session.user.name ?? 'Jardinier',
         email: session.user.email ?? '',
       }}

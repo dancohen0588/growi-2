@@ -7,7 +7,14 @@
  * est partagée avec le diagnostic dans `lib/services/gemini.ts`.
  */
 
-import { generateJson, parseImagePayload, requireGeminiKey, stripFence } from '@/lib/services/gemini'
+import { trackServer } from '@/lib/analytics/server'
+import {
+  estimateBase64Bytes,
+  generateJson,
+  parseImagePayload,
+  requireGeminiKey,
+  stripFence,
+} from '@/lib/services/gemini'
 import { findCatalogMatch } from '@/lib/services/plant.service'
 import type { IdentifyApiResponse, IdentifyResult } from '@/lib/types/identify'
 
@@ -61,16 +68,26 @@ Règles :
  * @throws ServiceError('UNAVAILABLE') si la clé API n'est pas configurée,
  * ServiceError('INVALID_INPUT') si l'image est inexploitable.
  */
-export async function identifyPlant(imageBase64: unknown): Promise<IdentifyApiResponse> {
+export async function identifyPlant(
+  imageBase64: unknown,
+  userId?: string | null,
+): Promise<IdentifyApiResponse> {
   const apiKey = requireGeminiKey("Service d'identification indisponible (clé API manquante).")
   const image = parseImagePayload(imageBase64)
+  const imageBytes = estimateBase64Bytes(image.data)
 
+  // La latence mesurée est celle de **l'appel au modèle**, pas de la requête :
+  // la recherche au catalogue et la sérialisation qui suivent ne disent rien
+  // du coût de l'IA, et brouilleraient la comparaison entre modèles.
+  const startedAt = Date.now()
   const response = await generateJson(
     [{ text: SYSTEM_PROMPT }, { inlineData: image }],
     { apiKey, maxOutputTokens: 1500, logLabel: 'identify-plant' },
   )
+  const latencyMs = Date.now() - startedAt
 
   if (!response.ok) {
+    if (userId) trackServer(userId, 'identify_failed', { reason: response.cause, model: null })
     return {
       identified: false,
       reason: response.reason,
@@ -83,12 +100,31 @@ export async function identifyPlant(imageBase64: unknown): Promise<IdentifyApiRe
   try {
     result = JSON.parse(stripFence(response.raw)) as IdentifyResult
   } catch {
+    if (userId) {
+      trackServer(userId, 'identify_failed', { reason: 'parse', model: response.model })
+    }
     return {
       identified: false,
       reason: "Erreur d'analyse, veuillez réessayer.",
       encyclopediaSlug: null,
       encyclopediaName: null,
     }
+  }
+
+  if (userId) {
+    trackServer(userId, 'identify_completed', {
+      model: response.model,
+      latency_ms: latencyMs,
+      input_tokens: response.usage?.inputTokens ?? null,
+      output_tokens: response.usage?.outputTokens ?? null,
+      image_bytes: imageBytes,
+      // Le service ne rend qu'une espèce : zéro quand il n'a rien reconnu.
+      candidates_count: result.identified ? 1 : 0,
+      top_confidence: result.identified ? result.confidence : null,
+      // Les identifications authentifiées sont freinées par un débit horaire,
+      // pas par un plafond de compte : il n'y a pas de reste à annoncer.
+      quota_remaining: null,
+    })
   }
 
   let encyclopediaSlug: string | null = null

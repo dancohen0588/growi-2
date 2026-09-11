@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useCallback, useState, useTransition } from 'react'
 import { ArrowRight, Check, Loader2, Plus } from 'lucide-react'
 
+import { useTrack } from '@/lib/analytics/client'
 import { addIdentifiedPlantToMyPlants } from '@/lib/actions/plant.actions'
 import type { IdentifiedPlant } from '@/components/identify/IdentifyFlow'
 
@@ -12,6 +13,7 @@ export function AddIdentifiedPlantButton({ plant }: { plant: IdentifiedPlant }) 
   const [isPending, startTransition] = useTransition()
   const [addedPlantId, setAddedPlantId] = useState<string | null>(null)
   const [addError, setAddError] = useState<string | null>(null)
+  const track = useTrack()
 
   const handleAdd = useCallback(() => {
     setAddError(null)
@@ -22,10 +24,15 @@ export function AddIdentifiedPlantButton({ plant }: { plant: IdentifiedPlant }) 
         emoji: plant.emoji,
         encyclopediaSlug: plant.encyclopediaSlug,
       })
-      if (res.success && res.plantId) setAddedPlantId(res.plantId)
+      if (res.success && res.plantId) {
+        // Le service ne rend qu'une espèce : le rang vaut toujours 1 tant que
+        // l'API ne proposera pas plusieurs candidats.
+        track('identify_result_accepted', { rank: 1 })
+        setAddedPlantId(res.plantId)
+      }
       else setAddError(res.error ?? "Impossible d'ajouter la plante.")
     })
-  }, [plant])
+  }, [plant, track])
 
   if (addedPlantId) {
     return (

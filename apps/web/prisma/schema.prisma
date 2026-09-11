@@ -38,6 +38,11 @@ model User {
   /// Dernière activité observée, toutes surfaces confondues.
   /// Mise à jour au plus une fois par heure (voir activity.service.ts).
   lastSeenAt    DateTime? @db.Timestamptz(6)
+  /// Opposition à l'analyse d'usage (PostHog). Faux par défaut : l'analyse est
+  /// activée au titre de l'intérêt légitime, et l'utilisateur peut en sortir
+  /// depuis son profil. Les rapports de plantage (Sentry) restent actifs quoi
+  /// qu'il arrive — ils ne servent qu'à corriger des bugs.
+  analyticsOptOut Boolean @default(false)
 
   // ── Communauté (opt-in) ──────────────────────────────────────────────────
   /// Pseudo public unique, 3 à 30 caractères `[a-z0-9_]`, normalisé en

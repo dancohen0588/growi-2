@@ -20,6 +20,27 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Build
+
+Les fiches d'encyclopédie sont prérendues **en partie seulement** :
+`generateStaticParams` rend les 50 plus pertinentes en production
+(`VERCEL_ENV === 'production'`), et **aucune** en preview comme en local. Le
+critère de pertinence est le nombre de plantes que les utilisateurs possèdent
+dans l'espèce, puis le nom par ordre alphabétique — voir
+`lib/encyclopedie/prerender.ts`.
+
+Les 485 autres ne disparaissent pas : `dynamicParams = true` les génère à la
+première visite et `revalidate = 86400` les garde ensuite en cache
+vingt-quatre heures, comme les prérendues. Le prérendu n'achète donc que la
+toute première visite, et il la payait très cher : prérendre les 535 fiches
+occupait dix-neuf des vingt-deux minutes de build.
+
+Ne pas remettre le catalogue entier dans `generateStaticParams` : c'est en
+preview que le temps de build compte le plus, un correctif devant être
+relisible en quelques minutes. Le sitemap, lui, continue de lister **toutes**
+les fiches depuis la base — c'est par lui que Google découvre celles qui ne
+sont pas prérendues.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

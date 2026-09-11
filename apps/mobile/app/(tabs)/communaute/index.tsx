@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -12,6 +12,7 @@ import { PostCard } from '@/components/community/PostCard'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
+import { useTrack } from '@/lib/analytics/posthog'
 import { errorMessage } from '@/lib/errors'
 import {
   useCommunitySettings,
@@ -144,6 +145,20 @@ export default function CommunauteScreen() {
   const toggleLike = useToggleLike()
 
   const posts: CommunityPost[] = feed.data?.pages.flatMap((page) => page.items) ?? []
+
+  /*
+   * Une vue par fil réellement chargé — et une seule par onglet : sans ce
+   * garde-fou, faire défiler pour charger la page suivante compterait une
+   * nouvelle vue à chaque fois.
+   */
+  const track = useTrack()
+  const seenScopes = useRef(new Set<FeedScope>())
+
+  useEffect(() => {
+    if (!feed.isSuccess || seenScopes.current.has(scope)) return
+    seenScopes.current.add(scope)
+    track('community_feed_viewed', { posts_count: posts.length, scope })
+  }, [feed.isSuccess, posts.length, scope, track])
   const widened = nearby.data?.pages[0]?.widened ?? false
   const appliedRadius = nearby.data?.pages[0]?.appliedRadiusKm ?? applied
 

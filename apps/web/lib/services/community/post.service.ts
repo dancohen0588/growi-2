@@ -19,6 +19,7 @@ import {
 } from '@growi/shared'
 import { Prisma } from '@prisma/client'
 
+import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/errors'
 import { deletePhotoByUrl } from '@/lib/storage'
@@ -216,6 +217,8 @@ export async function createPost(
     return created
   })
 
+  trackServer(userId, 'post_published', { has_photo: input.photos.length > 0 })
+
   return toPost(post, null, userId, new Set())
 }
 
@@ -348,6 +351,10 @@ export async function setLike(
     return updated.likeCount
   })
 
+  // Seul le cœur donné compte : le retirer ne s'annonce pas, et compter les
+  // deux ferait passer une hésitation pour deux gestes d'appréciation.
+  if (liked && likeCount !== post.likeCount) trackServer(userId, 'post_liked', {})
+
   // Seulement quand le cœur vient d'être donné : le retirer ne s'annonce pas,
   // et le redonner ne doit pas rouvrir une notification déjà lue.
   if (liked && likeCount !== post.likeCount) {
@@ -437,6 +444,8 @@ export async function addComment(
     await tx.post.update({ where: { id: postId }, data: { commentCount: { increment: 1 } } })
     return created
   })
+
+  trackServer(userId, 'comment_posted', {})
 
   void notifyComment(
     { id: userId, handle: comment.user.handle },

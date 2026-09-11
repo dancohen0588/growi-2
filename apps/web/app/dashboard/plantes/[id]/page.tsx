@@ -16,6 +16,7 @@ import { PlantCareData } from '@/components/dashboard/plantes/PlantCareData'
 import { PlantCareHistory } from '@/components/dashboard/plantes/PlantCareHistory'
 import { DiagnosisSection } from '@/components/diagnosis/DiagnosisSection'
 import { getPlantAdviceAction } from '@/app/actions/advice.actions'
+import { TrackView } from '@/components/analytics/TrackView'
 import { toPresentationHealth } from '@/lib/plant-mapper'
 import type { PlantAdvice } from '@/lib/recommendation/types'
 
@@ -48,6 +49,9 @@ export default function PlantDetailPage({ params }: PageProps) {
 
   return (
     <div className="flex flex-col gap-8 max-w-4xl">
+      {/* Le web n'a qu'un chemin vers la fiche, la liste des plantes. */}
+      <TrackView event="plant_detail_viewed" props={{ from: 'list' }} dedupeKey={plant.id} />
+
       {/* Breadcrumb */}
       <nav aria-label="Fil d'Ariane" className="flex items-center gap-1 font-raleway text-xs text-forest/50">
         <Link href="/dashboard" className="hover:text-forest transition-colors">

@@ -38,6 +38,7 @@ import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
 import { errorMessage } from '@/lib/errors'
+import { useTrack } from '@/lib/analytics/posthog'
 import { PermissionDeniedError, pickPhoto, takePhoto, type Photo } from '@/lib/photo'
 import {
   useApplyDiagnosis,
@@ -92,6 +93,7 @@ export interface DiagnosisScreenProps {
 export function DiagnosisScreen({ plantId, onChat }: DiagnosisScreenProps) {
   const router = useRouter()
   const toast = useToast()
+  const track = useTrack()
 
   const plant = usePlant(plantId)
   const diagnose = useDiagnosePlant(plantId)
@@ -147,6 +149,10 @@ export function DiagnosisScreen({ plantId, onChat }: DiagnosisScreenProps) {
   }
 
   const analyse = (body: { imageBase64: string } | { useExistingPhoto: true }) => {
+    // Le parcours mobile n'a pas de champ « décris les symptômes » : la photo
+    // est le seul intrant, d'où `has_symptoms_text` toujours faux.
+    track('diagnosis_started', { has_photo: true, has_symptoms_text: false })
+
     diagnose.mutate(body, {
       onSuccess: setResponse,
       onError: (error) => toast(errorMessage(error), 'error'),

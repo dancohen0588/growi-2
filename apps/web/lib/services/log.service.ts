@@ -10,6 +10,7 @@
 import type { CareLogType, CreateCareLogInput, HealthStatus } from '@growi/shared'
 import type { Prisma } from '@prisma/client'
 
+import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 import { ServiceError } from '@/lib/services/errors'
@@ -80,11 +81,22 @@ export async function listPlantLogs(plantInstanceId: string, userId: string) {
  *
  * @throws ServiceError('NOT_FOUND') si la plante n'est pas à l'utilisateur.
  */
+/**
+ * D'où vient le geste noté.
+ *
+ * Le service ne peut pas le deviner — c'est la même écriture depuis la fiche,
+ * depuis le planning ou depuis le fil de discussion. Or c'est justement la
+ * question produit : le planning fait-il faire des gestes, ou les gens
+ * notent-ils ce qu'ils auraient fait de toute façon ?
+ */
+export type CareSource = 'detail' | 'planning' | 'chat'
+
 export async function logCare(
   plantInstanceId: string,
   userId: string,
   input: CreateCareLogInput,
   tx?: Prisma.TransactionClient,
+  source: CareSource = 'detail',
 ) {
   const db = tx ?? prisma
   const { gardenId } = await assertPlantOwned(plantInstanceId, userId, db)
@@ -134,6 +146,9 @@ export async function logCare(
   await completeTasksForGesture(userId, plantInstanceId, input.type, occurredAt, db)
 
   if (gardenId && !tx) await invalidateGardenAdviceCache(gardenId)
+
+  trackServer(userId, 'care_logged', { type: input.type, from: source })
+
   return log
 }
 

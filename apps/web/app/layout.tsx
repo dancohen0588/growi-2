@@ -4,6 +4,8 @@ import { SessionProvider } from 'next-auth/react'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
+import { AnalyticsProvider } from '@/lib/analytics/client'
+
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
@@ -48,7 +50,14 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${poppins.variable} ${raleway.variable}`}>
       <body className="min-h-screen flex flex-col antialiased">
-        <SessionProvider>{children}</SessionProvider>
+        {/*
+          L'analyse produit est **à l'intérieur** de la session : c'est d'elle
+          que vient l'identifiant rattaché aux événements. Comme Vercel
+          Analytics ci-dessous, elle ne fait rien en développement.
+        */}
+        <SessionProvider>
+          <AnalyticsProvider>{children}</AnalyticsProvider>
+        </SessionProvider>
         {/*
           Trafic anonyme du site : Vercel Web Analytics, sans cookie et donc
           sans bandeau de consentement. Il compte les *visiteurs* ; les

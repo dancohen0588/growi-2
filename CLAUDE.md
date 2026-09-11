@@ -246,7 +246,7 @@ growi-2/
 
 ### `apps/mobile`
 
-App Expo (SDK 57, React Native 0.86, React 19) en Expo Router, stylée avec NativeWind 4.
+App Expo (SDK 54, React Native 0.81, React 19) en Expo Router, stylée avec NativeWind 4.
 
 ```bash
 pnpm --filter mobile start     # Metro + QR code pour Expo Go
@@ -1362,6 +1362,43 @@ au-delà de cinq signalements ouverts, purge des notifications lues de plus de
 > de décrire l'ancienne arborescence et `tsc` refuse tous les nouveaux chemins.
 > Le relancer suffit — au besoin sur un autre port : `CI=1 pnpm exec expo start
 > --port 8082`, le temps que le fichier se régénère.
+
+### Observabilité (Sentry + PostHog)
+
+Le détail — fichiers, variables, vérification — est dans le `README.md` racine
+et celui de l'app mobile. Ici, les pièges qui ont chacun coûté un build.
+
+- **Une variable `NEXT_PUBLIC_*` n'est inlinée que lue littéralement**
+  (`process.env.NEXT_PUBLIC_X`). `env.X` sur un objet passé en paramètre
+  renvoie `undefined` dans le navigateur, et le SDK se croit en développement :
+  rien ne part, sans la moindre erreur. D'où les objets `BUILD_ENV` de
+  `lib/observability/sentry-options.ts` et `lib/analytics/enabled.ts`.
+- **Vercel gèle la fonction dès la réponse rendue.** Tout envoi différé —
+  `Sentry.flush`, le lot de posthog-node — passe par `waitUntil` de
+  `@vercel/functions`, sinon l'événement meurt avec la fonction.
+- **Organisation Sentry en région UE** : l'upload des source maps vise
+  `https://de.sentry.io/` (`sentryUrl` côté web, `url` du plugin côté mobile).
+  Sur `sentry.io`, l'upload réussit… dans le vide.
+- **`@sentry/cli` est déclaré dans `apps/mobile`** bien que rien ne l'importe :
+  le repli pnpm de sentry-cli tronque `NODE_PATH` et le build EAS iOS échoue
+  sans cela. Ne pas le retirer comme dépendance inutile.
+- **`experimental.instrumentationHook`** reste nécessaire en Next 14 pour
+  `instrumentation.ts`, et `sentry.client.config.ts` aussi
+  (`instrumentation-client.ts` demande Next 15.3).
+- **Un dossier `_debug` sort du routage** de l'App Router : la route de
+  vérification vit dans `app/api/v1/debug/`, à supprimer avec `DEBUG_TOKEN` et
+  l'appui long du profil mobile à la fin de la Friends & Family.
+- **Le catalogue d'événements est typé** (`packages/shared/src/analytics/
+  events.ts`) : un nom ou une propriété hors catalogue ne compile pas, et
+  `assertNoFreeText` refuse le texte libre. Les événements serveur portent
+  `surface: 'server'`, la plateforme de l'utilisateur est la propriété de
+  personne `last_platform`.
+- **Le refus d'analyse (`User.analyticsOptOut`) est lu des deux côtés** :
+  par les SDK à l'ouverture de session, et par `trackServer` avant chaque
+  émission. Toute nouvelle émission serveur doit passer par
+  `lib/analytics/server.ts`, jamais par un client PostHog construit ailleurs.
+- La migration `20260909200000_analytics_opt_out` est **déjà appliquée en
+  production** (procédure `migrate diff` + `migrate deploy`).
 
 ### Routing principal
 

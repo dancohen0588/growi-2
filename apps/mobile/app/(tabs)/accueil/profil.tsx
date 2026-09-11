@@ -18,11 +18,13 @@ import type { UpdateAlertConfigInput, UserProfile } from '@growi/shared'
 
 import { CommunitySection } from '@/components/profil/CommunitySection'
 import { PushSection } from '@/components/profil/PushSection'
+import { VersionRow } from '@/components/profil/VersionRow'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Toggle } from '@/components/ui/Toggle'
 import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
+import { applyAnalyticsOptOut, useTrack } from '@/lib/analytics/posthog'
 import { WEB_BASE_URL } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { useProfile, useUpdateAlerts, useUpdateProfile } from '@/lib/queries/me'
@@ -46,6 +48,7 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
   const toast = useToast()
   const updateProfile = useUpdateProfile()
   const updateAlerts = useUpdateAlerts()
+  const track = useTrack()
   const signOut = useSession((s) => s.signOut)
 
   const [city, setCity] = useState(profile.city ?? '')
@@ -82,6 +85,8 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
     setLocating(true)
     try {
       const { status } = await Location.requestForegroundPermissionsAsync()
+      track('location_permission_answered', { granted: status === 'granted' })
+
       if (status !== 'granted') {
         Alert.alert(
           'Localisation refusée',
@@ -113,6 +118,20 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
     } finally {
       setLocating(false)
     }
+  }
+
+  /**
+   * Le réglage vit sur le compte, mais son effet doit être immédiat sur cet
+   * appareil : on coupe l'émetteur avant même que la requête ne parte. Si elle
+   * échoue, le réglage reprend sa valeur au prochain chargement du profil —
+   * mieux vaut avoir cessé de mesurer pour rien que l'inverse.
+   */
+  const saveAnalytics = (helping: boolean) => {
+    applyAnalyticsOptOut(!helping)
+    updateProfile.mutate(
+      { analyticsOptOut: !helping },
+      { onError: (error) => toast(errorMessage(error), 'error') },
+    )
   }
 
   const saveAlerts = (patch: UpdateAlertConfigInput) => {
@@ -229,6 +248,19 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
         <CommunitySection alerts={alerts.community} onAlertsChange={saveAlerts} />
       </View>
 
+      {/* Confidentialité */}
+      <View className="gap-3">
+        <SectionTitle>Ma confidentialité</SectionTitle>
+        <View className="rounded-xl bg-card px-4">
+          <Toggle
+            label="Aider à améliorer Growi"
+            hint="Aucune photo ni message n’est transmis. Les rapports de plantage restent actifs pour corriger les bugs."
+            value={!profile.analyticsOptOut}
+            onChange={saveAnalytics}
+          />
+        </View>
+      </View>
+
       {/* Vers le web */}
       <View className="gap-3">
         <SectionTitle>Sur le site</SectionTitle>
@@ -309,6 +341,8 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
             </Text>
           </Pressable>
         </View>
+
+        <VersionRow />
       </View>
     </ScrollView>
   )

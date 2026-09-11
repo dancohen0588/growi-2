@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -5,6 +6,7 @@ import { ChevronLeft, Monitor } from 'lucide-react-native'
 
 import { GardenPlanView } from '@/components/garden/GardenPlanView'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
+import { useTrack } from '@/lib/analytics/posthog'
 import { errorMessage } from '@/lib/errors'
 import { useGarden, useGardenPlan } from '@/lib/queries/gardens'
 
@@ -17,6 +19,11 @@ import { useGarden, useGardenPlan } from '@/lib/queries/gardens'
  */
 export default function GardenPlanScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
+  const track = useTrack()
+
+  useEffect(() => {
+    if (id) track('garden_plan_opened', { garden_id: id })
+  }, [id, track])
   const router = useRouter()
 
   const garden = useGarden(id)

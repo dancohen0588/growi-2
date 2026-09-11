@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { RefreshControl, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -11,6 +11,7 @@ import { DoneTodayList } from '@/components/planning/DoneTodayList'
 import { PlanningSections } from '@/components/planning/PlanningSections'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
+import { useTrack } from '@/lib/analytics/posthog'
 import { formatDayLabel, greeting } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import {
@@ -43,6 +44,30 @@ export default function CalendrierScreen() {
   const undoAction = useUndoAction()
   const [refreshing, setRefreshing] = useState(false)
   const [detail, setDetail] = useState<PlanningTask | null>(null)
+
+  /*
+   * Une vue par chargement du planning, pas une par rendu : l'écran se
+   * redessine à chaque geste coché, et compter ces redessins ferait dix vues
+   * là où l'utilisateur n'a ouvert le calendrier qu'une fois.
+   */
+  const track = useTrack()
+  const planningSeen = useRef(false)
+  const todayCount = planning.groups.today.length
+  const alertsShown = useRef(new Set<string>())
+
+  useEffect(() => {
+    if (planning.query.isPending || planning.query.isError || planningSeen.current) return
+    planningSeen.current = true
+    track('planning_viewed', { horizon: 'today', actions_today: todayCount })
+  }, [planning.query.isPending, planning.query.isError, todayCount, track])
+
+  useEffect(() => {
+    for (const alert of planning.alerts) {
+      if (alertsShown.current.has(alert.id)) continue
+      alertsShown.current.add(alert.id)
+      track('alert_shown', { kind: alert.type })
+    }
+  }, [planning.alerts, track])
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
@@ -185,6 +210,9 @@ export default function CalendrierScreen() {
             {planning.alerts.length > 0 ? (
               <View className="gap-2 px-4">
                 <Text className="font-poppins text-section text-forest">À surveiller</Text>
+                {/* `alert_opened` du catalogue reste sans émetteur : la carte
+                    d'alerte n'est pas tactile, elle n'ouvre rien. La rendre
+                    tactile serait un choix produit, pas une mesure. */}
                 {planning.alerts.map((alert) => (
                   <AlertCard key={alert.id} alert={alert} />
                 ))}

@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { chatActionSnapshotSchema, type GardenAction, type OpenConversationInput } from '@growi/shared'
 
 import { ChatPanel } from '@/components/dashboard/chat/ChatPanel'
+import { useTrack } from '@/lib/analytics/client'
 
 /**
  * L'ouverture du fil, portée par l'URL.
@@ -104,12 +105,18 @@ function anchorFrom(params: URLSearchParams): OpenConversationInput | null {
 }
 
 function ChatPanelHost({ children }: { children: React.ReactNode }) {
+  const track = useTrack()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const openChat = useCallback<OpenChat>(
     (params) => {
+      // `chat` porte l'ancrage : une plante, un diagnostic, une action du
+      // planning. Le catalogue ne connaît pas `diagnosis` — un diagnostic
+      // s'ouvre depuis une fiche plante, c'est de là qu'on vient.
+      track('assistant_opened', { from: params.chat === 'action' ? 'action' : 'plant' })
+
       const next = new URLSearchParams(searchParams.toString())
       for (const key of CHAT_PARAMS) next.delete(key)
       for (const [key, value] of Object.entries(params)) next.set(key, value)
@@ -119,7 +126,7 @@ function ChatPanelHost({ children }: { children: React.ReactNode }) {
       // remonterait la lecture en haut de page.
       router.push(`${pathname}?${next.toString()}`, { scroll: false })
     },
-    [pathname, router, searchParams],
+    [pathname, router, searchParams, track],
   )
 
   const close = useCallback(() => {

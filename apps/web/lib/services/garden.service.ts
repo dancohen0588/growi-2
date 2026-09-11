@@ -8,6 +8,8 @@
 
 import type { CreateGardenInput, UpdateGardenInput } from '@growi/shared'
 
+import { refreshGardenCounts } from '@/lib/analytics/person'
+import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 import { ServiceError } from '@/lib/services/errors'
@@ -106,8 +108,41 @@ export async function findLatestGarden(userId: string) {
 }
 
 export async function createGarden(userId: string, input: CreateGardenInput) {
-  return prisma.garden.create({
+  const garden = await prisma.garden.create({
     data: { ...input, userId },
+  })
+
+  noteGardenCreated(userId)
+
+  return garden
+}
+
+/**
+ * Note la création d'un jardin, hors du chemin critique.
+ *
+ * `has_location` regarde les coordonnées du **compte** : c'est d'elles que
+ * dépendent la météo et donc tout le planning, et c'est la seule des trois
+ * propriétés qui varie aujourd'hui. Les deux autres sont constantes par
+ * construction — un jardin naît vide, ses zones et son plan cadastral
+ * arrivent ensuite, dans l'éditeur. On les émet quand même : le jour où
+ * l'onboarding créera un jardin déjà tracé, la courbe partira d'un zéro connu
+ * plutôt que d'un trou.
+ */
+function noteGardenCreated(userId: string): void {
+  void (async () => {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { latitude: true, longitude: true },
+    })
+
+    trackServer(userId, 'garden_created', {
+      has_location: user?.latitude != null && user?.longitude != null,
+      from_cadastre: false,
+      zones_count: 0,
+    })
+    refreshGardenCounts(userId)
+  })().catch(() => {
+    // Silencieux : une mesure manquée ne vaut pas un bruit de plus.
   })
 }
 
