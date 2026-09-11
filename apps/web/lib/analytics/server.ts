@@ -35,6 +35,7 @@ import { waitUntil } from '@vercel/functions'
 import { PostHog } from 'posthog-node'
 
 import { resolveEnvironment } from '@/lib/observability/sentry-options'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Côté serveur on lit `POSTHOG_KEY` en premier — même valeur que la clé
@@ -88,6 +89,54 @@ function getClient(): PostHog | null {
   return client
 }
 
+// ─── Opposition de l'utilisateur ───────────────────────────────────────────
+
+/**
+ * Le refus d'analyse est **posé sur le compte**, et l'interrupteur du profil ne
+ * coupe que le SDK de l'appareil. Sans ce contrôle, un compte qui a refusé
+ * continuait d'envoyer, depuis le serveur, ses inscriptions, ses plantes, ses
+ * identifications — tout ce que la page de confidentialité promet d'arrêter.
+ *
+ * Le choix est relu en base, mais **au plus une fois par heure et par compte**
+ * sur chaque instance : une requête par événement coûterait plus que la mesure
+ * ne rapporte, sur un pool de connexions qu'on sait étroit. Un changement de
+ * réglage est répercuté sur-le-champ par `rememberOptOut`, appelé là où le
+ * profil s'écrit ; sur les autres instances, il prend effet dans l'heure.
+ */
+const OPT_OUT_TTL_MS = 60 * 60 * 1000
+const optOutByUser = new Map<string, { value: boolean; expiresAt: number }>()
+
+/** Note un choix connu, pour que l'instance qui l'a reçu l'applique aussitôt. */
+export function rememberOptOut(userId: string, optOut: boolean, now = Date.now()): void {
+  optOutByUser.set(userId, { value: optOut, expiresAt: now + OPT_OUT_TTL_MS })
+}
+
+/**
+ * Le compte refuse-t-il l'analyse ? En cas de doute — compte introuvable, base
+ * indisponible — la réponse est **oui** : se taire est le repli sûr.
+ */
+export async function isOptedOut(userId: string, now = Date.now()): Promise<boolean> {
+  const cached = optOutByUser.get(userId)
+  if (cached && cached.expiresAt > now) return cached.value
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { analyticsOptOut: true },
+    })
+    const optOut = user?.analyticsOptOut ?? true
+    rememberOptOut(userId, optOut, now)
+    return optOut
+  } catch {
+    return true
+  }
+}
+
+/** Remet la mémoire à zéro. Réservé aux tests. */
+export function resetOptOutCache(): void {
+  optOutByUser.clear()
+}
+
 /** Une seule plainte par process : un journal saturé ne dit plus rien. */
 let failureLogged = false
 
@@ -97,13 +146,21 @@ function complainOnce(error: unknown): void {
   console.error('[analytics] émission impossible', error)
 }
 
-/** Fait partir ce qui est en attente sans retarder la réponse. */
-function flushSoon(posthog: PostHog): void {
+/**
+ * Garde la fonction en vie le temps d'une promesse, sans retarder la réponse.
+ * Les erreurs y sont avalées : voir la règle 1.
+ */
+function keepAlive(work: Promise<void>): void {
   try {
-    waitUntil(posthog.flush().catch(complainOnce))
+    waitUntil(work.catch(complainOnce))
   } catch (error) {
     complainOnce(error)
   }
+}
+
+/** Fait partir ce qui est en attente sans retarder la réponse. */
+function flushSoon(posthog: PostHog): void {
+  keepAlive(posthog.flush())
 }
 
 /**
@@ -120,13 +177,19 @@ export function trackServer<N extends GrowiEventName>(
     const posthog = getClient()
     if (!posthog) return
 
-    posthog.capture({
-      distinctId: userId,
-      event: name,
-      properties: { ...commonProperties(), ...props },
-    })
-
-    flushSoon(posthog)
+    // Le contrôle d'opposition est asynchrone : c'est donc la chaîne entière —
+    // lecture du choix, capture, envoi — que `waitUntil` garde en vie.
+    keepAlive(
+      (async () => {
+        if (await isOptedOut(userId)) return
+        posthog.capture({
+          distinctId: userId,
+          event: name,
+          properties: { ...commonProperties(), ...props },
+        })
+        await posthog.flush()
+      })(),
+    )
   } catch (error) {
     complainOnce(error)
   }
@@ -176,8 +239,13 @@ export function setPersonProperties(
     const posthog = getClient()
     if (!posthog) return
 
-    posthog.identify({ distinctId: userId, properties })
-    flushSoon(posthog)
+    keepAlive(
+      (async () => {
+        if (await isOptedOut(userId)) return
+        posthog.identify({ distinctId: userId, properties })
+        await posthog.flush()
+      })(),
+    )
   } catch (error) {
     complainOnce(error)
   }

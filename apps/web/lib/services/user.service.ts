@@ -7,7 +7,12 @@ import { DEFAULT_ALERT_CONFIG, type AlertConfig, type UserProfile } from '@growi
 import { Prisma } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
-import { setPersonProperties, trackAnonymous, trackServer } from '@/lib/analytics/server'
+import {
+  rememberOptOut,
+  setPersonProperties,
+  trackAnonymous,
+  trackServer,
+} from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 import { refreshFuzzyPosition } from '@/lib/services/community/profile.service'
@@ -108,6 +113,11 @@ export async function updateProfile(
         refreshFuzzyPosition(userId, updated.latitude, updated.longitude),
       ])
     }
+
+    // Le refus prend effet sur cette instance à l'instant, sans attendre que
+    // la mémoire d'une heure expire ; l'événement `care_logged` qui suivrait
+    // dans la même minute ne partirait pas.
+    if (input.analyticsOptOut !== undefined) rememberOptOut(userId, updated.analyticsOptOut)
 
     return toProfile(updated)
   } catch (err) {
