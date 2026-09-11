@@ -260,6 +260,13 @@ pnpm --filter mobile typecheck
   Pour tester sur téléphone, y mettre l'IP du Mac sur le réseau local, pas `localhost`.
 - **Metro** : depuis le SDK 52, Expo configure seul le monorepo. Ne pas ajouter `watchFolders` ni
   `nodeModulesPaths`, cela entrerait en conflit avec sa détection.
+- **Ce que `babel.config.js` nomme doit être déclaré dans `apps/mobile`** : `babel-preset-expo`,
+  et `@babel/plugin-transform-react-jsx` que le preset de NativeWind cite par son nom (Babel
+  résout ces chaînes depuis le dossier du fichier de config, pas depuis le preset). Metro lancé
+  par `pnpm`/`npx` n'en souffre pas — le shim de pnpm pose un `NODE_PATH` qui masque l'oubli — mais
+  la phase Xcode « Bundle React Native code and images » appelle `node` directement et échouait
+  en `Cannot find module 'babel-preset-expo'` sur tout build iOS local. Le cache Metro partagé
+  (`$TMPDIR/metro-cache`) cachait le problème tant qu'il était chaud.
 - **Cinq onglets, pas six** : Accueil, Mes plantes, Identifier, Calendrier, Communauté. Une barre
   à six entrées ne tiendrait pas sur un iPhone SE.
 - **« Mon jardin » n'est plus un onglet.** Un jardin est un *classement*, pas une destination : on
