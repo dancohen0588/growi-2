@@ -38,13 +38,15 @@ pnpm typecheck              # Vérification des types sur tout le monorepo
 
 ## Observabilité
 
-Sentry couvre les erreurs et les traces du web et de l'API (projet `growi-web`,
-région UE). PostHog viendra ensuite pour l'analyse produit. Spec :
-`~/Growi/Documentation/spec/09-spec-observabilite.md`.
+Sentry couvre les erreurs et les traces du web, de l'API et de l'app
+(projets `growi-web` et `growi-mobile`, région UE) ; PostHog l'analyse produit
+des trois surfaces. Spec : `~/Growi/Documentation/spec/09-spec-observabilite.md`.
+Le mobile a sa propre section dans `apps/mobile/README.md`.
 
 | Fichier | Rôle |
 |---|---|
-| `apps/web/lib/observability/sentry-options.ts` | Réglages communs aux trois runtimes, et `scrubEvent` — la barrière aux données personnelles |
+| `packages/shared/src/observability/` | `scrubEvent` — la barrière aux données personnelles — et la normalisation des URL, partagés web et mobile |
+| `apps/web/lib/observability/sentry-options.ts` | Réglages communs aux trois runtimes du web |
 | `apps/web/sentry.{client,server,edge}.config.ts` | Un `Sentry.init` par runtime ; seul le serveur ajoute `prismaIntegration` |
 | `apps/web/instrumentation.ts` | Charge la bonne configuration au démarrage |
 | `apps/web/lib/observability/report.ts` | Ce qu'on remonte, et sous quel nom de route |
@@ -108,6 +110,11 @@ Le catalogue d'événements est dans `packages/shared/src/analytics/events.ts` �
   le serveur ne sait pas d'où vient l'appel. La plateforme de l'utilisateur est
   la propriété de personne `last_platform`, posée dans `lib/api/auth-context.ts`
   au rythme de la trace d'activité (au plus une fois par heure).
+- **Le refus d'analyse est posé sur le compte** (`User.analyticsOptOut`,
+  onglet Confidentialité du compte web, interrupteur du profil mobile). Les
+  SDK des appareils le lisent à l'ouverture de session ; le serveur le relit
+  avant chaque émission, au plus une fois par heure et par compte. Une
+  émission qui contournerait `trackServer` contournerait aussi ce refus.
 - **`is_tester_ff` n'est jamais posée par le code** : rien dans un parcours ne
   distingue un testeur. Elle se pose à la main, sur une liste écrite :
 
