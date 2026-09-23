@@ -627,6 +627,26 @@ tout essai demande un *development build* ou un build interne EAS.
 Un compte sans rien à faire ne reçoit rien : une notification quotidienne vide
 est le meilleur moyen de les faire couper.
 
+**Annonce d'un nouvel article du blog** (`lib/services/blog-push.service.ts`) :
+
+- La publication **demande** l'annonce (`BlogPost.pushRequestedAt`, case
+  « Prévenir les utilisateurs » cochée par défaut, **première publication
+  seulement**) ; c'est la tournée du matin qui l'**envoie**. Publier à 23 h ne
+  réveille personne.
+- **Un article par passage**, le plus ancien en attente. `pushSentAt` est posé
+  **avant** l'envoi par une écriture conditionnelle : un cron relancé ne
+  notifie pas deux fois. Un envoi raté en route n'est pas retenté — une annonce
+  manquée vaut mieux qu'une annonce en double.
+- Mêmes filtres que les rappels (canal, heures calmes) plus l'interrupteur
+  `alertConfig.blogArticles`, **vrai par défaut** : absent des configurations
+  anciennes, la fusion avec `DEFAULT_ALERT_CONFIG` le rend vrai.
+- **`data: { slug }`, sans `kind`** : l'app classe « communauté » toute
+  notification qui porte un `kind`. `notificationRoute` ouvre
+  `/(tabs)/accueil/conseils/[slug]?from=push`, et l'écran de l'article mesure
+  cette provenance. Une version de l'app qui ignore `slug` ouvre l'app.
+- Interrupteur « Nouveaux conseils » : profil mobile, `AlertesForm` web, et
+  l'onglet profil de la fiche admin.
+
 Côté mobile, `lib/push.ts` porte la permission, le jeton et le canal Android ;
 `lib/use-push.ts` branche le tout depuis `app/(tabs)/_layout.tsx`, le premier
 écran qu'on n'atteint que connecté. Quatre points s'y jouent :

@@ -95,6 +95,8 @@ function row(overrides: Partial<Row>): Row {
     reviewerNotes: null,
     generation: null,
     publishedAt,
+    pushRequestedAt: null,
+    pushSentAt: null,
     publishedById: null,
     createdAt: publishedAt,
     updatedAt: publishedAt,

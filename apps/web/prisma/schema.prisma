@@ -939,38 +939,44 @@ model Report {
 /// Seul `status = PUBLISHED` sort de lib/blog/content.ts : les pages publiques
 /// et l'API v1 ne voient jamais un brouillon.
 model BlogPost {
-  id             String    @id @default(cuid())
+  id              String    @id @default(cuid())
   /// Figé à la première publication : un slug publié ne change plus (liens, SEO).
-  slug           String    @unique
-  title          String
+  slug            String    @unique
+  title           String
   /// ≤ 160 caractères : méta-description et résumé de carte.
-  excerpt        String
-  source         String    @db.Text
+  excerpt         String
+  source          String    @db.Text
   /// URL publique Supabase (bucket blog-covers).
-  coverImage     String?
-  coverImageAlt  String?
+  coverImage      String?
+  coverImageAlt   String?
   /// Voir BLOG_COVER_STATUSES dans @growi/shared : NONE | PENDING | READY.
-  coverStatus    String    @default("NONE")
+  coverStatus     String    @default("NONE")
   /// Prompt de l'image, conservé pour « régénérer » à l'identique ou ajusté.
-  coverPrompt    String?   @db.Text
+  coverPrompt     String?   @db.Text
   /// Valeurs de BLOG_TAGS.
-  tags           String[]
-  author         String    @default("Growi")
+  tags            String[]
+  author          String    @default("Growi")
   /// Voir BLOG_POST_STATUSES dans @growi/shared : DRAFT | PUBLISHED | ARCHIVED.
-  status         String    @default("DRAFT")
+  status          String    @default("DRAFT")
   /// manual | admin | cron — d'où vient l'article.
-  origin         String
+  origin          String
   /// Pourquoi ce thème (saison, catégorie sous-représentée…). Affiché dans l'admin.
-  topicRationale String?   @db.Text
+  topicRationale  String?   @db.Text
   /// Chiffres et affirmations à vérifier avant publication. Jamais publié.
-  reviewerNotes  Json?
+  reviewerNotes   Json?
   /// Traces de génération : modèles, durées, tentatives, coût estimé.
-  generation     Json?
-  publishedAt    DateTime? @db.Timestamptz(6)
-  publishedById  String?
-  publishedBy    User?     @relation("blogPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
-  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  generation      Json?
+  publishedAt     DateTime? @db.Timestamptz(6)
+  /// Annonce push demandée à la première publication (case « Prévenir les
+  /// utilisateurs »). Elle part avec la tournée du lendemain matin.
+  pushRequestedAt DateTime? @db.Timestamptz(6)
+  /// Annonce partie — posée **avant** l'envoi : un cron relancé ne notifie
+  /// pas deux fois le même article.
+  pushSentAt      DateTime? @db.Timestamptz(6)
+  publishedById   String?
+  publishedBy     User?     @relation("blogPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
   @@index([status, publishedAt])
   @@map("blog_posts")

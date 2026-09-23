@@ -153,12 +153,18 @@ test.describe('Admin — Conseils', () => {
     await page.goto(`/admin/conseils/${postId}`)
 
     await page.getByRole('button', { name: 'Publier' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Publier' }).click()
+    // Première publication : la case « Prévenir les utilisateurs » est là, cochée.
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog.getByRole('checkbox', { name: /Prévenir les utilisateurs/ })).toBeChecked()
+    await dialog.getByRole('button', { name: 'Publier' }).click()
     await expect(page.getByRole('status').filter({ hasText: /Article publié/ })).toBeVisible()
 
     const published = await prisma.blogPost.findUniqueOrThrow({ where: { id: postId } })
     expect(published.status).toBe('PUBLISHED')
     expect(published.publishedAt).not.toBeNull()
+    // L'annonce est demandée, pas envoyée : elle part avec la tournée du matin.
+    expect(published.pushRequestedAt).not.toBeNull()
+    expect(published.pushSentAt).toBeNull()
 
     await page.goto(`/blog/${SLUG}`)
     await expect(page.getByRole('heading', { level: 1, name: EDITED_TITLE })).toBeVisible()

@@ -62,7 +62,7 @@ export type AiFailureReason =
   | 'unknown'
 
 /** Nature d'une notification poussée. */
-export type PushKind = 'planning' | 'alert' | 'community'
+export type PushKind = 'planning' | 'alert' | 'community' | 'blog'
 
 export type GrowiEvent =
   // ─── Compte et onboarding ────────────────────────────────────────────────

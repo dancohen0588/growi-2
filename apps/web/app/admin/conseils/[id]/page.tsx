@@ -15,6 +15,7 @@ import { ActionButton } from '@/components/admin/ActionButton'
 import { DateCell, PageHeader, Pill } from '@/components/admin/bits'
 import { BlogPostEditor } from '@/components/admin/blog/BlogPostEditor'
 import { CoverRegenerateForm } from '@/components/admin/blog/CoverRegenerateForm'
+import { PublishButton } from '@/components/admin/blog/PublishButton'
 import { requireAdmin } from '@/lib/admin/auth'
 import { compileArticleMdx } from '@/lib/blog/compile'
 import { countWords } from '@/lib/blog/editorial'
@@ -76,6 +77,7 @@ export default async function AdminConseilPage({ params }: { params: { id: strin
                 · publié le <DateCell value={post.publishedAt} />
               </span>
             )}
+            <PushStatus requestedAt={post.pushRequestedAt} sentAt={post.pushSentAt} />
             {status === 'PUBLISHED' && (
               <Link href={`/blog/${post.slug}`} target="_blank" className="inline-flex items-center gap-1 underline hover:no-underline">
                 Voir sur le site <ExternalLink size={12} aria-hidden />
@@ -86,15 +88,7 @@ export default async function AdminConseilPage({ params }: { params: { id: strin
         actions={
           <>
             {status !== 'PUBLISHED' && (
-              <ActionButton
-                label="Publier"
-                action={bound.publish}
-                confirm={{
-                  title: 'Publier cet article ?',
-                  body: 'Il apparaîtra aussitôt sur le blog, et dans l’app mobile dans l’heure. As-tu vérifié les chiffres de l’encart « À vérifier » ?',
-                  cta: 'Publier',
-                }}
-              />
+              <PublishButton action={bound.publish} firstPublication={!post.publishedAt} />
             )}
             {status === 'PUBLISHED' && (
               <ActionButton
@@ -199,6 +193,19 @@ export default async function AdminConseilPage({ params }: { params: { id: strin
       </div>
     </>
   )
+}
+
+/** Où en est l'annonce push de l'article — rien si elle n'a pas été demandée. */
+function PushStatus({ requestedAt, sentAt }: { requestedAt: Date | null; sentAt: Date | null }) {
+  if (sentAt) {
+    return (
+      <span>
+        · notification envoyée le <DateCell value={sentAt} />
+      </span>
+    )
+  }
+  if (requestedAt) return <span>· notification prévue à la prochaine tournée du matin</span>
+  return null
 }
 
 /**

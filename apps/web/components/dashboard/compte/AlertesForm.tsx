@@ -5,7 +5,7 @@ import { useState } from 'react'
 import {
   Thermometer, Sun, CloudRain, Wind,
   Droplets, Flower2, Scissors,
-  Sprout, Apple,
+  Sprout, Apple, Newspaper,
   Loader2, Check,
 } from 'lucide-react'
 
@@ -261,6 +261,25 @@ export function AlertesForm({ profile, isLoading, updateAlerts, resetAlerts }: A
             enabled={ac.harvestAlerts}
             onToggle={(v) => updateAlerts({ harvestAlerts: v })}
             switchAriaLabel="Activer les alertes de récolte"
+          />
+        </div>
+      </section>
+
+      <section aria-labelledby="section-conseils">
+        <h2
+          id="section-conseils"
+          className="font-poppins font-semibold text-forest mb-3 flex items-center gap-2"
+        >
+          Conseils Growi
+        </h2>
+        <div className="space-y-3">
+          <AlertToggleCard
+            icon={<Newspaper size={18} />}
+            title="Nouveaux conseils"
+            description="Je te préviens le matin de la sortie d\u2019un nouvel article de saison sur le blog."
+            enabled={ac.blogArticles}
+            onToggle={(v) => updateAlerts({ blogArticles: v })}
+            switchAriaLabel="Activer les notifications de nouveaux conseils"
           />
         </div>
       </section>

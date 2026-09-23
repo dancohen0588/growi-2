@@ -239,6 +239,12 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
             value={alerts.seedingAlerts}
             onChange={(v) => saveAlerts({ seedingAlerts: v })}
           />
+          <Toggle
+            label="Nouveaux conseils"
+            hint="Un article de saison, le matin de sa sortie"
+            value={alerts.blogArticles}
+            onChange={(v) => saveAlerts({ blogArticles: v })}
+          />
         </View>
       </View>
 

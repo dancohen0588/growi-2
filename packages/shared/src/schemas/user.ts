@@ -45,6 +45,12 @@ export const alertConfigSchema = z.object({
   quietHoursStart: z.string().regex(/^\d{2}:\d{2}$/),
   quietHoursEnd: z.string().regex(/^\d{2}:\d{2}$/),
   community: communityAlertConfigSchema,
+  /**
+   * Annonce d'un nouvel article du blog, le lendemain matin de sa publication.
+   * Absent des configurations enregistrées avant son ajout : la fusion avec
+   * `DEFAULT_ALERT_CONFIG` le rend vrai, comme pour tout le monde.
+   */
+  blogArticles: z.boolean(),
 })
 
 export type AlertConfig = z.infer<typeof alertConfigSchema>
@@ -72,6 +78,7 @@ export const DEFAULT_ALERT_CONFIG: AlertConfig = {
   quietHoursStart: '22:00',
   quietHoursEnd: '07:00',
   community: { comments: true, messages: true, follows: false },
+  blogArticles: true,
 }
 
 // ─── Utilisateur ───────────────────────────────────────────────────────────

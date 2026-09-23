@@ -2,6 +2,7 @@ import { rejectUnauthorizedCron } from '@/lib/api/cron-auth'
 import { runListingUpkeep } from '@/lib/services/community/listing.service'
 import { sendOpenReportsAlert } from '@/lib/services/community/moderation.service'
 import { purgeReadNotifications } from '@/lib/services/community/notification.service'
+import { announceNewArticle } from '@/lib/services/blog-push.service'
 import { sendDailyReminders } from '@/lib/services/push.service'
 
 // Jamais de rendu statique : la route s'exécute à chaque appel du planificateur.
@@ -29,6 +30,17 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const result = await sendDailyReminders()
     console.log('[cron] rappels envoyés :', JSON.stringify(result))
+
+    // L'annonce d'un article publié la veille part avec les rappels : à une
+    // heure où l'on regarde son téléphone, quelle que soit l'heure de la
+    // publication. Son échec n'empêche rien d'autre.
+    let article = null as Awaited<ReturnType<typeof announceNewArticle>> | null
+    try {
+      article = await announceNewArticle()
+      if (article.slug) console.log('[cron] article annoncé :', JSON.stringify(article))
+    } catch (error) {
+      console.error('[cron] annonce d’article impossible :', error)
+    }
 
     // L'entretien de la bourse profite du même passage quotidien : expiration
     // des annonces échues, puis rappel J‑7 à leurs auteurs.
@@ -63,7 +75,7 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     return Response.json(
-      { data: { ...result, listings: upkeep, reports, notificationsPurged: purged } },
+      { data: { ...result, article, listings: upkeep, reports, notificationsPurged: purged } },
       { headers: { 'cache-control': 'no-store' } },
     )
   } catch (error) {

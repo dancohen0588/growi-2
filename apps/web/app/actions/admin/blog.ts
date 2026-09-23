@@ -150,14 +150,16 @@ export async function updateBlogPostAction(id: string, formData: FormData): Prom
 
 // ─── Cycle de vie ──────────────────────────────────────────────────────────
 
-export async function publishBlogPostAction(id: string): Promise<ActionResult> {
+export async function publishBlogPostAction(id: string, notify: boolean): Promise<ActionResult> {
   return run(async () => {
     const admin = await requireAdmin()
-    const post = await publishBlogPost(admin.id, id)
+    const post = await publishBlogPost(admin.id, id, { notify: notify === true })
 
     revalidateAdmin(id)
     revalidatePublic(post.slug)
-    return 'Article publié. L’app mobile le verra dans l’heure.'
+    return post.pushRequestedAt && !post.pushSentAt
+      ? 'Article publié. La notification partira à la prochaine tournée du matin, avec les rappels.'
+      : 'Article publié. L’app mobile le verra dans l’heure.'
   })
 }
 
