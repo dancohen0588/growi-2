@@ -107,9 +107,9 @@ export function requireGeminiKey(message: string): string {
  * Le cast est nécessaire tant qu'on est sur `@google/generative-ai` : ses
  * typages sont antérieurs à `thinkingConfig`, que l'API accepte pourtant.
  */
-function generationConfig(maxOutputTokens: number): GenerationConfig {
+function generationConfig(maxOutputTokens: number, temperature = 0): GenerationConfig {
   return {
-    temperature: 0,
+    temperature,
     maxOutputTokens,
     responseMimeType: 'application/json',
     thinkingConfig: { thinkingBudget: 0 },
@@ -246,6 +246,12 @@ export async function generateJson(
     maxOutputTokens: number
     /** Préfixe des logs, ex. `identify-plant`. */
     logLabel: string
+    /**
+     * 0 par défaut : on demande une structure, pas une invention. Seule la
+     * rédaction d'articles du blog la relève — à 0, le même contexte donne
+     * mot pour mot le même texte.
+     */
+    temperature?: number
   },
 ): Promise<GeminiSuccess | GeminiFailure> {
   const genAI = new GoogleGenerativeAI(options.apiKey)
@@ -255,7 +261,7 @@ export async function generateJson(
   for (const [index, modelName] of GEMINI_MODELS.entries()) {
     const model = genAI.getGenerativeModel({
       model: modelName,
-      generationConfig: generationConfig(options.maxOutputTokens),
+      generationConfig: generationConfig(options.maxOutputTokens, options.temperature),
     })
 
     // Un span par **tentative**, pas par appel : c'est la seule façon de voir
