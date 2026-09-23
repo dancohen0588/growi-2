@@ -38,7 +38,8 @@ export function useUserProfile(initial?: InitialSession) {
             alertConfig: defaultAlertConfig,
             // Repli le plus prudent : on n'a pas pu lire le profil, et un
             // refus d'analyse ne doit pas se perdre au premier échec réseau.
-            analyticsOptOut: true,
+            analyticsConsent: false,
+            analyticsConsentAt: null,
           })
         }
       } finally {

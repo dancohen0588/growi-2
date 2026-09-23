@@ -6,7 +6,7 @@ import type { SocialProvider } from '@growi/shared'
 import { api, publicApi, setSessionLostHandler } from '@/lib/api'
 import { clearTokens, getRefreshToken, saveTokens } from '@/lib/auth-storage'
 import { clearKeychainOnFreshInstall } from '@/lib/fresh-install'
-import { analytics, applyAnalyticsOptOut } from '@/lib/analytics/posthog'
+import { analytics, applyAnalyticsConsent } from '@/lib/analytics/posthog'
 import { forgetUser, identifyUser } from '@/lib/observability/sentry'
 import { hasSeenOnboarding } from '@/lib/onboarding-storage'
 import { forgetDeviceForPush } from '@/lib/push'
@@ -44,6 +44,17 @@ interface SessionState {
    */
   onboardingSeen: boolean
   setOnboardingSeen: (seen: boolean) => void
+  /**
+   * Consentement du compte à la mesure d'usage. `null` tant que la question
+   * n'a pas reçu de réponse : les onglets renvoient alors vers l'écran de
+   * consentement (`app/consentement.tsx`).
+   */
+  analyticsConsent: boolean | null
+  /**
+   * Applique un choix déjà enregistré sur le compte : démarre ou coupe la
+   * mesure, puis identifie l'appareil s'il vient de dire oui.
+   */
+  setAnalyticsConsent: (consent: boolean) => void
   restore: () => Promise<void>
   signIn: (input: { email: string; password: string }) => Promise<void>
   signUp: (input: { firstName: string; email: string; password: string }) => Promise<void>
@@ -53,6 +64,24 @@ interface SessionState {
    */
   signInWith: (provider: SocialProvider) => Promise<boolean>
   signOut: () => Promise<void>
+}
+
+/**
+ * Identifiant du compte connecté, pour l'`identify` qui suit un oui donné en
+ * cours de session. Gardé hors de l'état : aucun écran n'en a besoin, et le
+ * mettre dans `SessionUser` inviterait à s'en servir.
+ */
+let currentUserId: string | null = null
+
+/**
+ * Ouvre la session côté observabilité. Le consentement est appliqué **avant**
+ * l'`identify` : sans accord, l'émetteur est muet et l'`identify` n'écrit rien.
+ */
+function attachIdentity(userId: string, consent: boolean | null | undefined): void {
+  currentUserId = userId
+  identifyUser(userId)
+  applyAnalyticsConsent(consent)
+  analytics().identify(userId)
 }
 
 function toSessionUser(user: { email: string; firstName?: string | null }): SessionUser {
@@ -68,8 +97,15 @@ export const useSession = create<SessionState>((set) => ({
   status: 'restoring',
   user: null,
   onboardingSeen: true,
+  analyticsConsent: null,
 
   setOnboardingSeen: (seen) => set({ onboardingSeen: seen }),
+
+  setAnalyticsConsent: (consent) => {
+    applyAnalyticsConsent(consent)
+    if (consent && currentUserId) analytics().identify(currentUserId)
+    set({ analyticsConsent: consent })
+  },
 
   /**
    * Au démarrage : s'il existe un jeton, on vérifie qu'il vaut encore quelque
@@ -98,14 +134,13 @@ export const useSession = create<SessionState>((set) => ({
 
     try {
       const profile = await api.me.get()
-      identifyUser(profile.id)
-      analytics().identify(profile.id)
-      // Le refus est stocké sur le compte, pas sur l'appareil : il doit donc
-      // être appliqué à chaque restauration, avant tout événement.
-      applyAnalyticsOptOut(profile.analyticsOptOut)
+      // Le choix est stocké sur le compte, pas sur l'appareil : il est donc
+      // appliqué à chaque restauration, avant tout événement.
+      attachIdentity(profile.id, profile.analyticsConsent)
       set({
         status: 'authenticated',
         user: { email: profile.email, firstName: profile.firstName || null },
+        analyticsConsent: profile.analyticsConsent,
       })
     } catch (error) {
       // Hors ligne, DNS, panne serveur : la session n'est pas finie pour
@@ -130,9 +165,12 @@ export const useSession = create<SessionState>((set) => ({
   signIn: async ({ email, password }) => {
     const tokens = await publicApi.auth.login({ email, password, deviceInfo: deviceInfo() })
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
-    identifyUser(tokens.user.id)
-    analytics().identify(tokens.user.id)
-    set({ status: 'authenticated', user: toSessionUser(tokens.user) })
+    attachIdentity(tokens.user.id, tokens.user.analyticsConsent)
+    set({
+      status: 'authenticated',
+      user: toSessionUser(tokens.user),
+      analyticsConsent: tokens.user.analyticsConsent ?? null,
+    })
   },
 
   signUp: async ({ firstName, email, password }) => {
@@ -143,9 +181,12 @@ export const useSession = create<SessionState>((set) => ({
       deviceInfo: deviceInfo(),
     })
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
-    identifyUser(tokens.user.id)
-    analytics().identify(tokens.user.id)
-    set({ status: 'authenticated', user: toSessionUser(tokens.user) })
+    attachIdentity(tokens.user.id, tokens.user.analyticsConsent)
+    set({
+      status: 'authenticated',
+      user: toSessionUser(tokens.user),
+      analyticsConsent: tokens.user.analyticsConsent ?? null,
+    })
   },
 
   /**
@@ -161,9 +202,12 @@ export const useSession = create<SessionState>((set) => ({
 
     const tokens = await publicApi.auth.social(provider, identity)
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
-    identifyUser(tokens.user.id)
-    analytics().identify(tokens.user.id)
-    set({ status: 'authenticated', user: toSessionUser(tokens.user) })
+    attachIdentity(tokens.user.id, tokens.user.analyticsConsent)
+    set({
+      status: 'authenticated',
+      user: toSessionUser(tokens.user),
+      analyticsConsent: tokens.user.analyticsConsent ?? null,
+    })
     return true
   },
 
@@ -191,7 +235,11 @@ export const useSession = create<SessionState>((set) => ({
     // celles de personne en particulier.
     forgetUser()
     analytics().reset()
-    set({ status: 'unauthenticated', user: null })
+    // Le compte suivant sur cet appareil porte son propre choix : la mesure
+    // se tait jusqu'à ce qu'on le connaisse.
+    applyAnalyticsConsent(null)
+    currentUserId = null
+    set({ status: 'unauthenticated', user: null, analyticsConsent: null })
   },
 }))
 

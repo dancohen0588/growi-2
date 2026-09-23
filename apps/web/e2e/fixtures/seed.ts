@@ -10,9 +10,21 @@ const TEST_GARDEN_NAME = 'Jardin E2E'
 
 export { TEST_EMAIL, TEST_EMAIL_2, TEST_PASSWORD }
 
+/**
+ * Les comptes de test ont déjà répondu à la question du consentement : la
+ * boîte, non fermable sans réponse, bloquerait sinon tous les parcours du
+ * dashboard. Elle est testée pour elle-même dans `29-rgpd-consentement`.
+ * Les comptes persistants, créés avant la question, sont mis à niveau ici.
+ */
+async function markConsentAnswered(user: { id: string; analyticsConsent: boolean | null }) {
+  if (user.analyticsConsent !== null) return
+  await prisma.user.update({ where: { id: user.id }, data: { analyticsConsent: false } })
+}
+
 export async function seedTestUser() {
   const existing = await prisma.user.findUnique({ where: { email: TEST_EMAIL } })
   if (existing) {
+    await markConsentAnswered(existing)
     const garden = await prisma.garden.findFirst({
       where: { userId: existing.id },
       select: { id: true },
@@ -31,6 +43,7 @@ export async function seedTestUser() {
       latitude: 48.85,
       longitude: 2.35,
       onboarded: true,
+      analyticsConsent: false,
     },
   })
 
@@ -48,6 +61,7 @@ export async function seedTestUser() {
 export async function seedTestUser2() {
   const existing = await prisma.user.findUnique({ where: { email: TEST_EMAIL_2 } })
   if (existing) {
+    await markConsentAnswered(existing)
     const garden = await prisma.garden.findFirst({
       where: { userId: existing.id },
       select: { id: true },
@@ -66,6 +80,7 @@ export async function seedTestUser2() {
       latitude: 43.6,
       longitude: 1.44,
       onboarded: true,
+      analyticsConsent: false,
     },
   })
 

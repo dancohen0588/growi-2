@@ -21,7 +21,6 @@ import {
 } from '@expo-google-fonts/raleway'
 
 import { ToastProvider } from '@/components/ui/Toast'
-import { initAnalytics } from '@/lib/analytics/posthog'
 import { useScreenTracking } from '@/lib/analytics/use-screen-tracking'
 import { initSentry, navigationIntegration } from '@/lib/observability/sentry'
 import { queryClient } from '@/lib/query-client'
@@ -32,7 +31,8 @@ import { useSession } from '@/store/session'
 // justement celle qu'aucun simulateur ne reproduit. L'appel ne fait rien en
 // développement ni sans DSN.
 initSentry()
-initAnalytics()
+// PostHog, lui, n'est pas démarré ici : il attend l'accord du compte, que
+// seule la restauration de session fait connaître (`store/session.ts`).
 
 // L'écran de démarrage reste affiché tant que les polices ne sont pas prêtes et
 // que la session n'est pas restaurée : sans cela, l'app apparaîtrait une
@@ -97,6 +97,8 @@ function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="onboarding" />
+          {/* Une question à laquelle il faut répondre : ni retour, ni geste. */}
+          <Stack.Screen name="consentement" options={{ gestureEnabled: false }} />
           {/* Publier n'est pas une destination mais un geste, et il part de
               partout — le fil, l'accueil, la fiche plante (qui existe dans
               quatre piles). Déclarée ici, à la racine, elle s'ouvre par un

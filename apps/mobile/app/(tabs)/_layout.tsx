@@ -24,6 +24,7 @@ import { useSession } from '@/store/session'
  */
 export default function TabsLayout() {
   const status = useSession((s) => s.status)
+  const analyticsConsent = useSession((s) => s.analyticsConsent)
 
   // Les notifications se branchent ici : c'est le premier écran qu'on ne voit
   // qu'une fois connecté, et il reste monté tant que la session dure.
@@ -32,6 +33,12 @@ export default function TabsLayout() {
   // Session perdue en cours de route (jeton révoqué, rafraîchissement refusé) :
   // on repart vers la connexion sans laisser d'écran vide derrière.
   if (status !== 'authenticated') return <Redirect href="/(auth)/login" />
+
+  // La question du consentement passe avant les onglets, une fois par compte :
+  // rien ne se mesure tant qu'elle n'a pas reçu de réponse. Toutes les entrées
+  // mènent ici — démarrage, connexion, inscription —, c'est donc le seul
+  // aiguillage à tenir.
+  if (analyticsConsent === null) return <Redirect href="/consentement" />
 
   return (
     <Tabs

@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/Input'
 import { Toggle } from '@/components/ui/Toggle'
 import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
-import { applyAnalyticsOptOut, useTrack } from '@/lib/analytics/posthog'
+import { useTrack } from '@/lib/analytics/posthog'
 import { WEB_BASE_URL } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { useProfile, useUpdateAlerts, useUpdateProfile } from '@/lib/queries/me'
@@ -50,6 +50,8 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
   const updateAlerts = useUpdateAlerts()
   const track = useTrack()
   const signOut = useSession((s) => s.signOut)
+  const analyticsConsent = useSession((s) => s.analyticsConsent)
+  const setAnalyticsConsent = useSession((s) => s.setAnalyticsConsent)
 
   const [city, setCity] = useState(profile.city ?? '')
   const [locating, setLocating] = useState(false)
@@ -121,16 +123,26 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
   }
 
   /**
-   * Le réglage vit sur le compte, mais son effet doit être immédiat sur cet
-   * appareil : on coupe l'émetteur avant même que la requête ne parte. Si elle
-   * échoue, le réglage reprend sa valeur au prochain chargement du profil —
-   * mieux vaut avoir cessé de mesurer pour rien que l'inverse.
+   * Le réglage vit sur le compte, et l'état affiché est celui du store — le
+   * même que l'écran de consentement a écrit. Le retrait prend effet sur cet
+   * appareil avant même que la requête ne parte : mieux vaut avoir cessé de
+   * mesurer pour rien que l'inverse. L'accord, lui, attend d'être enregistré.
    */
   const saveAnalytics = (helping: boolean) => {
-    applyAnalyticsOptOut(!helping)
+    const previous = analyticsConsent
+    if (!helping) setAnalyticsConsent(false)
     updateProfile.mutate(
-      { analyticsOptOut: !helping },
-      { onError: (error) => toast(errorMessage(error), 'error') },
+      { analyticsConsent: helping },
+      {
+        onSuccess: () => {
+          if (helping) setAnalyticsConsent(true)
+        },
+        onError: (error) => {
+          // Le compte n'a pas changé : on revient à ce qu'il porte encore.
+          if (!helping && previous !== null) setAnalyticsConsent(previous)
+          toast(errorMessage(error), 'error')
+        },
+      },
     )
   }
 
@@ -261,7 +273,7 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
           <Toggle
             label="Aider à améliorer Growi"
             hint="Aucune photo ni message n’est transmis. Les rapports de plantage restent actifs pour corriger les bugs."
-            value={!profile.analyticsOptOut}
+            value={analyticsConsent === true}
             onChange={saveAnalytics}
           />
         </View>

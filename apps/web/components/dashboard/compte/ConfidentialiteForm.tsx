@@ -5,47 +5,49 @@ import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import type { UserProfile } from '@growi/shared'
 
-import { useAnalytics } from '@/lib/analytics/client'
+import { useAnalyticsConsent } from '@/lib/analytics/client'
 
 /**
  * Onglet « Confidentialité » de Mon compte.
  *
- * Un seul réglage, et c'est voulu : l'opposition à la mesure d'usage. Les
+ * Un seul réglage, et c'est voulu : l'accord à la mesure d'usage. Les
  * rapports de plantage ne s'y trouvent pas parce qu'ils ne se coupent pas —
  * ils ne portent rien de ce que l'utilisateur écrit, et sans eux un bug peut
  * rester des semaines à l'écran de quelqu'un sans que personne l'apprenne.
  * C'est dit dans le texte plutôt que caché.
  *
  * Le réglage vit sur le **compte** : refuser depuis le téléphone vaut aussi
- * ici, et inversement.
+ * ici, et inversement. L'état affiché est celui du provider d'analyse, que
+ * la boîte de consentement modifie aussi : les deux ne peuvent pas diverger.
  */
 export function ConfidentialiteForm({
-  profile,
   updateProfile,
 }: {
   profile: UserProfile
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error?: string }>
 }) {
-  const analytics = useAnalytics()
-  const [helping, setHelping] = useState(!profile.analyticsOptOut)
+  const { consent, setConsent } = useAnalyticsConsent()
+  const helping = consent === true
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   function toggle(next: boolean) {
-    // L'effet est immédiat sur ce navigateur, avant même la requête : mieux
-    // vaut avoir cessé de mesurer pour rien que l'inverse.
-    if (next) analytics.optIn()
-    else analytics.optOut()
-
-    setHelping(next)
     setError(null)
 
+    // Le retrait prend effet sur ce navigateur avant même la requête : mieux
+    // vaut avoir cessé de mesurer pour rien que l'inverse. L'accord, lui,
+    // attend d'être enregistré.
+    if (!next) setConsent(false)
+
     startTransition(async () => {
-      const result = await updateProfile({ analyticsOptOut: !next })
+      const result = await updateProfile({ analyticsConsent: next })
       if (result.error) {
-        setHelping(!next)
         setError(result.error)
+        // Le compte n'a pas changé : on revient à ce qu'il porte encore.
+        if (!next && consent !== null) setConsent(consent)
+        return
       }
+      if (next) setConsent(true)
     })
   }
 

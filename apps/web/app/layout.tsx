@@ -4,8 +4,6 @@ import { SessionProvider } from 'next-auth/react'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-import { AnalyticsProvider } from '@/lib/analytics/client'
-
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
@@ -51,13 +49,14 @@ export default function RootLayout({
     <html lang="fr" className={`${poppins.variable} ${raleway.variable}`}>
       <body className="min-h-screen flex flex-col antialiased">
         {/*
-          L'analyse produit est **à l'intérieur** de la session : c'est d'elle
-          que vient l'identifiant rattaché aux événements. Comme Vercel
-          Analytics ci-dessous, elle ne fait rien en développement.
+          Le site public ne dépose rien sur le terminal hors les cookies de
+          connexion de NextAuth (session, CSRF, page de retour), exemptés de
+          consentement et déclarés dans la politique. La mesure d'usage
+          (PostHog) n'est montée que dans l'espace connecté, et seulement
+          après l'accord du compte — voir `app/dashboard/layout.tsx`. C'est ce
+          qui dispense de bandeau.
         */}
-        <SessionProvider>
-          <AnalyticsProvider>{children}</AnalyticsProvider>
-        </SessionProvider>
+        <SessionProvider>{children}</SessionProvider>
         {/*
           Trafic anonyme du site : Vercel Web Analytics, sans cookie et donc
           sans bandeau de consentement. Il compte les *visiteurs* ; les

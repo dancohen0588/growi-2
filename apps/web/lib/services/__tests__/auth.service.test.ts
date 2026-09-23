@@ -18,9 +18,14 @@ const prismaMock = vi.hoisted(() => ({
   account: { findUnique: vi.fn(), create: vi.fn() },
   $transaction: vi.fn(async (ops: unknown[]) => ops),
 }))
+const TERMS = vi.hoisted(() => ({
+  termsAcceptedAt: new Date('2026-09-24T09:00:00Z'),
+  termsVersion: '2026-09-09',
+}))
 const userService = vi.hoisted(() => ({
   createUser: vi.fn(),
   verifyCredentials: vi.fn(),
+  termsAcceptance: vi.fn(() => TERMS),
 }))
 const socialIdentity = vi.hoisted(() => ({ verifySocialIdentity: vi.fn() }))
 
@@ -75,7 +80,14 @@ describe('login', () => {
 
     expect(tokens.tokenType).toBe('Bearer')
     expect(tokens.expiresIn).toBe(900)
-    expect(tokens.user).toEqual({ id: 'user_1', email: 'dan@growi.fr', firstName: 'Dan' })
+    // Le consentement voyage avec la session : l'app en déduit s'il faut
+    // poser la question avant les onglets. Absent en base, il vaut « jamais ».
+    expect(tokens.user).toEqual({
+      id: 'user_1',
+      email: 'dan@growi.fr',
+      firstName: 'Dan',
+      analyticsConsent: null,
+    })
     await expect(verifyAccessToken(tokens.accessToken)).resolves.toBe('user_1')
   })
 
@@ -202,6 +214,21 @@ describe('loginWithProvider', () => {
     expect(data).toMatchObject({ email: 'neuf@growi.fr', firstName: 'Dan', lastName: 'Cohen' })
     expect(data.name).toBe('Dan Cohen')
     expect(data.password).toBeUndefined()
+    // Le premier passage vaut inscription : l'acceptation des CGU est tracée.
+    expect(data).toMatchObject(TERMS)
+  })
+
+  it("n'écrit aucune acceptation à la reconnexion ni au rattachement", async () => {
+    socialIdentity.verifySocialIdentity.mockResolvedValue(identity())
+    prismaMock.account.findUnique.mockResolvedValueOnce({ user: USER })
+    await authService.loginWithProvider('apple', input)
+
+    prismaMock.account.findUnique.mockResolvedValueOnce(null)
+    prismaMock.user.findUnique.mockResolvedValueOnce(USER)
+    await authService.loginWithProvider('apple', input)
+
+    expect(userService.termsAcceptance).not.toHaveBeenCalled()
+    expect(prismaMock.user.create).not.toHaveBeenCalled()
   })
 
   it('refuse un jeton sans adresse email', async () => {
