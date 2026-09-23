@@ -38,6 +38,27 @@ export default function RegisterPage() {
         <RegisterForm />
       </Suspense>
 
+      {/* L'inscription vaut acceptation : la mention le dit sous le bouton, et
+          le serveur en garde la trace (`termsAcceptedAt`, `termsVersion`). Pas
+          de case à cocher — la loi ne l'exige pas (spec 13, D8). */}
+      <p className="-mt-4 text-center font-raleway text-sm text-forest/60">
+        En créant ton compte, tu acceptes les{' '}
+        <Link
+          href="/cgu"
+          className="text-forest underline underline-offset-2 hover:text-forest-light"
+        >
+          CGU
+        </Link>{' '}
+        et la{' '}
+        <Link
+          href="/confidentialite"
+          className="text-forest underline underline-offset-2 hover:text-forest-light"
+        >
+          politique de confidentialité
+        </Link>
+        .
+      </p>
+
       {/* Login link */}
       <p className="text-center font-raleway text-sm text-forest/60">
         Déjà un compte ?{' '}

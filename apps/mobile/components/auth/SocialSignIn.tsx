@@ -3,6 +3,7 @@ import { Text, View } from 'react-native'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import type { SocialProvider } from '@growi/shared'
 
+import { TermsNotice } from '@/components/auth/TermsNotice'
 import { Button } from '@/components/ui/Button'
 import { isAppleSignInAvailable, isGoogleSignInAvailable } from '@/lib/social-auth'
 import { authErrorMessage, useSession } from '@/store/session'
@@ -12,6 +13,13 @@ export interface SocialSignInProps {
   onError: (message: string) => void
   /** Vidé au début de chaque tentative, pour ne pas laisser une erreur périmée. */
   onStart?: () => void
+  /**
+   * Affiche, sous les boutons, la mention des CGU propre à la connexion : le
+   * premier passage par Apple ou Google crée le compte, même depuis l'écran
+   * « Se connecter ». L'écran d'inscription porte déjà sa propre mention, qui
+   * couvre ces boutons aussi — une seule phrase par écran.
+   */
+  termsNotice?: boolean
 }
 
 /**
@@ -22,7 +30,7 @@ export interface SocialSignInProps {
  * seulement, celui de Google si le build porte un identifiant client. Un
  * bouton qui échouerait à coup sûr vaut moins que pas de bouton.
  */
-export function SocialSignIn({ onError, onStart }: SocialSignInProps) {
+export function SocialSignIn({ onError, onStart, termsNotice = false }: SocialSignInProps) {
   const signInWith = useSession((s) => s.signInWith)
   const [appleReady, setAppleReady] = useState(false)
   const [pending, setPending] = useState<SocialProvider | null>(null)
@@ -85,6 +93,10 @@ export function SocialSignIn({ onError, onStart }: SocialSignInProps) {
           />
         ) : null}
       </View>
+
+      {termsNotice ? (
+        <TermsNotice lead="Si c’est ta première connexion, continuer avec Apple ou Google crée ton compte :" />
+      ) : null}
     </View>
   )
 }

@@ -108,7 +108,11 @@ export default function LoginScreen() {
             onPress={handleSubmit(onSubmit)}
           />
 
-          <SocialSignIn onError={setFormError} onStart={() => setFormError(null)} />
+          <SocialSignIn
+            onError={setFormError}
+            onStart={() => setFormError(null)}
+            termsNotice
+          />
 
           <View className="flex-row justify-center gap-1">
             <Text className="font-raleway text-secondary text-muted-foreground">

@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { mobileRegisterSchema, type MobileRegisterInput } from '@growi/shared'
 
 import { SocialSignIn } from '@/components/auth/SocialSignIn'
+import { TermsNotice } from '@/components/auth/TermsNotice'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { authErrorMessage, useSession } from '@/store/session'
@@ -129,6 +130,10 @@ export default function RegisterScreen() {
           />
 
           <SocialSignIn onError={setFormError} onStart={() => setFormError(null)} />
+
+          {/* Une seule mention pour l'écran : elle couvre le formulaire comme les
+              boutons Apple et Google, qui créent eux aussi le compte. */}
+          <TermsNotice lead="En créant ton compte," />
 
           <View className="flex-row justify-center gap-1">
             <Text className="font-raleway text-secondary text-muted-foreground">
