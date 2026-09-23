@@ -21,8 +21,10 @@ async function seedAccount(email: string, role: 'USER' | 'ADMIN') {
   const password = await bcrypt.hash(TEST_PASSWORD, 10)
   return prisma.user.upsert({
     where: { email },
-    create: { email, name: 'E2E Admin', firstName: 'E2E', password, role, onboarded: true },
-    update: { password, role, disabledAt: null },
+    // Consentement déjà répondu : la question bloquerait le dashboard (voir
+    // `29-rgpd-consentement.spec.ts`, qui la teste pour elle-même).
+    create: { email, name: 'E2E Admin', firstName: 'E2E', password, role, onboarded: true, analyticsConsent: false },
+    update: { password, role, disabledAt: null, analyticsConsent: false },
   })
 }
 

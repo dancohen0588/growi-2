@@ -32,6 +32,7 @@ test.beforeAll(async () => {
       lastName: 'Fiche',
       password,
       onboarded: true,
+      analyticsConsent: false,
       latitude: 48.85,
       longitude: 2.35,
     },

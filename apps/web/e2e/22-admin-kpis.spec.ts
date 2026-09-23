@@ -29,7 +29,7 @@ test.beforeAll(async () => {
 
   // Un compte avec de quoi alimenter plusieurs séries à la fois.
   const user = await prisma.user.create({
-    data: { email: USER_EMAIL, firstName: 'KPI', password, onboarded: true },
+    data: { email: USER_EMAIL, firstName: 'KPI', password, onboarded: true, analyticsConsent: false },
   })
   const garden = await prisma.garden.create({
     data: { userId: user.id, name: 'Jardin KPI', type: 'OUTDOOR' },
