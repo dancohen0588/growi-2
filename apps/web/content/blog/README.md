@@ -30,12 +30,32 @@ Seul `lib/blog/content.ts` lit les articles pour le public, et il ne sert que
 `PUBLISHED` — en développement comme en production. L'aperçu d'un brouillon se
 fait dans l'admin.
 
+## Relire et publier — `/admin/conseils`
+
+- **Onglets** Brouillons · Publiés · Archivés ; le badge « Conseils » de la
+  navigation compte les brouillons.
+- **Fiche** : l'encart « À vérifier avant publication » liste les chiffres et
+  affirmations à contrôler, avec la raison du thème. À gauche, titre, extrait
+  (compteur / 160), tags, corps MDX et texte alternatif ; à droite, l'aperçu
+  de la version enregistrée, rendu avec les composants du site.
+- **Enregistrer** applique les mêmes contrôles qu'à la génération, sauf la
+  longueur et les termes vagues, qui ne sont que des avertissements.
+- **Publier** exige un MDX qui compile et aucun terme interdit. **Dépublier**
+  rend l'URL 404. **Supprimer** n'est possible que pour un brouillon ou un
+  article dépublié, et efface aussi la couverture.
+- **Régénérer l'image**, repliable, permet d'ajuster le prompt.
+- **Générer un article** (sujet facultatif) et la **cadence** vivent en haut
+  de la liste ; le bouton se désactive, en disant pourquoi, au-delà de deux
+  brouillons.
+
+Chaque geste est inscrit au journal d'audit (`blog.*`).
+
 ## D'où viennent les articles
 
 | Origine (`origin`) | Comment |
 |---|---|
 | `cron` | Génération automatique, chaque lundi 7 h UTC si la cadence réglée dans l'admin le prévoit |
-| `admin` | Bouton « Générer un article » de `/admin/conseils`, avec un sujet facultatif *(phase 4)* |
+| `admin` | Bouton « Générer un article » de `/admin/conseils`, avec un sujet facultatif |
 | `manual` | Écrit à la main, avec le skill Claude Code `growi-blog-article` *(phase 5)*. Les trois premiers articles, importés, portent aussi cette origine. |
 
 Quelle que soit l'origine, **un humain relit avant publication**. Un article
@@ -110,7 +130,7 @@ Le service `lib/services/blog-generator.service.ts` enchaîne :
    l'admin saute cette étape.
 2. **Rédaction** — un JSON conforme à `generatedArticleSchema`.
 3. **Contrôles**, tous bloquants : slug libre, titre qui ne double rien,
-   compilation *et rendu* du MDX, puis le lint d'`editorial.ts` (mots,
+   compilation du MDX, puis le lint d'`editorial.ts` (mots,
    intertitres, encadré, tutoiement, termes interdits, HTML, liens, images).
    Un échec donne lieu à **une** réécriture, à laquelle on passe la liste des
    défauts ; au second échec, on abandonne (Sentry).
@@ -211,11 +231,13 @@ depuis l'admin), avec le lien vers la fiche.
 | `apps/web/lib/blog/content.ts` | **Seul** module de lecture publique — articles `PUBLISHED` uniquement |
 | `apps/web/lib/blog/mdx-components.tsx` · `mdx-options.ts` | Rendu MDX, web et HTML du mobile |
 | `apps/web/lib/blog/editorial.ts` | Ton, interdits, calendrier saisonnier, prompts, lint — **fait foi** |
-| `apps/web/lib/blog/compile.ts` | Compilation et rendu réels d'un corps, avant toute écriture |
+| `apps/web/lib/blog/compile.ts` | Compilation réelle d'un corps, avant toute écriture |
 | `apps/web/lib/services/blog-generator.service.ts` | Génération d'un brouillon, email aux admins |
 | `apps/web/lib/services/blog-cover.service.ts` | Couverture : image, recadrage, dépôt |
 | `apps/web/lib/services/app-settings.service.ts` | Cadence, dernière génération, verrou |
 | `apps/web/app/api/cron/blog-generate/` | Le passage du lundi |
+| `apps/web/lib/services/blog-admin.service.ts` | Écritures de l'admin : édition, publication, suppression, cadence |
+| `apps/web/app/actions/admin/blog.ts` · `app/admin/conseils/` | Server Actions et pages de l'admin |
 | `apps/web/lib/blog/cover-image.ts` | Mise au format d'une couverture |
 | `apps/web/lib/storage.ts` | `uploadCover`, `deleteCoverByUrl` |
 | `apps/web/app/(marketing)/blog/` | Pages liste et article |

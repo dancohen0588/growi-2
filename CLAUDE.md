@@ -725,8 +725,15 @@ calendrier saisonnier, les prompts et le lint ; le service orchestre.
 - **Le mot « IA » ne paraît jamais** dans un contenu publié : interdit dans le
   prompt, rejeté par le lint (titre et extrait compris). Frontières de mots
   **Unicode** partout : le `\b` de JavaScript ignore les lettres accentuées.
-- **Compiler ne suffit pas, il faut rendre** (`lib/blog/compile.ts`) : un
-  composant inconnu compile et ne lève qu'au rendu.
+- **On compile, on ne rend pas** (`lib/blog/compile.ts`). Un rendu
+  `renderToStaticMarkup` attraperait aussi un composant inconnu, mais ce module
+  tourne **pendant le rendu des pages admin**, et le moteur de `react-dom/server`
+  y touche l'état global de React partagé avec le rendu en flux : `next dev`
+  tombait en « Cannot read properties of null (reading 'useContext') » sur
+  `/admin/conseils`. Les composants inconnus sont refusés par le lint (toute
+  balise autre que `Callout`/`YouTube`). Ne pas réintroduire
+  `react-dom/server` dans une page — `getPostAsHtml` ne l'emploie que dans une
+  route API.
 - **Une seule reprise**, nourrie des défauts de la première version, puis
   abandon tracé dans Sentry. Un échec est un résultat `{ ok: false, stage }`,
   pas une exception ; seuls le plafond de brouillons (`CONFLICT`) et une clé
@@ -759,7 +766,38 @@ calendrier saisonnier, les prompts et le lint ; le service orchestre.
   l'entretien de la bourse l'est sur `daily-reminders`.
 - `CRON_SECRET` est vérifié par `lib/api/cron-auth.ts`, partagé par les deux
   routes : une garde recopiée finit par diverger.
-- `pnpm --filter web blog:generate [--topic "…"] [--cover <slug>]` essaie en vrai. Les scripts
+- `pnpm --filter web blog:generate [--topic "…"] [--cover <slug>]` essaie en vrai.
+
+#### Admin `/admin/conseils`
+
+Liste par statut (onglet dans l'URL, `?statut=`), fiche en deux colonnes :
+édition simple à gauche, aperçu de la **version enregistrée** à droite, avec
+les vrais composants du site. Toutes les écritures passent par
+`lib/services/blog-admin.service.ts` et `auditWrite`.
+
+- **Le premier tag est l'étiquette de la carte publique** : l'édition garde
+  l'ordre existant (`keepTagOrder`). Les cases à cocher suivent `BLOG_TAGS`,
+  et les reprendre telles quelles changeait l'étiquette à chaque correction de
+  titre — trouvé par l'e2e.
+- **Un `textarea` part en fins de ligne Windows** : le corps est normalisé en
+  `\n`, sans quoi la moindre retouche réécrivait tout l'article.
+- **Publier n'exige que deux choses** : le MDX compile, et aucun terme
+  interdit. Le reste du lint a joué à la génération et à l'édition ; l'imposer
+  ici rendrait impubliables les articles importés, écrits avant ces règles.
+  `publishedAt` n'est posé qu'à la première publication.
+- **On ne supprime pas un article publié** : il faut le dépublier d'abord.
+- La publication, la dépublication et l'édition d'un article publié revalident
+  `/blog`, `/blog/[slug]`, `/sitemap.xml` **et `/`**.
+- Le layout admin compte les brouillons par `countByStatus`
+  (`blog-admin.service`), **pas** par le générateur : l'importer chargerait
+  `@google/genai` et `sharp` sur toutes les pages de l'admin.
+- Les deux pages déclarent `maxDuration = 60` : « Générer » et « Régénérer
+  l'image » tournent dans leur requête.
+- Formulaires en `useTransition`, comme `ActionButton` : les typages React 18
+  du projet n'ont ni `useFormState` ni `useFormStatus`.
+- L'e2e (`28-admin-conseils`) écrit ses brouillons **en base** : la génération
+  tourne côté serveur, que Playwright ne sait pas doubler. Elle est couverte
+  par les tests unitaires, Gemini doublé. Les scripts
   `tsx` passent par `tsconfig.scripts.json` (JSX automatique) : avec le
   `jsx: preserve` de Next, le rendu MDX y échouait en « React is not defined ».
 - Le mobile reçoit du **HTML compilé** (`getPostAsHtml`), pas du MDX, avec
@@ -1501,4 +1539,5 @@ et celui de l'app mobile. Ici, les pièges qui ont chacun coûté un build.
 | `/admin/messages` · `/admin/messages/[id]` | Boîte de réception et fil de réponse |
 | `/admin/administrateurs` | Comptes ayant accès au portail, promotion et retrait |
 | `/admin/signalements` | File de modération, groupée par contenu et triée par nombre |
+| `/admin/conseils` · `/admin/conseils/[id]` | Articles du blog : relecture, édition, publication, génération, cadence |
 | `/admin/journal` | Journal d'audit des actions d'administration |
