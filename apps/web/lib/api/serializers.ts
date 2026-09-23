@@ -119,10 +119,12 @@ export function serializeCareLog(log: PrismaCareLog): CareLog {
 // ─── Blog ──────────────────────────────────────────────────────────────────
 
 /**
- * Les articles ne viennent pas de Prisma mais de `lib/blog/content.ts`, qui
- * les rend déjà au format des schémas partagés. Le seul travail restant est
- * de rendre les URLs **absolues** : le mobile affiche ce contenu hors du site,
- * sans page courante à partir de laquelle résoudre `/blog/…`.
+ * Les articles passent par `lib/blog/content.ts`, qui les rend déjà au format
+ * des schémas partagés. Le seul travail restant est de rendre les URLs
+ * **absolues** : le mobile affiche ce contenu hors du site, sans page courante
+ * à partir de laquelle résoudre un chemin racine. Une couverture est déjà une
+ * URL Supabase complète, que `absoluteUrl` laisse intacte ; les liens internes
+ * du corps (`/blog/…`, `/dashboard/…`) restent, eux, à compléter.
  *
  * L'origine est passée par la route (`requestOrigin`) et non lue ici : en
  * développement, le mobile joint le serveur par l'IP locale du Mac, et lui

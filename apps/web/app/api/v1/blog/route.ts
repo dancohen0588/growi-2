@@ -25,7 +25,7 @@ export const GET = withApiErrorHandling(async (request: Request) => {
     tag: searchParams.get('tag') ?? undefined,
   })
 
-  return ok(serializeBlogListResponse(listPosts(query), requestOrigin(request)), {
+  return ok(serializeBlogListResponse(await listPosts(query), requestOrigin(request)), {
     headers: BLOG_CACHE_HEADERS,
   })
 })

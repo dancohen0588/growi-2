@@ -1,7 +1,7 @@
 /**
  * Blog Growi — « Conseils & actus jardin ».
  *
- * Le contenu vit en fichiers MDX dans `apps/web/content/blog/`. Ces schémas
+ * Les articles vivent en base (`blog_posts`), leur corps en MDX. Ces schémas
  * décrivent la représentation **JSON** qu'en sert l'API v1 au mobile (dates en
  * chaînes ISO), et servent aussi de contrat au module de lecture côté web.
  *
@@ -15,7 +15,7 @@ import { isoDateTimeSchema } from './common'
 
 // ─── Tags ──────────────────────────────────────────────────────────────────
 
-/** Tags autorisés dans le frontmatter d'un article. */
+/** Tags autorisés sur un article. */
 export const BLOG_TAGS = ['saison', 'potager', 'entretien', 'maladies', 'actus-growi'] as const
 export const blogTagSchema = z.enum(BLOG_TAGS)
 export type BlogTag = z.infer<typeof blogTagSchema>
@@ -28,29 +28,56 @@ export const BLOG_TAG_LABELS: Record<BlogTag, string> = {
   'actus-growi': 'Actus Growi',
 }
 
-// ─── Frontmatter ───────────────────────────────────────────────────────────
+// ─── Cycle de vie d'un article ─────────────────────────────────────────────
 
 /**
- * Frontmatter YAML d'un fichier `.mdx`, tel qu'écrit par l'auteur.
- *
- * Les dates y sont en `YYYY-MM-DD` (plus lisible à la rédaction) ; la couche de
- * lecture les convertit en ISO complet pour les schémas d'entité ci-dessous.
- * `js-yaml` désérialise une date non quotée en objet `Date` : on accepte les
- * deux formes plutôt que d'imposer des guillemets à la rédaction.
+ * Seul `PUBLISHED` est servi au public. `ARCHIVED` est un article dépublié :
+ * son URL rend 404, mais il reste relisible et republiable depuis l'admin.
  */
-export const blogFrontmatterSchema = z.object({
-  title: z.string().min(1),
-  excerpt: z.string().min(1),
-  coverImage: z.string().min(1).nullable().default(null),
-  coverImageAlt: z.string().min(1).nullable().default(null),
-  publishedAt: z.union([z.string(), z.date()]),
-  updatedAt: z.union([z.string(), z.date()]).optional(),
-  tags: z.array(blogTagSchema).min(1),
-  author: z.string().min(1).default('Growi'),
-  draft: z.boolean().default(false),
+export const BLOG_POST_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const
+export const blogPostStatusSchema = z.enum(BLOG_POST_STATUSES)
+export type BlogPostStatus = z.infer<typeof blogPostStatusSchema>
+
+/** `PENDING` : à générer, faute de temps ou après un échec. L'article reste valide. */
+export const BLOG_COVER_STATUSES = ['NONE', 'PENDING', 'READY'] as const
+export const blogCoverStatusSchema = z.enum(BLOG_COVER_STATUSES)
+export type BlogCoverStatus = z.infer<typeof blogCoverStatusSchema>
+
+/** D'où vient l'article : écrit à la main, généré depuis l'admin, ou par le cron. */
+export const BLOG_POST_ORIGINS = ['manual', 'admin', 'cron'] as const
+export const blogPostOriginSchema = z.enum(BLOG_POST_ORIGINS)
+export type BlogPostOrigin = z.infer<typeof blogPostOriginSchema>
+
+/** Rythme de la génération automatique, réglé depuis l'admin. */
+export const BLOG_CADENCES = ['weekly', 'biweekly', 'monthly'] as const
+export const blogCadenceSchema = z.enum(BLOG_CADENCES)
+export type BlogCadence = z.infer<typeof blogCadenceSchema>
+
+/**
+ * Au-delà, la génération s'arrête : l'automatisation ne doit pas empiler des
+ * brouillons que personne ne relit.
+ */
+export const MAX_PENDING_DRAFTS = 2
+
+const slugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+
+/**
+ * Sortie attendue du modèle de rédaction, validée avant tout enregistrement.
+ * `reviewerNotes` n'est jamais publié : c'est la liste de ce qu'un relecteur
+ * doit vérifier (chiffres, dates, doses, affirmations botaniques).
+ */
+export const generatedArticleSchema = z.object({
+  title: z.string().min(20).max(80),
+  slug: slugSchema,
+  excerpt: z.string().min(60).max(160),
+  tags: z.array(blogTagSchema).min(1).max(2),
+  mdx: z.string().min(3000),
+  coverPrompt: z.string().min(80),
+  coverImageAlt: z.string().min(20).max(200),
+  reviewerNotes: z.array(z.string()).min(1).max(15),
 })
 
-export type BlogFrontmatter = z.infer<typeof blogFrontmatterSchema>
+export type GeneratedArticle = z.infer<typeof generatedArticleSchema>
 
 // ─── Entités servies par l'API ─────────────────────────────────────────────
 
@@ -59,11 +86,11 @@ export const blogPostSummarySchema = z.object({
   slug: z.string(),
   title: z.string(),
   excerpt: z.string(),
-  /** Chemin absolu (`/blog/…`) côté web ; l'API v1 le préfixe en URL complète. */
+  /** URL complète (Supabase Storage), ou `null` : la carte affiche alors un dégradé. */
   coverImage: z.string().nullable(),
   coverImageAlt: z.string().nullable(),
   publishedAt: isoDateTimeSchema,
-  /** Temps de lecture en minutes, calculé à la lecture du fichier. */
+  /** Temps de lecture en minutes, calculé à la lecture de l'article. */
   readingTime: z.number().int(),
   tags: z.array(blogTagSchema),
   author: z.string(),

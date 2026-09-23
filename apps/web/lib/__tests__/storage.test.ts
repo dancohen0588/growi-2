@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ServiceError } from '@/lib/services/errors'
-import { deletePhotoByUrl, pathFromUrl, publicUrl, uploadPhoto } from '@/lib/storage'
+import {
+  deleteCoverByUrl,
+  deletePhotoByUrl,
+  pathFromUrl,
+  publicUrl,
+  uploadCover,
+  uploadPhoto,
+} from '@/lib/storage'
 
 // Le stockage est la seule porte par laquelle un fichier entre dans Growi :
 // ce qu'elle refuse compte autant que ce qu'elle accepte.
@@ -130,5 +137,35 @@ describe('deletePhotoByUrl', () => {
     ).resolves.toBeUndefined()
 
     consoleError.mockRestore()
+  })
+})
+
+describe('couvertures du blog', () => {
+  const COVERS_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/blog-covers/`
+
+  it('dépose le JPEG sous le slug, dans son propre bucket', async () => {
+    const result = await uploadCover('pailler-ses-massifs', new Uint8Array(jpeg()))
+
+    expect(result.path).toMatch(/^pailler-ses-massifs\/cover-\d+\.jpg$/)
+    expect(result.url).toBe(`${COVERS_PREFIX}${result.path}`)
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/storage/v1/object/blog-covers/')
+    expect(init.headers['x-upsert']).toBe('false')
+  })
+
+  it('refuse un slug qui sortirait du dossier, et ce qui n\'est pas un JPEG', async () => {
+    await expect(uploadCover('../users/u', new Uint8Array(jpeg()))).rejects.toThrow(ServiceError)
+    await expect(uploadCover('pailler', new Uint8Array(png()))).rejects.toThrow(/JPEG/)
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('ne supprime jamais une photo d\'utilisateur par ce biais', async () => {
+    await deleteCoverByUrl(`${PUBLIC_PREFIX}users/u/plant/a.jpg`)
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    await deleteCoverByUrl(`${COVERS_PREFIX}pailler/cover-1.jpg`)
+    expect(fetchMock.mock.calls[0][0]).toContain('/storage/v1/object/blog-covers/pailler/cover-1.jpg')
   })
 })

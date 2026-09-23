@@ -1,14 +1,21 @@
 /**
- * Stockage des photos — Supabase Storage, en REST.
+ * Stockage des images — Supabase Storage, en REST.
  *
  * L'API Storage se résume à trois appels HTTP : pas de SDK à ajouter pour ça,
  * dans un projet qui ne parle à Supabase que par Prisma.
  *
- * Le bucket `plant-photos` est **public en lecture** : les URL sont servies
- * telles quelles par le CDN, ce qui laisse `next/image` et `expo-image` faire
- * leur cache. Ce qui protège la vie privée ici n'est pas un jeton mais
- * l'imprévisibilité du chemin — et surtout la suppression, assurée à la
- * suppression de la plante comme au remplacement de sa photo.
+ * Deux buckets, tous deux **publics en lecture** : les URL sont servies telles
+ * quelles par le CDN, ce qui laisse `next/image` et `expo-image` faire leur
+ * cache.
+ *
+ * - `plant-photos` — les photos des utilisateurs. Ce qui y protège la vie
+ *   privée n'est pas un jeton mais l'imprévisibilité du chemin — et surtout la
+ *   suppression, assurée à la suppression de la plante comme au remplacement
+ *   de sa photo.
+ * - `blog-covers` — les couvertures des articles du blog, JPEG uniquement.
+ *
+ * Les deux buckets ont été créés par migration Supabase (`storage.buckets`),
+ * pas par Prisma. Seule la clé service y écrit.
  */
 
 import { randomUUID } from 'node:crypto'
@@ -18,6 +25,7 @@ import type { PhotoKind } from '@growi/shared'
 import { ServiceError } from '@/lib/services/errors'
 
 const BUCKET = 'plant-photos'
+const COVERS_BUCKET = 'blog-covers'
 
 /** Limites appliquées côté serveur : le client peut mentir sur les deux. */
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -133,9 +141,13 @@ export async function uploadPhoto(
   return { url: publicUrl(path), path }
 }
 
-/** URL publique d'un objet du bucket. */
+/** URL publique d'un objet du bucket des photos. */
 export function publicUrl(path: string): string {
-  return `${config().url}/storage/v1/object/public/${BUCKET}/${path}`
+  return publicUrlIn(BUCKET, path)
+}
+
+function publicUrlIn(bucket: string, path: string): string {
+  return `${config().url}/storage/v1/object/public/${bucket}/${path}`
 }
 
 /**
@@ -143,9 +155,13 @@ export function publicUrl(path: string): string {
  * une photo du catalogue, par exemple, qu'il ne faut surtout pas supprimer.
  */
 export function pathFromUrl(url: string | null | undefined): string | null {
+  return pathIn(BUCKET, url)
+}
+
+function pathIn(bucket: string, url: string | null | undefined): string | null {
   if (!url) return null
 
-  const prefix = `${config().url}/storage/v1/object/public/${BUCKET}/`
+  const prefix = `${config().url}/storage/v1/object/public/${bucket}/`
   return url.startsWith(prefix) ? url.slice(prefix.length) : null
 }
 
@@ -156,12 +172,16 @@ export function pathFromUrl(url: string | null | undefined): string | null {
  * de faire échouer la suppression d'une plante.
  */
 export async function deletePhotoByUrl(url: string | null | undefined): Promise<void> {
-  const path = pathFromUrl(url)
+  await deleteObject(BUCKET, url)
+}
+
+async function deleteObject(bucket: string, url: string | null | undefined): Promise<void> {
+  const path = pathIn(bucket, url)
   if (!path) return
 
   try {
     const { url: baseUrl, key } = config()
-    const response = await fetch(`${baseUrl}/storage/v1/object/${BUCKET}/${path}`, {
+    const response = await fetch(`${baseUrl}/storage/v1/object/${bucket}/${path}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${key}` },
     })
@@ -172,4 +192,64 @@ export async function deletePhotoByUrl(url: string | null | undefined): Promise<
   } catch (error) {
     console.error('[storage] suppression impossible :', error)
   }
+}
+
+// ─── Couvertures du blog ───────────────────────────────────────────────────
+
+/** Même forme que `generatedArticleSchema.slug` : rien qui puisse sortir du dossier. */
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+/**
+ * Dépose la couverture d'un article, déjà recadrée et compressée en JPEG, et
+ * renvoie son URL publique.
+ *
+ * Un chemin neuf à chaque dépôt (`<slug>/cover-<horodatage>.jpg`) : l'ancienne
+ * couverture reste servie jusqu'à ce que la nouvelle soit enregistrée, puis se
+ * supprime par `deleteCoverByUrl`. Comme aucune URL n'est jamais réécrite, le
+ * cache peut être long — contrairement aux photos des utilisateurs, une
+ * couverture n'a rien de personnel.
+ *
+ * @throws ServiceError('INVALID_INPUT') si le slug ou l'image sont invalides,
+ * ServiceError('UNAVAILABLE') si le stockage ne répond pas.
+ */
+export async function uploadCover(
+  slug: string,
+  jpegBytes: Uint8Array,
+): Promise<{ url: string; path: string }> {
+  if (!SLUG_PATTERN.test(slug)) {
+    throw new ServiceError('INVALID_INPUT', 'Slug invalide pour une couverture.')
+  }
+  if (sniffImageType(jpegBytes) !== 'image/jpeg') {
+    throw new ServiceError('INVALID_INPUT', 'Une couverture doit être un JPEG.')
+  }
+
+  const path = `${slug}/cover-${Date.now()}.jpg`
+  const { url, key } = config()
+
+  const response = await fetch(`${url}/storage/v1/object/${COVERS_BUCKET}/${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'image/jpeg',
+      'x-upsert': 'false',
+      'cache-control': 'max-age=31536000',
+    },
+    body: jpegBytes as unknown as BodyInit,
+  })
+
+  if (!response.ok) {
+    console.error('[storage] couverture refusée :', response.status, await response.text())
+    throw new ServiceError('UNAVAILABLE', "La couverture n'a pas pu être enregistrée.")
+  }
+
+  return { url: publicUrlIn(COVERS_BUCKET, path), path }
+}
+
+/**
+ * Supprime une couverture dont on a l'URL. Sans effet si elle n'est pas dans
+ * `blog-covers` — une photo d'utilisateur ne peut pas être effacée par ce biais.
+ * Ne lève jamais.
+ */
+export async function deleteCoverByUrl(url: string | null | undefined): Promise<void> {
+  await deleteObject(COVERS_BUCKET, url)
 }
