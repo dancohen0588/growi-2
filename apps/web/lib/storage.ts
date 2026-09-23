@@ -194,6 +194,101 @@ async function deleteObject(bucket: string, url: string | null | undefined): Pro
   }
 }
 
+// ─── Suppression de compte ─────────────────────────────────────────────────
+
+/** Plafond de l'API Storage pour une suppression groupée. */
+const BULK_DELETE_MAX = 1000
+
+/** Supprime des chemins du bucket photos, par lots. Rend le nombre d'échecs. */
+async function deletePaths(paths: string[]): Promise<number> {
+  if (paths.length === 0) return 0
+  const { url, key } = config()
+  let failures = 0
+
+  for (let i = 0; i < paths.length; i += BULK_DELETE_MAX) {
+    const batch = paths.slice(i, i + BULK_DELETE_MAX)
+    const response = await fetch(`${url}/storage/v1/object/${BUCKET}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefixes: batch }),
+    })
+    if (!response.ok) {
+      console.error('[storage] suppression groupée refusée :', response.status)
+      failures += batch.length
+    }
+  }
+
+  return failures
+}
+
+type StorageEntry = { name: string; id: string | null }
+
+/**
+ * Tous les fichiers sous un préfixe, sous-dossiers compris. L'API ne liste
+ * qu'un niveau à la fois : un dossier y apparaît avec un `id` nul.
+ */
+async function listRecursive(prefix: string): Promise<string[]> {
+  const { url, key } = config()
+  const files: string[] = []
+  const PAGE = 1000
+
+  for (let offset = 0; ; offset += PAGE) {
+    const response = await fetch(`${url}/storage/v1/object/list/${BUCKET}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefix, limit: PAGE, offset }),
+    })
+    if (!response.ok) {
+      throw new Error(`liste refusée (${response.status}) pour ${prefix}`)
+    }
+
+    const entries = (await response.json()) as StorageEntry[]
+    for (const entry of entries) {
+      const path = `${prefix}${entry.name}`
+      if (entry.id === null) files.push(...(await listRecursive(`${path}/`)))
+      else files.push(path)
+    }
+    if (entries.length < PAGE) return files
+  }
+}
+
+/**
+ * Efface tout ce qu'un compte a déposé : le dossier `users/{userId}/` entier.
+ *
+ * Par dossier plutôt que par relevé des URL en base : le chemin est choisi par
+ * le serveur (`uploadPhoto`), donc tout ce qui vient du compte est là — y
+ * compris les kinds ajoutés après coup, et les fichiers qu'aucune ligne ne
+ * référence plus. Un relevé colonne par colonne en oublierait un jour.
+ *
+ * **Ne lève jamais** : la suppression du compte a déjà eu lieu quand on
+ * arrive ici, et un fichier orphelin ne doit pas la faire paraître ratée.
+ * Rend le nombre de fichiers qui n'ont pas pu être effacés.
+ */
+export async function deleteUserFolder(userId: string): Promise<number> {
+  try {
+    return await deletePaths(await listRecursive(`users/${userId}/`))
+  } catch (error) {
+    console.error('[storage] purge du dossier impossible :', userId, error)
+    return -1
+  }
+}
+
+/**
+ * Supprime des photos dont on a les URL, en un appel. Ignore celles qui ne
+ * sont pas à nous. Même contrat que `deleteUserFolder` : ne lève jamais.
+ */
+export async function deletePhotosByUrl(
+  urls: Array<string | null | undefined>,
+): Promise<number> {
+  try {
+    const paths = urls.map((url) => pathFromUrl(url)).filter((p): p is string => p !== null)
+    return await deletePaths(paths)
+  } catch (error) {
+    console.error('[storage] suppression groupée impossible :', error)
+    return -1
+  }
+}
+
 // ─── Couvertures du blog ───────────────────────────────────────────────────
 
 /** Même forme que `generatedArticleSchema.slug` : rien qui puisse sortir du dossier. */

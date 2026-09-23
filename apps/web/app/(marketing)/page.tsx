@@ -4,6 +4,8 @@ import { PlantsNeeds }         from '@/components/home/PlantsNeeds'
 import { FeaturesGrid }        from '@/components/home/FeaturesGrid'
 import { EncyclopediaAndBlog } from '@/components/home/EncyclopediaAndBlog'
 import { FinalCTA }            from '@/components/home/FinalCTA'
+import { AccountDeletedBanner } from '@/components/home/AccountDeletedBanner'
+import { Suspense }            from 'react'
 
 export const metadata = {
   title: 'Growi — Tes plantes, ta croissance',
@@ -24,6 +26,10 @@ export default function HomePage() {
       <FeaturesGrid />
       <EncyclopediaAndBlog />
       <FinalCTA />
+      {/* Frontière requise par `useSearchParams` sur une page statique. */}
+      <Suspense fallback={null}>
+        <AccountDeletedBanner />
+      </Suspense>
     </main>
   )
 }

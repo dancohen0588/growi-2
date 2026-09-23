@@ -10,6 +10,7 @@ import { ProfilForm } from './ProfilForm'
 import { AlertesForm } from './AlertesForm'
 import { CommunauteForm } from './CommunauteForm'
 import { ConfidentialiteForm } from './ConfidentialiteForm'
+import { SupprimerCompteCard } from './SupprimerCompteCard'
 import { useUserProfile } from '@/hooks/useUserProfile'
 
 interface CompteLayoutProps {
@@ -137,7 +138,10 @@ export function CompteLayout({ initialSession }: CompteLayoutProps) {
 
         <TabsContent value="confidentialite" className="mt-6 animate-in fade-in-0 duration-200">
           {profile ? (
-            <ConfidentialiteForm profile={profile} updateProfile={updateProfile} />
+            <div className="space-y-6">
+              <ConfidentialiteForm profile={profile} updateProfile={updateProfile} />
+              <SupprimerCompteCard profile={profile} />
+            </div>
           ) : (
             !isLoading && (
               <div className="bg-white rounded-2xl shadow-card p-8 text-center">

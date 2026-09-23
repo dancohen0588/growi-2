@@ -19,7 +19,7 @@ import { headers } from 'next/headers'
 
 import { auth } from '@/auth'
 import { setPersonProperties } from '@/lib/analytics/server'
-import { parseBearerToken, verifyAccessToken } from '@/lib/auth/tokens'
+import { parseBearerToken, verifyAccessToken, verifyAccessTokenClaims } from '@/lib/auth/tokens'
 import { prisma } from '@/lib/prisma'
 import { touchActivity } from '@/lib/services/activity.service'
 import { ServiceError } from '@/lib/services/errors'
@@ -157,4 +157,18 @@ export async function requireUserId(): Promise<string> {
     throw new ServiceError('UNAUTHENTICATED', 'Authentification requise')
   }
   return userId
+}
+
+/**
+ * Date de la connexion qui a produit le jeton présenté, ou `null` : jeton
+ * issu d'un rafraîchissement, ou requête sans Bearer (session web).
+ *
+ * Sert aux gestes irréversibles qui exigent une connexion **récente** — la
+ * suppression d'un compte Apple/Google, qui n'a pas de mot de passe à
+ * redemander. À appeler après `requireUserId()`, qui a déjà validé le jeton.
+ */
+export async function bearerAuthenticatedAt(): Promise<Date | null> {
+  const bearer = parseBearerToken(headers().get('authorization'))
+  if (!bearer) return null
+  return (await verifyAccessTokenClaims(bearer)).authenticatedAt
 }

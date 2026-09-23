@@ -68,7 +68,10 @@ function assertActive(user: { disabledAt?: Date | null }): void {
   }
 }
 
-/** Émet un couple de jetons et enregistre l'empreinte du refresh token. */
+/**
+ * Émet un couple de jetons à l'issue d'une **connexion** — l'access token
+ * porte donc `auth_time` (voir `signAccessToken`).
+ */
 async function issueTokens(user: UserRow, deviceInfo?: string): Promise<AuthTokens> {
   const refreshToken = generateRefreshToken()
 
@@ -82,7 +85,7 @@ async function issueTokens(user: UserRow, deviceInfo?: string): Promise<AuthToke
   })
 
   return {
-    accessToken: await signAccessToken(user.id),
+    accessToken: await signAccessToken(user.id, { authenticatedAt: new Date() }),
     refreshToken,
     tokenType: 'Bearer',
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,

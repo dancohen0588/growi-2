@@ -39,8 +39,24 @@ function getSigningKey(): Uint8Array {
   return new TextEncoder().encode(secret)
 }
 
-export async function signAccessToken(userId: string): Promise<string> {
-  return new SignJWT({})
+/**
+ * Signe un access token.
+ *
+ * `authenticatedAt` n'est passé que par une **vraie connexion** (mot de passe,
+ * Apple, Google) et devient la revendication `auth_time`. Un rafraîchissement
+ * ne la pose pas : il émet un jeton neuf sans que personne ait rien prouvé, et
+ * un refresh token volé suffirait sinon à paraître « fraîchement connecté ».
+ * C'est ce qui permet d'exiger une connexion récente avant un geste
+ * irréversible — la suppression du compte.
+ */
+export async function signAccessToken(
+  userId: string,
+  options: { authenticatedAt?: Date } = {},
+): Promise<string> {
+  const claims = options.authenticatedAt
+    ? { auth_time: Math.floor(options.authenticatedAt.getTime() / 1000) }
+    : {}
+  return new SignJWT(claims)
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(userId)
     .setIssuer(JWT_ISSUER)
@@ -55,6 +71,17 @@ export async function signAccessToken(userId: string): Promise<string> {
  * @throws ServiceError('UNAUTHENTICATED') si le jeton est invalide ou expiré.
  */
 export async function verifyAccessToken(token: string): Promise<string> {
+  return (await verifyAccessTokenClaims(token)).userId
+}
+
+/**
+ * Vérifie un access token et renvoie son porteur, avec la date de la
+ * connexion qui l'a produit — `null` pour un jeton issu d'un rafraîchissement.
+ * @throws ServiceError('UNAUTHENTICATED') si le jeton est invalide ou expiré.
+ */
+export async function verifyAccessTokenClaims(
+  token: string,
+): Promise<{ userId: string; authenticatedAt: Date | null }> {
   let payload: JWTPayload
   try {
     ;({ payload } = await jwtVerify(token, getSigningKey(), {
@@ -70,7 +97,12 @@ export async function verifyAccessToken(token: string): Promise<string> {
   if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
     throw new ServiceError('UNAUTHENTICATED', 'Jeton invalide ou expiré')
   }
-  return payload.sub
+
+  const authTime = payload.auth_time
+  return {
+    userId: payload.sub,
+    authenticatedAt: typeof authTime === 'number' ? new Date(authTime * 1000) : null,
+  }
 }
 
 /** Jeton de rafraîchissement opaque : 256 bits d'aléa, encodés en base64url. */

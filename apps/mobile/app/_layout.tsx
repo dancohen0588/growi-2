@@ -106,6 +106,7 @@ function RootLayout() {
               ne peut de toute façon pas vivre dans un navigateur d'onglets. */}
           <Stack.Screen name="publier" options={{ presentation: 'modal' }} />
           <Stack.Screen name="annonce" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="supprimer-compte" options={{ presentation: 'modal' }} />
         </Stack>
         </ToastProvider>
       </QueryClientProvider>
