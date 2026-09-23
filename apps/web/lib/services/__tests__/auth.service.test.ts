@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Prisma } from '@prisma/client'
 
-import { hashRefreshToken, verifyAccessToken } from '@/lib/auth/tokens'
+import { hashRefreshToken, verifyAccessToken, verifyAccessTokenClaims } from '@/lib/auth/tokens'
 import { ServiceError } from '@/lib/services/errors'
 
 // ─── Doublures ─────────────────────────────────────────────────────────────
@@ -305,6 +305,18 @@ describe('refresh', () => {
     expect(prismaMock.refreshToken.create).toHaveBeenCalledTimes(1)
     expect(tokens.refreshToken).not.toBe('ancien-jeton')
     await expect(verifyAccessToken(tokens.accessToken)).resolves.toBe('user_1')
+  })
+
+  it("n'atteste aucune connexion récente, contrairement à une connexion", async () => {
+    userService.verifyCredentials.mockResolvedValue(USER)
+    const login = await authService.login({ email: USER.email, password: 'motdepasse' })
+    expect((await verifyAccessTokenClaims(login.accessToken)).authenticatedAt).toBeInstanceOf(Date)
+
+    // Un refresh token volé ne doit pas suffire à paraître « fraîchement
+    // connecté » : c'est ce que la suppression de compte vérifie.
+    prismaMock.refreshToken.findUnique.mockResolvedValue(storedToken())
+    const refreshed = await authService.refresh('ancien-jeton')
+    expect((await verifyAccessTokenClaims(refreshed.accessToken)).authenticatedAt).toBeNull()
   })
 
   it('cherche le jeton par son empreinte, jamais en clair', async () => {

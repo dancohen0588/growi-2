@@ -459,7 +459,7 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/planning/actions/done-bulk` | POST — « Tout arrosé », « Tout marquer fait » |
 | `/api/v1/planning/actions/undo` | POST — efface le geste, rouvre la tâche |
 | `/api/v1/planning/clear-today` | POST — « Ignorer pour aujourd'hui », `undo: true` pour rétablir |
-| `/api/v1/me` | GET, PATCH |
+| `/api/v1/me` | GET, PATCH, DELETE — suppression du compte, corps `{ confirmation, password? }` |
 | `/api/v1/identify` | POST |
 | `/api/v1/plants/[id]/diagnose` | POST |
 | `/api/v1/plants/[id]/diagnoses` · `/diagnoses/[diagnosisId]` | GET |
@@ -536,6 +536,9 @@ Le web garde sa session NextAuth par cookies. Le mobile utilise des jetons, serv
   l'utilisateur. C'est le comportement attendu, pas un bug — un jeton rejoué signale une fuite.
 - `logout` est idempotent et ne demande pas d'access token valide : une déconnexion ne doit jamais
   échouer côté client.
+- **`auth_time` n'est posé que par une vraie connexion**, jamais par `/refresh` : un refresh token
+  volé produirait sinon un jeton « frais ». La suppression d'un compte Apple/Google (sans mot de
+  passe à redemander) exige une connexion de moins de dix minutes, lue par `bearerAuthenticatedAt`.
 - Les messages d'erreur ne distinguent jamais « compte inconnu » de « mot de passe faux », ni
   « jeton expiré » de « signature invalide ».
 
@@ -677,7 +680,7 @@ pas de SDK Supabase dans le projet.
 | Lecture | Bucket **public**, chemin `users/{userId}/{kind}/{uuid}.ext` choisi par le serveur |
 | Cache | Aucun en-tête posé : Supabase sert `no-cache`, donc une photo supprimée cesse d'être servie presque aussitôt |
 | Contrôles | 5 Mo, JPEG/PNG/WebP vérifiés **sur les octets** (un `Content-Type` se déclare), 30 envois/heure/compte |
-| Suppression | À la suppression d'une plante — la sienne et celles de ses gestes —, d'une publication ou d'une annonce, et au remplacement |
+| Suppression | À la suppression d'une plante — la sienne et celles de ses gestes —, d'une publication ou d'une annonce, et au remplacement. À la suppression du **compte**, le dossier `users/{id}/` entier (`deleteUserFolder`), plus les photos que d'autres ont postées dans les fils de ses annonces |
 | Kinds | `plant`, `care-log`, `diagnosis`, `chat`, puis `post`, `listing`, `avatar` pour la communauté — les seuls dont la photo est vue par d'autres que son auteur |
 
 La photo d'une publication est une **copie** de celle de la plante, pas une
@@ -1133,6 +1136,27 @@ au mauvais endroit. Trois règles en découlent, à tenir des deux côtés :
 > lignes, comme le fait déjà `deletePlantInstance`. Une suppression écrite
 > ailleurs qu'ici laisserait donc des photos orphelines. Les deux surfaces
 > demandent confirmation en annonçant le nombre de plantes perdues.
+
+### Suppression du compte (RGPD art. 17, exigence des boutiques)
+
+`user.service.deleteAccount`, appelé par `DELETE /api/v1/me` (mobile) et
+`app/actions/account.ts` (web). Spec : `Documentation/spec/13-spec-rgpd-consentement.md` §7.
+
+- **Preuve de présence** : le mot de passe pour un compte qui en a un ; sinon
+  une connexion Apple/Google de moins de dix minutes (`auth_time`). Une session
+  ouverte ne suffit pas.
+- **La base fait la cascade**, mais trois choses lui échappent : les
+  notifications que le compte a déclenchées (`actorId` sans clé étrangère,
+  pseudo figé dans `preview`) sont effacées à la main ; les **compteurs
+  dénormalisés des autres comptes** (`followerCount`, `followingCount`,
+  `likeCount`, `commentCount`, `threadCount`) sont **recomptés en SQL brut** —
+  seul `30-suppression-compte.spec.ts` l'atteste ; et les fichiers du bucket.
+- Fichiers et personne PostHog sont effacés **après** la transaction et ne
+  lèvent jamais : un échec PostHog part dans Sentry
+  (`account_deletion_posthog_failed`) pour rattrapage manuel.
+- Restent, par choix : les messages de contact (`SetNull`, historique du
+  support — dit dans la politique) et le journal d'audit (`actorId` en
+  `SetNull`). Le dernier administrateur ne peut pas se supprimer.
 
 ### Portail d'administration (`/admin`)
 

@@ -9,6 +9,7 @@ import {
   refreshTokenHashEquals,
   signAccessToken,
   verifyAccessToken,
+  verifyAccessTokenClaims,
 } from '../tokens'
 
 const ORIGINAL_SECRET = process.env.JWT_SECRET
@@ -60,6 +61,27 @@ describe('access token', () => {
     // Émetteur et audience évitent qu'un JWT d'un autre service soit accepté.
     expect(payload.iss).toBe('growi')
     expect(payload.aud).toBe('growi-mobile')
+  })
+})
+
+describe('date de connexion (auth_time)', () => {
+  it('est portée par un jeton émis à la connexion, à la seconde', async () => {
+    const at = new Date('2026-09-24T10:00:00.750Z')
+    const token = await signAccessToken('user_42', { authenticatedAt: at })
+
+    await expect(verifyAccessTokenClaims(token)).resolves.toEqual({
+      userId: 'user_42',
+      authenticatedAt: new Date('2026-09-24T10:00:00.000Z'),
+    })
+  })
+
+  it("est absente d'un jeton rafraîchi : il ne prouve aucune présence", async () => {
+    const token = await signAccessToken('user_42')
+
+    await expect(verifyAccessTokenClaims(token)).resolves.toEqual({
+      userId: 'user_42',
+      authenticatedAt: null,
+    })
   })
 })
 

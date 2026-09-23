@@ -40,6 +40,9 @@ export function useUserProfile(initial?: InitialSession) {
             // refus d'analyse ne doit pas se perdre au premier échec réseau.
             analyticsConsent: false,
             analyticsConsentAt: null,
+            // Sans profil, on ne sait pas : demander le mot de passe est le
+            // repli qui ne laisse rien supprimer par erreur.
+            hasPassword: true,
           })
         }
       } finally {

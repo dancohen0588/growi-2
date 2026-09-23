@@ -337,6 +337,16 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
           icon={<LogOut size={20} color="#1E5631" />}
         />
 
+        <Pressable
+          onPress={() => router.push('/supprimer-compte')}
+          accessibilityRole="button"
+          className="min-h-11 items-center justify-center"
+        >
+          <Text className="font-raleway-semibold text-secondary text-destructive">
+            Supprimer mon compte
+          </Text>
+        </Pressable>
+
         <View className="flex-row flex-wrap justify-center gap-x-4 gap-y-2">
           <Pressable onPress={() => void openWeb('/mentions-legales')} hitSlop={8}>
             <Text className="font-raleway text-caption text-muted-foreground underline">

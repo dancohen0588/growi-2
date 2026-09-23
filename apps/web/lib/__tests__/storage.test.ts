@@ -4,6 +4,8 @@ import { ServiceError } from '@/lib/services/errors'
 import {
   deleteCoverByUrl,
   deletePhotoByUrl,
+  deletePhotosByUrl,
+  deleteUserFolder,
   pathFromUrl,
   publicUrl,
   uploadCover,
@@ -167,5 +169,68 @@ describe('couvertures du blog', () => {
 
     await deleteCoverByUrl(`${COVERS_PREFIX}pailler/cover-1.jpg`)
     expect(fetchMock.mock.calls[0][0]).toContain('/storage/v1/object/blog-covers/pailler/cover-1.jpg')
+  })
+})
+
+// ─── Suppression de compte ─────────────────────────────────────────────────
+
+describe('deleteUserFolder', () => {
+  /** Réponse de l'API de liste : un dossier a un `id` nul, un fichier non. */
+  function listing(entries: Array<{ name: string; folder?: boolean }>) {
+    return new Response(
+      JSON.stringify(entries.map((e) => ({ name: e.name, id: e.folder ? null : `id-${e.name}` }))),
+      { status: 200 },
+    )
+  }
+
+  it('descend dans les sous-dossiers et supprime tout en un appel groupé', async () => {
+    fetchMock
+      .mockResolvedValueOnce(listing([{ name: 'plant', folder: true }, { name: 'chat', folder: true }]))
+      .mockResolvedValueOnce(listing([{ name: 'a.jpg' }, { name: 'b.jpg' }]))
+      .mockResolvedValueOnce(listing([{ name: 'c.webp' }]))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+
+    expect(await deleteUserFolder(USER)).toBe(0)
+
+    const [listUrl, listInit] = fetchMock.mock.calls[0]
+    expect(listUrl).toBe(`${SUPABASE_URL}/storage/v1/object/list/plant-photos`)
+    expect(JSON.parse(listInit.body).prefix).toBe(`users/${USER}/`)
+
+    const [deleteUrl, deleteInit] = fetchMock.mock.calls[3]
+    expect(deleteUrl).toBe(`${SUPABASE_URL}/storage/v1/object/plant-photos`)
+    expect(deleteInit.method).toBe('DELETE')
+    expect(JSON.parse(deleteInit.body).prefixes).toEqual([
+      `users/${USER}/plant/a.jpg`,
+      `users/${USER}/plant/b.jpg`,
+      `users/${USER}/chat/c.webp`,
+    ])
+  })
+
+  it("ne lève pas quand la liste échoue : le compte est déjà supprimé", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 500 }))
+
+    await expect(deleteUserFolder(USER)).resolves.toBe(-1)
+  })
+
+  it("n'appelle pas la suppression pour un dossier vide", async () => {
+    fetchMock.mockResolvedValueOnce(listing([]))
+
+    expect(await deleteUserFolder(USER)).toBe(0)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('deletePhotosByUrl', () => {
+  it('ne supprime que nos propres photos, jamais une URL étrangère', async () => {
+    await deletePhotosByUrl([
+      `${PUBLIC_PREFIX}users/autre/chat/x.jpg`,
+      'https://ailleurs.example/photo.jpg',
+      null,
+    ])
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).prefixes).toEqual([
+      'users/autre/chat/x.jpg',
+    ])
   })
 })

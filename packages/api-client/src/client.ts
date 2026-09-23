@@ -95,6 +95,7 @@ import type {
   UnreadCount,
   UploadedPhoto,
   UserProfile,
+  DeleteAccountInput,
 } from '@growi/shared'
 
 import { chatStreamEventSchema } from '@growi/shared'
@@ -404,6 +405,14 @@ export class GrowiApiClient {
 
     update: (input: UpdateProfileInput, options?: CallOptions): Promise<UserProfile> =>
       this.http.request('/api/v1/me', { ...options, method: 'PATCH', body: input }),
+
+    /**
+     * Supprime le compte, immédiatement et définitivement. Un compte à mot de
+     * passe le redonne ; un compte Apple/Google doit s'être connecté il y a
+     * moins de dix minutes, sinon 401 « Reconnecte-toi… ».
+     */
+    delete: (input: DeleteAccountInput, options?: CallOptions): Promise<void> =>
+      this.http.request('/api/v1/me', { ...options, method: 'DELETE', body: input }),
 
     /** Enregistre l'appareil courant pour les notifications. */
     registerPushToken: (

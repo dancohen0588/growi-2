@@ -140,6 +140,12 @@ export const userProfileSchema = z.object({
    */
   analyticsConsent: z.boolean().nullable(),
   analyticsConsentAt: isoDateTimeSchema.nullable(),
+  /**
+   * Le compte a un mot de passe — faux pour un compte ouvert par Apple ou
+   * Google. Décide si la suppression du compte le redemande. Jamais le mot de
+   * passe lui-même, ni son empreinte.
+   */
+  hasPassword: z.boolean(),
 })
 
 export type UserProfile = z.infer<typeof userProfileSchema>
@@ -164,6 +170,24 @@ export const updateProfileSchema = z.object({
 })
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
+
+/** Le mot à taper pour confirmer la suppression du compte. */
+export const DELETE_ACCOUNT_CONFIRMATION = 'SUPPRIMER'
+
+/**
+ * Corps de `DELETE /api/v1/me` et de l'action web de suppression.
+ *
+ * `password` est exigé d'un compte qui en a un (le serveur le vérifie) ; un
+ * compte Apple/Google prouve sa présence par une connexion récente.
+ */
+export const deleteAccountSchema = z.object({
+  confirmation: z.literal(DELETE_ACCOUNT_CONFIRMATION, {
+    error: `Tape ${DELETE_ACCOUNT_CONFIRMATION} pour confirmer.`,
+  }),
+  password: z.string().min(1).optional(),
+})
+
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>
 
 // ─── Formulaires (web et mobile) ───────────────────────────────────────────
 

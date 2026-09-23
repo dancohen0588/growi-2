@@ -2,9 +2,15 @@
  * Service utilisateur — compte, profil, préférences d'alertes.
  */
 
-import type { AuthMethod, UpdateAlertConfigInput, UpdateProfileInput } from '@growi/shared'
+import type {
+  AuthMethod,
+  DeleteAccountInput,
+  UpdateAlertConfigInput,
+  UpdateProfileInput,
+} from '@growi/shared'
 import {
   DEFAULT_ALERT_CONFIG,
+  DELETE_ACCOUNT_CONFIRMATION,
   LEGAL_VERSION,
   type AlertConfig,
   type UserProfile,
@@ -18,10 +24,12 @@ import {
   trackAnonymous,
   trackServer,
 } from '@/lib/analytics/server'
+import { deletePostHogPerson } from '@/lib/analytics/posthog-admin'
 import { prisma } from '@/lib/prisma'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 import { refreshFuzzyPosition } from '@/lib/services/community/profile.service'
 import { ServiceError } from '@/lib/services/errors'
+import { deletePhotosByUrl, deleteUserFolder } from '@/lib/storage'
 
 const PROFILE_SELECT = {
   id: true,
@@ -38,6 +46,9 @@ const PROFILE_SELECT = {
   longitude: true,
   analyticsConsent: true,
   analyticsConsentAt: true,
+  // Lu pour en déduire `hasPassword`, jamais recopié : `toProfile` construit
+  // son résultat champ par champ.
+  password: true,
 } as const
 
 type ProfileRow = {
@@ -55,6 +66,7 @@ type ProfileRow = {
   longitude: number | null
   analyticsConsent: boolean | null
   analyticsConsentAt: Date | null
+  password: string | null
 }
 
 /** Ligne Prisma → profil exposé au client. */
@@ -79,6 +91,7 @@ export function toProfile(user: ProfileRow): UserProfile {
     longitude: user.longitude,
     analyticsConsent: user.analyticsConsent,
     analyticsConsentAt: user.analyticsConsentAt?.toISOString() ?? null,
+    hasPassword: user.password !== null,
   }
 }
 
@@ -195,16 +208,199 @@ async function replaySignupOnConsent(
   }
 }
 
-/*
- * OBS-delete-person — à faire le jour où la suppression de compte existe.
+// ─── Suppression du compte ─────────────────────────────────────────────────
+
+/** Une connexion Apple/Google plus ancienne ne suffit plus à supprimer le compte. */
+export const RECENT_LOGIN_MAX_AGE_MS = 10 * 60 * 1000
+
+/**
+ * Supprime un compte et tout ce qui s'y rattache — droit à l'effacement
+ * (RGPD art. 17), et exigence des deux boutiques.
  *
- * Supprimer un compte doit aussi effacer la personne dans PostHog et détacher
- * l'identité côté Sentry : sans cela, un compte parti continuerait d'exister
- * chez deux prestataires, et la page de confidentialité promettrait quelque
- * chose de faux. La fonction n'existe pas encore (elle vient avec le chantier
- * « suppression de compte » demandé par Google Play) ; ce commentaire marque
- * l'endroit où le raccrocher, à côté des autres écritures sur le compte.
+ * **La preuve de présence** : le mot de passe pour un compte qui en a un ;
+ * pour un compte Apple/Google, une connexion de moins de dix minutes
+ * (`authenticatedAt`, lu dans le jeton par la route — voir `signAccessToken`).
+ * Une session ouverte ne suffit pas : un téléphone prêté ou un jeton volé
+ * n'ont pas à pouvoir effacer un jardin.
+ *
+ * **L'ordre** :
+ * 1. relever ce que la cascade va emporter chez **d'autres** comptes — les
+ *    compteurs à recalculer, les photos qu'ils ont postées dans les fils des
+ *    annonces supprimées ;
+ * 2. en une transaction : effacer les notifications que ce compte a
+ *    déclenchées (leur texte figé porte son pseudo), supprimer la ligne
+ *    `users` — la base fait la cascade —, recalculer les compteurs touchés ;
+ * 3. hors transaction et sans jamais échouer : vider son dossier de photos,
+ *    les photos relevées, et sa personne PostHog.
+ *
+ * Restent, par choix : les messages de contact (`SetNull`, historique du
+ * support) et le journal d'audit des administrateurs (`SetNull`).
+ *
+ * @throws ServiceError('INVALID_INPUT') sans confirmation,
+ * ServiceError('UNAUTHENTICATED') sans preuve de présence,
+ * ServiceError('FORBIDDEN') pour le dernier administrateur,
+ * ServiceError('NOT_FOUND') si le compte n'existe plus.
  */
+export async function deleteAccount(
+  userId: string,
+  input: DeleteAccountInput,
+  options: { authenticatedAt?: Date | null; now?: Date } = {},
+): Promise<void> {
+  if (input.confirmation !== DELETE_ACCOUNT_CONFIRMATION) {
+    throw new ServiceError('INVALID_INPUT', `Tape ${DELETE_ACCOUNT_CONFIRMATION} pour confirmer.`)
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { password: true, role: true },
+  })
+  if (!user) throw new ServiceError('NOT_FOUND', 'Compte introuvable.')
+
+  await assertPresence(user.password, input.password, options)
+
+  // Même règle que pour la rétrogradation (`lib/admin/roles.ts`) : sans
+  // administrateur, `/admin` devient inaccessible et il faut la base de
+  // production pour en sortir.
+  if (user.role === 'ADMIN') {
+    const admins = await prisma.user.count({ where: { role: 'ADMIN' } })
+    if (admins <= 1) {
+      throw new ServiceError(
+        'FORBIDDEN',
+        'Nomme un autre administrateur avant de supprimer ce compte.',
+      )
+    }
+  }
+
+  const affected = await collectAffected(userId)
+
+  await prisma.$transaction(async (tx) => {
+    await tx.notification.deleteMany({ where: { actorId: userId } })
+    await tx.user.delete({ where: { id: userId } })
+    await recountAfterDeletion(tx, affected)
+  })
+
+  await Promise.all([
+    deleteUserFolder(userId),
+    deletePhotosByUrl(affected.foreignPhotoUrls),
+    deletePostHogPerson(userId),
+  ])
+}
+
+async function assertPresence(
+  hash: string | null,
+  password: string | undefined,
+  options: { authenticatedAt?: Date | null; now?: Date },
+): Promise<void> {
+  if (hash) {
+    if (!password || !(await bcrypt.compare(password, hash))) {
+      throw new ServiceError('UNAUTHENTICATED', 'Mot de passe incorrect.')
+    }
+    return
+  }
+
+  const now = options.now ?? new Date()
+  const loggedInAt = options.authenticatedAt
+  if (!loggedInAt || now.getTime() - loggedInAt.getTime() > RECENT_LOGIN_MAX_AGE_MS) {
+    throw new ServiceError('UNAUTHENTICATED', 'Reconnecte-toi pour supprimer ton compte.')
+  }
+}
+
+type AffectedByDeletion = {
+  /** Comptes que celui-ci suivait : leur `followerCount` baisse. */
+  followedIds: string[]
+  /** Comptes qui le suivaient : leur `followingCount` baisse. */
+  followerIds: string[]
+  /** Publications d'autrui qu'il a aimées ou commentées. */
+  postIds: string[]
+  /** Annonces d'autrui sur lesquelles il avait ouvert un fil. */
+  listingIds: string[]
+  /** Photos postées par d'autres dans les fils de ses annonces. */
+  foreignPhotoUrls: string[]
+}
+
+/**
+ * Ce que la cascade va toucher hors de ce compte, relevé **avant** : une fois
+ * les lignes supprimées, plus rien ne dit quels compteurs ont bougé.
+ */
+async function collectAffected(userId: string): Promise<AffectedByDeletion> {
+  const [following, followers, likes, comments, threads, foreignMessages] = await Promise.all([
+    prisma.follow.findMany({ where: { followerId: userId }, select: { followingId: true } }),
+    prisma.follow.findMany({ where: { followingId: userId }, select: { followerId: true } }),
+    prisma.postLike.findMany({
+      where: { userId, post: { userId: { not: userId } } },
+      select: { postId: true },
+    }),
+    prisma.comment.findMany({
+      where: { userId, post: { userId: { not: userId } } },
+      select: { postId: true },
+      distinct: ['postId'],
+    }),
+    prisma.listingThread.findMany({
+      where: { requesterId: userId, listing: { userId: { not: userId } } },
+      select: { listingId: true },
+    }),
+    // Ses propres photos sont dans son dossier ; celles des autres non.
+    prisma.listingMessage.findMany({
+      where: {
+        thread: { listing: { userId } },
+        userId: { not: userId },
+        photoUrl: { not: null },
+      },
+      select: { photoUrl: true },
+    }),
+  ])
+
+  return {
+    followedIds: following.map((f) => f.followingId),
+    followerIds: followers.map((f) => f.followerId),
+    postIds: [...new Set([...likes, ...comments].map((row) => row.postId))],
+    listingIds: [...new Set(threads.map((t) => t.listingId))],
+    foreignPhotoUrls: foreignMessages.flatMap((m) => (m.photoUrl ? [m.photoUrl] : [])),
+  }
+}
+
+/**
+ * Recompte, plutôt que décrémenter, les compteurs dénormalisés touchés : la
+ * valeur juste est celle des lignes restantes, et un compteur qui avait
+ * dérivé en sort corrigé au lieu d'être décalé d'autant.
+ *
+ * En SQL : une requête par compteur au lieu d'une par ligne. Mêmes règles de
+ * comptage que les services qui les tiennent — un commentaire `deleted` ne
+ * compte plus, un commentaire masqué si (`post.service.deleteComment`).
+ */
+async function recountAfterDeletion(
+  tx: Prisma.TransactionClient,
+  affected: AffectedByDeletion,
+): Promise<void> {
+  if (affected.followedIds.length) {
+    await tx.$executeRaw`
+      UPDATE "users" u
+      SET "followerCount" = (SELECT COUNT(*)::int FROM "follows" f WHERE f."followingId" = u."id")
+      WHERE u."id" = ANY(${affected.followedIds}::text[])`
+  }
+  if (affected.followerIds.length) {
+    await tx.$executeRaw`
+      UPDATE "users" u
+      SET "followingCount" = (SELECT COUNT(*)::int FROM "follows" f WHERE f."followerId" = u."id")
+      WHERE u."id" = ANY(${affected.followerIds}::text[])`
+  }
+  if (affected.postIds.length) {
+    await tx.$executeRaw`
+      UPDATE "posts" p
+      SET "likeCount" = (SELECT COUNT(*)::int FROM "post_likes" l WHERE l."postId" = p."id"),
+          "commentCount" = (
+            SELECT COUNT(*)::int FROM "comments" c
+            WHERE c."postId" = p."id" AND c."status" <> 'deleted'
+          )
+      WHERE p."id" = ANY(${affected.postIds}::text[])`
+  }
+  if (affected.listingIds.length) {
+    await tx.$executeRaw`
+      UPDATE "listings" l
+      SET "threadCount" = (SELECT COUNT(*)::int FROM "listing_threads" t WHERE t."listingId" = l."id")
+      WHERE l."id" = ANY(${affected.listingIds}::text[])`
+  }
+}
 
 /**
  * Fuseau de l'utilisateur — celui dans lequel se compte « aujourd'hui ».

@@ -70,13 +70,17 @@ export function LegalPage({
 /** Section numérotée d'un document légal. */
 export function LegalSection({
   title,
+  id,
   children,
 }: {
   title: string
+  /** Ancre, pour qu'un écran de l'app puisse pointer une section précise. */
+  id?: string
   children: React.ReactNode
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    // `scroll-mt` : l'en-tête du site est collant, il masquerait le titre visé.
+    <section id={id} className="flex scroll-mt-24 flex-col gap-3">
       <h2 className="font-poppins text-xl font-semibold text-forest">{title}</h2>
       <div className="flex flex-col gap-3 font-raleway text-[15px] leading-relaxed text-forest/80">
         {children}
