@@ -2,13 +2,18 @@
  * Service utilisateur — compte, profil, préférences d'alertes.
  */
 
-import type { UpdateAlertConfigInput, UpdateProfileInput } from '@growi/shared'
-import { DEFAULT_ALERT_CONFIG, type AlertConfig, type UserProfile } from '@growi/shared'
+import type { AuthMethod, UpdateAlertConfigInput, UpdateProfileInput } from '@growi/shared'
+import {
+  DEFAULT_ALERT_CONFIG,
+  LEGAL_VERSION,
+  type AlertConfig,
+  type UserProfile,
+} from '@growi/shared'
 import { Prisma } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 import {
-  rememberOptOut,
+  rememberConsent,
   setPersonProperties,
   trackAnonymous,
   trackServer,
@@ -31,7 +36,8 @@ const PROFILE_SELECT = {
   alertConfig: true,
   latitude: true,
   longitude: true,
-  analyticsOptOut: true,
+  analyticsConsent: true,
+  analyticsConsentAt: true,
 } as const
 
 type ProfileRow = {
@@ -47,7 +53,8 @@ type ProfileRow = {
   alertConfig: Prisma.JsonValue | null
   latitude: number | null
   longitude: number | null
-  analyticsOptOut: boolean
+  analyticsConsent: boolean | null
+  analyticsConsentAt: Date | null
 }
 
 /** Ligne Prisma → profil exposé au client. */
@@ -70,7 +77,8 @@ export function toProfile(user: ProfileRow): UserProfile {
     },
     latitude: user.latitude,
     longitude: user.longitude,
-    analyticsOptOut: user.analyticsOptOut,
+    analyticsConsent: user.analyticsConsent,
+    analyticsConsentAt: user.analyticsConsentAt?.toISOString() ?? null,
   }
 }
 
@@ -90,12 +98,30 @@ export async function updateProfile(
   input: UpdateProfileInput,
 ): Promise<UserProfile> {
   // `city` est exposée sous ce nom mais stockée en `locationCity`.
-  const { city, ...rest } = input
+  const { city, analyticsConsent, ...rest } = input
+
+  // L'état d'avant n'est lu que si le choix change : c'est lui qui dit si
+  // l'inscription reste à rejouer (voir `replaySignupOnConsent`).
+  const before =
+    analyticsConsent !== undefined
+      ? await prisma.user.findUnique({
+          where: { id: userId },
+          select: { analyticsConsent: true, termsAcceptedAt: true },
+        })
+      : null
 
   try {
     const updated = await prisma.user.update({
       where: { id: userId },
-      data: { ...rest, ...(city !== undefined ? { locationCity: city } : {}) },
+      data: {
+        ...rest,
+        ...(city !== undefined ? { locationCity: city } : {}),
+        // La date accompagne chaque réponse, y compris une réponse identique :
+        // c'est la preuve du dernier choix exprimé, pas du dernier changement.
+        ...(analyticsConsent !== undefined
+          ? { analyticsConsent, analyticsConsentAt: new Date() }
+          : {}),
+      },
       select: PROFILE_SELECT,
     })
 
@@ -114,10 +140,13 @@ export async function updateProfile(
       ])
     }
 
-    // Le refus prend effet sur cette instance à l'instant, sans attendre que
-    // la mémoire d'une heure expire ; l'événement `care_logged` qui suivrait
-    // dans la même minute ne partirait pas.
-    if (input.analyticsOptOut !== undefined) rememberOptOut(userId, updated.analyticsOptOut)
+    // Le choix prend effet sur cette instance à l'instant, sans attendre que
+    // la mémoire d'une heure expire : l'événement `care_logged` qui suivrait
+    // un retrait dans la même minute ne partirait pas.
+    if (analyticsConsent !== undefined) {
+      rememberConsent(userId, updated.analyticsConsent)
+      if (analyticsConsent && before) await replaySignupOnConsent(userId, before)
+    }
 
     return toProfile(updated)
   } catch (err) {
@@ -125,6 +154,44 @@ export async function updateProfile(
       throw new ServiceError('CONFLICT', 'Cet email est déjà utilisé.')
     }
     throw err
+  }
+}
+
+/**
+ * Rejoue l'inscription dans la mesure d'usage, au premier « oui ».
+ *
+ * `signup_completed` est émis à la création du compte — donc avant que la
+ * question du consentement ait pu être posée, et il se tait. Sans ce rattrapage,
+ * l'entonnoir d'activation n'aurait plus de première marche. L'événement est
+ * daté de l'inscription réelle : c'est un fait survenu, rapporté une fois
+ * l'accord obtenu.
+ *
+ * Seulement à la **première** réponse d'un compte créé sous ce régime
+ * (`termsAcceptedAt` posé) : les comptes plus anciens ont déjà émis le leur
+ * quand la mesure était en opt-out, et un « non » suivi d'un « oui » ne doit
+ * pas l'envoyer deux fois. Qui dit non puis oui perd l'événement, pas les
+ * propriétés de personne — réécrites à chaque oui, elles sont idempotentes.
+ */
+async function replaySignupOnConsent(
+  userId: string,
+  before: { analyticsConsent: boolean | null; termsAcceptedAt: Date | null },
+): Promise<void> {
+  if (before.analyticsConsent === true) return
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { createdAt: true, password: true, accounts: { select: { provider: true }, take: 1 } },
+  })
+  if (!user) return
+
+  const method: AuthMethod = user.password
+    ? 'email'
+    : ((user.accounts[0]?.provider ?? 'email') as AuthMethod)
+
+  setPersonProperties(userId, { signup_method: method, signup_at: user.createdAt.toISOString() })
+
+  if (before.analyticsConsent === null && before.termsAcceptedAt) {
+    trackServer(userId, 'signup_completed', { method }, { timestamp: user.createdAt })
   }
 }
 
@@ -154,19 +221,20 @@ export async function getUserTimezone(userId: string): Promise<string> {
 }
 
 /**
- * Le compte refuse-t-il l'analyse d'usage ?
+ * Le choix du compte quant à la mesure d'usage : `null` tant que la question
+ * n'a pas été posée.
  *
- * Lu à part du profil complet : le layout du dashboard n'a besoin que de ce
- * booléen, et le charger avec le reste ferait une requête plus large sur
- * chaque page. En cas de compte introuvable, on répond « refuse » — le silence
- * est le repli sûr.
+ * Lu à part du profil complet : le layout du dashboard n'a besoin que de cette
+ * valeur, et la charger avec le reste ferait une requête plus large sur chaque
+ * page. Un compte introuvable vaut refus, pas « jamais demandé » : on ne pose
+ * pas la question à un compte qui n'existe plus.
  */
-export async function getAnalyticsOptOut(userId: string): Promise<boolean> {
+export async function getAnalyticsConsent(userId: string): Promise<boolean | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { analyticsOptOut: true },
+    select: { analyticsConsent: true },
   })
-  return user?.analyticsOptOut ?? true
+  return user ? user.analyticsConsent : false
 }
 
 /** Localisation de l'utilisateur, pour la météo et les conseils. */
@@ -217,6 +285,16 @@ export async function updateAlertConfig(
 // ─── Compte et mot de passe ────────────────────────────────────────────────
 
 /**
+ * Trace de l'acceptation des textes légaux, à poser **à la création** du
+ * compte seulement — par email ou au premier passage Apple/Google. Une
+ * reconnexion n'accepte rien de nouveau ; les comptes antérieurs restent à
+ * `null`, on ne fabrique pas une acceptation qui n'a pas eu lieu.
+ */
+export function termsAcceptance(now = new Date()) {
+  return { termsAcceptedAt: now, termsVersion: LEGAL_VERSION }
+}
+
+/**
  * Crée un compte à partir d'un email et d'un mot de passe.
  * @throws ServiceError('CONFLICT') si un compte existe déjà avec cet email.
  */
@@ -233,6 +311,9 @@ export async function createUser(input: {
         email: input.email,
         name: input.firstName,
         password: hashedPassword,
+        // L'inscription vaut acceptation des CGU et de la politique : la
+        // mention figure sous le bouton, la trace est ici.
+        ...termsAcceptance(),
       },
       select: { id: true },
     })

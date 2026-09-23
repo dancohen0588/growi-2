@@ -247,8 +247,12 @@ export const PROCESSORS = [
   },
 ] as const
 
-/** Dernière révision des textes légaux, affichée en tête de page. */
-export const LEGAL_UPDATED_AT = '2026-09-09'
+/**
+ * Dernière révision des textes légaux, affichée en tête de page. Définie dans
+ * `@growi/shared`, parce que c'est aussi la version inscrite sur le compte à
+ * l'inscription.
+ */
+export { LEGAL_VERSION as LEGAL_UPDATED_AT } from '@growi/shared'
 
 /** Vrai tant que l'identité de l'éditeur n'est pas renseignée. */
 export function hasLegalPlaceholders(): boolean {

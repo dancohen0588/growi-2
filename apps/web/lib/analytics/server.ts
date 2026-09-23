@@ -89,52 +89,62 @@ function getClient(): PostHog | null {
   return client
 }
 
-// ─── Opposition de l'utilisateur ───────────────────────────────────────────
+// ─── Consentement de l'utilisateur ─────────────────────────────────────────
 
 /**
- * Le refus d'analyse est **posé sur le compte**, et l'interrupteur du profil ne
- * coupe que le SDK de l'appareil. Sans ce contrôle, un compte qui a refusé
- * continuait d'envoyer, depuis le serveur, ses inscriptions, ses plantes, ses
- * identifications — tout ce que la page de confidentialité promet d'arrêter.
+ * La mesure d'usage n'a lieu qu'avec l'**accord explicite** du compte
+ * (ePrivacy : un identifiant écrit sur le terminal exige un consentement
+ * préalable). Jamais demandé, refusé, retiré : silence. Sans ce contrôle côté
+ * serveur, un compte qui n'a pas dit oui enverrait quand même ses
+ * inscriptions, ses plantes, ses identifications — tout ce que la page de
+ * confidentialité promet de ne pas mesurer.
  *
  * Le choix est relu en base, mais **au plus une fois par heure et par compte**
  * sur chaque instance : une requête par événement coûterait plus que la mesure
  * ne rapporte, sur un pool de connexions qu'on sait étroit. Un changement de
- * réglage est répercuté sur-le-champ par `rememberOptOut`, appelé là où le
+ * réglage est répercuté sur-le-champ par `rememberConsent`, appelé là où le
  * profil s'écrit ; sur les autres instances, il prend effet dans l'heure.
  */
-const OPT_OUT_TTL_MS = 60 * 60 * 1000
-const optOutByUser = new Map<string, { value: boolean; expiresAt: number }>()
+const CONSENT_TTL_MS = 60 * 60 * 1000
+const consentByUser = new Map<string, { value: boolean; expiresAt: number }>()
 
-/** Note un choix connu, pour que l'instance qui l'a reçu l'applique aussitôt. */
-export function rememberOptOut(userId: string, optOut: boolean, now = Date.now()): void {
-  optOutByUser.set(userId, { value: optOut, expiresAt: now + OPT_OUT_TTL_MS })
+/**
+ * Note un choix connu, pour que l'instance qui l'a reçu l'applique aussitôt.
+ * `null` (jamais demandé) vaut refus : seul un oui ouvre l'émission.
+ */
+export function rememberConsent(
+  userId: string,
+  consent: boolean | null,
+  now = Date.now(),
+): void {
+  consentByUser.set(userId, { value: consent === true, expiresAt: now + CONSENT_TTL_MS })
 }
 
 /**
- * Le compte refuse-t-il l'analyse ? En cas de doute — compte introuvable, base
- * indisponible — la réponse est **oui** : se taire est le repli sûr.
+ * Le compte a-t-il accepté la mesure d'usage ? En cas de doute — compte
+ * introuvable, base indisponible — la réponse est **non** : se taire est le
+ * repli sûr.
  */
-export async function isOptedOut(userId: string, now = Date.now()): Promise<boolean> {
-  const cached = optOutByUser.get(userId)
+export async function hasAnalyticsConsent(userId: string, now = Date.now()): Promise<boolean> {
+  const cached = consentByUser.get(userId)
   if (cached && cached.expiresAt > now) return cached.value
 
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { analyticsOptOut: true },
+      select: { analyticsConsent: true },
     })
-    const optOut = user?.analyticsOptOut ?? true
-    rememberOptOut(userId, optOut, now)
-    return optOut
+    const consent = user?.analyticsConsent ?? null
+    rememberConsent(userId, consent, now)
+    return consent === true
   } catch {
-    return true
+    return false
   }
 }
 
 /** Remet la mémoire à zéro. Réservé aux tests. */
-export function resetOptOutCache(): void {
-  optOutByUser.clear()
+export function resetConsentCache(): void {
+  consentByUser.clear()
 }
 
 /** Une seule plainte par process : un journal saturé ne dit plus rien. */
@@ -167,25 +177,30 @@ function flushSoon(posthog: PostHog): void {
  * Enregistre un fait du catalogue au nom d'un utilisateur.
  *
  * **Ne lève jamais, ne s'attend pas.**
+ *
+ * `timestamp` date un fait survenu plus tôt — l'inscription, rejouée quand le
+ * compte donne son accord (voir `user.service.updateProfile`).
  */
 export function trackServer<N extends GrowiEventName>(
   userId: string,
   name: N,
   props: GrowiEventProps<N>,
+  options: { timestamp?: Date } = {},
 ): void {
   try {
     const posthog = getClient()
     if (!posthog) return
 
-    // Le contrôle d'opposition est asynchrone : c'est donc la chaîne entière —
-    // lecture du choix, capture, envoi — que `waitUntil` garde en vie.
+    // Le contrôle du consentement est asynchrone : c'est donc la chaîne
+    // entière — lecture du choix, capture, envoi — que `waitUntil` garde en vie.
     keepAlive(
       (async () => {
-        if (await isOptedOut(userId)) return
+        if (!(await hasAnalyticsConsent(userId))) return
         posthog.capture({
           distinctId: userId,
           event: name,
           properties: { ...commonProperties(), ...props },
+          ...(options.timestamp ? { timestamp: options.timestamp } : {}),
         })
         await posthog.flush()
       })(),
@@ -241,7 +256,7 @@ export function setPersonProperties(
 
     keepAlive(
       (async () => {
-        if (await isOptedOut(userId)) return
+        if (!(await hasAnalyticsConsent(userId))) return
         posthog.identify({ distinctId: userId, properties })
         await posthog.flush()
       })(),

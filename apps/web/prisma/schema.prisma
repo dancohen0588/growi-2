@@ -38,11 +38,17 @@ model User {
   /// Dernière activité observée, toutes surfaces confondues.
   /// Mise à jour au plus une fois par heure (voir activity.service.ts).
   lastSeenAt      DateTime? @db.Timestamptz(6)
-  /// Opposition à l'analyse d'usage (PostHog). Faux par défaut : l'analyse est
-  /// activée au titre de l'intérêt légitime, et l'utilisateur peut en sortir
-  /// depuis son profil. Les rapports de plantage (Sentry) restent actifs quoi
-  /// qu'il arrive — ils ne servent qu'à corriger des bugs.
-  analyticsOptOut Boolean   @default(false)
+  /// Consentement à la mesure d'usage (PostHog). Trois états :
+  /// null  = jamais demandé → rien ne part, l'écran de choix s'affiche ;
+  /// true  = accepté ; false = refusé. Révocable depuis le profil.
+  /// Les rapports de plantage (Sentry) ne dépendent pas de ce champ.
+  analyticsConsent   Boolean?
+  analyticsConsentAt DateTime? @db.Timestamptz(6)
+
+  /// Acceptation des CGU et de la politique de confidentialité à l'inscription,
+  /// avec la version acceptée (= LEGAL_VERSION du jour).
+  termsAcceptedAt    DateTime? @db.Timestamptz(6)
+  termsVersion       String?
 
   // ── Communauté (opt-in) ──────────────────────────────────────────────────
   /// Pseudo public unique, 3 à 30 caractères `[a-z0-9_]`, normalisé en
@@ -126,7 +132,9 @@ model UserActivity {
 /// qu'un compte peut éditer les données d'un autre.
 model AdminAuditLog {
   id         String   @id @default(cuid())
-  actorId    String
+  /// Nul quand l'administrateur a supprimé son compte : la ligne reste, sans
+  /// le nom. Un journal qu'une suppression de compte efface ne prouve rien.
+  actorId    String?
   /// Voir ADMIN_ACTIONS dans lib/admin/audit.ts.
   action     String
   /// Type de la cible : user | contact_message | garden | plant_instance | blog_post.
@@ -135,7 +143,7 @@ model AdminAuditLog {
   /// Avant/après ou paramètres. Jamais de mot de passe ni d'empreinte de jeton.
   details    Json?
   createdAt  DateTime @default(now()) @db.Timestamptz(6)
-  actor      User     @relation("actor", fields: [actorId], references: [id], onDelete: Cascade)
+  actor      User?    @relation("actor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([targetType, targetId])

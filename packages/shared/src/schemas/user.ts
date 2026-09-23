@@ -132,11 +132,14 @@ export const userProfileSchema = z.object({
   longitude: nullish(z.number()),
   alertConfig: alertConfigSchema,
   /**
-   * L'utilisateur s'oppose à l'analyse d'usage. Les rapports de plantage
-   * restent actifs : ils ne servent qu'à corriger des bugs, et l'app en
-   * dépend pour ne pas rester cassée sans que personne le sache.
+   * Consentement à la mesure d'usage : `null` tant que la question n'a pas
+   * été posée — rien ne part, et l'écran de choix s'affiche —, puis le choix
+   * exprimé. Les rapports de plantage n'en dépendent pas : ils ne servent qu'à
+   * corriger des bugs, et l'app en dépend pour ne pas rester cassée sans que
+   * personne le sache.
    */
-  analyticsOptOut: z.boolean(),
+  analyticsConsent: z.boolean().nullable(),
+  analyticsConsentAt: isoDateTimeSchema.nullable(),
 })
 
 export type UserProfile = z.infer<typeof userProfileSchema>
@@ -153,8 +156,11 @@ export const updateProfileSchema = z.object({
   avatarColor: nullish(z.string()),
   latitude: nullish(z.number()),
   longitude: nullish(z.number()),
-  /** Opposition à l'analyse d'usage — voir `userProfileSchema`. */
-  analyticsOptOut: z.boolean().optional(),
+  /**
+   * Consentement à la mesure d'usage — voir `userProfileSchema`. Jamais `null`
+   * en écriture : une question à laquelle on a répondu ne se « désrépond » pas.
+   */
+  analyticsConsent: z.boolean().optional(),
 })
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>

@@ -65,6 +65,12 @@ export const authUserSchema = z.object({
   id: idSchema,
   email: z.email(),
   firstName: nullish(z.string()),
+  /**
+   * Consentement à la mesure d'usage — voir `userProfileSchema`. Remis dès la
+   * connexion pour que l'app sache s'il faut poser la question. Absent d'un
+   * serveur plus ancien : vaut « jamais demandé ».
+   */
+  analyticsConsent: nullish(z.boolean()),
 })
 
 export type AuthUser = z.infer<typeof authUserSchema>

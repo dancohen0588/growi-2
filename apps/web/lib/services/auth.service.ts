@@ -21,7 +21,7 @@ import {
 } from '@/lib/auth/tokens'
 import { verifySocialIdentity } from '@/lib/auth/social-identity'
 import { ServiceError } from '@/lib/services/errors'
-import { createUser, verifyCredentials } from '@/lib/services/user.service'
+import { createUser, termsAcceptance, verifyCredentials } from '@/lib/services/user.service'
 
 type UserRow = {
   id: string
@@ -29,6 +29,7 @@ type UserRow = {
   firstName: string | null
   name: string | null
   disabledAt?: Date | null
+  analyticsConsent?: boolean | null
 }
 
 /** Les seuls champs dont l'émission de jetons a besoin. */
@@ -38,6 +39,7 @@ const USER_FIELDS = {
   firstName: true,
   name: true,
   disabledAt: true,
+  analyticsConsent: true,
 } as const
 
 function toAuthUser(user: UserRow): AuthUser {
@@ -45,6 +47,9 @@ function toAuthUser(user: UserRow): AuthUser {
     id: user.id,
     email: user.email,
     firstName: user.firstName ?? user.name,
+    // L'app en a besoin dès la connexion : c'est ce qui décide si l'écran de
+    // consentement s'affiche avant les onglets, sans relire le profil.
+    analyticsConsent: user.analyticsConsent ?? null,
   }
 }
 
@@ -204,6 +209,9 @@ export async function loginWithProvider(
         lastName: input.lastName?.trim() || null,
         // L'adresse ne compte pour vérifiée que si le fournisseur l'atteste.
         emailVerified: identity.emailVerified ? new Date() : null,
+        // Le premier passage vaut inscription, donc acceptation des CGU —
+        // la mention est affichée sous les boutons Apple et Google.
+        ...termsAcceptance(),
       },
       select: USER_FIELDS,
     })
