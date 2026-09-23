@@ -1,3 +1,4 @@
+import { rejectUnauthorizedCron } from '@/lib/api/cron-auth'
 import { runListingUpkeep } from '@/lib/services/community/listing.service'
 import { sendOpenReportsAlert } from '@/lib/services/community/moderation.service'
 import { purgeReadNotifications } from '@/lib/services/community/notification.service'
@@ -17,29 +18,13 @@ export const maxDuration = 60
 /**
  * Rappels du matin.
  *
- * Déclenchée par Vercel Cron (voir `vercel.json`). Vercel signe ses appels
- * avec `CRON_SECRET` dans l'en-tête `Authorization` ; sans ce secret la route
- * refuse de s'exécuter — elle est publique par construction, et envoyer des
- * notifications à tout le monde ne doit pas être à la portée du premier venu.
+ * Déclenchée par Vercel Cron (voir `vercel.json`), derrière `CRON_SECRET`
+ * (`lib/api/cron-auth.ts`) : envoyer des notifications à tout le monde ne
+ * doit pas être à la portée du premier venu.
  */
 export async function GET(request: Request): Promise<Response> {
-  const secret = process.env.CRON_SECRET
-
-  if (!secret) {
-    console.error('[cron] CRON_SECRET absent : la tournée est refusée.')
-    return Response.json(
-      { error: { code: 'UNAVAILABLE', message: 'Tâche planifiée non configurée.' } },
-      { status: 503, headers: { 'cache-control': 'no-store' } },
-    )
-  }
-
-  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
-    // Volontairement muet sur la raison : inutile d'indiquer ce qui manque.
-    return Response.json(
-      { error: { code: 'UNAUTHENTICATED', message: 'Non autorisé.' } },
-      { status: 401, headers: { 'cache-control': 'no-store' } },
-    )
-  }
+  const refused = rejectUnauthorizedCron(request)
+  if (refused) return refused
 
   try {
     const result = await sendDailyReminders()

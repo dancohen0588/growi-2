@@ -738,7 +738,28 @@ calendrier saisonnier, les prompts et le lint ; le service orchestre.
   en introduisait d'autres défauts (constaté sur les premiers essais réels).
 - `generateJson` accepte une `temperature` : 0 par défaut pour tous les autres
   usages, relevée pour la seule rédaction.
-- `pnpm --filter web blog:generate [--topic "…"]` essaie en vrai. Les scripts
+- **L'image ne bloque jamais l'article.** Texte enregistré d'abord, image
+  tentée seulement s'il reste 20 s ; `blog-cover.service` ne lève jamais, un
+  échec laisse `PENDING` sans toucher l'image existante, et l'ancienne
+  couverture n'est supprimée du bucket qu'**après** l'écriture de la nouvelle.
+  Seul ce module importe `@google/genai` — `@google/generative-ai` ne rend pas
+  d'image.
+- ⚠️ **L'offre gratuite Gemini a un quota nul pour `gemini-2.5-flash-image`.**
+  Sans facturation activée, toutes les couvertures restent `PENDING` ; le texte
+  passe. L'erreur (2 000 caractères de JSON) est résumée par `describeError`.
+- **Cron `blog-generate` : chaque lundi 7 h UTC, la cadence en base décide.**
+  Le verrou `blog.generation_lock` est pris en **une** instruction SQL
+  (`INSERT … ON CONFLICT … WHERE … RETURNING`) : « lire puis écrire » laissait
+  deux passages simultanés le prendre tous les deux. Essayé contre Postgres :
+  un seul gagnant. Ce SQL échappe aux tests unitaires, comme celui du tableau
+  de bord. Un échec de génération ne note pas la date — le lundi suivant
+  retente. Le rattrapage de couverture tourne à **chaque** passage.
+- **Deux crons, le maximum du plan Hobby** : en ajouter un troisième demande
+  soit de changer de plan, soit de le greffer sur un passage existant, comme
+  l'entretien de la bourse l'est sur `daily-reminders`.
+- `CRON_SECRET` est vérifié par `lib/api/cron-auth.ts`, partagé par les deux
+  routes : une garde recopiée finit par diverger.
+- `pnpm --filter web blog:generate [--topic "…"] [--cover <slug>]` essaie en vrai. Les scripts
   `tsx` passent par `tsconfig.scripts.json` (JSX automatique) : avec le
   `jsx: preserve` de Next, le rendu MDX y échouait en « React is not defined ».
 - Le mobile reçoit du **HTML compilé** (`getPostAsHtml`), pas du MDX, avec

@@ -34,7 +34,7 @@ fait dans l'admin.
 
 | Origine (`origin`) | Comment |
 |---|---|
-| `cron` | Génération automatique, chaque lundi 7 h UTC si la cadence réglée dans l'admin le prévoit *(phase 3)* |
+| `cron` | Génération automatique, chaque lundi 7 h UTC si la cadence réglée dans l'admin le prévoit |
 | `admin` | Bouton « Générer un article » de `/admin/conseils`, avec un sujet facultatif *(phase 4)* |
 | `manual` | Écrit à la main, avec le skill Claude Code `growi-blog-article` *(phase 5)*. Les trois premiers articles, importés, portent aussi cette origine. |
 
@@ -146,8 +146,8 @@ seule la clé service y écrit. Il a été créé par migration Supabase
 fois la nouvelle enregistrée.
 
 Une photo réelle est toujours préférable. À défaut, la couverture est générée
-*(phase 3, `gemini-2.5-flash-image`)* avec une recette fixe, pour que les
-images forment une série :
+(`lib/services/blog-cover.service.ts`, modèle `gemini-2.5-flash-image`, 16:9)
+avec une recette fixe, pour que les images forment une série :
 
 1. **Un sujet concret et daté**, tiré de l'article — pas une image d'ambiance.
 2. **Un cadre français** : murets de pierre, bâti ancien, terrasse en pierre.
@@ -157,12 +157,51 @@ images forment une série :
 5. **Les interdits**, toujours : `No people, no text, no logos, no watermark.`
 
 Le prompt est conservé sur l'article (`coverPrompt`) pour pouvoir régénérer.
-**L'image ne bloque jamais l'article** : faute de temps ou après un échec, la
-couverture reste `PENDING`, et un passage suivant la produit.
+**L'image ne bloque jamais l'article** : le texte est enregistré dès qu'il est
+validé, l'image n'est tentée que s'il reste 20 s, et un échec laisse la
+couverture `PENDING` — l'image existante (dégradé, ou précédente) reste en
+place. Chaque passage du cron rattrape la plus ancienne couverture en attente.
+
+> ⚠️ **Facturation Gemini requise.** L'offre gratuite a un quota **nul** pour
+> `gemini-2.5-flash-image` : sans facturation activée sur le projet Google de
+> `GEMINI_API_KEY`, toutes les couvertures restent `PENDING`. Le texte, lui,
+> passe sur l'offre gratuite.
+
+Pour produire ou refaire une couverture à la main :
+
+```bash
+pnpm --filter web blog:generate --cover <slug>
+```
+
+## Planification
+
+`GET /api/cron/blog-generate`, déclenchée **chaque lundi à 7 h UTC**
+(`vercel.json`), protégée par `CRON_SECRET`. C'est la **cadence en base** qui
+décide si elle produit — changer de rythme se fait dans l'admin, sans
+déploiement.
+
+| Cadence (`blog.cadence`) | Génère si la dernière date d'au moins |
+|---|---|
+| `weekly` | 6 jours |
+| `biweekly` *(par défaut)* | 13 jours |
+| `monthly` | 27 jours |
+
+Un jour de moins que la période : une génération finie à 7 h 00 min 40 s ne
+doit pas faire manquer le lundi suivant.
+
+Déroulé : verrou (`blog.generation_lock`, 5 min, pris en une seule instruction
+SQL) → cadence due ? → moins de 2 brouillons ? → génération → email aux
+administrateurs → rattrapage d'une couverture. Un échec de génération ne met
+pas à jour `blog.last_generation_at` : le lundi suivant retente.
+
+Chaque brouillon généré envoie **un** email « Un nouveau conseil attend ta
+relecture » à tous les administrateurs actifs (sauf celui qui l'a demandé
+depuis l'admin), avec le lien vers la fiche.
 
 > **En attente** — « Rentrer ses plantes » est encore sur un dégradé de
 > remplacement. Son article est en `coverStatus = PENDING` avec le prompt
-> prêt : la première exécution du cron de la phase 3 le rattrapera.
+> prêt : le premier passage du cron une fois la facturation Gemini activée le
+> rattrapera.
 
 ## Où ça vit dans le code
 
@@ -173,7 +212,10 @@ couverture reste `PENDING`, et un passage suivant la produit.
 | `apps/web/lib/blog/mdx-components.tsx` · `mdx-options.ts` | Rendu MDX, web et HTML du mobile |
 | `apps/web/lib/blog/editorial.ts` | Ton, interdits, calendrier saisonnier, prompts, lint — **fait foi** |
 | `apps/web/lib/blog/compile.ts` | Compilation et rendu réels d'un corps, avant toute écriture |
-| `apps/web/lib/services/blog-generator.service.ts` | Génération d'un brouillon |
+| `apps/web/lib/services/blog-generator.service.ts` | Génération d'un brouillon, email aux admins |
+| `apps/web/lib/services/blog-cover.service.ts` | Couverture : image, recadrage, dépôt |
+| `apps/web/lib/services/app-settings.service.ts` | Cadence, dernière génération, verrou |
+| `apps/web/app/api/cron/blog-generate/` | Le passage du lundi |
 | `apps/web/lib/blog/cover-image.ts` | Mise au format d'une couverture |
 | `apps/web/lib/storage.ts` | `uploadCover`, `deleteCoverByUrl` |
 | `apps/web/app/(marketing)/blog/` | Pages liste et article |
