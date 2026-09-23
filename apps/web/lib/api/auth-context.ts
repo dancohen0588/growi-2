@@ -24,6 +24,8 @@ import { prisma } from '@/lib/prisma'
 import { touchActivity } from '@/lib/services/activity.service'
 import { ServiceError } from '@/lib/services/errors'
 
+type CallerPlatform = 'ios' | 'android' | 'web'
+
 /**
  * Plateforme de l'appelant.
  *
@@ -32,10 +34,53 @@ import { ServiceError } from '@/lib/services/errors'
  * on s'en tient à `web`, qui est de toute façon le seul cas possible sans
  * Bearer.
  */
-function callerPlatform(surface: ActivitySurface): 'ios' | 'android' | 'web' {
+function callerPlatform(surface: ActivitySurface): CallerPlatform {
   if (surface !== 'mobile') return 'web'
   const declared = headers().get('x-growi-platform')
   return declared === 'ios' || declared === 'android' ? declared : 'ios'
+}
+
+/**
+ * Dernière plateforme transmise à PostHog pour chaque compte, par process.
+ *
+ * `touchActivity` n'ouvre la porte qu'une fois par heure : s'y adosser
+ * seule laissait un testeur passé du web à iOS dans l'heure rangé en `web`
+ * jusqu'au lendemain — c'est-à-dire précisément pendant la séance où il essaie
+ * les deux. On écrit donc **aussi** dès que la plateforme change, sans quoi la
+ * propriété décrit moins la personne que le hasard de sa première requête.
+ *
+ * Ce n'est qu'un anti-répétition : au pire une écriture redondante par
+ * instance, que PostHog absorbe comme n'importe quelle mise à jour.
+ */
+const lastPlatformSent = new Map<string, CallerPlatform>()
+
+/**
+ * Au-delà, on repart de zéro. Élaguer finement n'a pas de sens ici — aucune
+ * entrée ne périme — et une carte qui enfle indéfiniment sur une instance de
+ * longue vie coûte plus qu'une poignée d'écritures redondantes.
+ */
+const PLATFORM_MAX_ENTRIES = 10_000
+
+/**
+ * Tient `last_platform` à jour : à chaque changement, et au rythme horaire de
+ * `touchActivity` le reste du temps (ce qui la republie même si une écriture
+ * s'est perdue en route).
+ */
+function refreshLastPlatform(
+  userId: string,
+  platform: CallerPlatform,
+  activityWritten: boolean,
+): void {
+  if (!activityWritten && lastPlatformSent.get(userId) === platform) return
+
+  if (lastPlatformSent.size >= PLATFORM_MAX_ENTRIES) lastPlatformSent.clear()
+  lastPlatformSent.set(userId, platform)
+  setPersonProperties(userId, { last_platform: platform })
+}
+
+/** Remet la mémoire des plateformes à zéro. Réservé aux tests. */
+export function resetPlatformMemory(): void {
+  lastPlatformSent.clear()
 }
 
 /**
@@ -77,11 +122,9 @@ export async function getUserId(): Promise<string | null> {
   if (!account || account.disabledAt) return null
 
   // `touchActivity` n'écrit qu'une fois par heure et par utilisateur, et rend
-  // `true` quand elle a écrit : on se cale dessus pour ne pas réécrire la
-  // propriété de personne à chaque requête.
-  if (touchActivity(userId, surface)) {
-    setPersonProperties(userId, { last_platform: callerPlatform(surface) })
-  }
+  // `true` quand elle a écrit : c'est le rythme de fond. Un changement de
+  // plateforme, lui, passe devant — voir `refreshLastPlatform`.
+  refreshLastPlatform(userId, callerPlatform(surface), touchActivity(userId, surface))
 
   // Sur qui porte l'erreur, et combien de personnes une régression touche :
   // c'est le seul tri qui vaille dans la boîte Issues. **L'identifiant interne

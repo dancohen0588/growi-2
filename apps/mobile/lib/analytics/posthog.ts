@@ -13,6 +13,11 @@
  *   types, l'enregistrement de session masque le reste.
  * - **Rien ne lève** : `createSafeEmitter` enveloppe le SDK. Un `track` posé
  *   dans un `onPress` ne doit pas pouvoir empêcher le geste qu'il mesure.
+ * - **`reset()` est réservé à la déconnexion volontaire.** Il jette
+ *   l'identifiant anonyme de l'appareil : appelé sur un jeton expiré ou une
+ *   coupure réseau, il transforme un même testeur en un profil de plus à
+ *   chaque incident, et les entonnoirs ne convergent plus. `store/session.ts`
+ *   ne l'appelle que dans `signOut`.
  */
 
 import type { GrowiEventName, GrowiEventProps } from '@growi/shared'
@@ -72,9 +77,11 @@ export function initAnalytics(): void {
     track: (name, props) => void posthog.capture(name, props),
     identify: (userId) => posthog.identify(userId),
     reset: () => posthog.reset(),
-    // Le SDK mobile n'a pas de `setPersonProperties` : `$set` est la forme
-    // que l'ingestion attend, et c'est ce que fait `identify` en interne.
-    setPersonProperties: (properties) => void posthog.capture('$set', { $set: properties }),
+    // `capture('$set', …)` semblait marcher et ne marchait pas : l'ingestion
+    // laissait tomber l'événement en silence, et `onboarding_completed` est
+    // resté vide sur tous les profils. Le SDK expose la bonne méthode depuis
+    // la v4 — `reloadFeatureFlags` à `false` parce qu'on n'en a aucun.
+    setPersonProperties: (properties) => posthog.setPersonProperties(properties, undefined, false),
     optOut: () => void posthog.optOut(),
     optIn: () => void posthog.optIn(),
   })
