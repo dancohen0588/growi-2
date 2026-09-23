@@ -767,6 +767,12 @@ calendrier saisonnier, les prompts et le lint ; le service orchestre.
 - `CRON_SECRET` est vérifié par `lib/api/cron-auth.ts`, partagé par les deux
   routes : une garde recopiée finit par diverger.
 - `pnpm --filter web blog:generate [--topic "…"] [--cover <slug>]` essaie en vrai.
+- **Rédiger à la main** : skill `growi-blog-article` (`.claude/skills/`). Il
+  produit le JSON de `generatedArticleSchema` et l'importe par
+  `blog:generate --from-file <json> [--dry-run]` (`createManualDraft`) : mêmes
+  contrôles qu'une génération, `actus-growi` permis — c'est le seul chemin qui
+  le produit —, et le plafond de brouillons avertit sans bloquer : c'est
+  l'automatisation qu'il arrête, pas une personne. Pas d'email aux admins.
 
 #### Admin `/admin/conseils`
 
