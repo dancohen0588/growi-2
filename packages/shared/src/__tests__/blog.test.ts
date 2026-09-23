@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  BLOG_CADENCES,
+  BLOG_POST_STATUSES,
   BLOG_TAGS,
+  MAX_PENDING_DRAFTS,
+  blogPostStatusSchema,
+  generatedArticleSchema,
   BLOG_TAG_LABELS,
   blogFrontmatterSchema,
   blogListQuerySchema,
@@ -103,6 +108,48 @@ describe('entités servies par l\'API', () => {
     }
 
     expect(blogListResponseSchema.safeParse(response).success).toBe(true)
+  })
+})
+
+describe('article généré', () => {
+  const generated = {
+    title: 'Pailler ses massifs avant l\'hiver',
+    slug: 'pailler-ses-massifs-avant-l-hiver',
+    excerpt: 'Quel paillage, quelle épaisseur, et à quel moment le poser pour protéger les racines du gel.',
+    tags: ['entretien', 'saison'],
+    mdx: 'Du texte. '.repeat(400),
+    coverPrompt: 'A flower bed mulched with straw along an old stone wall in a French garden, low morning light.',
+    coverImageAlt: 'Massif paillé de paille le long d\'un muret en pierre',
+    reviewerNotes: ['Épaisseur de 5 à 10 cm'],
+  }
+
+  it('accepte une sortie conforme', () => {
+    expect(generatedArticleSchema.safeParse(generated).success).toBe(true)
+  })
+
+  it('refuse un slug qui ne serait pas une URL propre', () => {
+    for (const slug of ['Pailler', 'pailler--massifs', 'pailler_massifs', '-pailler']) {
+      expect(generatedArticleSchema.safeParse({ ...generated, slug }).success).toBe(false)
+    }
+  })
+
+  it('refuse un article trop court, trop de tags, ou sans notes pour le relecteur', () => {
+    expect(generatedArticleSchema.safeParse({ ...generated, mdx: 'Trop court.' }).success).toBe(false)
+    expect(generatedArticleSchema.safeParse({ ...generated, tags: ['entretien', 'saison', 'potager'] }).success)
+      .toBe(false)
+    expect(generatedArticleSchema.safeParse({ ...generated, reviewerNotes: [] }).success).toBe(false)
+  })
+
+  it('refuse un extrait trop long pour une méta-description', () => {
+    expect(generatedArticleSchema.safeParse({ ...generated, excerpt: 'x'.repeat(161) }).success)
+      .toBe(false)
+  })
+
+  it('expose les statuts et cadences attendus par la base et l\'admin', () => {
+    expect(BLOG_POST_STATUSES).toEqual(['DRAFT', 'PUBLISHED', 'ARCHIVED'])
+    expect(blogPostStatusSchema.safeParse('draft').success).toBe(false)
+    expect(BLOG_CADENCES).toEqual(['weekly', 'biweekly', 'monthly'])
+    expect(MAX_PENDING_DRAFTS).toBe(2)
   })
 })
 
