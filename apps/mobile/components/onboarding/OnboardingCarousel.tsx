@@ -95,8 +95,9 @@ export function OnboardingCarousel() {
       if (!replay) {
         if (skipped) track('onboarding_skipped', { at_step: index + 1 })
         track('onboarding_completed', { duration_s: elapsedSeconds(), skipped })
-        // La présentation précède la connexion : la propriété est posée sur le
-        // profil anonyme, que `identify` rattachera au compte créé juste après.
+        // La présentation précède la connexion, donc le consentement : ces
+        // appels restent muets, et l'écran de consentement repose la
+        // propriété au premier oui (`app/consentement.tsx`).
         analytics().setPersonProperties({ onboarding_completed: !skipped })
       }
       await markOnboardingSeen()

@@ -7,6 +7,11 @@
  *
  * Mêmes règles que côté web, plus une propre au mobile :
  *
+ * - **Le client n'existe pas tant que le compte n'a pas dit oui.** Aucun
+ *   identifiant d'appareil n'est écrit avant (ePrivacy, recommandation CNIL
+ *   sur les applications). Refuser arrête les événements tout de suite, et
+ *   l'enregistrement d'écran au prochain lancement : le SDK ne sait pas
+ *   l'éteindre en cours de session, et le client n'est alors plus créé.
  * - **Rien ne part en `__DEV__` ni sans clé.** L'émetteur est alors muet, et
  *   le code appelant n'a jamais à se demander si l'analyse est configurée.
  * - **Aucun texte saisi ne voyage** : le catalogue s'y oppose déjà par ses
@@ -53,26 +58,35 @@ function createClient(): PostHog | null {
   })
 }
 
-/**
- * Émetteur de l'app. Muet tant que `initAnalytics()` n'a rien pu créer, ce qui
- * est le cas normal en développement.
- */
+/** Émetteur de l'app. Muet tant que le compte n'a pas donné son accord. */
 let emitter: Emitter = createNoopEmitter()
 
-export function initAnalytics(): void {
-  if (client) return
+/**
+ * La mesure est-elle ouverte ? Distinct de l'existence du client : un client
+ * créé puis mis en retrait survit jusqu'au prochain lancement, et les vues
+ * d'écran — qui le visent directement — ne doivent plus partir.
+ */
+let enabled = false
 
-  client = createClient()
-  if (!client) return
+/**
+ * Crée le client — une fois — et branche l'émetteur réel. À n'appeler
+ * qu'après le oui du compte : c'est la création du client qui écrit
+ * l'identifiant d'appareil.
+ */
+export function enableAnalytics(): void {
+  if (!client) {
+    client = createClient()
+    if (!client) return
+
+    client.register({
+      surface: 'mobile',
+      platform: Platform.OS,
+      app_version: `${Constants.expoConfig?.version ?? '0.0.0'}+${resolveBuildNumber()}`,
+      environment: resolveEnvironment(),
+    })
+  }
 
   const posthog = client
-  posthog.register({
-    surface: 'mobile',
-    platform: Platform.OS,
-    app_version: `${Constants.expoConfig?.version ?? '0.0.0'}+${resolveBuildNumber()}`,
-    environment: resolveEnvironment(),
-  })
-
   emitter = createSafeEmitter({
     track: (name, props) => void posthog.capture(name, props),
     identify: (userId) => posthog.identify(userId),
@@ -85,6 +99,26 @@ export function initAnalytics(): void {
     optOut: () => void posthog.optOut(),
     optIn: () => void posthog.optIn(),
   })
+  // Un client créé dans cette session puis mis en retrait : on rouvre.
+  emitter.optIn()
+  enabled = true
+}
+
+/**
+ * Coupe la mesure : le client éventuel cesse d'émettre, l'émetteur redevient
+ * muet. Le client n'est pas détruit — le SDK n'a pas de quoi — mais il ne
+ * sera pas recréé au prochain lancement tant que le compte ne redit pas oui.
+ */
+export function disableAnalytics(): void {
+  enabled = false
+  emitter.optOut()
+  emitter = createNoopEmitter()
+}
+
+/** Applique le choix du compte : seul `true` ouvre la mesure. */
+export function applyAnalyticsConsent(consent: boolean | null | undefined): void {
+  if (consent === true) enableAnalytics()
+  else disableAnalytics()
 }
 
 /** L'émetteur brut — identité, opposition, propriétés de personne. */
@@ -109,12 +143,6 @@ export function useTrack() {
   }
 }
 
-/** Applique le choix du compte : `true` = l'utilisateur refuse l'analyse. */
-export function applyAnalyticsOptOut(optOut: boolean): void {
-  if (optOut) emitter.optOut()
-  else emitter.optIn()
-}
-
 /**
  * Enregistre l'écran vu.
  *
@@ -122,5 +150,5 @@ export function applyAnalyticsOptOut(optOut: boolean): void {
  * ferait son propre écran dans PostHog, et aucun entonnoir ne tiendrait.
  */
 export function captureScreen(path: string): void {
-  client?.screen(path)
+  if (enabled) client?.screen(path)
 }
