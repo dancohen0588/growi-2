@@ -667,35 +667,54 @@ d'autres ont commentée.
 
 Le bucket a été créé par migration Supabase (`storage.buckets`), pas par
 Prisma : le schéma `storage` n'est pas dans le datamodel, et `migrate diff` ne
-doit pas le voir.
+doit pas le voir. Même chose pour le second bucket, **`blog-covers`** (couvertures
+du blog, JPEG seul, 2 Mo), écrit par `uploadCover` / `deleteCoverByUrl` du même
+module.
 
 Variables : `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` (serveur uniquement,
 elle contourne RLS).
 
-### Blog — contenu MDX dans le dépôt
+### Blog — articles en base
 
-Les articles « Conseils & actus jardin » sont des fichiers `.mdx` de
-`apps/web/content/blog/`, un par slug. Pas de CMS : publier, c'est ajouter un
-fichier et pousser. Le workflow de rédaction est documenté dans
-[`content/blog/README.md`](apps/web/content/blog/README.md) — le lire avant
-d'écrire un article.
+Les articles « Conseils & actus jardin » vivent dans la table `blog_posts`
+(corps en MDX), leurs couvertures dans le bucket `blog-covers`. Plus de fichier
+`.mdx` dans le dépôt : publier ne demande ni commit ni déploiement. Spec :
+`~/Growi/Documentation/spec/spec-generation-conseils.md` (génération
+automatique, admin `/admin/conseils` — livrés par phases). Le fonctionnement
+est documenté dans [`content/blog/README.md`](apps/web/content/blog/README.md)
+— le lire avant de toucher au blog.
 
 | Élément | Rôle |
 |---|---|
-| `content/blog/*.mdx` + `public/blog/<slug>/` | Le contenu et ses images |
-| `lib/blog/content.ts` | **Seul** module qui lit ces fichiers (`server-only`). Le seul à réécrire si un CMS arrive un jour |
+| Modèles `BlogPost` · `AppSetting` | L'article ; les réglages modifiables sans déploiement (cadence, verrou) |
+| `lib/blog/content.ts` | **Seul** module de lecture publique (`server-only`) — articles `PUBLISHED` uniquement |
 | `lib/blog/mdx-components.tsx` | `Callout`, `YouTube` et les balises surchargées |
 | `lib/blog/mdx-options.ts` | `remark-gfm`, `rehype-slug`, `rehype-autolink-headings` — partagés par le web et le HTML du mobile |
-| `app/(marketing)/blog/` | Liste (`?tag=`, `?page=`) et article, prérendu au build |
+| `lib/blog/cover-image.ts` | `toCoverJpeg` : 16:9, 1600 px au plus, JPEG q82, jamais d'agrandissement |
+| `app/(marketing)/blog/` | Liste (`?tag=`, `?page=`) et article |
 | `app/api/v1/blog/` | Les deux routes publiques que consomme le mobile |
-| `packages/shared/src/schemas/blog.ts` | Frontmatter + entités de l'API |
+| `packages/shared/src/schemas/blog.ts` | Entités de l'API, statuts, cadences, `generatedArticleSchema` |
 | `apps/mobile/components/blog/` | Carrousel d'accueil, cartes, et le corps d'article en WebView |
 
-- Le frontmatter est **validé par Zod au build** : un champ manquant ou un tag
-  inconnu fait échouer la compilation en citant le fichier fautif.
-- `draft: true` masque l'article en production, le laisse visible en dev.
-- Les pages article sont `force-static` + `dynamicParams = false` : un slug
-  inconnu fait une 404, jamais un rendu à la demande.
+- **Un brouillon ne sort jamais de `content.ts`**, pas même en développement :
+  l'aperçu se fait dans l'admin. `DRAFT` → `PUBLISHED` → `ARCHIVED` (dépublié,
+  404, republiable). Le slug est **figé** à la première publication.
+- `status` et `coverStatus` sont des **chaînes** validées par `@growi/shared`,
+  comme `User.role`, pas des enums Postgres.
+- **La page article n'est plus `force-static`** : `dynamicParams = true` et
+  `revalidate = 3600`. Un article publié depuis l'admin n'était pas connu au
+  build ; avec l'ancien réglage il aurait répondu 404 jusqu'au déploiement
+  suivant. Un slug inconnu fait toujours une 404, par `notFound()`. La
+  publication doit revalider `/blog`, `/blog/[slug]`, `/sitemap.xml` **et
+  `/`** — l'accueil liste trois articles et vit en ISR de 24 h.
+- `React.cache` ne vit **que dans la page** (`findPost`), pas dans
+  `content.ts` : il n'existe que dans la version de React qu'embarque Next, et
+  vaudrait `undefined` sous Vitest.
+- « Article mis à jour le » compare des **jours**, pas des instants :
+  `updatedAt` bouge à chaque écriture, et la publication elle-même le décale
+  de quelques millisecondes.
+- Une couverture est une **URL Supabase complète** ; `absoluteUrl` la laisse
+  intacte, et ne complète que les liens internes du corps.
 - Le mobile reçoit du **HTML compilé** (`getPostAsHtml`), pas du MDX, avec
   images et liens internes en URL absolue.
 - Ces URLs absolues sont bâties sur `requestOrigin()` (`lib/site-url.ts`), pas
@@ -1414,7 +1433,7 @@ et celui de l'app mobile. Ici, les pièges qui ont chacun coûté un build.
 | `/` | Homepage (sections marketing) |
 | `/u/[handle]` · `/p/[id]` · `/a/[id]` | Faces **publiques** de la communauté — profil, publication, aperçu d'annonce |
 | `/fonctionnalites`, `/pro`, `/tarifs` | Pages marketing |
-| `/blog`, `/blog/[slug]` | Blog (articles MDX du dépôt) |
+| `/blog`, `/blog/[slug]` | Blog (articles en base, `PUBLISHED` seulement) |
 | `/login`, `/register` | Auth (custom pages) |
 | `/dashboard/plantes` | Catalogue perso + fiches plantes (gestes rapides, tâches, entretien, diagnostic, journal — parité avec la fiche mobile) |
 | `/dashboard/catalogue` | Encyclopédie de plantes |
