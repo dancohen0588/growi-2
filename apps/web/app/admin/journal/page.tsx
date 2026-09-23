@@ -28,6 +28,7 @@ function targetHref(row: AdminAuditRow): string | null {
   if (row.targetId === COLLECTION_TARGET_ID) return null
   if (row.targetType === 'user') return `/admin/utilisateurs/${row.targetId}`
   if (row.targetType === 'contact_message') return `/admin/messages/${row.targetId}`
+  if (row.targetType === 'blog_post') return `/admin/conseils/${row.targetId}`
   return null
 }
 

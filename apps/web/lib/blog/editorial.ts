@@ -427,6 +427,8 @@ export interface LintIssue {
     | 'external_link'
     | 'image_in_body'
     | 'vague_term'
+    /** Posé par l'appelant qui compile (`compile.ts`), pas par ce module pur. */
+    | 'compile_error'
   /** Phrase lisible, renvoyée telle quelle au modèle lors d'une réécriture. */
   message: string
   /** La longueur n'est qu'un avertissement quand un administrateur édite. */

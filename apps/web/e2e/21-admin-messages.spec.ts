@@ -77,8 +77,10 @@ test.describe('Admin — messagerie', () => {
     await loginAs(page, ADMIN_EMAIL, TEST_PASSWORD)
     await page.goto('/admin/messages')
 
+    // Le badge **du lien Messages** : Signalements et Conseils ont les leurs,
+    // qu'un contenu signalé ou un brouillon ailleurs dans la base allume.
     const nav = page.getByRole('navigation', { name: 'Navigation administration' })
-    await expect(nav.getByLabel(/en attente/)).toBeVisible()
+    await expect(nav.getByRole('link', { name: /Messages/ }).getByLabel(/en attente/)).toBeVisible()
   })
 
   test('E2E-ADMIN-32 — Les filtres passent par l’URL', async ({ page }) => {
