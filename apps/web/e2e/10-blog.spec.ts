@@ -4,10 +4,8 @@ import { test, expect } from '@playwright/test'
  * Le blog est entièrement public : ces tests ne se connectent pas, et n'ont
  * donc pas de données à semer ni à nettoyer.
  *
- * L'invisibilité des brouillons en production n'est pas testée ici — le
- * serveur e2e tourne en mode développement, où ils sont volontairement
- * visibles. Ce comportement est couvert par `lib/__tests__/blog-content.test.ts`,
- * qui recharge le module avec `NODE_ENV=production`.
+ * Ils lisent les articles publiés en base. L'invisibilité des brouillons et
+ * des articles dépubliés est couverte par `lib/__tests__/blog-content.test.ts`.
  */
 
 test.describe('Blog', () => {

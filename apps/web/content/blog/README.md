@@ -1,137 +1,75 @@
-# Publier un article sur le blog Growi
+# Le blog Growi — comment il fonctionne
 
-Le blog n'a pas de CMS : **un article = un fichier `.mdx` dans ce dossier**.
-Publier, c'est ajouter le fichier, commiter, pousser. Vercel déploie, et
-l'article apparaît sur `/blog` et dans l'app mobile en même temps.
+Les articles « Conseils & actus jardin » vivent **en base** (table
+`blog_posts`), leurs couvertures dans le bucket Supabase **`blog-covers`**.
+Il n'y a plus de fichier `.mdx` dans le dépôt : publier ne demande ni commit ni
+déploiement. Un article publié apparaît aussitôt sur `/blog` ; l'app mobile le
+voit dans l'heure, le temps que le cache CDN de l'API v1 expire.
 
-## 1. Créer le fichier
+Spec de référence : `~/Growi/Documentation/spec/spec-generation-conseils.md`.
 
-Le **nom du fichier est le slug** de l'article, en kebab-case, sans accent :
+> Ce dossier ne contient plus que cette documentation. Les trois premiers
+> articles y ont été importés en base le 23/09/2026 ; le script d'import a été
+> retiré avec eux (il reste dans l'historique, commit `c446e24`).
+
+## Cycle de vie d'un article
 
 ```
-content/blog/preparer-son-potager-en-septembre.mdx
-   →  https://growi-garden.fr/blog/preparer-son-potager-en-septembre
+DRAFT ──publier──▶ PUBLISHED ──dépublier──▶ ARCHIVED
+  ▲                                            │
+  └──────────────── (republier) ◀──────────────┘
 ```
 
-Choisis-le une fois pour toutes : le renommer casse les liens déjà partagés et
-les positions acquises en référencement.
-
-## 2. Le frontmatter
-
-En tête de fichier, entre deux lignes `---`. Il est **validé au build** : un
-champ manquant ou un tag inconnu fait échouer la compilation avec le nom du
-fichier fautif — mieux vaut ça qu'un article publié à moitié.
-
-```yaml
----
-title: "Préparer son potager en septembre"
-excerpt: "Semis d'automne, engrais verts, derniers arrosages : la check-list du mois."
-coverImage: "/blog/preparer-son-potager-en-septembre/cover.png"
-coverImageAlt: "Potager en fin d'été, lumière rasante sur les rangs"
-publishedAt: "2026-09-01"
-updatedAt: "2026-09-15"        # facultatif — vaut publishedAt par défaut
-tags: [potager, saison]
-author: "Dan"                  # facultatif — « Growi » par défaut
-draft: false
----
-```
-
-| Champ | Obligatoire | Notes |
+| Statut | Visible sur le site et l'API | Remarque |
 |---|---|---|
-| `title` | oui | Sert de `h1` et de balise `title`. Vise 50–60 caractères. |
-| `excerpt` | oui | Sert de méta-description et de résumé de carte. **≤ 160 caractères.** |
-| `coverImage` | non | Chemin absolu depuis `public/`. Sans elle, la carte affiche un dégradé. |
-| `coverImageAlt` | non | Description de l'image pour les lecteurs d'écran. À remplir dès qu'il y a une couverture. |
-| `publishedAt` | oui | `YYYY-MM-DD`. Détermine l'ordre de la liste (plus récent en premier). |
-| `updatedAt` | non | Affiché en bas d'article et utilisé comme `lastModified` du sitemap. |
-| `tags` | oui | Au moins un, parmi la liste ci-dessous. Le premier sert d'étiquette sur la carte. |
-| `author` | non | Nom affiché. |
-| `draft` | oui | `true` = invisible en production, visible en `pnpm --filter web dev`. |
+| `DRAFT` | non | Relu et corrigé dans l'admin. Au plus **2** en attente : au-delà, la génération automatique s'arrête. |
+| `PUBLISHED` | oui | Le **slug est figé** à la première publication : le changer casserait les liens partagés et le référencement. |
+| `ARCHIVED` | non (404) | Dépublié, mais relisible et republiable. |
 
-### Tags autorisés
+Seul `lib/blog/content.ts` lit les articles pour le public, et il ne sert que
+`PUBLISHED` — en développement comme en production. L'aperçu d'un brouillon se
+fait dans l'admin.
 
-`saison` · `potager` · `entretien` · `maladies` · `actus-growi`
+## D'où viennent les articles
 
-La liste fait foi dans [`packages/shared/src/schemas/blog.ts`](../../../../packages/shared/src/schemas/blog.ts).
-En ajouter un demande de l'ajouter là-bas (et de lui donner un libellé
-d'affichage) — pas seulement ici.
+| Origine (`origin`) | Comment |
+|---|---|
+| `cron` | Génération automatique, chaque lundi 7 h UTC si la cadence réglée dans l'admin le prévoit *(phase 3)* |
+| `admin` | Bouton « Générer un article » de `/admin/conseils`, avec un sujet facultatif *(phase 4)* |
+| `manual` | Écrit à la main, avec le skill Claude Code `growi-blog-article` *(phase 5)*. Les trois premiers articles, importés, portent aussi cette origine. |
 
-## 3. Les images
+Quelle que soit l'origine, **un humain relit avant publication**. Un article
+généré arrive avec des « notes pour le relecteur » : chaque chiffre, date,
+dose ou affirmation botanique à vérifier. Elles ne sont jamais publiées.
 
-Un dossier par article, nommé comme le slug :
+L'auteur affiché est toujours **« Growi »**.
 
-```
-public/blog/<slug>/cover.jpg
-public/blog/<slug>/oidium-face-inferieure.jpg
-```
+## Le format d'un article
 
-Référence-les en chemin absolu dans le MDX : `![Oïdium sur courgette](/blog/<slug>/oidium.jpg)`.
+| Champ | Contrainte |
+|---|---|
+| `title` | Sert de `h1` et de balise `title`. Vise 50–60 caractères. |
+| `slug` | kebab-case sans accent (`preparer-son-potager-en-septembre`). |
+| `excerpt` | Méta-description et résumé de carte, **≤ 160 caractères**. |
+| `tags` | Parmi `saison` · `potager` · `entretien` · `maladies` · `actus-growi`. Le premier sert d'étiquette sur la carte. `actus-growi` est réservé aux annonces produit, écrites à la main. |
+| `source` | Le corps, en MDX (voir ci-dessous). |
+| `coverImage` / `coverImageAlt` | URL `blog-covers` et description de ce qu'on **voit**. Sans couverture, la carte affiche un dégradé. |
 
-- Couverture en **16/9, 1600 px de large**, JPEG qualité ~82, sous 600 Ko.
-  C'est aussi la vignette de partage sur les réseaux, via OpenGraph.
-- Le texte alternatif décrit **ce qu'on voit**, pas le sujet de l'article :
-  « feuille de courgette couverte de plaques blanches poudreuses », pas
-  « illustration sur les maladies ».
-- Sans couverture (`coverImage` absent), la carte affiche un dégradé et un
-  emoji plutôt qu'un trou : un article peut donc sortir sans image.
+La liste des tags fait foi dans
+[`packages/shared/src/schemas/blog.ts`](../../../../packages/shared/src/schemas/blog.ts) :
+en ajouter un demande de lui donner un libellé d'affichage là-bas.
 
-### Fabriquer une couverture
-
-Une photo réelle est toujours préférable. À défaut, elles sont **générées**,
-avec le serveur MCP Gamma (`generate_image`, `type: "photo"`,
-`sizePreset: "banner"`, ~70 crédits l'image).
-
-Pour que les couvertures forment une série et non une collection, le prompt
-suit toujours la même recette :
-
-1. **Un sujet concret et daté**, tiré de l'article — pas une image d'ambiance.
-   « Planche de potager début septembre, tomates en fin de cycle, courges sur
-   paillage, rangs de poireaux » plutôt que « un jardin ».
-2. **Un cadre français** : murets de pierre, bâti ancien, terrasse en pierre.
-3. **La lumière** : lumière naturelle rasante du matin ou de fin d'après-midi,
-   légère brume.
-4. **Le rendu** : `Natural documentary photography, shallow depth of field`,
-   palette verte et ocre chaude.
-5. **Les interdits**, à répéter à chaque fois :
-   `No people, no text, no logos, no watermark.` Un texte incrusté serait
-   illisible au recadrage et intraduisible.
-
-Puis redimensionner et réencoder avant de committer :
-
-```bash
-sips -Z 1600 --setProperty format jpeg --setProperty formatOptions 82 source.jpg --out cover.jpg
-```
-
-> Les couvertures générées restent des visuels de remplacement : dès qu'une
-> vraie photo du sujet existe, elle prend la place, au même chemin.
-
-**En attente** — « Rentrer ses plantes » est encore sur un dégradé, la
-génération ayant manqué de crédits. Son prompt, prêt à relancer :
-
-> Potted plants gathered on a stone terrace at dawn in early autumn, ready to
-> be brought indoors: a small potted citrus tree with a few fruits, an
-> oleander, a large-leaved tropical houseplant and several terracotta pots of
-> geraniums, clustered beside an open glazed door of an old French house. Cold
-> blue morning mist in the garden behind, the first warm light catching the
-> leaves, a light dew on the terrace stones. Natural photography, shallow depth
-> of field, muted green and terracotta palette with cool blue background. No
-> people, no text, no logos, no watermark.
-
-Après génération : redimensionner, écrire dans
-`public/blog/rentrer-ses-plantes-avant-les-premieres-fraiches/cover.jpg`,
-passer le `coverImage` du frontmatter en `.jpg` et supprimer le `.png`.
-
-## 4. Écrire
+### Le corps
 
 Du Markdown standard, plus les tableaux et listes de tâches (`remark-gfm`).
-Chaque `##` reçoit automatiquement une ancre, ce qui permet de pointer un
-paragraphe précis.
+Chaque `##` reçoit une ancre. **Pas d'image dans le corps** en v1, ni de HTML
+brut, ni de lien externe hors `<YouTube>`.
 
-Deux composants sont disponibles dans le corps de l'article :
+Deux composants :
 
 ```mdx
 <Callout title="Le calcul à faire avant chaque semis">
-Texte du conseil. Ton `tone` par défaut est « conseil » (vert).
+Texte du conseil. Le `tone` par défaut est « conseil » (vert).
 </Callout>
 
 <Callout tone="attention" title="Le mildiou ne se rattrape pas">
@@ -141,35 +79,65 @@ Pour les mises en garde (jaune).
 <YouTube id="dQw4w9WgXcQ" title="Tailler un rosier en 3 minutes" />
 ```
 
-C'est volontairement tout ce qui existe en V1. Un composant de plus, c'est un
-composant à maintenir aussi dans le rendu HTML servi au mobile.
+C'est volontairement tout : un composant de plus est un composant à
+maintenir aussi dans le HTML servi au mobile (`htmlMdxComponents`).
 
 ### Le ton Growi
 
 - **Tutoiement**, toujours.
 - **Concret** : des seuils, des durées, des quantités. « Arroser régulièrement »
   ne veut rien dire ; « tous les quatre jours, au pied, le matin » si.
-- **Saisonnier** : un article se lit au moment où on en a besoin.
-- Le produit se mentionne quand il résout vraiment le problème du paragraphe,
-  pas à chaque section.
-- 800 à 1200 mots, des `##` tous les 200–300 mots, au moins un `<Callout>`.
+- **Saisonnier** : un article se lit au moment où on en a besoin — un sujet
+  d'octobre sort mi-septembre.
+- Growi se mentionne au plus deux fois, quand l'appli résout vraiment le
+  problème du paragraphe.
+- 800 à 1200 mots, un `##` tous les 200–300 mots, au moins un `<Callout>`.
+- **Jamais le mot « IA »**, ni aucune mention de la façon dont le texte a été
+  produit. Ni personnes, ni marques, ni prix.
 
-## 5. Relire et publier
+Ces règles deviendront des constantes de prompt et des contrôles dans
+`lib/blog/editorial.ts` *(phase 2)*, qui fera alors foi.
 
-```bash
-pnpm --filter web dev          # /blog affiche aussi les draft: true
-pnpm --filter web test         # valide le frontmatter et la compilation MDX
-pnpm --filter web typecheck
-```
+## Les couvertures
 
-Une fois relu, passe `draft` à `false`, commit, push. C'est tout : pas de
-revalidation à déclencher, pas de webhook — le contenu est dans le build.
+Format unique, quelle que soit l'origine : **16:9, 1600 px de large au plus,
+JPEG qualité 82**, sous 600 Ko. C'est `toCoverJpeg` (`lib/blog/cover-image.ts`)
+qui l'applique — recadrage centré, jamais d'agrandissement.
+
+Le bucket `blog-covers` est public en lecture, JPEG uniquement, 2 Mo au plus ;
+seule la clé service y écrit. Il a été créé par migration Supabase
+(`storage.buckets`), pas par Prisma. Chaque dépôt prend un chemin neuf
+(`<slug>/cover-<horodatage>.jpg`) : l'ancienne image n'est supprimée qu'une
+fois la nouvelle enregistrée.
+
+Une photo réelle est toujours préférable. À défaut, la couverture est générée
+*(phase 3, `gemini-2.5-flash-image`)* avec une recette fixe, pour que les
+images forment une série :
+
+1. **Un sujet concret et daté**, tiré de l'article — pas une image d'ambiance.
+2. **Un cadre français** : murets de pierre, bâti ancien, terrasse en pierre.
+3. **La lumière** : naturelle et rasante, matin ou fin d'après-midi.
+4. **Le rendu** : `Natural documentary photography, shallow depth of field`,
+   palette verte et ocre.
+5. **Les interdits**, toujours : `No people, no text, no logos, no watermark.`
+
+Le prompt est conservé sur l'article (`coverPrompt`) pour pouvoir régénérer.
+**L'image ne bloque jamais l'article** : faute de temps ou après un échec, la
+couverture reste `PENDING`, et un passage suivant la produit.
+
+> **En attente** — « Rentrer ses plantes » est encore sur un dégradé de
+> remplacement. Son article est en `coverStatus = PENDING` avec le prompt
+> prêt : la première exécution du cron de la phase 3 le rattrapera.
 
 ## Où ça vit dans le code
 
 | Fichier | Rôle |
 |---|---|
-| `apps/web/lib/blog/content.ts` | Seul module qui lit ce dossier. À réécrire si un CMS arrive un jour. |
-| `apps/web/lib/blog/mdx-components.tsx` | `Callout`, `YouTube` et les balises surchargées. |
-| `apps/web/app/(marketing)/blog/` | Pages liste et article. |
-| `packages/shared/src/schemas/blog.ts` | Contrat de données partagé avec le mobile. |
+| `apps/web/prisma/schema.prisma` | Modèles `BlogPost` et `AppSetting` (cadence, verrou de génération) |
+| `apps/web/lib/blog/content.ts` | **Seul** module de lecture publique — articles `PUBLISHED` uniquement |
+| `apps/web/lib/blog/mdx-components.tsx` · `mdx-options.ts` | Rendu MDX, web et HTML du mobile |
+| `apps/web/lib/blog/cover-image.ts` | Mise au format d'une couverture |
+| `apps/web/lib/storage.ts` | `uploadCover`, `deleteCoverByUrl` |
+| `apps/web/app/(marketing)/blog/` | Pages liste et article |
+| `apps/web/app/api/v1/blog/` | Les deux routes publiques du mobile |
+| `packages/shared/src/schemas/blog.ts` | Contrat partagé, statuts, cadences, sortie du générateur |

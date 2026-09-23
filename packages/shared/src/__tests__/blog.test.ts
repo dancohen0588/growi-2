@@ -8,25 +8,16 @@ import {
   blogPostStatusSchema,
   generatedArticleSchema,
   BLOG_TAG_LABELS,
-  blogFrontmatterSchema,
   blogListQuerySchema,
   blogListResponseSchema,
   blogPostSchema,
   blogPostSummarySchema,
 } from '../index'
 
-/** Frontmatter minimal d'un article, tel que `gray-matter` le rend. */
-const frontmatter = {
-  title: 'Préparer son potager en septembre',
-  excerpt: "Semis d'automne, engrais verts, derniers arrosages : la check-list du mois.",
-  publishedAt: '2026-09-01',
-  tags: ['potager', 'saison'],
-}
-
 const summary = {
   slug: 'preparer-son-potager-en-septembre',
-  title: frontmatter.title,
-  excerpt: frontmatter.excerpt,
+  title: 'Préparer son potager en septembre',
+  excerpt: "Semis d'automne, engrais verts, derniers arrosages : la check-list du mois.",
   coverImage: '/blog/preparer-son-potager-en-septembre/cover.jpg',
   coverImageAlt: 'Potager en fin d\'été',
   publishedAt: '2026-09-01T00:00:00.000Z',
@@ -35,38 +26,7 @@ const summary = {
   author: 'Dan',
 }
 
-describe('frontmatter d\'un article', () => {
-  it('accepte le frontmatter minimal et comble les champs facultatifs', () => {
-    const parsed = blogFrontmatterSchema.parse(frontmatter)
-
-    expect(parsed.author).toBe('Growi')
-    expect(parsed.draft).toBe(false)
-    expect(parsed.coverImage).toBeNull()
-    expect(parsed.coverImageAlt).toBeNull()
-    expect(parsed.updatedAt).toBeUndefined()
-  })
-
-  it('accepte une date YAML non quotée, que gray-matter rend en objet Date', () => {
-    const parsed = blogFrontmatterSchema.parse({
-      ...frontmatter,
-      publishedAt: new Date('2026-09-01'),
-    })
-
-    expect(parsed.publishedAt).toBeInstanceOf(Date)
-  })
-
-  it('rejette un tag hors de la liste autorisée', () => {
-    const result = blogFrontmatterSchema.safeParse({ ...frontmatter, tags: ['jardinage'] })
-
-    expect(result.success).toBe(false)
-  })
-
-  it('exige au moins un tag, un titre et un extrait', () => {
-    expect(blogFrontmatterSchema.safeParse({ ...frontmatter, tags: [] }).success).toBe(false)
-    expect(blogFrontmatterSchema.safeParse({ ...frontmatter, title: '' }).success).toBe(false)
-    expect(blogFrontmatterSchema.safeParse({ ...frontmatter, excerpt: '' }).success).toBe(false)
-  })
-
+describe('tags', () => {
   it('chaque tag autorisé a un libellé d\'affichage', () => {
     for (const tag of BLOG_TAGS) {
       expect(BLOG_TAG_LABELS[tag]).toBeTruthy()
@@ -89,7 +49,7 @@ describe('entités servies par l\'API', () => {
     expect(result.success).toBe(true)
   })
 
-  it('exige des dates ISO complètes, pas le YYYY-MM-DD du frontmatter', () => {
+  it('exige des dates ISO complètes, pas un simple YYYY-MM-DD', () => {
     expect(blogPostSummarySchema.safeParse({ ...summary, publishedAt: '2026-09-01' }).success)
       .toBe(false)
   })

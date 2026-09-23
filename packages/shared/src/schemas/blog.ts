@@ -15,7 +15,7 @@ import { isoDateTimeSchema } from './common'
 
 // ─── Tags ──────────────────────────────────────────────────────────────────
 
-/** Tags autorisés dans le frontmatter d'un article. */
+/** Tags autorisés sur un article. */
 export const BLOG_TAGS = ['saison', 'potager', 'entretien', 'maladies', 'actus-growi'] as const
 export const blogTagSchema = z.enum(BLOG_TAGS)
 export type BlogTag = z.infer<typeof blogTagSchema>
@@ -78,31 +78,6 @@ export const generatedArticleSchema = z.object({
 })
 
 export type GeneratedArticle = z.infer<typeof generatedArticleSchema>
-
-// ─── Frontmatter ───────────────────────────────────────────────────────────
-
-/**
- * Frontmatter YAML des anciens fichiers `.mdx` — ne sert plus qu'à leur import
- * en base (`pnpm --filter web blog:import`).
- *
- * Les dates y sont en `YYYY-MM-DD` (plus lisible à la rédaction) ; la couche de
- * lecture les convertit en ISO complet pour les schémas d'entité ci-dessous.
- * `js-yaml` désérialise une date non quotée en objet `Date` : on accepte les
- * deux formes plutôt que d'imposer des guillemets à la rédaction.
- */
-export const blogFrontmatterSchema = z.object({
-  title: z.string().min(1),
-  excerpt: z.string().min(1),
-  coverImage: z.string().min(1).nullable().default(null),
-  coverImageAlt: z.string().min(1).nullable().default(null),
-  publishedAt: z.union([z.string(), z.date()]),
-  updatedAt: z.union([z.string(), z.date()]).optional(),
-  tags: z.array(blogTagSchema).min(1),
-  author: z.string().min(1).default('Growi'),
-  draft: z.boolean().default(false),
-})
-
-export type BlogFrontmatter = z.infer<typeof blogFrontmatterSchema>
 
 // ─── Entités servies par l'API ─────────────────────────────────────────────
 

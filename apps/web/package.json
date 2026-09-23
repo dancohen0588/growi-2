@@ -12,7 +12,6 @@
     "postinstall": "prisma generate",
     "admin:promote": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/scripts/promote-admin.ts",
     "posthog:testers": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/posthog-mark-testers.ts",
-    "blog:import": "tsx scripts/blog-import-mdx.ts",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui"
   },
@@ -48,7 +47,6 @@
     "clsx": "^2.0.0",
     "embla-carousel-react": "^8.0.0",
     "framer-motion": "^11.0.0",
-    "gray-matter": "^4.0.3",
     "html2canvas": "^1.4.1",
     "jose": "^6.2.8",
     "konva": "^9.0.0",
