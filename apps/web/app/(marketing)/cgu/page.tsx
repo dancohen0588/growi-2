@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 
 import { LegalPage, LegalSection } from '@/components/legal/LegalPage'
 import { EDITOR } from '@/lib/legal'
@@ -46,7 +47,15 @@ export default function CguPage() {
 
       <LegalSection title="3. Compte">
         <p>
-          La création d&apos;un compte demande une adresse e-mail valide et un mot de passe. Tu
+          L&apos;inscription vaut acceptation des présentes conditions et de la{' '}
+          <Link href="/confidentialite" className="text-forest underline underline-offset-2">
+            politique de confidentialité
+          </Link>
+          ; la date et la version acceptées sont conservées avec ton compte.
+        </p>
+        <p>
+          La création d&apos;un compte demande une adresse e-mail valide et un mot de passe, ou
+          une connexion avec Apple ou Google. Tu
           es responsable de sa confidentialité et des actions menées depuis ton compte. En cas
           de soupçon d&apos;accès frauduleux, préviens-nous à {EDITOR.email} : nous pouvons
           révoquer toutes les sessions.
@@ -250,11 +259,18 @@ export default function CguPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="12. Résiliation">
+      <LegalSection title="12. Suppression du compte et suspension">
         <p>
-          Tu peux fermer ton compte à tout moment en écrivant à {EDITOR.email} : tes données,
-          tes photos, tes publications et tes annonces sont alors supprimées. Les commentaires
-          que tu as laissés sous les publications d&apos;autres jardiniers le sont également.
+          Tu peux supprimer ton compte à tout moment, toi-même : depuis Mon compte →
+          Confidentialité sur le site, ou depuis ton profil dans l&apos;application. La
+          suppression est immédiate et définitive : tes données, tes photos, tes publications,
+          tes annonces et les commentaires que tu as laissés sous les publications d&apos;autres
+          jardiniers sont effacés, sans délai de grâce. Ce qui est conservé malgré tout est
+          détaillé dans la{' '}
+          <Link href="/confidentialite" className="text-forest underline underline-offset-2">
+            politique de confidentialité
+          </Link>
+          .
         </p>
         <p>
           L&apos;éditeur peut suspendre un compte en cas de manquement à ces conditions, après

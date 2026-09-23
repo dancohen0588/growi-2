@@ -54,7 +54,9 @@ export const HOSTS = [
 export const DATA_COLLECTED = [
   {
     category: 'Compte',
-    items: 'Adresse e-mail, prénom, nom, mot de passe (jamais en clair : empreinte bcrypt).',
+    items:
+      'Adresse e-mail, prénom, nom, mot de passe (jamais en clair : empreinte bcrypt), '
+      + 'ou identité Apple ou Google si tu te connectes par eux.',
     why: 'Créer ton compte, t\'identifier, te contacter au sujet du service.',
     retention: 'Jusqu\'à la suppression du compte.',
   },
@@ -66,9 +68,19 @@ export const DATA_COLLECTED = [
       + 'photos, de tes messages ni de ton journal.',
     why:
       'Corriger les pannes, et savoir ce qui sert vraiment pour améliorer le service. '
-      + 'La mesure d\'usage peut être refusée depuis ton profil ; les rapports de plantage, eux, '
-      + 'restent actifs — sans eux, un bug peut rester des semaines sans que personne le sache.',
+      + 'La mesure d\'usage n\'a lieu que si tu l\'acceptes, et tu peux retirer ton accord '
+      + 'depuis ton profil ; les rapports de plantage, eux, restent actifs — sans eux, un bug '
+      + 'peut rester des semaines sans que personne le sache.',
     retention: '30 jours pour les rapports de plantage, 12 mois pour la mesure d\'usage.',
+  },
+  {
+    category: 'Consentements',
+    items:
+      'Ta réponse à la mesure d\'usage (oui ou non) et sa date ; la date et la version des '
+      + 'conditions d\'utilisation et de la politique de confidentialité acceptées à '
+      + 'l\'inscription.',
+    why: 'Respecter ton choix partout où tu te connectes, et pouvoir prouver ce que tu as accepté.',
+    retention: 'Jusqu\'à la suppression du compte.',
   },
   {
     category: 'Localisation',
@@ -124,6 +136,17 @@ export const DATA_COLLECTED = [
     why:
       'Plafonner l\'identification photo depuis la page publique : chaque analyse a un coût, et sans compte il n\'y a rien d\'autre à compter.',
     retention: 'Au plus 24 h : les compteurs de la veille sont effacés.',
+  },
+  {
+    category: 'Messages de contact',
+    items:
+      'Les messages envoyés depuis le formulaire de contact — nom, adresse e-mail, sujet, '
+      + 'texte — et nos réponses.',
+    why: 'Te répondre, et garder le fil d\'une demande de support.',
+    retention:
+      'Conservés même après la suppression de ton compte, détachés de celui-ci, pour garder '
+      + 'l\'historique du support. Tu peux en demander l\'effacement en écrivant à '
+      + 'info@growi-garden.fr.',
   },
   {
     category: 'Profil public',

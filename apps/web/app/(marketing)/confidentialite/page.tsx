@@ -25,6 +25,10 @@ export default function ConfidentialitePage() {
             sans identifiant.
           </li>
           <li>
+            La mesure de l&apos;usage du service n&apos;a lieu que si tu l&apos;acceptes. La
+            question t&apos;est posée une fois, et tu peux changer d&apos;avis depuis ton profil.
+          </li>
+          <li>
             Une personne de l&apos;équipe Growi peut consulter ton compte pour te dépanner ; ces
             accès sont tracés.
           </li>
@@ -37,8 +41,8 @@ export default function ConfidentialitePage() {
             prestataires, listés plus bas, sont établis aux États-Unis.
           </li>
           <li>
-            Tu peux consulter, corriger, exporter ou supprimer tes données à tout moment en
-            écrivant à {EDITOR.email}.
+            Tu peux supprimer ton compte toi-même, à tout moment, depuis ton profil. Pour
+            consulter, corriger ou exporter tes données, écris à {EDITOR.email}.
           </li>
         </ul>
       </LegalSection>
@@ -108,9 +112,21 @@ export default function ConfidentialitePage() {
             depuis les réglages de ton téléphone ou ton profil.
           </li>
           <li>
+            <strong>Consentement, pour la mesure d&apos;usage</strong> — demandé à la création
+            du compte, avant toute mesure, et retirable à tout moment depuis ton profil (voir{' '}
+            <a href="#mesure-d-usage" className="text-forest underline underline-offset-2">
+              plus bas
+            </a>
+            ).
+          </li>
+          <li>
             <strong>Intérêt légitime</strong> — sécurité des comptes, prévention des abus (dont
             le plafond de l&apos;identification sans compte), modération des contenus signalés,
-            journaux techniques.
+            rapports de plantage et journaux techniques, historique des demandes de support.
+          </li>
+          <li>
+            <strong>Obligation légale</strong> — conserver la preuve de tes consentements et de
+            l&apos;acceptation des conditions d&apos;utilisation.
           </li>
           <li>
             <strong>Consentement, pour la communauté</strong> — le profil public et tout ce
@@ -294,9 +310,9 @@ export default function ConfidentialitePage() {
           vues, pas des personnes.
         </p>
         <p>
-          La mesure d&apos;usage du service, elle, est décrite juste en dessous : elle
-          conserve un identifiant technique dans ton navigateur ou ton téléphone, et tu peux
-          la refuser.
+          Si tu acceptes d&apos;aider à améliorer Growi, un identifiant technique est conservé
+          dans le stockage local de ton navigateur ou de ton téléphone — sans cookie. Il
+          disparaît si tu retires ton accord. Sans ton accord, rien n&apos;est déposé.
         </p>
         <p>
           Dans l&apos;application mobile, la session est conservée dans le trousseau sécurisé
@@ -304,7 +320,7 @@ export default function ConfidentialitePage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="Mesure d’audience et diagnostic technique">
+      <LegalSection title="Mesure d’audience et diagnostic technique" id="mesure-d-usage">
         <p>
           Deux outils nous disent si Growi fonctionne et à quoi il sert. Tous deux sont
           hébergés dans l&apos;Union européenne, à Francfort.
@@ -326,20 +342,29 @@ export default function ConfidentialitePage() {
           <strong>Ce que ces outils ne reçoivent jamais</strong> : tes photos, le contenu de
           tes messages et de tes discussions avec l&apos;assistant, ton journal d&apos;entretien,
           ton adresse e-mail, ton pseudo, ni les coordonnées de ton jardin. Les
-          enregistrements d&apos;écran, quand ils ont lieu, masquent tout le texte et toutes
-          les images avant de partir.
+          enregistrements d&apos;écran n&apos;existent que dans l&apos;application mobile, et
+          seulement si tu as accepté la mesure d&apos;usage : ils masquent tout le texte et
+          toutes les images avant de partir. Le site, lui, n&apos;enregistre jamais
+          l&apos;écran.
         </p>
         <p>
           <strong>Durées</strong> : 30 jours pour les rapports de plantage, 12 mois pour la
           mesure d&apos;usage.
         </p>
         <p>
-          <strong>Base légale et opposition</strong> : notre intérêt légitime à faire
-          fonctionner et à améliorer le service. Tu peux refuser la mesure d&apos;usage à tout
-          moment, depuis ton profil dans l&apos;application ou depuis ton compte sur le site —
-          l&apos;interrupteur « Aider à améliorer Growi ». Les rapports de plantage, eux,
-          restent actifs : ils ne servent qu&apos;à corriger des bugs, et ne contiennent rien
-          de ce que tu écris.
+          <strong>PostHog repose sur ton consentement.</strong> La question t&apos;est posée
+          une fois, à la création de ton compte ou à ta première connexion, avant toute mesure
+          : tant que tu n&apos;as pas répondu oui, rien ne part. Tu peux retirer ton accord à
+          tout moment depuis ton profil dans l&apos;application ou depuis ton compte sur le site
+          — l&apos;interrupteur « Aider à améliorer Growi ». Le retrait arrête la mesure
+          immédiatement ; dans l&apos;application, l&apos;enregistrement d&apos;écran s&apos;arrête
+          au plus tard au prochain lancement.
+        </p>
+        <p>
+          <strong>Sentry repose sur notre intérêt légitime</strong> à faire fonctionner le
+          service et à le sécuriser : les rapports de plantage restent actifs, car ils ne
+          servent qu&apos;à corriger des bugs et ne contiennent rien de ce que tu écris. Tu
+          peux t&apos;y opposer en écrivant à {EDITOR.email}.
         </p>
         <p>
           Pour toute question sur ce point :{' '}
@@ -360,8 +385,24 @@ export default function ConfidentialitePage() {
           Écris à {EDITOR.email} : nous répondons sous un mois. Tu peux aussi supprimer
           directement tes jardins, tes plantes, tes publications et tes annonces depuis
           l&apos;application — la suppression est immédiate et définitive, y compris pour les
-          fichiers. Supprimer ton compte efface également les commentaires que tu as laissés
-          sous les publications d&apos;autres jardiniers.
+          fichiers.
+        </p>
+        <p>
+          <strong>Supprimer ton compte</strong> : depuis Mon compte → Confidentialité sur le
+          site, ou depuis ton profil dans l&apos;application. La suppression est immédiate :
+          tes données, tes photos, tes publications, tes annonces, les commentaires que tu as
+          laissés sous les publications d&apos;autres jardiniers, et ton profil de mesure
+          d&apos;usage. Les rapports de plantage, qui ne contiennent qu&apos;un identifiant
+          technique, expirent d&apos;eux-mêmes sous 30 jours.
+        </p>
+        <p>
+          Deux choses restent, détachées de ton compte : les messages que tu nous as envoyés
+          par le formulaire de contact, pour garder l&apos;historique du support — tu peux en
+          demander l&apos;effacement à {EDITOR.email} —, et le journal des actions
+          d&apos;administration qui ont visé ton compte. Ce journal ne se modifie pas : il
+          prouve ce qui a été fait, par qui et quand. Quand une action a changé une donnée de
+          ton profil, il en garde l&apos;ancienne et la nouvelle valeur — par exemple ton
+          adresse e-mail.
         </p>
         <p>
           Si notre réponse ne te convient pas, tu peux saisir la CNIL (
@@ -395,8 +436,8 @@ export default function ConfidentialitePage() {
         <p>
           Chaque action d&apos;administration qui modifie un compte est inscrite dans un journal
           interne inaltérable : qui, quoi, quand. Un administrateur peut désactiver un compte,
-          ce qui en bloque l&apos;accès sans rien supprimer. Pour demander la suppression de tes
-          données, écris à {EDITOR.email}.
+          ce qui en bloque l&apos;accès sans rien supprimer. La suppression, elle, t&apos;appartient
+          : tu la fais toi-même depuis ton profil.
         </p>
       </LegalSection>
 

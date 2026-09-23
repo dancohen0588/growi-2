@@ -6,4 +6,4 @@
  * (`termsVersion`), que le service d'auth écrit. Deux constantes finiraient
  * par diverger, et le compte porterait une version qui n'a jamais été publiée.
  */
-export const LEGAL_VERSION = '2026-09-09'
+export const LEGAL_VERSION = '2026-09-23'
