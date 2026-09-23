@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Flag, Users, Mail, ShieldCheck, ScrollText } from 'lucide-react'
+import { BarChart3, Flag, Users, Mail, Newspaper, ShieldCheck, ScrollText } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -11,13 +11,15 @@ import { cn } from '@/lib/utils'
  * la nav est le seul repère d'une interface sans page d'accueil narrative.
  *
  * « Signalements » est placée juste après « Messages » : ce sont les deux
- * files où quelque chose attend une réponse, et les seules à porter un badge.
+ * files où quelque chose attend une réponse. « Conseils » suit, avec son badge
+ * de brouillons : c'est la troisième chose qui attend quelqu'un.
  */
 const NAV_ITEMS = [
   { href: '/admin', label: 'Tableau de bord', icon: BarChart3 },
   { href: '/admin/utilisateurs', label: 'Utilisateurs', icon: Users },
   { href: '/admin/messages', label: 'Messages', icon: Mail },
   { href: '/admin/signalements', label: 'Signalements', icon: Flag },
+  { href: '/admin/conseils', label: 'Conseils', icon: Newspaper },
   { href: '/admin/administrateurs', label: 'Administrateurs', icon: ShieldCheck },
   { href: '/admin/journal', label: 'Journal', icon: ScrollText },
 ] as const

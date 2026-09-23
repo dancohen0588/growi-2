@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 
 import { AdminNav } from '@/components/admin/AdminShell'
 import { requireAdmin } from '@/lib/admin/auth'
+import { countByStatus } from '@/lib/services/blog-admin.service'
 import { countOpenReports } from '@/lib/services/community/moderation.service'
 import { countNew } from '@/lib/services/contact.service'
 import { isServiceError } from '@/lib/services/errors'
@@ -37,7 +38,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Le badge de la navigation. Un message non traité qui n'apparaît nulle part
   // est un message oublié : le compteur est la seule chose qui le rappelle
   // depuis n'importe quelle page de l'admin.
-  const [newMessages, openReports] = await Promise.all([countNew(), countOpenReports()])
+  const [newMessages, openReports, blogCounts] = await Promise.all([
+    countNew(),
+    countOpenReports(),
+    countByStatus(),
+  ])
 
   return (
     <div className="flex min-h-screen flex-col bg-sand">
@@ -55,7 +60,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       <div className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col md:flex-row">
         <AdminNav
-          counts={{ '/admin/messages': newMessages, '/admin/signalements': openReports }}
+          counts={{
+            '/admin/messages': newMessages,
+            '/admin/signalements': openReports,
+            '/admin/conseils': blogCounts.DRAFT,
+          }}
         />
         <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
       </div>
