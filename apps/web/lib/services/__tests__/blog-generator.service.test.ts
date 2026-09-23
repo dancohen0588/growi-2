@@ -39,7 +39,7 @@ const prismaMock = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 
-const { generateArticle } = await import('../blog-generator.service')
+const { createManualDraft, generateArticle } = await import('../blog-generator.service')
 const { ServiceError } = await import('../errors')
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────
@@ -355,5 +355,42 @@ describe('après le brouillon', () => {
     await run(imposed)
 
     expect(send).not.toHaveBeenCalled()
+  })
+})
+
+// ─── Article écrit à la main ───────────────────────────────────────────────
+
+describe('brouillon manuel', () => {
+  const manual = () => JSON.parse(article({ tags: ['actus-growi'] }).raw)
+
+  it('passe les mêmes contrôles, accepte actus-growi, et n\'écrit rien en dry-run', async () => {
+    const result = await createManualDraft(manual(), { dryRun: true })
+
+    expect(result).toMatchObject({ ok: true, post: null })
+    expect(prismaMock.blogPost.create).not.toHaveBeenCalled()
+    expect(generateJson).not.toHaveBeenCalled()
+  })
+
+  it('enregistre un brouillon d\'origine manuelle, sans email', async () => {
+    const result = await createManualDraft(manual())
+
+    expect(result.ok).toBe(true)
+    expect(prismaMock.blogPost.create.mock.calls[0][0].data).toMatchObject({ origin: 'manual', status: 'DRAFT', coverStatus: 'PENDING' })
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('refuse un article qui contient « IA », ou hors format, avec la mesure', async () => {
+    expect(await createManualDraft({ ...manual(), mdx: validMdx('Rédigé avec une IA.') }))
+      .toMatchObject({ ok: false, issues: [expect.stringMatching(/Termes interdits/)] })
+    expect(await createManualDraft({ ...manual(), excerpt: 'x'.repeat(170) }))
+      .toMatchObject({ ok: false, issues: [expect.stringMatching(/l’extrait fait 170 caractères, 160 au plus/)] })
+  })
+
+  it('le plafond de brouillons avertit sans bloquer', async () => {
+    prismaMock.blogPost.count.mockResolvedValue(2)
+
+    const result = await createManualDraft(manual())
+
+    expect(result).toMatchObject({ ok: true, warnings: [expect.stringMatching(/génération automatique restera à l’arrêt/)] })
   })
 })
