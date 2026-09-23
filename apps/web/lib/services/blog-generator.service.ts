@@ -8,8 +8,9 @@
  *
  * Ce qui est acceptable (ton, interdits, saisons, seuils) est décidé par
  * `lib/blog/editorial.ts` ; ce module orchestre les appels, les reprises et
- * l'écriture. La couverture n'est pas produite ici : l'article naît en
- * `coverStatus = PENDING`, et l'image ne bloque jamais le texte.
+ * l'écriture. Le texte est enregistré dès qu'il est validé ; la couverture
+ * n'est tentée qu'ensuite, s'il reste assez de temps — l'image ne bloque
+ * jamais le texte. Les administrateurs sont enfin prévenus par email.
  *
  * Un échec de génération n'est pas une exception : c'est un résultat
  * `{ ok: false }` que le cron journalise et que l'admin affiche. Seuls lèvent
@@ -42,7 +43,10 @@ import {
   type TopicCandidate,
 } from '@/lib/blog/editorial'
 import { prisma } from '@/lib/prisma'
+import { generateCover, MIN_COVER_BUDGET_MS, type CoverResult } from '@/lib/services/blog-cover.service'
+import { addresses, escapeHtml, getResendClient } from '@/lib/services/contact.service'
 import { ServiceError } from '@/lib/services/errors'
+import { SITE_URL } from '@/lib/site-url'
 import { generateJson, requireGeminiKey, stripFence, type GeminiUsage } from '@/lib/services/gemini'
 
 const LOG = '[blog-generator]'
@@ -82,7 +86,9 @@ export type GenerateArticleResult =
     ok: true
     post: BlogPost
     attempts: number
-    /** Temps restant sur le budget : la couverture n'est tentée que s'il suffit. */
+    /** `null` : pas assez de temps pour l'essayer, la couverture reste à produire. */
+    cover: CoverResult | null
+    /** Temps restant sur le budget, pour un éventuel rattrapage de couverture. */
     remainingMs: number
   }
   | {
@@ -241,7 +247,67 @@ export async function generateArticle(input: GenerateArticleInput): Promise<Gene
     `${LOG} brouillon ${post.slug} (origine ${input.origin}, ${attempts} rédaction(s), ${Date.now() - startedAt} ms)`,
   )
 
-  return { ok: true, post, attempts, remainingMs: deadline - Date.now() }
+  // 5. Couverture, seulement s'il reste de quoi la finir
+  let cover: CoverResult | null = null
+  let saved = post
+  const remaining = deadline - Date.now()
+  if (remaining >= MIN_COVER_BUDGET_MS) {
+    cover = await generateCover(post.id, { budgetMs: remaining })
+    if (cover.ok) saved = (await prisma.blogPost.findUnique({ where: { id: post.id } })) ?? post
+  } else {
+    console.info(`${LOG} couverture de ${post.slug} remise à plus tard (${remaining} ms restantes)`)
+  }
+
+  // 6. Prévenir les relecteurs
+  await notifyAdminsOfDraft(saved, { excludeUserId: input.actorId })
+
+  return { ok: true, post: saved, attempts, cover, remainingMs: deadline - Date.now() }
+}
+
+/**
+ * Email « un brouillon attend ta relecture » à tous les administrateurs
+ * actifs, sauf celui qui vient de le demander depuis l'admin — il l'a sous les
+ * yeux. Un seul email par article ; ne lève jamais : sans Resend, le badge de
+ * l'admin reste le rappel.
+ */
+export async function notifyAdminsOfDraft(
+  post: Pick<BlogPost, 'id' | 'title' | 'excerpt' | 'topicRationale'>,
+  options: { excludeUserId?: string } = {},
+): Promise<{ sent: number }> {
+  try {
+    const resend = getResendClient()
+    if (!resend) return { sent: 0 }
+
+    const admins = await prisma.user.findMany({
+      where: {
+        role: 'ADMIN',
+        disabledAt: null,
+        ...(options.excludeUserId ? { id: { not: options.excludeUserId } } : {}),
+      },
+      select: { email: true },
+    })
+    if (admins.length === 0) return { sent: 0 }
+
+    const link = `${SITE_URL}/admin/conseils/${post.id}`
+    const why = post.topicRationale
+      ? `<p style="color:#555"><em>Pourquoi ce thème : ${escapeHtml(post.topicRationale)}</em></p>`
+      : ''
+
+    await resend.emails.send({
+      from: addresses().from,
+      to: admins.map(admin => admin.email),
+      subject: `Un nouveau conseil attend ta relecture : ${post.title}`,
+      html: `<p><strong>${escapeHtml(post.title)}</strong></p>
+             <p>${escapeHtml(post.excerpt)}</p>
+             ${why}
+             <p>Vérifie les chiffres listés dans « À vérifier avant publication », puis publie ou corrige.</p>
+             <p><a href="${link}">Relire le brouillon</a></p>`,
+    })
+    return { sent: admins.length }
+  } catch (error) {
+    console.error(`${LOG} email aux administrateurs non envoyé :`, error)
+    return { sent: 0 }
+  }
 }
 
 export async function countPendingDrafts(): Promise<number> {

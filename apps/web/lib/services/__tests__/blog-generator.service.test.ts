@@ -18,6 +18,16 @@ vi.mock('@/lib/services/gemini', async (importOriginal) => ({
 
 vi.mock('@sentry/nextjs', () => ({ captureMessage: vi.fn(), startSpan: vi.fn() }))
 
+const covers = vi.hoisted(() => ({ generateCover: vi.fn(), MIN_COVER_BUDGET_MS: 20_000 }))
+vi.mock('@/lib/services/blog-cover.service', () => covers)
+
+const send = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/services/contact.service', () => ({
+  getResendClient: () => ({ emails: { send } }),
+  addresses: () => ({ from: 'info@growi.test', to: 'info@growi.test' }),
+  escapeHtml: (value: string) => value.replace(/</g, '&lt;'),
+}))
+
 const prismaMock = vi.hoisted(() => ({
   blogPost: {
     count: vi.fn(),
@@ -25,6 +35,7 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     create: vi.fn(),
   },
+  user: { findMany: vi.fn() },
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 
@@ -74,6 +85,9 @@ beforeEach(() => {
   prismaMock.blogPost.findMany.mockResolvedValue(EXISTING)
   prismaMock.blogPost.findUnique.mockResolvedValue(null)
   prismaMock.blogPost.create.mockImplementation(async ({ data }) => ({ id: 'post_1', ...data }))
+  prismaMock.user.findMany.mockResolvedValue([{ email: 'dan@growi.test' }, { email: 'quentin@growi.test' }])
+  covers.generateCover.mockResolvedValue({ ok: false, reason: 'non testé ici' })
+  send.mockResolvedValue({})
 })
 
 // ─── Cas nominal ───────────────────────────────────────────────────────────
@@ -280,5 +294,66 @@ describe('garde-fous', () => {
 
     expect(result).toMatchObject({ ok: false, stage: 'timeout' })
     expect(generateJson).not.toHaveBeenCalled()
+  })
+})
+
+// ─── Couverture et relecteurs ──────────────────────────────────────────────
+
+describe('après le brouillon', () => {
+  const imposed = { origin: 'admin' as const, topic: 'Les bulbes de printemps' }
+
+  it('tente la couverture s\'il reste le temps de la finir', async () => {
+    generateJson.mockResolvedValueOnce(article())
+
+    const result = await run(imposed)
+
+    expect(covers.generateCover).toHaveBeenCalledWith('post_1', expect.objectContaining({ budgetMs: expect.any(Number) }))
+    expect(result).toMatchObject({ ok: true, cover: { ok: false } })
+  })
+
+  it('la remet à plus tard sinon, sans bloquer l\'article', async () => {
+    // Une rédaction qui laisse moins de 20 s : on horloge Date.now().
+    const realNow = Date.now
+    let clock = realNow()
+    vi.spyOn(Date, 'now').mockImplementation(() => clock)
+    generateJson.mockImplementationOnce(async () => { clock += 30_000; return article() })
+
+    const result = await run({ ...imposed, timeBudgetMs: 45_000 })
+
+    expect(result).toMatchObject({ ok: true, cover: null })
+    expect(covers.generateCover).not.toHaveBeenCalled()
+    vi.mocked(Date.now).mockRestore()
+  })
+
+  it('prévient tous les administrateurs actifs, une fois, sauf celui qui a demandé', async () => {
+    generateJson.mockResolvedValueOnce(article())
+
+    await run({ ...imposed, actorId: 'admin_1' })
+
+    expect(prismaMock.user.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { role: 'ADMIN', disabledAt: null, id: { not: 'admin_1' } },
+    }))
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send.mock.calls[0][0]).toMatchObject({
+      to: ['dan@growi.test', 'quentin@growi.test'],
+      subject: expect.stringContaining('attend ta relecture'),
+      html: expect.stringContaining('/admin/conseils/post_1'),
+    })
+  })
+
+  it('un email qui échoue ne fait pas échouer la génération', async () => {
+    generateJson.mockResolvedValueOnce(article())
+    send.mockRejectedValue(new Error('domaine non vérifié'))
+
+    expect(await run(imposed)).toMatchObject({ ok: true })
+  })
+
+  it('aucun email quand la génération échoue', async () => {
+    const withIA = article({ mdx: validMdx('Écrit par une IA.') })
+    generateJson.mockResolvedValueOnce(withIA).mockResolvedValueOnce(withIA)
+
+    await run(imposed)
+
+    expect(send).not.toHaveBeenCalled()
   })
 })
