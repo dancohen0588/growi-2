@@ -56,7 +56,7 @@ Chaque geste est inscrit au journal d'audit (`blog.*`).
 |---|---|
 | `cron` | Génération automatique, chaque lundi 7 h UTC si la cadence réglée dans l'admin le prévoit |
 | `admin` | Bouton « Générer un article » de `/admin/conseils`, avec un sujet facultatif |
-| `manual` | Écrit à la main, avec le skill Claude Code `growi-blog-article` *(phase 5)*. Les trois premiers articles, importés, portent aussi cette origine. |
+| `manual` | Écrit à la main avec le skill Claude Code `growi-blog-article`, importé par `pnpm --filter web blog:generate --from-file article.json` (`--dry-run` pour contrôler sans écrire). Les trois premiers articles, importés, portent aussi cette origine. |
 
 Quelle que soit l'origine, **un humain relit avant publication**. Un article
 généré arrive avec des « notes pour le relecteur » : chaque chiffre, date,

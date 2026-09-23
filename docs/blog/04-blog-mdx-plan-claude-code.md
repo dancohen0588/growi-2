@@ -1,3 +1,19 @@
+> ## ⚠️ Note remplacée — 23 septembre 2026
+>
+> Les articles du blog ne vivent plus en fichiers MDX dans le dépôt : ils sont
+> **en base** (`blog_posts`), générés en brouillon puis relus et publiés dans
+> l'admin (`/admin/conseils`).
+>
+> - Spec de référence : `~/Growi/Documentation/spec/spec-generation-conseils.md`.
+> - Fonctionnement actuel : [`apps/web/content/blog/README.md`](../../apps/web/content/blog/README.md).
+> - Rédiger à la main : skill Claude Code `growi-blog-article`.
+>
+> Les §§ 3 à 6 ci-dessous (pages web, API v1, mobile) restent vrais dans leur
+> forme ; tout ce qui concerne `content/blog/*.mdx`, le frontmatter et
+> `public/blog/` est **obsolète**. Conservée pour l'historique des décisions.
+
+---
+
 # Growi — Section Blog (site + app) en MDX dans le repo
 
 > Note de cadrage à donner à Claude Code, pointé sur `/Users/dancohen/Growi/growi-2`.

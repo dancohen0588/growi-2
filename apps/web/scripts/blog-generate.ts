@@ -5,6 +5,11 @@
  *   pnpm --filter web blog:generate
  *   pnpm --filter web blog:generate --topic "Pailler ses massifs avant l'hiver"
  *   pnpm --filter web blog:generate --cover <slug>   # couverture seule
+ *   pnpm --filter web blog:generate --from-file article.json [--dry-run]
+ *
+ * `--from-file` enregistre un article **écrit à la main** (skill Claude Code
+ * `growi-blog-article`), au format `generatedArticleSchema`, après les mêmes
+ * contrôles qu'une génération. `--dry-run` contrôle sans rien écrire.
  *
  * Écrit un **brouillon** (`origin = manual`) dans la base pointée par `.env` :
  * rien n'est publié, l'article ne se voit que dans l'admin. Le plafond de deux
@@ -35,11 +40,16 @@ async function main() {
 
   const topic = argument('--topic')
   const coverSlug = argument('--cover')
+  const fromFile = argument('--from-file')
   const startedAt = Date.now()
 
   try {
     if (coverSlug) {
       await coverOnly(coverSlug)
+      return
+    }
+    if (fromFile) {
+      await importFromFile(fromFile, process.argv.includes('--dry-run'))
       return
     }
 
@@ -72,6 +82,38 @@ async function main() {
   } finally {
     await prisma.$disconnect()
   }
+}
+
+/** Un article écrit à la main, contrôlé puis enregistré en brouillon. */
+async function importFromFile(path: string, dryRun: boolean) {
+  const { readFileSync } = await import('node:fs')
+  const { createManualDraft } = await import('@/lib/services/blog-generator.service')
+
+  let json: unknown
+  try {
+    json = JSON.parse(readFileSync(path, 'utf8'))
+  } catch (error) {
+    console.error(`Fichier illisible (${path}) : ${error instanceof Error ? error.message : error}`)
+    process.exitCode = 1
+    return
+  }
+
+  const result = await createManualDraft(json, { dryRun })
+  if (!result.ok) {
+    console.error('\n✗ Article refusé :')
+    for (const issue of result.issues) console.error(`  - ${issue}`)
+    process.exitCode = 1
+    return
+  }
+
+  for (const warning of result.warnings) console.warn(`  ⚠ ${warning}`)
+  if (!result.post) {
+    console.log('\n✓ Contrôles passés (dry-run : rien n’a été écrit).')
+    return
+  }
+  console.log(`\n✓ Brouillon créé : ${result.post.title}`)
+  console.log(`  slug  : ${result.post.slug}`)
+  console.log(`  Admin : /admin/conseils/${result.post.id}`)
 }
 
 /** Rejoue l'étape image seule, comme le bouton « Régénérer l'image » de l'admin. */

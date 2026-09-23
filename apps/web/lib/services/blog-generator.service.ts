@@ -310,6 +310,68 @@ export async function notifyAdminsOfDraft(
   }
 }
 
+// ─── Article écrit à la main ───────────────────────────────────────────────
+
+export type ManualDraftResult =
+  | { ok: true; post: BlogPost | null; warnings: string[] }
+  | { ok: false; issues: string[] }
+
+/**
+ * Enregistre en brouillon un article **écrit à la main** (skill Claude Code
+ * `growi-blog-article`), au format `generatedArticleSchema`.
+ *
+ * Mêmes contrôles qu'une génération — schéma, slug libre, titre qui ne double
+ * rien, compilation, lint — parce qu'un article manuel se relit et se publie
+ * par le même chemin. Deux différences assumées : `actus-growi` est permis
+ * (c'est le seul chemin qui le produit), et le plafond de brouillons n'empêche
+ * rien, il avertit — c'est l'automatisation qu'il arrête, pas une personne.
+ *
+ * `dryRun` contrôle sans écrire : `post` vaut alors `null`.
+ */
+export async function createManualDraft(
+  input: unknown,
+  options: { dryRun?: boolean } = {},
+): Promise<ManualDraftResult> {
+  const parsed = generatedArticleSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, issues: parsed.error.issues.map(issue => describeIssue(issue, input)) }
+  }
+  const article = parsed.data
+
+  const existing = await prisma.blogPost.findMany({ select: { title: true } })
+  const issues = await checkArticle(article, { existingTitles: existing.map(post => post.title) })
+  if (issues.length > 0) return { ok: false, issues }
+
+  const warnings = lintArticle(article)
+    .filter(issue => issue.severity === 'warning')
+    .map(issue => issue.message)
+
+  const drafts = await countPendingDrafts()
+  if (drafts >= MAX_PENDING_DRAFTS) {
+    warnings.push(`${drafts} brouillons attendent déjà : la génération automatique restera à l’arrêt tant qu’ils sont là.`)
+  }
+
+  if (options.dryRun) return { ok: true, post: null, warnings }
+
+  const post = await prisma.blogPost.create({
+    data: {
+      slug: article.slug,
+      title: article.title,
+      excerpt: article.excerpt,
+      source: article.mdx.trim() + '\n',
+      tags: article.tags,
+      coverStatus: 'PENDING',
+      coverPrompt: ensureCoverClosing(article.coverPrompt),
+      coverImageAlt: article.coverImageAlt,
+      status: 'DRAFT' satisfies BlogPostStatus,
+      origin: 'manual' satisfies BlogPostOrigin,
+      reviewerNotes: article.reviewerNotes,
+    },
+  })
+  console.info(`${LOG} brouillon manuel ${post.slug}`)
+  return { ok: true, post, warnings }
+}
+
 export async function countPendingDrafts(): Promise<number> {
   return prisma.blogPost.count({ where: { status: 'DRAFT' satisfies BlogPostStatus } })
 }
