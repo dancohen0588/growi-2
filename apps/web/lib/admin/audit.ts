@@ -37,6 +37,13 @@ export const ADMIN_ACTIONS = {
   'moderation.hide': "Masquage d'un contenu",
   'moderation.restore': "Rétablissement d'un contenu",
   'moderation.dismiss': 'Signalement rejeté',
+  'blog.generate': "Génération d'un article",
+  'blog.update': "Modification d'un article",
+  'blog.publish': "Publication d'un article",
+  'blog.unpublish': "Dépublication d'un article",
+  'blog.delete': "Suppression d'un article",
+  'blog.regenerate_cover': "Régénération d'une couverture",
+  'blog.cadence': 'Cadence de génération des articles',
 } as const
 
 export type AdminAction = keyof typeof ADMIN_ACTIONS
@@ -57,6 +64,9 @@ export const AUDIT_TARGET_TYPES = {
   /// Message d'un fil de la bourse. Distinct de `contact_message`, qui est un
   /// message du formulaire de contact.
   message: 'Message d’annonce',
+  blog_post: 'Article',
+  /// Réglage applicatif (`app_settings`) ; `targetId` en porte la clé.
+  app_setting: 'Réglage',
 } as const
 
 export type AuditTargetType = keyof typeof AUDIT_TARGET_TYPES
