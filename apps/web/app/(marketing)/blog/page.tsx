@@ -29,19 +29,19 @@ interface BlogPageProps {
   searchParams: { tag?: string; page?: string }
 }
 
-export default function BlogPage({ searchParams }: BlogPageProps) {
+export default async function BlogPage({ searchParams }: BlogPageProps) {
   // Un tag ou une page invalides ne cassent rien : on retombe sur la liste
   // complète plutôt que sur une 404, un lien partagé restant souvent approximatif.
   const tag = blogTagSchema.safeParse(searchParams.tag).data
   const page = Number.parseInt(searchParams.page ?? '1', 10)
 
-  const { posts, pagination } = listPosts({
+  const { posts, pagination } = await listPosts({
     page: Number.isFinite(page) && page > 0 ? page : 1,
     limit: PER_PAGE,
     tag,
   })
 
-  const tags = listUsedTags()
+  const tags = await listUsedTags()
   const hrefFor = (n: number) =>
     `/blog?${new URLSearchParams({ ...(tag ? { tag } : {}), ...(n > 1 ? { page: String(n) } : {}) })}`
       .replace(/\?$/, '')

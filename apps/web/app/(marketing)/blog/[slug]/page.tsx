@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -8,25 +9,30 @@ import { MDXRemote } from 'next-mdx-remote/rsc'
 import { getPost, listRelatedPosts, listSlugs } from '@/lib/blog/content'
 import { webMdxComponents } from '@/lib/blog/mdx-components'
 import { mdxOptions } from '@/lib/blog/mdx-options'
-import { SITE_URL } from '@/lib/site-url'
+import { absoluteUrl, SITE_URL } from '@/lib/site-url'
 import { TrackView } from '@/components/analytics/TrackView'
 import { CTABottom } from '../../fonctionnalites/components/CTABottom'
 import { PostCard } from '../components/PostCard'
 import { PostMeta } from '../components/PostMeta'
 import { TagBadge } from '../components/TagPills'
 
-// Les articles sont des fichiers du dépôt : tout est connu au build, rien ne
-// change entre deux déploiements. Un slug inconnu doit donc faire une 404,
-// pas déclencher un rendu à la demande.
-export const dynamic = 'force-static'
-export const dynamicParams = false
+// Les articles publiés au moment du build sont prérendus ; ceux publiés depuis
+// l'admin sont rendus à leur première visite (`dynamicParams`), puis servis
+// depuis le cache. La publication et la dépublication revalident le chemin :
+// l'heure de `revalidate` n'est qu'un filet pour une écriture faite hors admin.
+// Un slug inconnu ou dépublié rend une 404.
+export const dynamicParams = true
+export const revalidate = 3600
 
-export function generateStaticParams() {
-  return listSlugs().map(slug => ({ slug }))
+export async function generateStaticParams() {
+  return (await listSlugs()).map(slug => ({ slug }))
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const entry = getPost(params.slug)
+/** La page et ses métadonnées demandent chacune l'article : une lecture suffit. */
+const findPost = cache(getPost)
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const entry = await findPost(params.slug)
   if (!entry) return { title: 'Article introuvable' }
 
   const { summary } = entry
@@ -58,12 +64,12 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   }
 }
 
-export default function BlogPostPage({ params }: { params: { slug: string } }) {
-  const entry = getPost(params.slug)
+export default async function BlogPostPage({ params }: { params: { slug: string } }) {
+  const entry = await findPost(params.slug)
   if (!entry) notFound()
 
   const { summary, source, updatedAt } = entry
-  const related = listRelatedPosts(summary.slug)
+  const related = await listRelatedPosts(summary.slug)
   const url = `${SITE_URL}/blog/${summary.slug}`
 
   const jsonLd = {
@@ -73,7 +79,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
         '@type': 'Article',
         headline: summary.title,
         description: summary.excerpt,
-        image: summary.coverImage ? `${SITE_URL}${summary.coverImage}` : undefined,
+        image: absoluteUrl(summary.coverImage) ?? undefined,
         datePublished: summary.publishedAt,
         dateModified: updatedAt,
         author: { '@type': 'Person', name: summary.author },
@@ -103,7 +109,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* La page est prérendue au build : la mesure est le seul morceau
+      {/* La page est servie depuis le cache : la mesure est le seul morceau
           client, et n'empêche donc pas le rendu statique. */}
       <TrackView
         event="article_viewed"
@@ -160,7 +166,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
           />
         </div>
 
-        {updatedAt !== summary.publishedAt && (
+        {isLaterDay(updatedAt, summary.publishedAt) && (
           <p className="mx-auto max-w-3xl px-4 pb-10 font-raleway text-sm italic text-forest/80 sm:px-6">
             Article mis à jour le{' '}
             <time dateTime={updatedAt}>
@@ -193,6 +199,16 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
       <CTABottom />
     </>
   )
+}
+
+/**
+ * « Mis à jour » seulement si la retouche date d'un autre jour que la
+ * publication. En base, `updatedAt` bouge à chaque écriture — la publication
+ * elle-même la décale de quelques millisecondes : comparer les instants
+ * l'afficherait sur tous les articles.
+ */
+function isLaterDay(updatedAt: string, publishedAt: string): boolean {
+  return updatedAt.slice(0, 10) > publishedAt.slice(0, 10)
 }
 
 function Breadcrumb({ title }: { title: string }) {

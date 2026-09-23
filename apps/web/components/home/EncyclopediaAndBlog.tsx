@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 export async function EncyclopediaAndBlog() {
   const [plantCount, { posts }] = await Promise.all([
     prisma.plantCatalog.count(),
-    Promise.resolve(listPosts({ limit: 3 })),
+    listPosts({ limit: 3 }),
   ])
 
   return (

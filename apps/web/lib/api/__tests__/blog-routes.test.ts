@@ -8,8 +8,8 @@ vi.hoisted(() => {
 
 // ─── Doublure de la couche de contenu ──────────────────────────────────────
 //
-// Les routes ne font que sérialiser : c'est `lib/blog/content.ts` qui lit les
-// fichiers, et il est déjà couvert par ses propres tests sur de vrais articles.
+// Les routes ne font que sérialiser : c'est `lib/blog/content.ts` qui lit la
+// base, et il est déjà couvert par ses propres tests.
 
 const blogContent = vi.hoisted(() => ({
   listPosts: vi.fn(),
@@ -55,7 +55,7 @@ function listRequest(query = ''): Request {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  blogContent.listPosts.mockReturnValue(listResponse)
+  blogContent.listPosts.mockResolvedValue(listResponse)
   blogContent.getPostAsHtml.mockResolvedValue(post)
 })
 
@@ -76,6 +76,18 @@ describe('GET /api/v1/blog', () => {
 
     expect(body.data.posts[0].coverImage)
       .toBe('https://growi.test/blog/preparer-son-potager-en-septembre/cover.png')
+  })
+
+  it('laisse intacte une couverture déjà hébergée sur Supabase', async () => {
+    const supabase = 'https://ref.supabase.co/storage/v1/object/public/blog-covers/a/cover.jpg'
+    blogContent.listPosts.mockResolvedValue({
+      ...listResponse,
+      posts: [{ ...listResponse.posts[0], coverImage: supabase }],
+    })
+
+    const body = await (await listBlog(listRequest())).json()
+
+    expect(body.data.posts[0].coverImage).toBe(supabase)
   })
 
   it('transmet pagination et filtre, avec les valeurs par défaut', async () => {

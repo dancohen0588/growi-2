@@ -27,7 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority:        0.6,
   }))
 
-  const blogRoutes: MetadataRoute.Sitemap = listAllSummaries().map(({ summary, updatedAt }) => ({
+  const blogRoutes: MetadataRoute.Sitemap = (await listAllSummaries()).map(({ summary, updatedAt }) => ({
     url:             `${SITE_URL}/blog/${summary.slug}`,
     lastModified:    new Date(updatedAt),
     changeFrequency: 'monthly',
