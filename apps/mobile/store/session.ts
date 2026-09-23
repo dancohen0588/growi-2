@@ -107,10 +107,22 @@ export const useSession = create<SessionState>((set) => ({
         status: 'authenticated',
         user: { email: profile.email, firstName: profile.firstName || null },
       })
-    } catch {
+    } catch (error) {
+      // Hors ligne, DNS, panne serveur : la session n'est pas finie pour
+      // autant. On garde les jetons — et surtout l'identité analytique — pour
+      // que le prochain lancement retombe sur la même personne au lieu d'en
+      // fabriquer une nouvelle à chaque coupure de réseau.
+      if (isApiError(error) && (error.isNetworkError || error.isServerError)) {
+        set({ status: 'unauthenticated', user: null })
+        return
+      }
+
+      // Jeton réellement invalide : on efface, mais sans `reset()`. C'est le
+      // même appareil et le même humain ; repartir d'une identité anonyme
+      // neuve détacherait de son compte tout ce qu'il fait avant de se
+      // reconnecter, et la reconnexion ne les recollerait jamais.
       await clearTokens()
       forgetUser()
-      analytics().reset()
       set({ status: 'unauthenticated', user: null })
     }
   },
@@ -159,6 +171,11 @@ export const useSession = create<SessionState>((set) => ({
    * On révoque le jeton côté serveur, mais une défaillance réseau ne doit
    * jamais empêcher de se déconnecter : les jetons locaux sont effacés dans
    * tous les cas.
+   *
+   * **Seul endroit de l'app qui appelle `analytics().reset()`** : un départ
+   * volontaire est le seul moment où l'appareil doit cesser d'être rattaché à
+   * un compte. Partout ailleurs (jeton expiré, réseau coupé, session perdue),
+   * réinitialiser reviendrait à scinder un même testeur en plusieurs profils.
    */
   signOut: async () => {
     // Avant de perdre l'accès à l'API : sans cela, l'appareil continuerait de
@@ -181,7 +198,9 @@ export const useSession = create<SessionState>((set) => ({
 // Quand le rafraîchissement échoue définitivement, l'app doit revenir au login.
 setSessionLostHandler(() => {
   forgetUser()
-  analytics().reset()
+  // Pas de `reset()` ici : une session perdue en cours de route n'est pas un
+  // départ. L'identité analytique est conservée, et la reconnexion la retrouve
+  // au lieu d'ouvrir un profil de plus.
   useSession.setState({ status: 'unauthenticated', user: null })
 })
 
