@@ -1,0 +1,7 @@
+{
+  "//": "Scripts lancés par tsx (pnpm blog:generate…). Next impose jsx: preserve, que tsx traduirait en React.createElement sans importer React : le rendu MDX des scripts échouait en « React is not defined ».",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  }
+}
