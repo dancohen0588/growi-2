@@ -715,6 +715,32 @@ est documenté dans [`content/blog/README.md`](apps/web/content/blog/README.md)
   de quelques millisecondes.
 - Une couverture est une **URL Supabase complète** ; `absoluteUrl` la laisse
   intacte, et ne complète que les liens internes du corps.
+
+#### Génération d'articles
+
+`lib/services/blog-generator.service.ts` écrit un **brouillon**, jamais une
+publication. `lib/blog/editorial.ts` fait foi pour le ton, les interdits, le
+calendrier saisonnier, les prompts et le lint ; le service orchestre.
+
+- **Le mot « IA » ne paraît jamais** dans un contenu publié : interdit dans le
+  prompt, rejeté par le lint (titre et extrait compris). Frontières de mots
+  **Unicode** partout : le `\b` de JavaScript ignore les lettres accentuées.
+- **Compiler ne suffit pas, il faut rendre** (`lib/blog/compile.ts`) : un
+  composant inconnu compile et ne lève qu'au rendu.
+- **Une seule reprise**, nourrie des défauts de la première version, puis
+  abandon tracé dans Sentry. Un échec est un résultat `{ ok: false, stage }`,
+  pas une exception ; seuls le plafond de brouillons (`CONFLICT`) et une clé
+  absente lèvent.
+- **Donner la mesure au modèle** : « l'extrait fait 165 caractères, 160 au
+  plus » se corrige, « Too big » se répète. Extrait et texte alternatif sont en
+  plus des limites **souples**, coupées au mot avec une note au relecteur :
+  réécrire mille mots pour cinq caractères coûtait une rédaction, et la reprise
+  en introduisait d'autres défauts (constaté sur les premiers essais réels).
+- `generateJson` accepte une `temperature` : 0 par défaut pour tous les autres
+  usages, relevée pour la seule rédaction.
+- `pnpm --filter web blog:generate [--topic "…"]` essaie en vrai. Les scripts
+  `tsx` passent par `tsconfig.scripts.json` (JSX automatique) : avec le
+  `jsx: preserve` de Next, le rendu MDX y échouait en « React is not defined ».
 - Le mobile reçoit du **HTML compilé** (`getPostAsHtml`), pas du MDX, avec
   images et liens internes en URL absolue.
 - Ces URLs absolues sont bâties sur `requestOrigin()` (`lib/site-url.ts`), pas

@@ -95,8 +95,43 @@ maintenir aussi dans le HTML servi au mobile (`htmlMdxComponents`).
 - **Jamais le mot « IA »**, ni aucune mention de la façon dont le texte a été
   produit. Ni personnes, ni marques, ni prix.
 
-Ces règles deviendront des constantes de prompt et des contrôles dans
-`lib/blog/editorial.ts` *(phase 2)*, qui fera alors foi.
+Ces règles sont des constantes de prompt et des contrôles dans
+[`lib/blog/editorial.ts`](../../lib/blog/editorial.ts), qui **fait foi** : en
+cas d'écart avec cette page, c'est le code qui a raison.
+
+## Générer un article
+
+Le service `lib/services/blog-generator.service.ts` enchaîne :
+
+1. **Thème** — le modèle reçoit la date, les thèmes de saison des 3 à 5
+   semaines à venir (`SEASONAL_CALENDAR`), l'inventaire de tous les articles et
+   les tags du moins au plus fourni. Il propose trois sujets ; on retient le
+   premier qui ne ressemble à aucun titre existant. Un sujet imposé depuis
+   l'admin saute cette étape.
+2. **Rédaction** — un JSON conforme à `generatedArticleSchema`.
+3. **Contrôles**, tous bloquants : slug libre, titre qui ne double rien,
+   compilation *et rendu* du MDX, puis le lint d'`editorial.ts` (mots,
+   intertitres, encadré, tutoiement, termes interdits, HTML, liens, images).
+   Un échec donne lieu à **une** réécriture, à laquelle on passe la liste des
+   défauts ; au second échec, on abandonne (Sentry).
+4. **Brouillon** — `DRAFT`, couverture `PENDING`, notes pour le relecteur,
+   raison du thème, et une trace (`generation` : modèles, durées, tentatives,
+   jetons, défauts des versions refusées).
+
+L'extrait et le texte alternatif sont des limites **souples** : un dépassement
+de quelques caractères est coupé au dernier mot, et une note prévient le
+relecteur. Au-delà de deux brouillons en attente, rien n'est généré.
+
+Pour essayer les prompts avec la vraie clé Gemini (écrit un brouillon dans la
+base de `.env`, visible seulement dans l'admin) :
+
+```bash
+pnpm --filter web blog:generate
+pnpm --filter web blog:generate --topic "Pailler ses massifs avant l'hiver"
+```
+
+Les défauts de la dernière version refusée s'affichent en cas d'échec : c'est
+ce qui sert à régler `editorial.ts`.
 
 ## Les couvertures
 
@@ -136,6 +171,9 @@ couverture reste `PENDING`, et un passage suivant la produit.
 | `apps/web/prisma/schema.prisma` | Modèles `BlogPost` et `AppSetting` (cadence, verrou de génération) |
 | `apps/web/lib/blog/content.ts` | **Seul** module de lecture publique — articles `PUBLISHED` uniquement |
 | `apps/web/lib/blog/mdx-components.tsx` · `mdx-options.ts` | Rendu MDX, web et HTML du mobile |
+| `apps/web/lib/blog/editorial.ts` | Ton, interdits, calendrier saisonnier, prompts, lint — **fait foi** |
+| `apps/web/lib/blog/compile.ts` | Compilation et rendu réels d'un corps, avant toute écriture |
+| `apps/web/lib/services/blog-generator.service.ts` | Génération d'un brouillon |
 | `apps/web/lib/blog/cover-image.ts` | Mise au format d'une couverture |
 | `apps/web/lib/storage.ts` | `uploadCover`, `deleteCoverByUrl` |
 | `apps/web/app/(marketing)/blog/` | Pages liste et article |
