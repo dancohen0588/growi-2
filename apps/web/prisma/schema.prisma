@@ -11,38 +11,38 @@ datasource db {
 // ─── Auth ──────────────────────────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime? @db.Timestamptz(6)
-  image         String?
-  password      String?
-  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
-  firstName     String?
-  lastName      String?
-  plan          String    @default("FREE")
-  timezone      String    @default("Europe/Paris")
-  locationCity  String?
-  onboarded     Boolean   @default(false)
-  address       String?
-  gardenType    String?
-  avatarColor   String?
-  alertConfig   Json?
-  latitude      Float?
-  longitude     Float?
+  id              String    @id @default(cuid())
+  name            String?
+  email           String    @unique
+  emailVerified   DateTime? @db.Timestamptz(6)
+  image           String?
+  password        String?
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  firstName       String?
+  lastName        String?
+  plan            String    @default("FREE")
+  timezone        String    @default("Europe/Paris")
+  locationCity    String?
+  onboarded       Boolean   @default(false)
+  address         String?
+  gardenType      String?
+  avatarColor     String?
+  alertConfig     Json?
+  latitude        Float?
+  longitude       Float?
   /// Droits du compte — voir USER_ROLES dans @growi/shared : USER | ADMIN.
-  role          String    @default("USER")
+  role            String    @default("USER")
   /// Compte désactivé par un administrateur : connexion refusée, données conservées.
-  disabledAt    DateTime? @db.Timestamptz(6)
+  disabledAt      DateTime? @db.Timestamptz(6)
   /// Dernière activité observée, toutes surfaces confondues.
   /// Mise à jour au plus une fois par heure (voir activity.service.ts).
-  lastSeenAt    DateTime? @db.Timestamptz(6)
+  lastSeenAt      DateTime? @db.Timestamptz(6)
   /// Opposition à l'analyse d'usage (PostHog). Faux par défaut : l'analyse est
   /// activée au titre de l'intérêt légitime, et l'utilisateur peut en sortir
   /// depuis son profil. Les rapports de plantage (Sentry) restent actifs quoi
   /// qu'il arrive — ils ne servent qu'à corriger des bugs.
-  analyticsOptOut Boolean @default(false)
+  analyticsOptOut Boolean   @default(false)
 
   // ── Communauté (opt-in) ──────────────────────────────────────────────────
   /// Pseudo public unique, 3 à 30 caractères `[a-z0-9_]`, normalisé en
@@ -81,18 +81,19 @@ model User {
   threadsAsRequester ListingThread[]  @relation("requester")
   listingMessages    ListingMessage[]
 
-  accounts        Account[]
-  activities      UserActivity[]
-  adminActions    AdminAuditLog[]  @relation("actor")
-  contactMessages ContactMessage[]
-  conversations   Conversation[]
-  diagnoses       Diagnosis[]
-  tasks           PlantTask[]
-  gardens         Garden[]
-  plantInstances  PlantInstance[]
-  pushTokens      PushToken[]
-  refreshTokens   RefreshToken[]
-  sessions        Session[]
+  accounts           Account[]
+  activities         UserActivity[]
+  adminActions       AdminAuditLog[]  @relation("actor")
+  contactMessages    ContactMessage[]
+  conversations      Conversation[]
+  diagnoses          Diagnosis[]
+  tasks              PlantTask[]
+  gardens            Garden[]
+  plantInstances     PlantInstance[]
+  pushTokens         PushToken[]
+  refreshTokens      RefreshToken[]
+  sessions           Session[]
+  blogPostsPublished BlogPost[]       @relation("blogPublisher")
 
   @@index([role])
   @@index([createdAt])
@@ -128,7 +129,7 @@ model AdminAuditLog {
   actorId    String
   /// Voir ADMIN_ACTIONS dans lib/admin/audit.ts.
   action     String
-  /// Type de la cible : user | contact_message | garden | plant_instance.
+  /// Type de la cible : user | contact_message | garden | plant_instance | blog_post.
   targetType String
   targetId   String
   /// Avant/après ou paramètres. Jamais de mot de passe ni d'empreinte de jeton.
@@ -928,4 +929,59 @@ model Report {
   /// Compte des signalements distincts d'un contenu, pour le seuil de masquage.
   @@index([targetType, targetId])
   @@map("reports")
+}
+
+// ─── Blog « Conseils » ─────────────────────────────────────────────────────
+
+/// Article du blog « Conseils ». Le corps est du MDX, rendu avec les composants
+/// de lib/blog/mdx-components.tsx (Callout, YouTube).
+///
+/// Seul `status = PUBLISHED` sort de lib/blog/content.ts : les pages publiques
+/// et l'API v1 ne voient jamais un brouillon.
+model BlogPost {
+  id             String    @id @default(cuid())
+  /// Figé à la première publication : un slug publié ne change plus (liens, SEO).
+  slug           String    @unique
+  title          String
+  /// ≤ 160 caractères : méta-description et résumé de carte.
+  excerpt        String
+  source         String    @db.Text
+  /// URL publique Supabase (bucket blog-covers).
+  coverImage     String?
+  coverImageAlt  String?
+  /// Voir BLOG_COVER_STATUSES dans @growi/shared : NONE | PENDING | READY.
+  coverStatus    String    @default("NONE")
+  /// Prompt de l'image, conservé pour « régénérer » à l'identique ou ajusté.
+  coverPrompt    String?   @db.Text
+  /// Valeurs de BLOG_TAGS.
+  tags           String[]
+  author         String    @default("Growi")
+  /// Voir BLOG_POST_STATUSES dans @growi/shared : DRAFT | PUBLISHED | ARCHIVED.
+  status         String    @default("DRAFT")
+  /// manual | admin | cron — d'où vient l'article.
+  origin         String
+  /// Pourquoi ce thème (saison, catégorie sous-représentée…). Affiché dans l'admin.
+  topicRationale String?   @db.Text
+  /// Chiffres et affirmations à vérifier avant publication. Jamais publié.
+  reviewerNotes  Json?
+  /// Traces de génération : modèles, durées, tentatives, coût estimé.
+  generation     Json?
+  publishedAt    DateTime? @db.Timestamptz(6)
+  publishedById  String?
+  publishedBy    User?     @relation("blogPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([status, publishedAt])
+  @@map("blog_posts")
+}
+
+/// Réglages applicatifs modifiables sans déploiement (clé → JSON).
+/// Clés : blog.cadence, blog.last_generation_at, blog.generation_lock.
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("app_settings")
 }
