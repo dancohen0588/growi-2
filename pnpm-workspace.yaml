@@ -46,5 +46,8 @@ allowBuilds:
   '@sentry/cli': true
   # Son script d'installation n'affiche qu'un message de financement.
   core-js: false
+  # Tiré par `tsx` (scripts de apps/web). Son script ne fait que vérifier le
+  # binaire de la plateforme, déjà installé comme dépendance optionnelle.
+  esbuild: false
   prisma: true
   unrs-resolver: true
