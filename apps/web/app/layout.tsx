@@ -49,10 +49,12 @@ export default function RootLayout({
     <html lang="fr" className={`${poppins.variable} ${raleway.variable}`}>
       <body className="min-h-screen flex flex-col antialiased">
         {/*
-          Le site public ne dépose rien sur le terminal hors le cookie de
-          session : la mesure d'usage (PostHog) n'est montée que dans l'espace
-          connecté, et seulement après l'accord du compte — voir
-          `app/dashboard/layout.tsx`. C'est ce qui dispense de bandeau.
+          Le site public ne dépose rien sur le terminal hors les cookies de
+          connexion de NextAuth (session, CSRF, page de retour), exemptés de
+          consentement et déclarés dans la politique. La mesure d'usage
+          (PostHog) n'est montée que dans l'espace connecté, et seulement
+          après l'accord du compte — voir `app/dashboard/layout.tsx`. C'est ce
+          qui dispense de bandeau.
         */}
         <SessionProvider>{children}</SessionProvider>
         {/*

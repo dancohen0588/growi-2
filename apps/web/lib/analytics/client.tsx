@@ -12,8 +12,8 @@
  * 1. **Rien avant le consentement.** Le provider n'est monté que dans l'espace
  *    connecté (`app/dashboard/layout.tsx`), et `posthog.init` n'y est appelé
  *    qu'une fois que le compte a dit oui. Le site public ne charge rien, ne
- *    dépose rien : c'est ce qui rend vraie la phrase « Growi dépose un seul
- *    cookie », et ce qui dispense de bandeau. Ailleurs, `useTrack()` tombe sur
+ *    dépose rien hors les cookies de connexion : c'est ce qui dispense de
+ *    bandeau. Ailleurs, `useTrack()` tombe sur
  *    le contexte par défaut — un émetteur muet.
  * 2. **Rien ne part hors production et preview**, ni sans clé. En local, le
  *    provider monte quand même mais l'émetteur est muet : le code appelant
@@ -174,7 +174,7 @@ const NOOP_EMITTER = createNoopEmitter()
  *
  * - **oui** : PostHog démarre (une fois par page) et l'émetteur réel prend le
  *   relais. Les anciens cookies `ph_*` sont expirés au passage : le stockage
- *   local suffit désormais, et la phrase « un seul cookie » doit rester vraie.
+ *   local suffit désormais, et la politique ne déclare que les cookies de connexion.
  * - **jamais demandé ou non** : l'émetteur est muet, l'instance éventuelle
  *   cesse de capturer, et le terminal est nettoyé. Pas de `reset()` : il
  *   réécrirait un identifiant anonyme neuf dans le stockage qu'on vient de

@@ -20,8 +20,9 @@ export default function ConfidentialitePage() {
         <ul className="flex list-disc flex-col gap-2 pl-5">
           <li>Growi ne vend aucune donnée et n&apos;affiche aucune publicité.</li>
           <li>
-            Aucun traceur publicitaire, aucun profilage : le seul cookie déposé sert à te garder
-            connecté. La fréquentation du site est mesurée sans cookie et sans identifiant.
+            Aucun traceur publicitaire, aucun profilage : les seuls cookies déposés servent à te
+            connecter et à te garder connecté. La fréquentation du site est mesurée sans cookie et
+            sans identifiant.
           </li>
           <li>
             Une personne de l&apos;équipe Growi peut consulter ton compte pour te dépanner ; ces
@@ -269,10 +270,23 @@ export default function ConfidentialitePage() {
 
       <LegalSection title="Cookies et mesure d’audience">
         <p>
-          Growi dépose un seul cookie, strictement nécessaire : celui de ta session, qui te
-          garde connecté d&apos;une page à l&apos;autre. Il disparaît à la déconnexion. Aucun
-          cookie publicitaire, aucun traceur tiers.
+          Growi ne dépose que des cookies strictement nécessaires à la connexion, ce qui les
+          dispense de ton accord :
         </p>
+        <ul className="flex list-disc flex-col gap-2 pl-5">
+          <li>
+            <strong>le cookie de session</strong>, qui te garde connecté d&apos;une page à
+            l&apos;autre et disparaît à la déconnexion ;
+          </li>
+          <li>
+            <strong>deux cookies techniques de connexion</strong>, posés dès ta première visite
+            même sans compte : l&apos;un protège le formulaire de connexion contre les requêtes
+            forgées depuis un autre site, l&apos;autre retient la page où revenir une fois
+            connecté. Ils ne contiennent rien qui t&apos;identifie et disparaissent à la
+            fermeture du navigateur.
+          </li>
+        </ul>
+        <p>Aucun cookie publicitaire, aucun traceur tiers.</p>
         <p>
           La fréquentation des pages est mesurée avec Vercel Web Analytics, qui{' '}
           <strong>ne dépose aucun cookie</strong>, ne crée aucun identifiant persistant et ne
