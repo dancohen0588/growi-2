@@ -178,8 +178,16 @@ export function keepTagOrder(current: readonly string[], chosen: readonly string
  *
  * `publishedAt` n'est posé qu'à la première publication : republier un article
  * dépublié ne le fait pas remonter en tête du blog.
+ *
+ * `notify` (case « Prévenir les utilisateurs », cochée par défaut) demande
+ * l'annonce push du lendemain matin — **à la première publication seulement**.
+ * Republier un article déjà annoncé, ou corrigé, ne notifie personne.
  */
-export async function publishBlogPost(actorId: string, id: string): Promise<BlogPost> {
+export async function publishBlogPost(
+  actorId: string,
+  id: string,
+  options: { notify?: boolean } = {},
+): Promise<BlogPost> {
   const post = await getPostForAdmin(id)
   if (post.status === 'PUBLISHED') throw new ServiceError('CONFLICT', 'Cet article est déjà publié.')
 
@@ -193,6 +201,7 @@ export async function publishBlogPost(actorId: string, id: string): Promise<Blog
   }
 
   const firstTime = !post.publishedAt
+  const announce = firstTime && (options.notify ?? true)
   return auditWrite(
     tx => tx.blogPost.update({
       where: { id },
@@ -200,6 +209,7 @@ export async function publishBlogPost(actorId: string, id: string): Promise<Blog
         status: 'PUBLISHED' satisfies BlogPostStatus,
         publishedById: actorId,
         ...(firstTime ? { publishedAt: new Date() } : {}),
+        ...(announce ? { pushRequestedAt: new Date() } : {}),
       },
     }),
     {
@@ -207,7 +217,7 @@ export async function publishBlogPost(actorId: string, id: string): Promise<Blog
       action: 'blog.publish',
       targetType: 'blog_post',
       targetId: id,
-      details: { slug: post.slug, depuis: post.status, premiere: firstTime },
+      details: { slug: post.slug, depuis: post.status, premiere: firstTime, annonce: announce },
     },
   )
 }

@@ -16,6 +16,8 @@ import type { Href } from 'expo-router'
 
 export interface NotificationTargetLike {
   screen?: unknown
+  /** Article du blog annoncé le matin de sa sortie. */
+  slug?: unknown
   postId?: unknown
   threadId?: unknown
   listingId?: unknown
@@ -34,6 +36,7 @@ type ScreenKey = keyof typeof SCREENS
  * Nature d'une notification, pour la mesure.
  *
  * Le serveur n'envoie pas de champ dédié : on le déduit de ce qu'elle vise.
+ * Un `slug` désigne un article du blog.
  * Une cible de la communauté (publication, fil, annonce, profil) ou un `kind`
  * de la communauté valent `community` ; le rappel du matin vise le
  * calendrier. Dans le doute, `planning` — c'est ce que le serveur envoie le
@@ -43,6 +46,10 @@ export function notificationKind(data: unknown): PushKind {
   if (typeof data !== 'object' || data === null) return 'planning'
 
   const target = data as NotificationTargetLike & { kind?: unknown }
+
+  // Avant le `kind` : l'annonce d'un article n'en porte pas, mais une version
+  // future pourrait en ajouter un — elle ne doit pas passer pour la communauté.
+  if (typeof target.slug === 'string' && target.slug) return 'blog'
 
   if (target.postId || target.threadId || target.listingId || target.handle) return 'community'
   if (target.screen === 'communaute') return 'community'
@@ -62,6 +69,12 @@ export function notificationRoute(data: unknown): Href | null {
   if (typeof data !== 'object' || data === null) return null
 
   const target = data as NotificationTargetLike
+
+  // `from=push` : l'écran de l'article le transmet à la mesure
+  // (`article_viewed`), qui distingue déjà cette provenance.
+  if (typeof target.slug === 'string' && target.slug) {
+    return `/(tabs)/accueil/conseils/${encodeURIComponent(target.slug)}?from=push` as Href
+  }
 
   if (typeof target.postId === 'string' && target.postId) {
     return `/(tabs)/communaute/publications/${target.postId}` as Href

@@ -108,6 +108,7 @@ export async function ProfileTab({ user }: { user: AdminUserDetail }) {
                   ['Taille', alerts.pruningReminder],
                   ['Semis', alerts.seedingAlerts],
                   ['Récolte', alerts.harvestAlerts],
+                  ['Nouveaux conseils', alerts.blogArticles],
                 ]}
               />
             </Row>

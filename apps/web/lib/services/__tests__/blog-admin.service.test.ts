@@ -72,6 +72,23 @@ describe('publication', () => {
     expect(journal[0]).toMatchObject({ action: 'blog.publish', targetType: 'blog_post', details: { premiere: true } })
   })
 
+  it('demande l’annonce push à la première publication, sauf si on la décoche', async () => {
+    await service.publishBlogPost('admin_1', 'post_1')
+    expect(prismaMock.blogPost.update.mock.calls[0][0].data).toMatchObject({ pushRequestedAt: expect.any(Date) })
+
+    await service.publishBlogPost('admin_1', 'post_1', { notify: false })
+    expect(prismaMock.blogPost.update.mock.calls[1][0].data).not.toHaveProperty('pushRequestedAt')
+    expect(journal[1]).toMatchObject({ details: { annonce: false } })
+  })
+
+  it('une republication ne notifie jamais, même case cochée', async () => {
+    prismaMock.blogPost.findUnique.mockResolvedValue(post({ status: 'ARCHIVED', publishedAt: FIRST_PUBLICATION }))
+
+    await service.publishBlogPost('admin_1', 'post_1', { notify: true })
+
+    expect(prismaMock.blogPost.update.mock.calls[0][0].data).not.toHaveProperty('pushRequestedAt')
+  })
+
   it('republier un article dépublié garde sa date de première publication', async () => {
     prismaMock.blogPost.findUnique.mockResolvedValue(post({ status: 'ARCHIVED', publishedAt: FIRST_PUBLICATION }))
 
