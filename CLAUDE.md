@@ -1554,12 +1554,23 @@ et celui de l'app mobile. Ici, les pièges qui ont chacun coûté un build.
   `assertNoFreeText` refuse le texte libre. Les événements serveur portent
   `surface: 'server'`, la plateforme de l'utilisateur est la propriété de
   personne `last_platform`.
-- **Le refus d'analyse (`User.analyticsOptOut`) est lu des deux côtés** :
-  par les SDK à l'ouverture de session, et par `trackServer` avant chaque
-  émission. Toute nouvelle émission serveur doit passer par
-  `lib/analytics/server.ts`, jamais par un client PostHog construit ailleurs.
-- La migration `20260909200000_analytics_opt_out` est **déjà appliquée en
-  production** (procédure `migrate diff` + `migrate deploy`).
+- **La mesure d'usage est en opt-in** (`User.analyticsConsent` : `null` jamais
+  demandé, `true`, `false`). **Rien ne part sans un oui** : PostHog n'est pas
+  monté sur le site public, `posthog.init` n'est appelé qu'après l'accord
+  (`AnalyticsProvider` du dashboard, `ConsentDialog`), le client mobile n'est
+  créé qu'après l'accord (`enableAnalytics`, écran `app/consentement.tsx`), et
+  `trackServer` vérifie `hasAnalyticsConsent` avant chaque émission. Toute
+  nouvelle émission serveur doit passer par `lib/analytics/server.ts`, jamais
+  par un client PostHog construit ailleurs. Spec :
+  `Documentation/spec/13-spec-rgpd-consentement.md`.
+- PostHog web : **stockage local, aucun cookie, pas d'enregistrement
+  d'écran** ; l'enregistrement d'écran n'existe que sur mobile. Les comptes
+  des e2e sont créés « ayant répondu » (`analyticsConsent: false`) : la boîte,
+  non fermable sans réponse, bloquerait sinon tous les parcours du dashboard.
+- L'ancien opt-out (`analyticsOptOut`) a été remplacé puis supprimé par les
+  migrations `20260924090000_analytics_consent` et
+  `20260925090000_drop_analytics_opt_out`, toutes deux **appliquées en
+  production**.
 
 ### Routing principal
 
