@@ -446,7 +446,7 @@ export async function reopenTask(userId: string, taskId: string): Promise<void> 
  */
 export async function completeTasksForGesture(
   userId: string,
-  plantInstanceId: string,
+  plantInstanceId: string | string[],
   careType: CareLogType,
   now: Date = new Date(),
   db: Pick<typeof prisma, 'plantTask'> = prisma,
@@ -454,10 +454,15 @@ export async function completeTasksForGesture(
   const actionType = ACTION_TYPE_BY_CARE_LOG[careType]
   if (!actionType) return 0
 
+  // Plusieurs plantes d'un coup — la tournée d'arrosage — en une requête,
+  // plutôt qu'une par plante dans la même transaction.
+  const plantIds = Array.isArray(plantInstanceId) ? plantInstanceId : [plantInstanceId]
+  if (plantIds.length === 0) return 0
+
   const { count } = await db.plantTask.updateMany({
     where: {
       userId,
-      plantInstanceId,
+      plantInstanceId: { in: plantIds },
       type: actionType,
       doneAt: null,
       supersededAt: null,

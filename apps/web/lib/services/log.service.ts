@@ -152,6 +152,72 @@ export async function logCare(
   return log
 }
 
+/** Un geste de la tournée : la plante et ce qu'on lui a fait. */
+export interface CareBatchEntry {
+  plantInstanceId: string
+  type: CareLogType
+}
+
+/**
+ * Note le même geste sur plusieurs plantes — la tournée de « Tout arrosé ».
+ *
+ * Tout tient en une poignée de requêtes groupées (un contrôle d'appartenance,
+ * un `createMany`, un `updateMany` des dates par type de geste, un acquittement
+ * des tâches échues), là où une transaction par plante coûtait près d'une
+ * seconde chacune depuis Vercel : quinze plantes, onze secondes, et pendant ce
+ * temps le planning rechargé par le client montrait encore tout à arroser.
+ *
+ * Les plantes qui ne sont pas (ou plus) à l'utilisateur sont rendues dans
+ * `unknownPlantIds` et n'empêchent pas les autres d'être notées. L'appelant
+ * ouvre la transaction et invalide le cache de conseils une fois à la fin.
+ */
+export async function logCareBatch(
+  userId: string,
+  entries: CareBatchEntry[],
+  tx: Prisma.TransactionClient,
+  occurredAt: Date = new Date(),
+  source: CareSource = 'planning',
+): Promise<{ logs: Array<{ id: string; plantInstanceId: string; type: string }>; unknownPlantIds: string[] }> {
+  if (entries.length === 0) return { logs: [], unknownPlantIds: [] }
+
+  const requested = [...new Set(entries.map((entry) => entry.plantInstanceId))]
+  const owned = await tx.plantInstance.findMany({
+    where: { userId, id: { in: requested } },
+    select: { id: true },
+  })
+  const ownedIds = new Set(owned.map((plant) => plant.id))
+  const unknownPlantIds = requested.filter((id) => !ownedIds.has(id))
+  const kept = entries.filter((entry) => ownedIds.has(entry.plantInstanceId))
+  if (kept.length === 0) return { logs: [], unknownPlantIds }
+
+  const logs = await tx.careLog.createManyAndReturn({
+    data: kept.map((entry) => ({ plantInstanceId: entry.plantInstanceId, type: entry.type, occurredAt })),
+    select: { id: true, plantInstanceId: true, type: true },
+  })
+
+  // Les dates de la plante et les tâches échues, par type de geste : c'est
+  // sur elles que le moteur raisonne, pas sur le journal.
+  const plantsByType = new Map<CareLogType, string[]>()
+  for (const entry of kept) {
+    plantsByType.set(entry.type, [...(plantsByType.get(entry.type) ?? []), entry.plantInstanceId])
+  }
+
+  for (const [type, plantIds] of plantsByType) {
+    const dateField = PLANT_DATE_FIELD[type]
+    if (dateField) {
+      await tx.plantInstance.updateMany({
+        where: { id: { in: plantIds }, userId },
+        data: { [dateField]: occurredAt },
+      })
+    }
+    await completeTasksForGesture(userId, plantIds, type, occurredAt, tx)
+  }
+
+  for (const entry of kept) trackServer(userId, 'care_logged', { type: entry.type, from: source })
+
+  return { logs, unknownPlantIds }
+}
+
 /**
  * Efface un geste et remet la plante dans l'état d'avant.
  *

@@ -14,7 +14,7 @@ const gardenService = vi.hoisted(() => ({
   listGardens: vi.fn(),
   setPlanningClearedOn: vi.fn(),
 }))
-const logService = vi.hoisted(() => ({ logCare: vi.fn(), deleteCareLog: vi.fn() }))
+const logService = vi.hoisted(() => ({ logCare: vi.fn(), logCareBatch: vi.fn(), deleteCareLog: vi.fn() }))
 const taskService = vi.hoisted(() => ({
   listOpenTasksAsActions: vi.fn(),
   completeTask: vi.fn(),
@@ -23,6 +23,7 @@ const taskService = vi.hoisted(() => ({
 const userService = vi.hoisted(() => ({ getUserTimezone: vi.fn() }))
 const prismaMock = vi.hoisted(() => ({
   plantInstance: { findFirst: vi.fn() },
+  plantTask: { findMany: vi.fn(), updateMany: vi.fn() },
   // Une transaction doublée exécute simplement le corps : ce qu'on vérifie
   // ici, ce sont les écritures demandées, pas l'atomicité de Postgres.
   $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(prismaMock)),
@@ -75,6 +76,9 @@ beforeEach(() => {
   prismaMock.plantInstance.findFirst.mockResolvedValue({ garden: { planningClearedOn: null } })
   prismaMock.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prismaMock))
   logService.logCare.mockResolvedValue({ id: 'log_1' })
+  logService.logCareBatch.mockResolvedValue({ logs: [], unknownPlantIds: [] })
+  prismaMock.plantTask.findMany.mockResolvedValue([])
+  prismaMock.plantTask.updateMany.mockResolvedValue({ count: 0 })
 })
 
 describe('fusion sur les trois portes d’entrée', () => {
@@ -212,10 +216,14 @@ describe('cocher plusieurs actions d’un coup', () => {
     { actionType: 'arrosage' as const, plantId: 'p2' },
   ]
 
-  it('note chaque geste et n’invalide le cache qu’une fois', async () => {
-    logService.logCare
-      .mockResolvedValueOnce({ id: 'log_1' })
-      .mockResolvedValueOnce({ id: 'log_2' })
+  it('note toute la tournée en une transaction et n’invalide le cache qu’une fois', async () => {
+    logService.logCareBatch.mockResolvedValue({
+      logs: [
+        { id: 'log_1', plantInstanceId: 'p1', type: 'watering' },
+        { id: 'log_2', plantInstanceId: 'p2', type: 'watering' },
+      ],
+      unknownPlantIds: [],
+    })
 
     await expect(markActionsDone(USER, { gardenId: GARDEN, items })).resolves.toEqual({
       done: 2,
@@ -223,14 +231,27 @@ describe('cocher plusieurs actions d’un coup', () => {
       careLogIds: ['log_1', 'log_2'],
     })
 
-    expect(logService.logCare).toHaveBeenCalledTimes(2)
+    // Une seule transaction, un seul appel groupé : c'est ce qui ramène la
+    // tournée de quinze plantes de onze secondes à une.
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
+    expect(logService.logCareBatch).toHaveBeenCalledTimes(1)
+    expect(logService.logCareBatch).toHaveBeenCalledWith(
+      USER,
+      [
+        { plantInstanceId: 'p1', type: 'watering' },
+        { plantInstanceId: 'p2', type: 'watering' },
+      ],
+      prismaMock,
+      expect.any(Date),
+    )
     expect(engine.invalidateGardenAdviceCache).toHaveBeenCalledTimes(1)
   })
 
   it('poursuit la tournée quand une plante a disparu', async () => {
-    logService.logCare
-      .mockRejectedValueOnce(new Error('Plante introuvable'))
-      .mockResolvedValueOnce({ id: 'log_2' })
+    logService.logCareBatch.mockResolvedValue({
+      logs: [{ id: 'log_2', plantInstanceId: 'p2', type: 'watering' }],
+      unknownPlantIds: ['p1'],
+    })
 
     // L'utilisateur a bien arrosé la seconde : la lui reprendre parce que la
     // première n'existe plus serait pire que de compter l'échec.
@@ -241,13 +262,43 @@ describe('cocher plusieurs actions d’un coup', () => {
     })
   })
 
+  it('acquitte les tâches par identifiant et ignore celles qui ne sont plus là', async () => {
+    prismaMock.plantTask.findMany.mockResolvedValue([{ id: 't1' }])
+    logService.logCareBatch.mockResolvedValue({
+      logs: [{ id: 'log_1', plantInstanceId: 'p1', type: 'treatment' }],
+      unknownPlantIds: [],
+    })
+
+    await expect(
+      markActionsDone(USER, {
+        gardenId: GARDEN,
+        items: [
+          { actionType: 'traitement', plantId: 'p1', taskId: 't1' },
+          { actionType: 'traitement', plantId: 'p2', taskId: 't_gone' },
+        ],
+      }),
+    ).resolves.toEqual({ done: 1, skipped: 1, careLogIds: ['log_1'] })
+
+    // La tâche disparue n'écrit aucun geste sur sa plante.
+    expect(logService.logCareBatch).toHaveBeenCalledWith(
+      USER,
+      [{ plantInstanceId: 'p1', type: 'treatment' }],
+      prismaMock,
+      expect.any(Date),
+    )
+    expect(prismaMock.plantTask.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['t1'] }, doneAt: null },
+      data: { doneAt: expect.any(Date) },
+    })
+  })
+
   it('vérifie l’appartenance du jardin une seule fois, avant tout', async () => {
     gardenService.assertGardenOwned.mockRejectedValue(new Error('Jardin introuvable'))
 
     await expect(markActionsDone(USER, { gardenId: GARDEN, items })).rejects.toThrow(
       /Jardin introuvable/,
     )
-    expect(logService.logCare).not.toHaveBeenCalled()
+    expect(logService.logCareBatch).not.toHaveBeenCalled()
   })
 })
 

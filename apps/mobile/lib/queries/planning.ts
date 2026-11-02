@@ -127,6 +127,30 @@ function dropActions(
   return previous
 }
 
+/** Remet en cache les actions d'une mutation échouée, sans toucher aux autres. */
+function restoreActions(
+  queryClient: ReturnType<typeof useQueryClient>,
+  previous: TodayPlanning,
+  actionIds: string[],
+): void {
+  const wanted = new Set(actionIds)
+
+  queryClient.setQueryData<TodayPlanning>(planningKeys.today(), (planning) => {
+    if (!planning) return previous
+
+    return {
+      ...planning,
+      gardens: planning.gardens.map((garden) => {
+        const before = previous.gardens.find((g) => g.id === garden.id)
+        if (!before) return garden
+        const present = new Set(garden.actions.map((a) => a.id))
+        const back = before.actions.filter((a) => wanted.has(a.id) && !present.has(a.id))
+        return back.length ? { ...garden, actions: [...garden.actions, ...back] } : garden
+      }),
+    }
+  })
+}
+
 /**
  * Coche une tâche, avec mise à jour optimiste.
  *
@@ -171,11 +195,21 @@ export function useMarkActionDone() {
  * Un appel et une seule invalidation, là où N mutations unitaires
  * rechargeaient le planning N fois : sur cinq plantes, la liste sautait cinq
  * fois sous le doigt.
+ *
+ * L'écran lance une mutation **par jardin**, en parallèle. L'invalidation
+ * n'a lieu qu'au règlement de la dernière : un petit jardin fini en une
+ * seconde rechargeait le planning pendant que le gros s'écrivait encore, et
+ * la réponse — douze plantes « à arroser » — écrasait la mise à jour
+ * optimiste. Tout arrosé, puis d'un coup tout à refaire.
  */
+export const MARK_ACTIONS_DONE_BULK_KEY = ['planning', 'mark-done-bulk'] as const
+
 export function useMarkActionsDoneBulk() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    mutationKey: MARK_ACTIONS_DONE_BULK_KEY,
+
     mutationFn: (input: MarkActionsDoneBulkInput & { actionIds: string[] }) =>
       api.planning.markDoneBulk({ gardenId: input.gardenId, items: input.items }),
 
@@ -184,17 +218,21 @@ export function useMarkActionsDoneBulk() {
       return { previous: dropActions(queryClient, actionIds) }
     },
 
-    onError: (_error, _input, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(planningKeys.today(), context.previous)
-      }
+    onError: (_error, { actionIds }, context) => {
+      // Ne rendre que les actions de ce jardin : restaurer tout l'instantané
+      // ferait réapparaître celles qu'un autre jardin vient de cocher.
+      if (context?.previous) restoreActions(queryClient, context.previous, actionIds)
     },
 
-    onSettled: (_data, _error, { items }) =>
+    onSettled: (_data, _error, { items }) => {
+      // `isMutating` compte encore celle-ci : 1 = la dernière de la tournée.
+      if (queryClient.isMutating({ mutationKey: MARK_ACTIONS_DONE_BULK_KEY }) > 1) return
+
       invalidatePlanning(
         queryClient,
         items.map((item) => item.plantId).filter((id): id is string => !!id),
-      ),
+      )
+    },
   })
 }
 
