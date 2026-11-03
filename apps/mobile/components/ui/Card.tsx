@@ -1,7 +1,7 @@
 import { Pressable, Text, View, type ViewProps } from 'react-native'
 
 /** Élévation douce teintée forest, conforme au design system. */
-const SHADOW = {
+export const CARD_SHADOW = {
   shadowColor: '#1E5631',
   shadowOpacity: 0.08,
   shadowRadius: 12,
@@ -20,7 +20,7 @@ export function Card({ children, onPress, accessibilityLabel, ...props }: CardPr
 
   if (!onPress) {
     return (
-      <View className={className} style={SHADOW} {...props}>
+      <View className={className} style={CARD_SHADOW} {...props}>
         {children}
       </View>
     )
@@ -32,7 +32,7 @@ export function Card({ children, onPress, accessibilityLabel, ...props }: CardPr
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       className={className}
-      style={({ pressed }) => [SHADOW, pressed ? { transform: [{ scale: 0.98 }] } : null]}
+      style={({ pressed }) => [CARD_SHADOW, pressed ? { transform: [{ scale: 0.98 }] } : null]}
     >
       {children}
     </Pressable>

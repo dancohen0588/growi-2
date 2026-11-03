@@ -10,14 +10,59 @@
 import {
   actionHorizon,
   addDays,
+  pickDailyIndex,
   type DashboardSummary,
   type HealthStatus,
+  type HeroPhoto,
 } from '@growi/shared'
 
 import { prisma } from '@/lib/prisma'
 import { getTodayPlanning } from '@/lib/services/planning.service'
 
-export type { DashboardSummary }
+export type { DashboardSummary, HeroPhoto }
+
+/**
+ * Plafond de candidates lues pour la photo du jour. Au-delà, le tirage porte
+ * sur les plus récentes : c'est un habillage, pas une rétrospective, et une
+ * lecture bornée reste rapide quel que soit le jardin.
+ */
+const HERO_CANDIDATES_MAX = 200
+
+/**
+ * La photo du haut de l'accueil, parmi les plantes dont l'utilisateur a pris
+ * lui-même la photo. Jamais la photo du catalogue : elle n'est pas « à lui »,
+ * et sa qualité varie trop pour tenir un plein écran.
+ *
+ * Le tirage dépend du compte et du jour (`day`, dans le fuseau de
+ * l'utilisateur) : stable sur la journée, différent le lendemain.
+ */
+export async function getHeroPhoto(userId: string, day: string): Promise<HeroPhoto | null> {
+  const candidates = await prisma.plantInstance.findMany({
+    where: { userId, photoUrl: { not: null } },
+    select: {
+      id: true,
+      customName: true,
+      photoUrl: true,
+      catalogPlant: { select: { commonName: true } },
+      garden: { select: { name: true } },
+    },
+    // Un ordre fixe : sans lui, le même indice désignerait une autre plante
+    // d'une requête à l'autre et le tirage « du jour » ne tiendrait pas.
+    orderBy: [{ dateAdded: 'desc' }, { id: 'asc' }],
+    take: HERO_CANDIDATES_MAX,
+  })
+
+  const index = pickDailyIndex(`${userId}:${day}`, candidates.length)
+  const plant = candidates[index]
+  if (!plant?.photoUrl) return null
+
+  return {
+    plantId: plant.id,
+    plantName: plant.customName?.trim() || plant.catalogPlant?.commonName || 'Ta plante',
+    gardenName: plant.garden?.name ?? null,
+    photoUrl: plant.photoUrl,
+  }
+}
 
 export async function getDashboardSummary(
   userId: string,
@@ -45,6 +90,10 @@ export async function getDashboardSummary(
   const today = actions.filter((a) => actionHorizon(a, planning.date) === 'today')
   const weekEnd = addDays(planning.date, 7)
 
+  // Après le planning : c'est lui qui connaît le jour dans le fuseau de
+  // l'utilisateur. Une photo qu'on n'a pas pu lire n'empêche pas l'accueil.
+  const heroPhoto = plants > 0 ? await getHeroPhoto(userId, planning.date).catch(() => null) : null
+
   return {
     gardens,
     plants,
@@ -57,5 +106,6 @@ export async function getDashboardSummary(
     alertsHigh: alerts.filter((a) => a.severity === 'high').length,
     plantsWarning: health('WARNING'),
     plantsCritical: health('CRITICAL'),
+    heroPhoto,
   }
 }

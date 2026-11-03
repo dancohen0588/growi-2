@@ -24,9 +24,44 @@ export const dashboardSummarySchema = z.object({
   alertsHigh: z.number().int(),
   plantsWarning: z.number().int(),
   plantsCritical: z.number().int(),
+  /**
+   * La photo qui habille le haut de l'accueil : celle d'une plante de
+   * l'utilisateur, tirée au sort **une fois par jour** (voir
+   * `pickDailyIndex`). `null` quand aucune plante n'a de photo — l'app montre
+   * alors une illustration. Facultatif : un serveur antérieur ne l'envoie pas.
+   */
+  heroPhoto: z
+    .object({
+      plantId: z.string(),
+      plantName: z.string(),
+      gardenName: z.string().nullable(),
+      photoUrl: z.string().url(),
+    })
+    .nullable()
+    .optional(),
 })
 
 export type DashboardSummary = z.infer<typeof dashboardSummarySchema>
+export type HeroPhoto = NonNullable<DashboardSummary['heroPhoto']>
+
+/**
+ * Un indice dans `[0, count)`, stable pour une même graine.
+ *
+ * Sert à tirer la photo du jour : la graine est `userId + jour`, si bien que
+ * l'image ne change pas à chaque rafraîchissement de l'accueil — un tirage
+ * vraiment aléatoire ferait clignoter le haut de l'écran au moindre « tirer
+ * pour actualiser » — mais change bien le lendemain, et diffère d'un compte à
+ * l'autre. FNV-1a 32 bits : pas de cryptographie à faire ici.
+ */
+export function pickDailyIndex(seed: string, count: number): number {
+  if (count <= 0) return -1
+  let hash = 0x811c9dc5
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0) % count
+}
 
 // ─── Couleur des indicateurs ───────────────────────────────────────────────
 

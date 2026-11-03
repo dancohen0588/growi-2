@@ -11,6 +11,8 @@ import {
 } from 'lucide-react-native'
 import type { FrostLevel, GardenContext, PlantWeatherAlert } from '@growi/shared'
 
+import { CARD_SHADOW } from '@/components/ui/Card'
+
 /** Le gel se lit à la couleur, du vert au rouge. */
 const FROST_TONE: Record<FrostLevel, { label: string; color: string }> = {
   none: { label: 'Aucun', color: '#1E5631' },
@@ -57,7 +59,7 @@ export function GardenContextCard({ context }: { context: GardenContext }) {
   const frost = FROST_TONE[context.frostRisk.level]
 
   return (
-    <View className="rounded-2xl border border-border bg-card p-4 gap-4">
+    <View className="rounded-2xl bg-card p-4 gap-4" style={CARD_SHADOW}>
       <View className="flex-row items-center gap-2">
         <Globe size={18} color="#1E5631" />
         <Text className="font-poppins text-section text-forest">Ton contexte jardin</Text>
