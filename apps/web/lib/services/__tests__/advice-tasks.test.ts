@@ -24,6 +24,7 @@ const userService = vi.hoisted(() => ({ getUserTimezone: vi.fn() }))
 const prismaMock = vi.hoisted(() => ({
   plantInstance: { findFirst: vi.fn() },
   plantTask: { findMany: vi.fn(), updateMany: vi.fn() },
+  careLog: { findFirst: vi.fn() },
   // Une transaction doublée exécute simplement le corps : ce qu'on vérifie
   // ici, ce sont les écritures demandées, pas l'atomicité de Postgres.
   $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(prismaMock)),
@@ -79,6 +80,7 @@ beforeEach(() => {
   logService.logCareBatch.mockResolvedValue({ logs: [], unknownPlantIds: [] })
   prismaMock.plantTask.findMany.mockResolvedValue([])
   prismaMock.plantTask.updateMany.mockResolvedValue({ count: 0 })
+  prismaMock.careLog.findFirst.mockResolvedValue(null)
 })
 
 describe('fusion sur les trois portes d’entrée', () => {
@@ -208,6 +210,20 @@ describe('cocher une action', () => {
       markActionDone(USER, { gardenId: GARDEN, taskId: 't1' }),
     ).resolves.toEqual({ careLogId: null })
   })
+
+  it('n’écrit pas un second arrosage le même jour sur la même plante', async () => {
+    prismaMock.careLog.findFirst.mockResolvedValue({ id: 'log_matin' })
+
+    await expect(
+      markActionDone(USER, { gardenId: GARDEN, actionType: 'arrosage', plantId: 'p1' }),
+    ).resolves.toEqual({ careLogId: null })
+
+    expect(logService.logCare).not.toHaveBeenCalled()
+    expect(prismaMock.careLog.findFirst).toHaveBeenCalledWith({
+      where: expect.objectContaining({ plantInstanceId: 'p1', type: 'watering', plantInstance: { userId: USER } }),
+      select: { id: true },
+    })
+  })
 })
 
 describe('cocher plusieurs actions d’un coup', () => {
@@ -243,6 +259,8 @@ describe('cocher plusieurs actions d’un coup', () => {
       ],
       prismaMock,
       expect.any(Date),
+      'planning',
+      { skipIfLoggedSince: expect.any(Date) },
     )
     expect(engine.invalidateGardenAdviceCache).toHaveBeenCalledTimes(1)
   })
@@ -285,11 +303,22 @@ describe('cocher plusieurs actions d’un coup', () => {
       [{ plantInstanceId: 'p1', type: 'treatment' }],
       prismaMock,
       expect.any(Date),
+      'planning',
+      { skipIfLoggedSince: expect.any(Date) },
     )
     expect(prismaMock.plantTask.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ['t1'] }, doneAt: null },
       data: { doneAt: expect.any(Date) },
     })
+  })
+
+  it('ne réécrit pas ce qui est déjà noté depuis minuit, heure de l’utilisateur', async () => {
+    await markActionsDone(USER, { gardenId: GARDEN, items }, LATE_NIGHT)
+
+    // 23 h 30 à Paris : la journée a commencé à 22 h UTC la veille, pas à
+    // minuit UTC — sinon l'arrosage de 0 h 30 compterait pour hier.
+    const options = logService.logCareBatch.mock.calls[0]![5]
+    expect(options.skipIfLoggedSince).toEqual(new Date('2026-08-20T22:00:00.000Z'))
   })
 
   it('vérifie l’appartenance du jardin une seule fois, avant tout', async () => {

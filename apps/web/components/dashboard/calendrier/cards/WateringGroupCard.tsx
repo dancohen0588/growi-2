@@ -14,8 +14,13 @@ const MAX_AVATARS = 5
 
 interface WateringGroupCardProps {
   group: ActionGroup
-  /** Coche les actions retenues en un seul appel. */
-  onDoneMany: (actions: GardenAction[]) => void
+  /**
+   * Coche les actions retenues en un seul appel.
+   *
+   * Absent, la carte n'a pas de bouton : c'est le cas de « Plus tard », où
+   * arroser d'avance une plante prévue dans deux semaines n'a pas de sens.
+   */
+  onDoneMany?: (actions: GardenAction[]) => void
   onOpenDetail: (action: GardenAction) => void
 }
 
@@ -132,32 +137,34 @@ export function WateringGroupCard({ group, onDoneMany, onOpenDetail }: WateringG
         </ul>
       )}
 
-      <div className="flex items-center gap-2">
-        {picking ? (
-          <>
-            <Button
-              variant="primary"
-              className="flex-1"
-              disabled={chosen.length === 0}
-              onClick={() => onDoneMany(chosen)}
-            >
-              Valider ({chosen.length})
-            </Button>
-            <Button variant="outline" onClick={() => setPicking(false)}>
-              Annuler
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button variant="primary" className="flex-1" onClick={() => onDoneMany(group.actions)}>
-              ✓ Tout arrosé
-            </Button>
-            <Button variant="outline" onClick={() => setPicking(true)}>
-              Choisir
-            </Button>
-          </>
-        )}
-      </div>
+      {onDoneMany ? (
+        <div className="flex items-center gap-2">
+          {picking ? (
+            <>
+              <Button
+                variant="primary"
+                className="flex-1"
+                disabled={chosen.length === 0}
+                onClick={() => onDoneMany(chosen)}
+              >
+                Valider ({chosen.length})
+              </Button>
+              <Button variant="outline" onClick={() => setPicking(false)}>
+                Annuler
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="primary" className="flex-1" onClick={() => onDoneMany(group.actions)}>
+                ✓ Tout arrosé
+              </Button>
+              <Button variant="outline" onClick={() => setPicking(true)}>
+                Choisir
+              </Button>
+            </>
+          )}
+        </div>
+      ) : null}
     </div>
   )
 }

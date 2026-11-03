@@ -37,7 +37,7 @@ import {
   reopenTask,
 } from '@/lib/services/task.service'
 import { getUserTimezone } from '@/lib/services/user.service'
-import { zonedDayIso } from '@/lib/zoned-day'
+import { safeTimeZone, startOfZonedDay, zonedDayIso } from '@/lib/zoned-day'
 
 export { invalidateGardenAdviceCache }
 
@@ -198,8 +198,25 @@ export async function markActionDone(
   // L'appartenance est vérifiée là, et le geste est noté comme pour le moteur.
   if (taskId) await completeTask(userId, taskId)
 
+  // Déjà noté aujourd'hui sur cette plante : ne pas écrire de doublon. Le
+  // geste est fait, la tâche est close ; seul « Annuler » n'a rien à défaire.
+  const alreadyToday =
+    plantId && careType
+      ? await prisma.careLog.findFirst({
+          where: {
+            plantInstanceId: plantId,
+            plantInstance: { userId },
+            type: careType,
+            occurredAt: { gte: startOfZonedDay(new Date(), safeTimeZone(await getUserTimezone(userId))) },
+          },
+          select: { id: true },
+        })
+      : null
+
   const log =
-    plantId && careType ? await logCare(plantId, userId, { type: careType }, undefined, 'planning') : null
+    plantId && careType && !alreadyToday
+      ? await logCare(plantId, userId, { type: careType }, undefined, 'planning')
+      : null
 
   await invalidateGardenAdviceCache(gardenId)
 
@@ -239,6 +256,10 @@ export async function markActionsDone(
 ): Promise<MarkActionsDoneBulkResult> {
   await assertGardenOwned(input.gardenId, userId)
 
+  // Le jour de l'utilisateur : un arrosage déjà noté depuis minuit (Paris) ne
+  // se réécrit pas. Il compte comme fait — il l'est.
+  const dayStart = startOfZonedDay(now, safeTimeZone(await getUserTimezone(userId)))
+
   const { done, skipped, careLogIds } = await prisma.$transaction(async (tx) => {
     // Les tâches planifiées s'acquittent par identifiant : deux tâches de
     // même geste issues de deux diagnostics ne se cochent pas ensemble.
@@ -256,7 +277,9 @@ export async function markActionsDone(
       return [{ plantInstanceId: item.plantId, type: careType }]
     })
 
-    const { logs, unknownPlantIds } = await logCareBatch(userId, entries, tx, now)
+    const { logs, unknownPlantIds } = await logCareBatch(userId, entries, tx, now, 'planning', {
+      skipIfLoggedSince: dayStart,
+    })
     const unknown = new Set(unknownPlantIds)
 
     if (ownedTaskIds.size > 0) {

@@ -170,6 +170,11 @@ export interface CareBatchEntry {
  * Les plantes qui ne sont pas (ou plus) à l'utilisateur sont rendues dans
  * `unknownPlantIds` et n'empêchent pas les autres d'être notées. L'appelant
  * ouvre la transaction et invalide le cache de conseils une fois à la fin.
+ *
+ * Avec `skipIfLoggedSince` (le début de la journée de l'utilisateur), un geste
+ * déjà noté depuis sur la même plante n'est pas réécrit : il est rendu dans
+ * `alreadyLogged`. Trois appuis sur « Tout arrosé » en une minute ne font pas
+ * trois arrosages — ils gonflaient « Fait aujourd'hui » de doublons.
  */
 export async function logCareBatch(
   userId: string,
@@ -177,8 +182,13 @@ export async function logCareBatch(
   tx: Prisma.TransactionClient,
   occurredAt: Date = new Date(),
   source: CareSource = 'planning',
-): Promise<{ logs: Array<{ id: string; plantInstanceId: string; type: string }>; unknownPlantIds: string[] }> {
-  if (entries.length === 0) return { logs: [], unknownPlantIds: [] }
+  options: { skipIfLoggedSince?: Date } = {},
+): Promise<{
+  logs: Array<{ id: string; plantInstanceId: string; type: string }>
+  unknownPlantIds: string[]
+  alreadyLogged: CareBatchEntry[]
+}> {
+  if (entries.length === 0) return { logs: [], unknownPlantIds: [], alreadyLogged: [] }
 
   const requested = [...new Set(entries.map((entry) => entry.plantInstanceId))]
   const owned = await tx.plantInstance.findMany({
@@ -187,8 +197,30 @@ export async function logCareBatch(
   })
   const ownedIds = new Set(owned.map((plant) => plant.id))
   const unknownPlantIds = requested.filter((id) => !ownedIds.has(id))
-  const kept = entries.filter((entry) => ownedIds.has(entry.plantInstanceId))
-  if (kept.length === 0) return { logs: [], unknownPlantIds }
+  const ownedEntries = entries.filter((entry) => ownedIds.has(entry.plantInstanceId))
+
+  const key = (entry: CareBatchEntry) => `${entry.plantInstanceId}:${entry.type}`
+  const done = new Set<string>()
+  if (options.skipIfLoggedSince && ownedEntries.length > 0) {
+    const existing = await tx.careLog.findMany({
+      where: {
+        plantInstanceId: { in: [...new Set(ownedEntries.map((entry) => entry.plantInstanceId))] },
+        type: { in: [...new Set(ownedEntries.map((entry) => entry.type))] },
+        occurredAt: { gte: options.skipIfLoggedSince },
+      },
+      select: { plantInstanceId: true, type: true },
+    })
+    for (const log of existing) done.add(key({ plantInstanceId: log.plantInstanceId, type: log.type as CareLogType }))
+  }
+
+  const alreadyLogged = ownedEntries.filter((entry) => done.has(key(entry)))
+  // Une même plante deux fois dans la tournée ne s'écrit qu'une fois non plus.
+  const kept = ownedEntries.filter((entry) => {
+    if (done.has(key(entry))) return false
+    done.add(key(entry))
+    return true
+  })
+  if (kept.length === 0) return { logs: [], unknownPlantIds, alreadyLogged }
 
   const logs = await tx.careLog.createManyAndReturn({
     data: kept.map((entry) => ({ plantInstanceId: entry.plantInstanceId, type: entry.type, occurredAt })),
@@ -215,7 +247,7 @@ export async function logCareBatch(
 
   for (const entry of kept) trackServer(userId, 'care_logged', { type: entry.type, from: source })
 
-  return { logs, unknownPlantIds }
+  return { logs, unknownPlantIds, alreadyLogged }
 }
 
 /**
