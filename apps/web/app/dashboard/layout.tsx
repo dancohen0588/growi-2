@@ -1,6 +1,8 @@
 // growi-frontend/app/dashboard/layout.tsx
+import { Suspense } from 'react'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
+import { NavigationProgress } from '@/components/dashboard/NavigationProgress'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { DashboardLegalLinks } from '@/components/dashboard/DashboardLegalLinks'
 import { DashboardNav } from '@/components/dashboard/DashboardNav'
@@ -37,6 +39,11 @@ export default async function DashboardLayout({
           calendrier — et son hôte vit donc ici, une fois pour toutes. */}
       <ChatPanelProvider>
         <ConsentDialog />
+        {/* `useSearchParams` exige une frontière Suspense, sans quoi tout le
+            dashboard passerait en rendu client. */}
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <div className="flex flex-col min-h-screen bg-sand">
           <DashboardHeader />
           <div className="flex flex-1 max-w-screen-xl mx-auto w-full">

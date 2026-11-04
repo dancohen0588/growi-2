@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
+
+import { GrowiLoader } from '@/components/ui/GrowiLoader'
 
 /** Les mêmes étapes que sur le web : photo, analyse, résultat. */
 const LOADING_MESSAGES = [
@@ -24,8 +26,8 @@ export function IdentifyLoading() {
   }, [])
 
   return (
-    <View className="items-center gap-3 py-16">
-      <ActivityIndicator size="large" color="#1E5631" />
+    <View className="items-center gap-4 py-16" accessibilityLiveRegion="polite">
+      <GrowiLoader motion="pousse" size={88} label={null} />
       <Text className="font-raleway text-body text-muted-foreground text-center">
         {LOADING_MESSAGES[index]}
       </Text>

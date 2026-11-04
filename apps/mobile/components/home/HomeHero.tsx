@@ -18,6 +18,7 @@ import { indicatorTone, type DashboardSummary, type HeroPhoto, type IndicatorTon
 import { NotificationBell } from '@/components/community/NotificationBell'
 import { GardenScene } from '@/components/home/illustrations'
 import { Button } from '@/components/ui/Button'
+import { Pulse } from '@/components/ui/states'
 
 /**
  * Le haut de l'accueil : une photo d'une plante de l'utilisateur sous un voile
@@ -347,13 +348,15 @@ function HeroStat({ indicator }: { indicator: Indicator }) {
 
 function DashboardSkeleton() {
   return (
-    <View className="gap-2.5" accessibilityLabel="Chargement de ton jardin">
-      {[0, 1].map((row) => (
-        <View key={row} className="flex-row gap-2.5">
-          <View className="h-[92px] flex-1 rounded-xl bg-forest-light/70" />
-          <View className="h-[92px] flex-1 rounded-xl bg-forest-light/70" />
-        </View>
-      ))}
+    <View accessibilityLabel="Chargement de ton jardin">
+      <Pulse style={{ gap: 10 }}>
+        {[0, 1].map((row) => (
+          <View key={row} className="flex-row gap-2.5">
+            <View className="h-[92px] flex-1 rounded-xl bg-forest-light/70" />
+            <View className="h-[92px] flex-1 rounded-xl bg-forest-light/70" />
+          </View>
+        ))}
+      </Pulse>
     </View>
   )
 }

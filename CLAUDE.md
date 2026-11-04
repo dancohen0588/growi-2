@@ -1532,6 +1532,42 @@ au-delà de cinq signalements ouverts, purge des notifications lues de plus de
 > Le relancer suffit — au besoin sur un autre port : `CI=1 pnpm exec expo start
 > --port 8082`, le temps que le fichier se régénère.
 
+### Chargement : région, loaders, cache persistant
+
+Analyse : `~/Growi/Documentation/spec/15-analyse-loader-performances.md`.
+Maquettes : Claude Design « Growi — Loader pousse ».
+
+- **Les fonctions Vercel tournent en `dub1`** (`apps/web/vercel.json`), la
+  région AWS de Supabase (`eu-west-1`). Jusqu'au 04/11/2026 elles tournaient
+  en `iad1` : chaque requête SQL traversait l'Atlantique. Ne pas changer de
+  région sans déplacer la base — l'en-tête `x-vercel-id` (`cdg1::dub1::…`)
+  dit où une requête a été servie.
+- **Le loader de marque** est la pousse du logo, en vecteur, en trois
+  mouvements : `pousse` (attentes longues : identification, diagnostic),
+  `balance` (page qui tarde), `souffle` (moins de 24 px, dans un bouton).
+  Web : `components/ui/growi-loader.tsx`, animations en CSS dans
+  `globals.css` (`.growi-loader`). Mobile : `components/ui/GrowiLoader.tsx`
+  (Reanimated, trois calques SVG). Les tracés sont dupliqués : toute retouche
+  se reporte des deux côtés. Pour un chargement ordinaire, le squelette reste
+  la règle ; la pousse est pour les attentes qu'il faut habiter.
+- **Web : `app/dashboard/loading.tsx` est unique** et choisit son squelette
+  d'après `usePathname` (`components/dashboard/DashboardSkeletons.tsx`). Un
+  `loading.tsx` dans `plantes/` n'envelopperait pas `plantes/layout.tsx`, qui
+  charge la liste. `NavigationProgress` (barre lime) part du clic sur un lien
+  interne et s'arrête quand l'URL rendue change : Next 14 n'expose aucun
+  événement de navigation.
+- **Mobile : `Pulse` fait respirer les squelettes**, posé sur le conteneur et
+  non sur chaque `Skeleton` — le `style` animé sur l'`Animated.View`,
+  l'apparence (`className`) sur des `View` internes, comme `Toast.tsx`.
+- **Mobile : le cache React Query est persisté** (`lib/query-persist.ts`,
+  AsyncStorage, 24 h). Liste blanche (`summary`, `planning`, `weather`,
+  `gardens` sauf le plan, `plants`, `blog`) ; vidé par `clearQueryCache` à
+  **chaque** changement de compte (connexion, déconnexion, jeton refusé) ;
+  invalidé à chaque build (`buster`) ou en montant `CACHE_SCHEMA`. `gcTime`
+  vaut 24 h : une requête sortie de la mémoire sortirait aussi du disque.
+  Toute nouvelle racine de clé qui porte des données d'un autre compte ou
+  change vite (messagerie, fil) reste **hors** de la liste.
+
 ### Observabilité (Sentry + PostHog)
 
 Le détail — fichiers, variables, vérification — est dans le `README.md` racine

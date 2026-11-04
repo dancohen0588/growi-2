@@ -133,3 +133,75 @@ html {
     @apply border-b border-forest/10 py-2 pr-6 align-top;
   }
 }
+
+/*
+ * Loader de marque (`components/ui/growi-loader.tsx`) — la pousse du logo,
+ * animée de trois façons. Maquettes : Claude Design « Growi — Loader pousse ».
+ * Les origines de transformation sont en unités du viewBox (1024 × 1024 du
+ * logo) : `transform-box: view-box` les rend indépendantes de la taille.
+ */
+@layer components {
+  .growi-loader .gl-plant,
+  .growi-loader .gl-leaves,
+  .growi-loader .gl-leaf-l,
+  .growi-loader .gl-leaf-r {
+    transform-box: view-box;
+  }
+  .growi-loader .gl-plant { transform-origin: 512px 833px; }
+  .growi-loader .gl-leaves,
+  .growi-loader .gl-leaf-l,
+  .growi-loader .gl-leaf-r { transform-origin: 512px 545px; }
+
+  /* Pousse : la tige monte, les feuilles s'ouvrent, les nervures se tracent, puis tout s'efface. */
+  .growi-loader--pousse .gl-stem { stroke-dasharray: 310; animation: gl-stem 2.8s cubic-bezier(.4, 0, .2, 1) infinite; }
+  .growi-loader--pousse .gl-leaf-l { animation: gl-leaf-l 2.8s cubic-bezier(.34, 1.3, .5, 1) infinite; }
+  .growi-loader--pousse .gl-leaf-r { animation: gl-leaf-r 2.8s cubic-bezier(.34, 1.3, .5, 1) infinite; }
+  .growi-loader--pousse .gl-vein { stroke-dasharray: 290; animation: gl-vein 2.8s ease-out infinite; }
+
+  /* Balance : depuis le pied de la tige, les feuilles en léger décalage. */
+  .growi-loader--balance .gl-plant { animation: gl-sway 2.6s ease-in-out infinite; }
+  .growi-loader--balance .gl-leaf-l { animation: gl-flut-l 2.6s ease-in-out infinite; }
+  .growi-loader--balance .gl-leaf-r { animation: gl-flut-r 2.6s ease-in-out infinite; }
+
+  /* Souffle : pour les petites tailles, où un balancement ressemblerait à un tremblement. */
+  .growi-loader--souffle .gl-leaves { animation: gl-breathe 1.6s ease-in-out infinite; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .growi-loader * { animation: none !important; }
+  }
+
+  /* Barre de progression de navigation (`NavigationProgress`). */
+  .nav-progress {
+    transition: width 400ms cubic-bezier(.2, .7, .3, 1), opacity 300ms ease;
+  }
+}
+
+@keyframes gl-stem {
+  0% { stroke-dashoffset: 310; opacity: 1; }
+  26% { stroke-dashoffset: 0; }
+  86% { stroke-dashoffset: 0; opacity: 1; }
+  96%, 100% { stroke-dashoffset: 0; opacity: 0; }
+}
+@keyframes gl-leaf-l {
+  0%, 20% { transform: scale(0) rotate(28deg); opacity: 0; }
+  30% { opacity: 1; }
+  52% { transform: scale(1) rotate(-3deg); }
+  60%, 86% { transform: scale(1) rotate(0); opacity: 1; }
+  96%, 100% { transform: scale(1); opacity: 0; }
+}
+@keyframes gl-leaf-r {
+  0%, 24% { transform: scale(0) rotate(-28deg); opacity: 0; }
+  34% { opacity: 1; }
+  56% { transform: scale(1) rotate(3deg); }
+  64%, 86% { transform: scale(1) rotate(0); opacity: 1; }
+  96%, 100% { transform: scale(1); opacity: 0; }
+}
+@keyframes gl-vein {
+  0%, 52% { stroke-dashoffset: 290; opacity: 1; }
+  70%, 86% { stroke-dashoffset: 0; opacity: 1; }
+  96%, 100% { stroke-dashoffset: 0; opacity: 0; }
+}
+@keyframes gl-sway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+@keyframes gl-flut-l { 0%, 100% { transform: rotate(3deg); } 50% { transform: rotate(-4deg); } }
+@keyframes gl-flut-r { 0%, 100% { transform: rotate(4deg); } 50% { transform: rotate(-3deg); } }
+@keyframes gl-breathe { 0%, 100% { transform: scale(.9); opacity: .6; } 50% { transform: scale(1); opacity: 1; } }

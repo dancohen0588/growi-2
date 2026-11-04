@@ -9,6 +9,7 @@ import { clearKeychainOnFreshInstall } from '@/lib/fresh-install'
 import { analytics, applyAnalyticsConsent } from '@/lib/analytics/posthog'
 import { forgetUser, identifyUser } from '@/lib/observability/sentry'
 import { hasSeenOnboarding } from '@/lib/onboarding-storage'
+import { clearQueryCache } from '@/lib/query-persist'
 import { forgetDeviceForPush } from '@/lib/push'
 import { requestAppleIdentity, requestGoogleIdentity } from '@/lib/social-auth'
 
@@ -157,6 +158,7 @@ export const useSession = create<SessionState>((set) => ({
       // neuve détacherait de son compte tout ce qu'il fait avant de se
       // reconnecter, et la reconnexion ne les recollerait jamais.
       await clearTokens()
+      await clearQueryCache()
       forgetUser()
       set({ status: 'unauthenticated', user: null })
     }
@@ -165,6 +167,9 @@ export const useSession = create<SessionState>((set) => ({
   signIn: async ({ email, password }) => {
     const tokens = await publicApi.auth.login({ email, password, deviceInfo: deviceInfo() })
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
+    // Une connexion repart d'un cache vide : rien de ce qu'a vu le compte
+    // précédent sur cet appareil ne doit s'afficher à celui-ci.
+    await clearQueryCache()
     attachIdentity(tokens.user.id, tokens.user.analyticsConsent)
     set({
       status: 'authenticated',
@@ -181,6 +186,9 @@ export const useSession = create<SessionState>((set) => ({
       deviceInfo: deviceInfo(),
     })
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
+    // Une connexion repart d'un cache vide : rien de ce qu'a vu le compte
+    // précédent sur cet appareil ne doit s'afficher à celui-ci.
+    await clearQueryCache()
     attachIdentity(tokens.user.id, tokens.user.analyticsConsent)
     set({
       status: 'authenticated',
@@ -202,6 +210,9 @@ export const useSession = create<SessionState>((set) => ({
 
     const tokens = await publicApi.auth.social(provider, identity)
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
+    // Une connexion repart d'un cache vide : rien de ce qu'a vu le compte
+    // précédent sur cet appareil ne doit s'afficher à celui-ci.
+    await clearQueryCache()
     attachIdentity(tokens.user.id, tokens.user.analyticsConsent)
     set({
       status: 'authenticated',
@@ -231,6 +242,7 @@ export const useSession = create<SessionState>((set) => ({
       await publicApi.auth.logout(refreshToken).catch(() => {})
     }
     await clearTokens()
+    await clearQueryCache()
     // Après l'effacement des jetons : les erreurs qui suivent ne sont plus
     // celles de personne en particulier.
     forgetUser()

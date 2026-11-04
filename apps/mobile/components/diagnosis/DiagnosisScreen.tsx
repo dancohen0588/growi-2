@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -31,6 +30,7 @@ import {
   type TaskVerdict,
 } from '@growi/shared'
 
+import { GrowiLoader } from '@/components/ui/GrowiLoader'
 import { diagnosisChatQuery } from '@/components/chat/links'
 import { DiagnosisResult } from '@/components/diagnosis/DiagnosisResult'
 import { TaskReviewSection } from '@/components/diagnosis/TaskReviewSection'
@@ -65,8 +65,8 @@ function LoadingStep() {
   }, [])
 
   return (
-    <View className="items-center gap-3 py-16">
-      <ActivityIndicator size="large" color="#1E5631" />
+    <View className="items-center gap-4 py-16" accessibilityLiveRegion="polite">
+      <GrowiLoader motion="pousse" size={88} label={null} />
       <Text className="font-raleway text-body text-muted-foreground text-center">
         {LOADING_MESSAGES[index]}
       </Text>
