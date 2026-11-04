@@ -108,7 +108,8 @@ export function HorizonSection({
             <motion.div key={group.key} variants={fadeUp} layout>
               <WateringGroupCard
                 group={group}
-                onDoneMany={onDoneMany}
+                // « Plus tard » annonce, il ne demande rien : pas de bouton.
+                onDoneMany={horizon === 'later' ? undefined : onDoneMany}
                 onOpenDetail={onOpenDetail}
               />
             </motion.div>

@@ -11,7 +11,7 @@ import { useCommunitySettings, useUnreadCount } from '@/lib/queries/community'
  * jamais n'est qu'un bouton de plus. Le badge s'arrête à 9+ — au-delà, le
  * chiffre exact ne change plus rien à ce qu'on va faire.
  */
-export function NotificationBell() {
+export function NotificationBell({ onPhoto = false }: { onPhoto?: boolean }) {
   const router = useRouter()
   const settings = useCommunitySettings()
   const enabled = settings.data?.enabled === true
@@ -22,13 +22,20 @@ export function NotificationBell() {
   return (
     <Pressable
       onPress={() => router.navigate('/(tabs)/communaute/notifications')}
-      hitSlop={12}
+      hitSlop={onPhoto ? 0 : 12}
       accessibilityRole="button"
       accessibilityLabel={
         unread > 0 ? `Notifications, ${unread} non lues` : 'Notifications'
       }
+      // Posée sur la photo de l'accueil, la cloche nue se perdrait dans le
+      // feuillage : elle prend une pastille sombre, à la taille du pouce.
+      className={
+        onPhoto
+          ? 'h-11 w-11 items-center justify-center rounded-full border border-sand/30 bg-forest/60'
+          : undefined
+      }
     >
-      <Bell size={26} color="#1E5631" />
+      <Bell size={onPhoto ? 22 : 26} color={onPhoto ? '#F9F7E8' : '#1E5631'} />
 
       {unread > 0 ? (
         <View className="absolute -right-1.5 -top-1 min-w-[18px] items-center justify-center rounded-full bg-destructive px-1">

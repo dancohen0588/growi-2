@@ -275,6 +275,14 @@ pnpm --filter mobile typecheck
   reste **montée** mais retirée de la barre par `href: null` — la supprimer emporterait le plan du
   jardin, sa création et la seule façon d'ajouter une plante. On y accède depuis le sélecteur.
 - Le blog (`accueil/conseils/*`) et le profil vivent dans la pile Accueil, faute de place.
+- **Le haut de l'Accueil est une photo d'une plante de l'utilisateur** (`components/home/HomeHero.tsx`),
+  sous un voile forest, avec les quatre indicateurs posés dessus. La photo vient de
+  `summary.heroPhoto` : tirée par le serveur parmi les plantes dont l'utilisateur a pris la photo
+  (jamais celle du catalogue), avec `pickDailyIndex(userId + jour)` — stable sur la journée pour ne
+  pas clignoter au « tirer pour actualiser », différente le lendemain. Sans photo, ou si elle ne
+  charge pas, le paysage vectoriel `GardenScene` la remplace ; sans plante, une invitation à ajouter
+  la première remplace les compteurs. Le hero passe sous la barre d'état : `<StatusBar style="light">`
+  n'est rendu que pendant le focus de l'onglet, faute de quoi il s'imposerait à toute l'app.
 - **Les modales de création sont déclarées à la racine** (`app/publier.tsx`, `app/annonce.tsx`),
   pas dans un onglet : un navigateur d'onglets ne sait pas présenter une modale. On y navigue par
   chemin absolu depuis n'importe quelle pile — dont les quatre où vit la fiche plante.

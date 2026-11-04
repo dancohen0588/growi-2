@@ -30,14 +30,14 @@ import {
   listGardens,
   setPlanningClearedOn,
 } from '@/lib/services/garden.service'
-import { deleteCareLog, logCare } from '@/lib/services/log.service'
+import { deleteCareLog, logCare, logCareBatch } from '@/lib/services/log.service'
 import {
   completeTask,
   listOpenTasksAsActions,
   reopenTask,
 } from '@/lib/services/task.service'
 import { getUserTimezone } from '@/lib/services/user.service'
-import { zonedDayIso } from '@/lib/zoned-day'
+import { safeTimeZone, startOfZonedDay, zonedDayIso } from '@/lib/zoned-day'
 
 export { invalidateGardenAdviceCache }
 
@@ -198,8 +198,25 @@ export async function markActionDone(
   // L'appartenance est vérifiée là, et le geste est noté comme pour le moteur.
   if (taskId) await completeTask(userId, taskId)
 
+  // Déjà noté aujourd'hui sur cette plante : ne pas écrire de doublon. Le
+  // geste est fait, la tâche est close ; seul « Annuler » n'a rien à défaire.
+  const alreadyToday =
+    plantId && careType
+      ? await prisma.careLog.findFirst({
+          where: {
+            plantInstanceId: plantId,
+            plantInstance: { userId },
+            type: careType,
+            occurredAt: { gte: startOfZonedDay(new Date(), safeTimeZone(await getUserTimezone(userId))) },
+          },
+          select: { id: true },
+        })
+      : null
+
   const log =
-    plantId && careType ? await logCare(plantId, userId, { type: careType }, undefined, 'planning') : null
+    plantId && careType && !alreadyToday
+      ? await logCare(plantId, userId, { type: careType }, undefined, 'planning')
+      : null
 
   await invalidateGardenAdviceCache(gardenId)
 
@@ -221,44 +238,73 @@ export async function markActionDone(
  * Marque plusieurs actions comme faites en un seul geste — « Tout arrosé »,
  * « Tout marquer comme fait ».
  *
- * Un contrôle d'appartenance, une transaction, une invalidation de cache. En
- * enchaînant N appels unitaires côté client, on invalidait le cache N fois et
- * la liste clignotait à chaque aller-retour.
+ * Un contrôle d'appartenance, **une** transaction aux requêtes groupées, une
+ * invalidation de cache. La version précédente ouvrait une transaction par
+ * plante : près d'une seconde chacune depuis Vercel, onze secondes pour
+ * quinze plantes — et le client, rechargé entre-temps par un autre jardin,
+ * voyait revenir tout ce qu'il venait de cocher.
  *
- * Un item en échec — plante supprimée entre-temps, tâche déjà retirée —
- * n'annule pas les autres : il est compté dans `skipped`. Une tournée de jardin
- * à moitié faite vaut mieux qu'une tournée annulée pour un pied disparu.
+ * Un item invalide — plante supprimée entre-temps, tâche déjà retirée —
+ * n'annule pas les autres : il est compté dans `skipped`. Une tournée de
+ * jardin à moitié faite vaut mieux qu'une tournée annulée pour un pied
+ * disparu.
  */
 export async function markActionsDone(
   userId: string,
   input: MarkActionsDoneBulkInput,
+  now: Date = new Date(),
 ): Promise<MarkActionsDoneBulkResult> {
   await assertGardenOwned(input.gardenId, userId)
 
-  let done = 0
-  let skipped = 0
-  const careLogIds: string[] = []
+  // Le jour de l'utilisateur : un arrosage déjà noté depuis minuit (Paris) ne
+  // se réécrit pas. Il compte comme fait — il l'est.
+  const dayStart = startOfZonedDay(now, safeTimeZone(await getUserTimezone(userId)))
 
-  for (const item of input.items) {
-    const careType = CARE_LOG_TYPE_BY_ACTION[item.actionType]
+  const { done, skipped, careLogIds } = await prisma.$transaction(async (tx) => {
+    // Les tâches planifiées s'acquittent par identifiant : deux tâches de
+    // même geste issues de deux diagnostics ne se cochent pas ensemble.
+    const taskIds = [...new Set(input.items.flatMap((item) => (item.taskId ? [item.taskId] : [])))]
+    const ownedTasks = taskIds.length
+      ? await tx.plantTask.findMany({ where: { id: { in: taskIds }, userId }, select: { id: true } })
+      : []
+    const ownedTaskIds = new Set(ownedTasks.map((task) => task.id))
 
-    try {
-      // Une transaction par item, et non une pour toute la tournée : Postgres
-      // annulerait l'ensemble sur la moindre plante disparue, et l'utilisateur
-      // qui a bien arrosé les quatre autres ne le retrouverait nulle part.
-      const log = await prisma.$transaction(async (tx) => {
-        if (item.taskId) await completeTask(userId, item.taskId, new Date(), tx)
-        if (!item.plantId || !careType) return null
-        return logCare(item.plantId, userId, { type: careType }, tx, 'planning')
+    const entries = input.items.flatMap((item) => {
+      const careType = CARE_LOG_TYPE_BY_ACTION[item.actionType]
+      // Une tâche sans plante ne produit aucun geste ; une tâche inconnue
+      // non plus, elle est comptée en échec plus bas.
+      if (!item.plantId || !careType || (item.taskId && !ownedTaskIds.has(item.taskId))) return []
+      return [{ plantInstanceId: item.plantId, type: careType }]
+    })
+
+    const { logs, unknownPlantIds } = await logCareBatch(userId, entries, tx, now, 'planning', {
+      skipIfLoggedSince: dayStart,
+    })
+    const unknown = new Set(unknownPlantIds)
+
+    if (ownedTaskIds.size > 0) {
+      // Déjà faite : ne pas déplacer la date, cocher deux fois n'est pas une erreur.
+      await tx.plantTask.updateMany({
+        where: { id: { in: [...ownedTaskIds] }, doneAt: null },
+        data: { doneAt: now },
       })
-
-      done += 1
-      if (log) careLogIds.push(log.id)
-    } catch (err) {
-      console.error('[advice.service] markActionsDone, item ignoré :', item, err)
-      skipped += 1
     }
-  }
+
+    let done = 0
+    let skipped = 0
+    for (const item of input.items) {
+      const taskMissing = !!item.taskId && !ownedTaskIds.has(item.taskId)
+      const plantMissing = !!item.plantId && unknown.has(item.plantId)
+      if (taskMissing || plantMissing) {
+        console.error('[advice.service] markActionsDone, item ignoré :', item)
+        skipped += 1
+      } else {
+        done += 1
+      }
+    }
+
+    return { done, skipped, careLogIds: logs.map((log) => log.id) }
+  })
 
   await invalidateGardenAdviceCache(input.gardenId)
 

@@ -173,7 +173,10 @@ export function PlanningSections({
                   <WateringGroupCard
                     key={group.key}
                     group={group}
-                    onDoneMany={(chosen) => onDoneMany?.(tasksOf(chosen))}
+                    // « Plus tard » annonce, il ne demande rien : pas de bouton.
+                    onDoneMany={
+                      horizon === 'later' ? undefined : (chosen) => onDoneMany?.(tasksOf(chosen))
+                    }
                     onOpenDetail={(action) => onOpenDetail(taskOf(action))}
                   />
                 ))}

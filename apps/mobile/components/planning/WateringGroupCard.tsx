@@ -4,7 +4,10 @@ import { Image } from 'expo-image'
 import { Check, Droplets, X } from 'lucide-react-native'
 import type { ActionGroup, GardenAction } from '@growi/shared'
 
+import { useIsMutating } from '@tanstack/react-query'
+
 import { formatActionWhen } from '@/lib/dates'
+import { MARK_ACTIONS_DONE_BULK_KEY } from '@/lib/queries/planning'
 
 /** Au-delà, les vignettes ne se distinguent plus les unes des autres. */
 const MAX_AVATARS = 5
@@ -13,8 +16,14 @@ export interface WateringGroupCardProps {
   group: ActionGroup
   /** Largeur imposée par le carrousel du jour ; pleine largeur ailleurs. */
   width?: number
-  /** Coche les actions retenues en un seul appel. */
-  onDoneMany: (actions: GardenAction[]) => void
+  /**
+   * Coche les actions retenues en un seul appel.
+   *
+   * Absent, la carte n'a pas de bouton : c'est le cas de « Plus tard », où
+   * arroser d'avance une plante prévue dans deux semaines n'a pas de sens —
+   * et notait un vrai geste qui repoussait d'autant le suivant.
+   */
+  onDoneMany?: (actions: GardenAction[]) => void
   onOpenDetail: (action: GardenAction) => void
 }
 
@@ -65,6 +74,10 @@ export function WateringGroupCard({
 
   const chosen = group.actions.filter((a) => selected.has(a.id))
 
+  // Une tournée en cours d'écriture : un second appui, sur cette carte ou une
+  // autre, noterait les mêmes plantes deux fois.
+  const busy = useIsMutating({ mutationKey: MARK_ACTIONS_DONE_BULK_KEY }) > 0
+
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -113,28 +126,37 @@ export function WateringGroupCard({
         {late > 0 ? <Text className="text-destructive"> · {late} en retard</Text> : null}
       </Text>
 
-      <View className="flex-row gap-2">
-        <Pressable
-          onPress={() => onDoneMany(group.actions)}
-          accessibilityRole="button"
-          accessibilityLabel={`Tout arrosé : ${group.actions.length} plantes`}
-          className="h-12 flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-lime"
-          style={({ pressed }) => (pressed ? { backgroundColor: '#a2cf6b' } : null)}
-        >
-          <Check size={19} color="#1E5631" />
-          <Text className="font-raleway-semibold text-body text-forest">Tout arrosé</Text>
-        </Pressable>
+      {onDoneMany ? (
+        <View className="flex-row gap-2">
+          <Pressable
+            onPress={() => onDoneMany(group.actions)}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
+            accessibilityLabel={`Tout arrosé : ${group.actions.length} plantes`}
+            className="h-12 flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-lime"
+            style={({ pressed }) => ({
+              opacity: busy ? 0.5 : 1,
+              backgroundColor: pressed ? '#a2cf6b' : undefined,
+            })}
+          >
+            <Check size={19} color="#1E5631" />
+            <Text className="font-raleway-semibold text-body text-forest">Tout arrosé</Text>
+          </Pressable>
 
-        <Pressable
-          onPress={() => setPicking(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Choisir les plantes arrosées"
-          className="h-12 items-center justify-center rounded-xl bg-sand-dark px-4"
-          style={({ pressed }) => (pressed ? { opacity: 0.8 } : null)}
-        >
-          <Text className="font-raleway-semibold text-secondary text-forest">Choisir</Text>
-        </Pressable>
-      </View>
+          <Pressable
+            onPress={() => setPicking(true)}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
+            accessibilityLabel="Choisir les plantes arrosées"
+            className="h-12 items-center justify-center rounded-xl bg-sand-dark px-4"
+            style={({ pressed }) => ({ opacity: busy ? 0.5 : pressed ? 0.8 : 1 })}
+          >
+            <Text className="font-raleway-semibold text-secondary text-forest">Choisir</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <Modal visible={picking} transparent animationType="slide" onRequestClose={() => setPicking(false)}>
         <Pressable
@@ -202,7 +224,7 @@ export function WateringGroupCard({
           <Pressable
             onPress={() => {
               setPicking(false)
-              onDoneMany(chosen)
+              onDoneMany?.(chosen)
             }}
             disabled={chosen.length === 0}
             accessibilityRole="button"

@@ -359,7 +359,7 @@ describe('un geste accomplit les tâches échues du même type', () => {
     expect(prismaMock.plantTask.updateMany).toHaveBeenCalledWith({
       where: {
         userId: USER,
-        plantInstanceId: PLANT,
+        plantInstanceId: { in: [PLANT] },
         type: 'arrosage',
         doneAt: null,
         // Une tâche retirée par un diagnostic plus récent n'est plus ouverte :

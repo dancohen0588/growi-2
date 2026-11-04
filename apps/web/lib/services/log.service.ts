@@ -152,6 +152,104 @@ export async function logCare(
   return log
 }
 
+/** Un geste de la tournée : la plante et ce qu'on lui a fait. */
+export interface CareBatchEntry {
+  plantInstanceId: string
+  type: CareLogType
+}
+
+/**
+ * Note le même geste sur plusieurs plantes — la tournée de « Tout arrosé ».
+ *
+ * Tout tient en une poignée de requêtes groupées (un contrôle d'appartenance,
+ * un `createMany`, un `updateMany` des dates par type de geste, un acquittement
+ * des tâches échues), là où une transaction par plante coûtait près d'une
+ * seconde chacune depuis Vercel : quinze plantes, onze secondes, et pendant ce
+ * temps le planning rechargé par le client montrait encore tout à arroser.
+ *
+ * Les plantes qui ne sont pas (ou plus) à l'utilisateur sont rendues dans
+ * `unknownPlantIds` et n'empêchent pas les autres d'être notées. L'appelant
+ * ouvre la transaction et invalide le cache de conseils une fois à la fin.
+ *
+ * Avec `skipIfLoggedSince` (le début de la journée de l'utilisateur), un geste
+ * déjà noté depuis sur la même plante n'est pas réécrit : il est rendu dans
+ * `alreadyLogged`. Trois appuis sur « Tout arrosé » en une minute ne font pas
+ * trois arrosages — ils gonflaient « Fait aujourd'hui » de doublons.
+ */
+export async function logCareBatch(
+  userId: string,
+  entries: CareBatchEntry[],
+  tx: Prisma.TransactionClient,
+  occurredAt: Date = new Date(),
+  source: CareSource = 'planning',
+  options: { skipIfLoggedSince?: Date } = {},
+): Promise<{
+  logs: Array<{ id: string; plantInstanceId: string; type: string }>
+  unknownPlantIds: string[]
+  alreadyLogged: CareBatchEntry[]
+}> {
+  if (entries.length === 0) return { logs: [], unknownPlantIds: [], alreadyLogged: [] }
+
+  const requested = [...new Set(entries.map((entry) => entry.plantInstanceId))]
+  const owned = await tx.plantInstance.findMany({
+    where: { userId, id: { in: requested } },
+    select: { id: true },
+  })
+  const ownedIds = new Set(owned.map((plant) => plant.id))
+  const unknownPlantIds = requested.filter((id) => !ownedIds.has(id))
+  const ownedEntries = entries.filter((entry) => ownedIds.has(entry.plantInstanceId))
+
+  const key = (entry: CareBatchEntry) => `${entry.plantInstanceId}:${entry.type}`
+  const done = new Set<string>()
+  if (options.skipIfLoggedSince && ownedEntries.length > 0) {
+    const existing = await tx.careLog.findMany({
+      where: {
+        plantInstanceId: { in: [...new Set(ownedEntries.map((entry) => entry.plantInstanceId))] },
+        type: { in: [...new Set(ownedEntries.map((entry) => entry.type))] },
+        occurredAt: { gte: options.skipIfLoggedSince },
+      },
+      select: { plantInstanceId: true, type: true },
+    })
+    for (const log of existing) done.add(key({ plantInstanceId: log.plantInstanceId, type: log.type as CareLogType }))
+  }
+
+  const alreadyLogged = ownedEntries.filter((entry) => done.has(key(entry)))
+  // Une même plante deux fois dans la tournée ne s'écrit qu'une fois non plus.
+  const kept = ownedEntries.filter((entry) => {
+    if (done.has(key(entry))) return false
+    done.add(key(entry))
+    return true
+  })
+  if (kept.length === 0) return { logs: [], unknownPlantIds, alreadyLogged }
+
+  const logs = await tx.careLog.createManyAndReturn({
+    data: kept.map((entry) => ({ plantInstanceId: entry.plantInstanceId, type: entry.type, occurredAt })),
+    select: { id: true, plantInstanceId: true, type: true },
+  })
+
+  // Les dates de la plante et les tâches échues, par type de geste : c'est
+  // sur elles que le moteur raisonne, pas sur le journal.
+  const plantsByType = new Map<CareLogType, string[]>()
+  for (const entry of kept) {
+    plantsByType.set(entry.type, [...(plantsByType.get(entry.type) ?? []), entry.plantInstanceId])
+  }
+
+  for (const [type, plantIds] of plantsByType) {
+    const dateField = PLANT_DATE_FIELD[type]
+    if (dateField) {
+      await tx.plantInstance.updateMany({
+        where: { id: { in: plantIds }, userId },
+        data: { [dateField]: occurredAt },
+      })
+    }
+    await completeTasksForGesture(userId, plantIds, type, occurredAt, tx)
+  }
+
+  for (const entry of kept) trackServer(userId, 'care_logged', { type: entry.type, from: source })
+
+  return { logs, unknownPlantIds, alreadyLogged }
+}
+
 /**
  * Efface un geste et remet la plante dans l'état d'avant.
  *
