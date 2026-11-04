@@ -20,6 +20,14 @@ export interface WeatherForecast {
     precipSum: number
     precipProbabilityMax: number
   }>
+  /**
+   * Pluie tombée sur les trois derniers jours, en mm.
+   *
+   * Absente quand la météo est neutre ou que l'API ne l'a pas rendue : une
+   * règle qui la lit doit tenir l'absence pour « on ne sait pas », pas pour
+   * « il n'a pas plu ».
+   */
+  recentPrecipSum?: number
 }
 
 // ─── Plant context (input for the engine) ──────────────────────────────────
@@ -32,6 +40,15 @@ export interface PlantContext {
   garden: Garden
   weather: WeatherForecast
   currentDate: Date
+  /**
+   * Dernière fois que l'action de chaque règle a été cochée pour cette
+   * plante, lue dans le journal (`CareLog.ruleId`).
+   *
+   * C'est ce qui ferme les règles qu'aucune date `last*At` ne clôt —
+   * paillage, hivernage, fleurs fanées, semis. Absent, ces règles parlent
+   * comme si rien n'avait été fait, ce qui reste juste pour une plante neuve.
+   */
+  ruleLogs?: Record<string, Date>
 }
 
 // ─── Actions ───────────────────────────────────────────────────────────────
@@ -125,6 +142,12 @@ export interface PlantAdvice {
 export interface AdviceRule {
   id: string
   name: string
+  /**
+   * Nom du geste écrit au journal quand l'action est cochée, pour les règles
+   * qui produisent une action « autre » : sans lui, le journal n'afficherait
+   * qu'« Autre geste ».
+   */
+  gestureLabel?: string
   evaluate(ctx: PlantContext): GardenAction[]
   generateAlerts?(ctx: PlantContext): PlantAlert[]
 }

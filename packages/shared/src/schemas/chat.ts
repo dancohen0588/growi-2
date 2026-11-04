@@ -56,6 +56,9 @@ export const chatActionSnapshotSchema = gardenActionSchema.pick({
   dueDate: true,
   priority: true,
   source: true,
+  // Pour cocher l'action depuis le fil : sans elle, un « autre geste » coché
+  // ne fermerait pas la règle qui l'a proposé.
+  ruleId: true,
 })
 
 export type ChatActionSnapshot = z.infer<typeof chatActionSnapshotSchema>

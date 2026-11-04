@@ -46,7 +46,7 @@ export function PlantTasksSection({
 
     startTransition(async () => {
       try {
-        await markActionDoneAction(task.id, gardenId, task.type, plantId, task.taskId)
+        await markActionDoneAction(task.id, gardenId, task.type, plantId, task.taskId, task.ruleId)
         toast('Bien noté, ton jardin te remercie 🌱')
         onDone?.()
       } catch {

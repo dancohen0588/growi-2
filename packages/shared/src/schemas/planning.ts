@@ -408,11 +408,25 @@ export type TodayPlanning = z.infer<typeof todayPlanningSchema>
  * La tâche est identifiée par ce qu'elle produit — un geste sur une plante —
  * et non par son identifiant, que le moteur recalcule à chaque évaluation.
  */
+/**
+ * Règle du moteur d'une action cochée, recopiée sur le geste du journal.
+ *
+ * Facultative : les versions de l'app qui ne l'envoient pas restent valides.
+ * Elle compte pour les règles qu'aucune date `last*At` ne ferme — paillage,
+ * hivernage, fleurs fanées, semis — et que le moteur clôt en lisant le
+ * journal. Sans elle, ces cartes reviennent le lendemain.
+ */
+export const engineRuleIdSchema = z
+  .string()
+  .max(64)
+  .regex(/^r\d+-[a-z0-9-]+$/)
+
 export const markActionDoneSchema = z.object({
   gardenId: idSchema,
   /** Sert à écrire le geste au journal — requis même pour une tâche. */
   actionType: actionTypeSchema,
   plantId: idSchema.optional(),
+  ruleId: engineRuleIdSchema.optional(),
   /**
    * Tâche persistée à acquitter, quand l'action en est une.
    *
@@ -454,6 +468,7 @@ export const markActionsDoneBulkSchema = z.object({
         actionType: actionTypeSchema,
         plantId: idSchema.optional(),
         taskId: idSchema.optional(),
+        ruleId: engineRuleIdSchema.optional(),
       }),
     )
     .min(1)

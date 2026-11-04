@@ -85,7 +85,14 @@ function CalendrierContent({
 
       // `taskId` n'est renseigné que pour une tâche planifiée : il l'acquitte
       // nommément, là où le moteur se contente du geste au journal.
-      markActionDoneAction(id, gardenOf(action), action.type, action.plantId, action.taskId)
+      markActionDoneAction(
+        id,
+        gardenOf(action),
+        action.type,
+        action.plantId,
+        action.taskId,
+        action.ruleId,
+      )
         .then(({ careLogId }) => {
           settle([action], [careLogId])
           toast('✓ Action notée comme faite ! Ton jardin te remercie 🌱')
@@ -125,6 +132,7 @@ function CalendrierContent({
               actionType: action.type,
               plantId: action.plantId,
               taskId: action.taskId,
+              ruleId: action.ruleId,
             })),
           }).then((result) => ({ group, result })),
         ),

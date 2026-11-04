@@ -5,6 +5,44 @@ import type { PlantContext, GardenAdviceResult, PlantAdvice, WeatherForecast } f
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000 // 6 hours
 
+/**
+ * Profondeur du journal relu pour fermer les règles : un peu plus d'un an,
+ * la plus longue période qu'une règle regarde (une saison de l'an passé).
+ */
+const RULE_LOG_LOOKBACK_MS = 400 * 24 * 60 * 60 * 1000
+
+/**
+ * Dernier geste coché par règle, pour chaque plante — `PlantContext.ruleLogs`.
+ *
+ * Une requête pour tout le jardin, triée du plus récent au plus ancien : le
+ * premier rencontré pour une règle est le dernier en date.
+ */
+async function loadRuleLogs(
+  plantIds: string[],
+  now: Date,
+): Promise<Map<string, Record<string, Date>>> {
+  const byPlant = new Map<string, Record<string, Date>>()
+  if (plantIds.length === 0) return byPlant
+
+  const logs = await prisma.careLog.findMany({
+    where: {
+      plantInstanceId: { in: plantIds },
+      ruleId: { not: null },
+      occurredAt: { gte: new Date(now.getTime() - RULE_LOG_LOOKBACK_MS) },
+    },
+    select: { plantInstanceId: true, ruleId: true, occurredAt: true },
+    orderBy: { occurredAt: 'desc' },
+  })
+
+  for (const log of logs) {
+    if (!log.ruleId) continue
+    const rules = byPlant.get(log.plantInstanceId) ?? {}
+    if (!rules[log.ruleId]) rules[log.ruleId] = log.occurredAt
+    byPlant.set(log.plantInstanceId, rules)
+  }
+  return byPlant
+}
+
 function neutralForecast(): WeatherForecast {
   const today = new Date()
   return {
@@ -74,11 +112,16 @@ export async function getGardenAdvice(
 
   // 5. Build contexts
   const now = new Date()
+  const ruleLogs = await loadRuleLogs(
+    instances.map((instance) => instance.id),
+    now,
+  )
   const contexts: PlantContext[] = instances.map((instance) => ({
     instance,
     garden,
     weather,
     currentDate: now,
+    ruleLogs: ruleLogs.get(instance.id),
   }))
 
   // 6. Evaluate
@@ -160,11 +203,13 @@ export async function getPlantAdvice(
     updatedAt: new Date(),
   }
 
+  const now = new Date()
   const ctx: PlantContext = {
     instance,
     garden: gardenForCtx as any,
     weather,
-    currentDate: new Date(),
+    currentDate: now,
+    ruleLogs: (await loadRuleLogs([instance.id], now)).get(instance.id),
   }
 
   const engine = new RecommendationEngine()

@@ -65,10 +65,16 @@ export async function getTodayPlanning(
   ])
 
   const doneTypesByPlant = new Map<string, Set<CareLogType>>()
+  const doneRulesByPlant = new Map<string, Set<string>>()
   for (const log of logsToday) {
     const types = doneTypesByPlant.get(log.plantInstanceId) ?? new Set<CareLogType>()
     types.add(log.type as CareLogType)
     doneTypesByPlant.set(log.plantInstanceId, types)
+    if (log.ruleId) {
+      const rules = doneRulesByPlant.get(log.plantInstanceId) ?? new Set<string>()
+      rules.add(log.ruleId)
+      doneRulesByPlant.set(log.plantInstanceId, rules)
+    }
   }
   const doneToday = logsToday.map(toDoneAction).filter((action): action is GardenAction => !!action)
 
@@ -85,10 +91,19 @@ export async function getTodayPlanning(
    * Ne vaut que pour ce qui était dû — cocher aujourd'hui n'acquitte pas une
    * tâche prévue la semaine prochaine.
    */
-  const isDoneToday = (action: GardenAction) =>
-    action.dueDate <= date &&
-    action.plantId != null &&
-    (doneTypesByPlant.get(action.plantId)?.has(CARE_LOG_TYPE_BY_ACTION[action.type]) ?? false)
+  const isDoneToday = (action: GardenAction) => {
+    if (action.plantId == null) return false
+    // Un « autre geste » se reconnaît à sa règle, pas à son type : pailler ce
+    // matin ne doit pas faire disparaître la protection contre le gel. Et une
+    // action à fenêtre cochée est faite, quelle que soit sa date de fin.
+    if (action.type === 'autre' && action.ruleId) {
+      return doneRulesByPlant.get(action.plantId)?.has(action.ruleId) ?? false
+    }
+    return (
+      action.dueDate <= date &&
+      (doneTypesByPlant.get(action.plantId)?.has(CARE_LOG_TYPE_BY_ACTION[action.type]) ?? false)
+    )
+  }
 
   const gardens = gardensAdvice.map(({ garden, advice }) => {
     const actions = (advice?.actions ?? []).filter((action) => {
@@ -125,23 +140,26 @@ type CareLogRow = Awaited<ReturnType<typeof listCareLogsSince>>[number]
 /**
  * Un geste noté aujourd'hui, présenté comme l'action qu'il a accomplie.
  *
- * Les notes de santé et les gestes « autre » n'ont pas d'action correspondante
- * dans le planning : les faire figurer dans « Fait aujourd'hui » laisserait
- * croire qu'on vient d'y cocher quelque chose.
+ * Les notes de santé et les gestes « autre » saisis depuis la fiche n'ont pas
+ * d'action correspondante dans le planning : les faire figurer dans « Fait
+ * aujourd'hui » laisserait croire qu'on vient d'y cocher quelque chose. Un
+ * « autre » coché **depuis** le planning — paillage, hivernage — porte sa
+ * règle, et y figure sous le nom du geste.
  */
 function toDoneAction(log: CareLogRow): GardenAction | null {
   const type = ACTION_TYPE_BY_CARE_LOG[log.type as CareLogType]
-  if (!type || type === 'autre') return null
+  if (!type || (type === 'autre' && !log.ruleId)) return null
 
   const plant = log.plantInstance
   const catalog = plant.catalogPlant
   const plantName = plant.customName ?? catalog?.commonName ?? 'Plante'
+  const gestureName = type === 'autre' && log.note ? log.note : ACTION_TYPE_LABELS[type]
 
   return {
     id: `log:${log.id}`,
     type,
-    label: `${ACTION_TYPE_LABELS[type]} · ${plantName}`,
-    shortLabel: ACTION_TYPE_LABELS[type],
+    label: `${gestureName} · ${plantName}`,
+    shortLabel: gestureName,
     plantId: log.plantInstanceId,
     plantName,
     plantEmoji: plant.emoji ?? catalog?.emoji ?? '',
@@ -151,6 +169,7 @@ function toDoneAction(log: CareLogRow): GardenAction | null {
     doneAt: log.occurredAt.toISOString(),
     priority: 'low',
     careLogId: log.id,
+    ruleId: log.ruleId ?? undefined,
   }
 }
 

@@ -1,5 +1,7 @@
 import { toIsoDate, type ActionWindow } from '@growi/shared'
 
+import type { PlantContext, WeatherForecast } from './types'
+
 const MS_PER_DAY = 86_400_000
 
 /**
@@ -111,4 +113,50 @@ export function daysSince(date: Date | null | undefined, now: Date = new Date())
 
 export function isMonthIn(month: number, jsonArray: string | null | undefined): boolean {
   return parseJsonArray(jsonArray).includes(month)
+}
+
+/**
+ * Dernière fois que l'action de `ruleId` a été cochée pour la plante, ou
+ * `null`. Voir `PlantContext.ruleLogs`.
+ */
+export function lastDoneByRule(ctx: PlantContext, ruleId: string): Date | null {
+  return ctx.ruleLogs?.[ruleId] ?? null
+}
+
+/**
+ * L'action de `ruleId` a-t-elle été cochée depuis `since` (une date, ou un
+ * jour `YYYY-MM-DD` compris comme son début) ?
+ *
+ * Pour une action à fenêtre, `since` est le début de la fenêtre : pailler en
+ * octobre vaut pour tout l'automne, pas pour le seul jour du geste.
+ */
+export function doneSince(ctx: PlantContext, ruleId: string, since: Date | string): boolean {
+  const last = lastDoneByRule(ctx, ruleId)
+  if (!last) return false
+  const from = typeof since === 'string' ? new Date(`${since}T00:00:00`) : since
+  return last.getTime() >= from.getTime()
+}
+
+/**
+ * Une plante qui prend la pluie, le vent et le gel : en pleine terre ou au
+ * balcon. Une serre ou un intérieur en est à l'abri.
+ */
+export function isExposed(location: string | null | undefined): boolean {
+  return location === 'OUTDOOR' || location === 'BALCONY'
+}
+
+/**
+ * Les jours de prévision qui restent au-dessus de `minC` la nuit, parmi les
+ * `days` prochains. Faux si la prévision est trop courte pour en juger.
+ */
+export function nightsAbove(weather: WeatherForecast, minC: number, days: number): boolean {
+  const next = weather.daily.slice(0, days)
+  return next.length >= days && next.every((d) => d.tempMin > minC)
+}
+
+/** Minimum prévu sur les `days` prochains jours, ou `null` sans prévision. */
+export function minTempWithin(weather: WeatherForecast, days: number): number | null {
+  const next = weather.daily.slice(0, days)
+  if (next.length === 0) return null
+  return Math.min(...next.map((d) => d.tempMin))
 }

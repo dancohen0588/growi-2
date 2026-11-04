@@ -170,6 +170,9 @@ export function useMarkActionDone() {
         // Renseigné pour une tâche planifiée : elle s'acquitte nommément, là
         // où une action du moteur se contente du geste au journal.
         taskId: input.taskId,
+        // La règle du moteur : c'est elle qui ferme paillage, hivernage et
+        // semis, qu'aucune date de la plante ne clôt.
+        ruleId: input.ruleId,
       }),
 
     onMutate: async ({ actionId }) => {

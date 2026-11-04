@@ -459,3 +459,317 @@ describe('evaluateGarden — sorting & aggregation', () => {
     }
   })
 })
+
+// ─── Saisons, journal et nouvelles règles ──────────────────────────────────
+
+import { gestureLabelForRule } from '../engine'
+
+function at(
+  date: Date,
+  instanceOverrides?: Partial<PlantInstance>,
+  catalogOverrides?: Partial<PlantCatalog>,
+  weatherOverrides?: Partial<WeatherForecast>,
+  ruleLogs?: Record<string, Date>,
+): PlantContext {
+  return { ...makeCtx(instanceOverrides, catalogOverrides, weatherOverrides), currentDate: date, ruleLogs }
+}
+
+function nights(tempMin: number, precipToday = 0): Partial<WeatherForecast> {
+  return {
+    daily: Array.from({ length: 7 }, (_, i) => ({
+      date: `d${i}`,
+      tempMax: tempMin + 8,
+      tempMin,
+      precipSum: i === 0 ? precipToday : 0,
+      precipProbabilityMax: 0,
+    })),
+  }
+}
+
+const NOV = new Date('2026-11-04T10:00:00')
+const JAN = new Date('2027-01-12T10:00:00')
+const MAY = new Date('2026-05-12T10:00:00')
+const JUL = new Date('2026-07-08T10:00:00')
+
+function before(date: Date, days: number): Date {
+  return new Date(date.getTime() - days * DAY)
+}
+
+describe('R1 — rythme de saison', () => {
+  it('espace l’arrosage d’une plante dehors en dormance', () => {
+    const ctx = at(NOV, { lastWateredAt: before(NOV, 8) }, { dormancyMonths: '[11,12,1,2]' })
+    const watering = engine.evaluate([ctx]).find((a) => a.type === 'arrosage')!
+
+    // 7 jours × 3 = 21 : rien aujourd'hui, une annonce dans 13 jours.
+    expect(watering.priority).toBe('low')
+    expect(watering.dueDate > '2026-11-04').toBe(true)
+    expect(watering.why).toContain('repos végétatif')
+    expect(watering.why).toContain('21 jours')
+  })
+
+  it('espace moins à l’intérieur', () => {
+    const ctx = at(
+      NOV,
+      { lastWateredAt: before(NOV, 11), location: 'INDOOR' },
+      { dormancyMonths: '[11,12,1,2]' },
+    )
+    // 7 × 1,5 = 10,5 jours : onze jours, c'est dû.
+    expect(engine.evaluate([ctx]).find((a) => a.type === 'arrosage')!.priority).toBe('high')
+  })
+
+  it('sans donnée, le cœur de l’hiver espace dehors et pas dedans', () => {
+    const outdoor = at(JAN, { lastWateredAt: before(JAN, 10) })
+    expect(engine.evaluate([outdoor]).find((a) => a.type === 'arrosage')!.priority).toBe('low')
+
+    const indoor = at(JAN, { lastWateredAt: before(JAN, 10), location: 'INDOOR' })
+    expect(engine.evaluate([indoor]).find((a) => a.type === 'arrosage')!.priority).toBe('high')
+  })
+
+  it('le réglage de l’utilisateur l’emporte sur la saison', () => {
+    const ctx = at(
+      NOV,
+      { lastWateredAt: before(NOV, 8), customWateringAdjFactor: 1 },
+      { dormancyMonths: '[11]' },
+    )
+    expect(engine.evaluate([ctx]).find((a) => a.type === 'arrosage')!.priority).toBe('high')
+  })
+
+  it('compte depuis l’ajout une plante jamais arrosée qui dort dehors', () => {
+    // Ajoutée il y a 10 jours : prochain arrosage à J+11 (21 jours au rythme
+    // d'hiver), annoncé ; ajoutée avant-hier, il est trop loin pour être dit.
+    const added = at(NOV, { dateAdded: before(NOV, 10) }, { dormancyMonths: '[11]' })
+    const watering = engine.evaluate([added]).find((a) => a.type === 'arrosage')!
+    expect(watering.priority).toBe('low')
+    expect(watering.dueDate).toBe('2026-11-15')
+
+    const fresh = at(NOV, { dateAdded: before(NOV, 2) }, { dormancyMonths: '[11]' })
+    expect(engine.evaluate([fresh]).some((a) => a.type === 'arrosage')).toBe(false)
+  })
+})
+
+describe('R3 — la pluie, mais seulement pour ce qui la reçoit', () => {
+  it('reporte après trois jours de pluie déjà tombée', () => {
+    const ctx = makeCtx({ lastWateredAt: daysAgo(8) }, {}, { recentPrecipSum: 14 })
+    const actions = engine.evaluate([ctx])
+    expect(actions.find((a) => a.id.startsWith('r3-'))!.why).toContain('14 mm')
+    expect(actions.find((a) => a.id.startsWith('r1-'))).toBeUndefined()
+  })
+
+  it('ne reporte pas l’arrosage d’une plante d’intérieur', () => {
+    const ctx = makeCtx({ lastWateredAt: daysAgo(8), location: 'INDOOR' }, {}, nights(12, 20))
+    const actions = engine.evaluate([ctx])
+    expect(actions.find((a) => a.id.startsWith('r3-'))).toBeUndefined()
+    expect(actions.find((a) => a.id.startsWith('r1-'))!.priority).toBe('high')
+  })
+})
+
+describe('cap par plante', () => {
+  it('un arrosage annoncé ne prend pas la place d’un geste du moment', () => {
+    const ctx = makeCtx(
+      { lastWateredAt: NOW, containerSizeLiters: 5 },
+      {
+        pruningMonths: '[4]',
+        fertilizerMonths: '4',
+        repottingSeasons: '["SPRING"]',
+        treatmentSeasons: '["SPRING"]',
+      },
+    )
+    const actions = engine.evaluate([ctx])
+    const announced = actions.filter((a) => a.type === 'arrosage')
+
+    expect(announced).toHaveLength(1)
+    expect(announced[0].priority).toBe('low')
+    // Trois gestes du moment, plus l'annonce.
+    expect(actions.filter((a) => a.type !== 'arrosage')).toHaveLength(3)
+  })
+})
+
+describe('R10 — alerte gel, version 2', () => {
+  const frost = nights(-3)
+
+  it('ne concerne que les plantes dehors', () => {
+    const indoor = at(NOV, { location: 'INDOOR' }, { frostSensitivity: 'HIGH' }, frost)
+    expect(engine.evaluate([indoor]).some((a) => a.ruleId === 'r10-frost-alert')).toBe(false)
+    expect(engine.generateAlerts([indoor])).toHaveLength(0)
+  })
+
+  it('est un « autre geste » expliqué, plus un traitement', () => {
+    const ctx = at(NOV, {}, { frostSensitivity: 'HIGH', winterProtectionType: 'FLEECE' }, frost)
+    const action = engine.evaluate([ctx]).find((a) => a.ruleId === 'r10-frost-alert')!
+
+    expect(action.type).toBe('autre')
+    expect(action.kind).toBe('dated')
+    expect(action.dueDate).toBe('2026-11-04')
+    expect(action.why).toContain('-3 °C')
+    expect(action.howTo).toContain('voile')
+  })
+
+  it('se tait trois jours après une protection posée', () => {
+    const ctx = at(NOV, {}, { frostSensitivity: 'HIGH' }, frost, {
+      'r10-frost-alert': before(NOV, 1),
+    })
+    expect(engine.evaluate([ctx]).some((a) => a.ruleId === 'r10-frost-alert')).toBe(false)
+  })
+
+  it('se tait pour une plante rentrée cet hiver', () => {
+    const ctx = at(NOV, {}, { frostSensitivity: 'HIGH', winterProtectionType: 'INDOOR' }, frost, {
+      'r14-winter-prep': before(NOV, 20),
+    })
+    expect(engine.evaluate([ctx]).some((a) => a.ruleId === 'r10-frost-alert')).toBe(false)
+    expect(engine.generateAlerts([ctx])).toHaveLength(0)
+  })
+})
+
+describe('R13 — paillage', () => {
+  it('propose le paillage de printemps une fois dans la saison', () => {
+    const ctx = at(MAY, {}, { mulchRecommended: true })
+    const action = engine.evaluate([ctx]).find((a) => a.ruleId === 'r13-mulching')!
+    expect(action.type).toBe('autre')
+    expect(action.window).toEqual({ start: '2026-05-01', end: '2026-06-30' })
+
+    const done = at(MAY, {}, { mulchRecommended: true }, undefined, {
+      'r13-mulching': new Date('2026-05-03T10:00:00'),
+    })
+    expect(engine.evaluate([done]).some((a) => a.ruleId === 'r13-mulching')).toBe(false)
+  })
+
+  it('un paillage du printemps ne vaut pas pour l’automne', () => {
+    const ctx = at(NOV, {}, { mulchRecommended: true }, undefined, {
+      'r13-mulching': new Date('2026-05-03T10:00:00'),
+    })
+    expect(engine.evaluate([ctx]).some((a) => a.ruleId === 'r13-mulching')).toBe(true)
+  })
+
+  it('cède l’automne à l’hivernage quand celui-ci est un paillage', () => {
+    const ctx = at(NOV, {}, { mulchRecommended: true, winterProtectionType: 'MULCH' })
+    const actions = engine.evaluate([ctx])
+    expect(actions.some((a) => a.ruleId === 'r13-mulching')).toBe(false)
+    expect(actions.some((a) => a.ruleId === 'r14-winter-prep')).toBe(true)
+  })
+
+  it('ne concerne pas les plantes d’intérieur', () => {
+    const ctx = at(MAY, { location: 'INDOOR' }, { mulchRecommended: true })
+    expect(engine.evaluate([ctx]).some((a) => a.ruleId === 'r13-mulching')).toBe(false)
+  })
+})
+
+describe('R14 — hivernage', () => {
+  it('prépare l’hiver d’une plante dehors, selon sa protection', () => {
+    const ctx = at(NOV, {}, { winterProtectionType: 'INDOOR' })
+    const action = engine.evaluate([ctx]).find((a) => a.ruleId === 'r14-winter-prep')!
+    expect(action.shortLabel).toBe('Rentrer')
+    expect(action.kind).toBe('window')
+    expect(action.window).toEqual({ start: '2026-10-01', end: '2026-12-31' })
+    expect(action.priority).toBe('low')
+  })
+
+  it('remonte quand le froid approche', () => {
+    const ctx = at(NOV, {}, { winterProtectionType: 'FLEECE' }, nights(1))
+    const action = engine.evaluate([ctx]).find((a) => a.ruleId === 'r14-winter-prep')!
+    expect(action.priority).toBe('medium')
+    expect(action.why).toContain('1 °C')
+  })
+
+  it('une fois par hiver, et rien pour ce qui est déjà à l’abri', () => {
+    const done = at(new Date('2026-12-10T10:00:00'), {}, { winterProtectionType: 'FLEECE' }, undefined, {
+      'r14-winter-prep': new Date('2026-10-20T10:00:00'),
+    })
+    expect(engine.evaluate([done]).some((a) => a.ruleId === 'r14-winter-prep')).toBe(false)
+
+    const sheltered = at(NOV, { location: 'GREENHOUSE' }, { winterProtectionType: 'FLEECE' })
+    expect(engine.evaluate([sheltered]).some((a) => a.ruleId === 'r14-winter-prep')).toBe(false)
+
+    const none = at(NOV, {}, { winterProtectionType: 'NONE' })
+    expect(engine.evaluate([none]).some((a) => a.ruleId === 'r14-winter-prep')).toBe(false)
+  })
+})
+
+describe('R15 — fleurs fanées', () => {
+  const flowers = { category: 'FLOWERS', floweringMonths: '[6,7,8]' }
+
+  it('revient toutes les deux semaines pendant la floraison', () => {
+    const fresh = at(JUL, {}, flowers)
+    const action = engine.evaluate([fresh]).find((a) => a.ruleId === 'r15-deadheading')!
+    expect(action.window).toEqual({ start: '2026-07-08', end: '2026-07-21' })
+
+    const recent = at(JUL, {}, flowers, undefined, { 'r15-deadheading': before(JUL, 5) })
+    expect(engine.evaluate([recent]).some((a) => a.ruleId === 'r15-deadheading')).toBe(false)
+
+    const older = at(JUL, {}, flowers, undefined, { 'r15-deadheading': before(JUL, 20) })
+    expect(engine.evaluate([older]).find((a) => a.ruleId === 'r15-deadheading')!.why).toContain(
+      'il y a 20 jours',
+    )
+  })
+
+  it('jamais sur une plante comestible ni sur un arbre', () => {
+    const tomato = at(JUL, {}, { category: 'VEGETABLE', edible: true, floweringMonths: '[6,7]' })
+    expect(engine.evaluate([tomato]).some((a) => a.ruleId === 'r15-deadheading')).toBe(false)
+
+    const tree = at(JUL, {}, { category: 'TREES_SHRUBS', treeType: 'FRUIT', floweringMonths: '[7]' })
+    expect(engine.evaluate([tree]).some((a) => a.ruleId === 'r15-deadheading')).toBe(false)
+
+    const shrub = at(JUL, {}, { category: 'TREES_SHRUBS', treeType: 'SHRUB', floweringMonths: '[7]' })
+    expect(engine.evaluate([shrub]).some((a) => a.ruleId === 'r15-deadheading')).toBe(true)
+  })
+})
+
+describe('R16 — mise en place au jardin', () => {
+  const seedling = { location: 'INDOOR' }
+  const tomato = {
+    category: 'VEGETABLE',
+    outdoor: true,
+    indoor: false,
+    transplantMonths: '[5,6]',
+    frostSensitivity: 'HIGH',
+  }
+
+  it('propose de sortir les plants quand les nuits le permettent', () => {
+    const ctx = at(MAY, seedling, tomato, nights(12))
+    const action = engine.evaluate([ctx]).find((a) => a.ruleId === 'r16-transplant')!
+    expect(action.shortLabel).toBe('Mettre en terre')
+    expect(action.window).toEqual({ start: '2026-05-01', end: '2026-06-30' })
+  })
+
+  it('attend des nuits plus douces pour une plante frileuse', () => {
+    const ctx = at(MAY, seedling, tomato, nights(7))
+    expect(engine.evaluate([ctx]).some((a) => a.ruleId === 'r16-transplant')).toBe(false)
+  })
+
+  it('se tait une fois fait, et pour une plante d’intérieur', () => {
+    const done = at(MAY, seedling, tomato, nights(12), { 'r16-transplant': before(MAY, 3) })
+    expect(engine.evaluate([done]).some((a) => a.ruleId === 'r16-transplant')).toBe(false)
+
+    const houseplant = at(MAY, seedling, { ...tomato, indoor: true }, nights(12))
+    expect(engine.evaluate([houseplant]).some((a) => a.ruleId === 'r16-transplant')).toBe(false)
+  })
+})
+
+describe('R6/R7 — semis', () => {
+  it('ne propose pas de semer une plante d’intérieur', () => {
+    const ctx = at(new Date('2026-03-10T10:00:00'), { location: 'INDOOR' }, {
+      category: 'INDOOR',
+      sowingMonthsIndoor: '[3]',
+    })
+    expect(engine.evaluate([ctx]).some((a) => a.type === 'semis')).toBe(false)
+  })
+
+  it('se tait une fois semé dans la fenêtre', () => {
+    const march = new Date('2026-03-10T10:00:00')
+    const catalog = { category: 'VEGETABLE', sowingMonthsIndoor: '[3,4]' }
+    expect(engine.evaluate([at(march, { location: 'INDOOR' }, catalog)]).some((a) => a.type === 'semis')).toBe(true)
+
+    const sown = at(march, { location: 'INDOOR' }, catalog, undefined, {
+      'r6-sowing-indoor': new Date('2026-03-02T10:00:00'),
+    })
+    expect(engine.evaluate([sown]).some((a) => a.type === 'semis')).toBe(false)
+  })
+})
+
+describe('gestes nommés au journal', () => {
+  it('donne un nom aux « autres gestes » du moteur', () => {
+    expect(gestureLabelForRule('r13-mulching')).toBe('Paillage')
+    expect(gestureLabelForRule('r14-winter-prep')).toBe('Hivernage')
+    expect(gestureLabelForRule('r1-watering-standard')).toBeUndefined()
+    expect(gestureLabelForRule(undefined)).toBeUndefined()
+  })
+})

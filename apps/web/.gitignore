@@ -47,3 +47,4 @@ node_modules/
 # Liste des testeurs de la Friends & Family, lue par `pnpm posthog:testers`.
 # Des adresses de personnes réelles : jamais dans le dépôt.
 testeurs*.txt
+catalog-seasons-report.json
