@@ -27,11 +27,11 @@ export const queryClient = new QueryClient({
       // En mobile, la connexion est souvent instable : on garde les données
       // affichées plutôt que de vider l'écran à chaque aller-retour.
       staleTime: 30_000,
-      // Une requête n'est persistée sur le téléphone (`lib/query-persist.ts`)
-      // que tant qu'elle vit en mémoire : `gcTime` doit couvrir la durée de
-      // persistance, sinon revenir sur un onglet après cinq minutes
-      // ré-affichait un squelette et le cache disque se vidait tout seul.
-      gcTime: 24 * 60 * 60 * 1000,
+      // Cinq minutes pour tout ce qui n'est pas persisté. Les racines gardées
+      // sur le téléphone reçoivent 24 h dans `lib/query-persist.ts` : relever
+      // ce défaut-ci garderait un jour durant le fil du chat (`staleTime:
+      // Infinity`), qui rouvrirait alors sur une conversation périmée.
+      gcTime: 5 * 60_000,
       retry: (failureCount, error) => {
         // Inutile de réessayer ce qui ne peut pas réussir : jeton refusé,
         // ressource absente, corps invalide.

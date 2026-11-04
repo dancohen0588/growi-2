@@ -62,9 +62,15 @@ const VEIN_RIGHT = 'M 536 527 L 749 338'
 const STEM_LENGTH = 310
 const VEIN_LENGTH = 290
 
-/** Points d'appui, en % du calque : base des feuilles, pied de la tige. */
-const LEAF_ORIGIN = '50% 48.9%'
-const FOOT_ORIGIN = '50% 92.6%'
+/**
+ * Points d'appui, en % du calque : base des feuilles, pied de la tige.
+ *
+ * **Sous forme de tableau, jamais de chaîne** : React Native lit
+ * `'50% 48.9%'` avec une expression qui ignore les décimales et comprend
+ * `50% 9%` — la pousse se balançait alors depuis le haut, comme un pendule.
+ */
+const LEAF_ORIGIN: [string, string, number] = ['50%', '48.9%', 0]
+const FOOT_ORIGIN: [string, string, number] = ['50%', '92.6%', 0]
 
 const DURATION: Record<GrowiLoaderMotion, number> = { pousse: 2800, balance: 2600, souffle: 1600 }
 

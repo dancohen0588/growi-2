@@ -25,8 +25,10 @@ export function NavigationProgress() {
   const searchParams = useSearchParams()
   const [width, setWidth] = useState(0)
   const [visible, setVisible] = useState(false)
-  const timers = useRef<{ show?: number; trickle?: number; giveUp?: number; hide?: number }>({})
+  const timers = useRef<{ show?: number; trickle?: number; giveUp?: number; hide?: number; reset?: number }>({})
   const active = useRef(false)
+  /** L'adresse affichée (chemin + requête), pour ignorer un « précédent » qui ne change que l'ancre. */
+  const shownUrl = useRef('')
 
   function clearTimers() {
     const t = timers.current
@@ -34,6 +36,7 @@ export function NavigationProgress() {
     window.clearInterval(t.trickle)
     window.clearTimeout(t.giveUp)
     window.clearTimeout(t.hide)
+    window.clearTimeout(t.reset)
     timers.current = {}
   }
 
@@ -41,6 +44,7 @@ export function NavigationProgress() {
     if (active.current) return
     active.current = true
     clearTimers()
+    setVisible(false)
     setWidth(0)
     timers.current.show = window.setTimeout(() => {
       setVisible(true)
@@ -59,14 +63,17 @@ export function NavigationProgress() {
     active.current = false
     clearTimers()
     setWidth(100)
+    // La barre reste pleine pendant qu'elle s'efface : remettre la largeur à
+    // zéro en même temps la ferait visiblement rétrécir en disparaissant.
     timers.current.hide = window.setTimeout(() => {
       setVisible(false)
-      setWidth(0)
-    }, 350)
+      timers.current.reset = window.setTimeout(() => setWidth(0), 350)
+    }, 300)
   }
 
   // L'URL rendue a changé : la navigation est arrivée.
   useEffect(() => {
+    shownUrl.current = window.location.pathname + window.location.search
     done()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, searchParams])
@@ -75,6 +82,10 @@ export function NavigationProgress() {
     function onClick(event: MouseEvent) {
       if (event.defaultPrevented || event.button !== 0) return
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      // En phase de capture, avant le `preventDefault` de `<Link>` (qui fait
+      // justement la navigation côté client) : en phase de bulle, tous les
+      // liens paraîtraient annulés. Un lien qu'un composant annule pour de bon
+      // laisse donc la barre jusqu'à l'abandon — cas rare, borné à 12 s.
       const anchor = (event.target as Element | null)?.closest?.('a')
       if (!anchor || !anchor.href) return
       if (anchor.target && anchor.target !== '_self') return
@@ -87,6 +98,8 @@ export function NavigationProgress() {
       start()
     }
     function onPopState() {
+      // Un « précédent » qui ne fait que changer d'ancre ne navigue pas.
+      if (window.location.pathname + window.location.search === shownUrl.current) return
       start()
     }
 

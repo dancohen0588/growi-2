@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
-import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-client'
+import type { PersistQueryClientOptions, Persister } from '@tanstack/react-query-persist-client'
 import * as Application from 'expo-application'
 
 import { queryClient } from '@/lib/query-client'
@@ -14,14 +14,20 @@ import { queryClient } from '@/lib/query-client'
  * réponse. Sans lui, chaque lancement à froid montrait des squelettes partout,
  * le temps d'un aller-retour par écran.
  *
- * Trois règles :
+ * Les règles :
  *
  * - **Une liste blanche**, pas une liste noire : ne survit au redémarrage que
  *   ce qui sert à l'ouverture de l'app. Ni la messagerie, ni le fil de la
  *   communauté, ni le chat (qui changent vite et ne gagnent rien à revenir
  *   périmés), ni le profil (`me`), inutile au premier écran.
+ * - **Ce qui vaut pour « aujourd'hui » ne passe pas minuit** (`DAILY_ROOTS`) :
+ *   le planning de la veille affiché sous « Aujourd'hui », ou la météo d'hier,
+ *   seraient faux — et le resteraient si le réseau manque.
+ * - **Rien de plus vieux que `PERSIST_MAX_AGE`** n'est réécrit : une requête
+ *   restaurée repart avec un minuteur neuf, et sans ce filtre une fiche ouverte
+ *   une fois (ou une plante supprimée depuis) resterait sur le disque à jamais.
  * - **Vidé à chaque changement de compte** (`clearQueryCache`, appelé par
- *   `store/session.ts`) : connexion, déconnexion, jeton refusé, suppression.
+ *   `store/session.ts`) : connexion, déconnexion, jeton refusé, session perdue.
  *   Rien de ce qu'a vu un compte ne doit s'afficher au suivant.
  * - **Invalidé à chaque nouveau build** (`buster`) : la forme d'une réponse
  *   peut changer d'une version à l'autre, et un cache d'une ancienne version
@@ -32,17 +38,46 @@ import { queryClient } from '@/lib/query-client'
 const CACHE_SCHEMA = 1
 
 /** Les racines de `lib/queries/keys.ts` que l'on garde. */
-const PERSISTED_ROOTS = new Set(['summary', 'planning', 'weather', 'gardens', 'plants', 'blog'])
+export const PERSISTED_ROOTS = ['summary', 'planning', 'weather', 'gardens', 'plants', 'blog'] as const
+const PERSISTED = new Set<string>(PERSISTED_ROOTS)
+
+/** Celles qui décrivent « aujourd'hui » : jetées si elles datent d'un autre jour. */
+const DAILY_ROOTS = new Set<string>(['summary', 'planning', 'weather'])
 
 /** Au-delà d'un jour, des données ne rendent plus service : on repart de zéro. */
 export const PERSIST_MAX_AGE = 24 * 60 * 60 * 1000
 
-export const queryPersister = createAsyncStoragePersister({
+// Les racines persistées vivent en mémoire aussi longtemps que sur le disque :
+// une requête retirée de la mémoire n'est plus réécrite, et disparaîtrait du
+// cache disque à la sauvegarde suivante.
+for (const root of PERSISTED_ROOTS) {
+  queryClient.setQueryDefaults([root], { gcTime: PERSIST_MAX_AGE })
+}
+
+const storage = createAsyncStoragePersister({
   storage: AsyncStorage,
   key: 'growi.query-cache',
   // Une écriture au plus par seconde : chaque réponse ne réécrit pas tout.
   throttleTime: 1000,
 })
+
+/** Même jour local ? `toDateString` plutôt qu'`Intl`, absent de Hermes. */
+function isToday(timestamp: number): boolean {
+  return new Date(timestamp).toDateString() === new Date().toDateString()
+}
+
+export const queryPersister: Persister = {
+  persistClient: storage.persistClient,
+  removeClient: storage.removeClient,
+  restoreClient: async () => {
+    const client = await storage.restoreClient()
+    if (!client) return client
+    client.clientState.queries = client.clientState.queries.filter(
+      (query) => !DAILY_ROOTS.has(String(query.queryKey[0])) || isToday(query.state.dataUpdatedAt),
+    )
+    return client
+  },
+}
 
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   persister: queryPersister,
@@ -52,9 +87,10 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
     shouldDehydrateQuery: (query) => {
       if (query.state.status !== 'success') return false
       const [root, , , leaf] = query.queryKey
-      if (!PERSISTED_ROOTS.has(String(root))) return false
+      if (!PERSISTED.has(String(root))) return false
       // Le plan dessiné d'un jardin est lourd et ne s'ouvre qu'à la demande.
       if (root === 'gardens' && leaf === 'plan') return false
+      if (Date.now() - query.state.dataUpdatedAt > PERSIST_MAX_AGE) return false
       return true
     },
   },

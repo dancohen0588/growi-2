@@ -1550,10 +1550,13 @@ Maquettes : Claude Design « Growi — Loader pousse ».
   (Reanimated, trois calques SVG). Les tracés sont dupliqués : toute retouche
   se reporte des deux côtés. Pour un chargement ordinaire, le squelette reste
   la règle ; la pousse est pour les attentes qu'il faut habiter.
-- **Web : `app/dashboard/loading.tsx` est unique** et choisit son squelette
-  d'après `usePathname` (`components/dashboard/DashboardSkeletons.tsx`). Un
-  `loading.tsx` dans `plantes/` n'envelopperait pas `plantes/layout.tsx`, qui
-  charge la liste. `NavigationProgress` (barre lime) part du clic sur un lien
+- **Web : les `loading.tsx` du dashboard rendent tous `PathSkeleton`**, qui
+  choisit le squelette d'après `usePathname`. Une frontière de chargement ne
+  se remonte que quand le segment **qui la suit** change : celle de
+  `dashboard/` couvre le passage d'une section à l'autre (et
+  `plantes/layout.tsx`, qui charge la liste), celles de `plantes/` et
+  `communaute/` la navigation liste → fiche. Une nouvelle section à
+  sous-pages lentes demande la sienne. `NavigationProgress` (barre lime) part du clic sur un lien
   interne et s'arrête quand l'URL rendue change : Next 14 n'expose aucun
   événement de navigation.
 - **Mobile : `Pulse` fait respirer les squelettes**, posé sur le conteneur et
@@ -1561,12 +1564,18 @@ Maquettes : Claude Design « Growi — Loader pousse ».
   l'apparence (`className`) sur des `View` internes, comme `Toast.tsx`.
 - **Mobile : le cache React Query est persisté** (`lib/query-persist.ts`,
   AsyncStorage, 24 h). Liste blanche (`summary`, `planning`, `weather`,
-  `gardens` sauf le plan, `plants`, `blog`) ; vidé par `clearQueryCache` à
-  **chaque** changement de compte (connexion, déconnexion, jeton refusé) ;
-  invalidé à chaque build (`buster`) ou en montant `CACHE_SCHEMA`. `gcTime`
-  vaut 24 h : une requête sortie de la mémoire sortirait aussi du disque.
-  Toute nouvelle racine de clé qui porte des données d'un autre compte ou
-  change vite (messagerie, fil) reste **hors** de la liste.
+  `gardens` sauf le plan, `plants`, `blog`) ; ce qui décrit « aujourd'hui »
+  (`summary`, `planning`, `weather`) est jeté à la restauration s'il date
+  d'un autre jour. Vidé par `clearQueryCache` à **chaque** changement de
+  compte (connexion — **avant** `saveTokens` —, déconnexion, jeton refusé,
+  session perdue) ; invalidé à chaque build (`buster`) ou en montant
+  `CACHE_SCHEMA`. Seules ces racines ont un `gcTime` de 24 h
+  (`setQueryDefaults`) : le défaut reste à 5 min, car le fil du chat
+  (`staleTime: Infinity`) rouvrirait sinon sur une conversation périmée.
+  Toute nouvelle racine qui change vite (messagerie, fil) reste **hors** de
+  la liste.
+- **`transformOrigin` en tableau, jamais en chaîne** (`['50%', '48.9%', 0]`) :
+  React Native lit `'50% 48.9%'` comme `50% 9%`.
 
 ### Observabilité (Sentry + PostHog)
 
