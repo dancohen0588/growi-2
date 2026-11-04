@@ -37,6 +37,30 @@ Règles : fond d'écran = `sand`, texte = `forest` ; jamais de blanc pur en fond
 - Ombres douces teintées forest : élévation faible (`shadowColor: '#1E5631'`, opacity 0.08, radius 12) ; CTA lime avec glow (`shadowColor: '#B4DD7F'`, opacity 0.5).
 - Grille d'espacement : multiples de 4. Padding horizontal d'écran : 16. Entre cartes : 12. Entre sections : 24.
 
+### Logo et loader
+
+- **Le logo est la pousse** : deux feuilles forest à nervure lime, une tige. Seule version vectorielle :
+  `apps/web/public/brand/growi-mark.svg` (fond clair) et `growi-mark-light.svg` (fond forest). L'icône
+  de l'app (`assets/icon.png`) en est la version carrée sur fond lime. **Ne jamais redessiner la
+  pousse à la main** ni la remplacer par l'emoji 🌱 là où elle représente la marque : reprendre ces tracés.
+- **Le loader est la même pousse, animée** — `components/ui/GrowiLoader.tsx` — en trois mouvements,
+  chacun pour un usage :
+
+| Mouvement | Quand | Taille |
+|---|---|---|
+| `pousse` | Attente longue qu'il faut habiter : identification, diagnostic, génération | 64–96 pt, avec un message qui change |
+| `balance` | Écran ou bloc qui tarde au-delà de deux secondes | 32–72 pt |
+| `souffle` | Petite taille, dans un bouton ou une ligne | < 24 pt (en dessous, un balancement se lit comme un tremblement) |
+
+- `tone` suit le fond : `sand` (défaut, fond clair), `lime` (dans un CTA lime), `forest` (fond forest).
+  `label={null}` quand un texte voisin dit déjà ce qui se passe.
+- **Pour un chargement ordinaire, le squelette reste la règle** — la pousse ne remplace pas un
+  `ListSkeleton`. Jamais d'`ActivityIndicator` dans un nouvel écran : c'était le spinner d'avant.
+- Les durées (pousse 2,8 s, balance 2,6 s, souffle 1,6 s) et les tracés sont **les mêmes que sur le
+  web** (`apps/web/components/ui/growi-loader.tsx`) : toute retouche se reporte des deux côtés.
+- Points de pivot (`transformOrigin`) **en tableau, jamais en chaîne** : React Native lit
+  `'50% 48.9%'` comme `50% 9%`.
+
 ## 2. Composants
 
 - Réutiliser les composants de `apps/mobile/components/ui/` (Button, Input, Card…) — ne jamais créer de variante ad hoc dans un écran. S'il manque un composant, le créer dans `components/ui/` avec variantes, en s'inspirant de l'équivalent web (`apps/web/components/ui/`).
@@ -52,6 +76,8 @@ Règles : fond d'écran = `sand`, texte = `forest` ; jamais de blanc pur en fond
 | `Card` + `CardTitle`, `CardDescription` | Carte, tactile si `onPress` est fourni |
 | `OptionGroup` | Choix parmi quelques valeurs, en pastilles. Préféré à un sélecteur natif tant que la liste est courte (≤ 6) : tout reste visible sans ouvrir de surcouche |
 | `states.tsx` → `ListSkeleton`, `ErrorState`, `EmptyState` | Les trois états non-succès, à utiliser tels quels |
+| `states.tsx` → `Pulse`, `Skeleton`, `CardSkeleton` | `Pulse` fait respirer ce qu'il enveloppe (opacité 1 → 0,5, figée si « Réduire les animations ») : le `style` animé sur l'`Animated.View`, l'apparence en `className` sur des `View` internes. Tout squelette composé à la main passe dans un `Pulse` — un bloc gris immobile se lit comme un écran cassé |
+| `GrowiLoader` | Le loader de marque — voir « Logo et loader » ci-dessus |
 | `EmojiPicker` | Grille des 12 emojis de jardin (mêmes valeurs que le web). **Jamais de champ texte pour un emoji** : cela oblige à ouvrir le clavier emoji et à chercher |
 | `CatalogSearch` | Autocomplétion sur le catalogue d'espèces : vignette, nom scientifique, badge toxique, tags, et repli « saisie à la main » |
 | `CareLogSheet` | Saisie détaillée d'un geste, champs adaptés au type (quantité + unité, état de santé, produit employé) |
@@ -67,7 +93,7 @@ Règles : fond d'écran = `sand`, texte = `forest` ; jamais de blanc pur en fond
 
 ### Conventions retenues sur les écrans de liste
 
-- **Squelettes, pas de spinner** : `ListSkeleton` reprend la silhouette des cartes à venir.
+- **Squelettes, pas de spinner** : `ListSkeleton` reprend la silhouette des cartes à venir. Une attente longue (analyse d'une photo) prend le `GrowiLoader` en `pousse` avec des messages qui défilent (`IdentifyLoading`).
 - **Formulaires alimentés par une requête** : monter le formulaire *après* le chargement (composant interne recevant la donnée), plutôt que d'initialiser `useForm` avec des valeurs absentes puis de le réinitialiser.
 - **Champs numériques** : le clavier renvoie du texte. Étendre le schéma partagé avec une version texte du champ (`z.string().refine(...)`) et convertir à la soumission, plutôt que de contourner la validation.
 - **Effacer un champ facultatif** : envoyer `null` (et non `''` ni `undefined`) ; les schémas de `@growi/shared` distinguent « effacer » de « laisser inchangé ».
@@ -86,7 +112,7 @@ Règles : fond d'écran = `sand`, texte = `forest` ; jamais de blanc pur en fond
 1. **Zones tactiles ≥ 44×44 pt** pour tout élément interactif (utiliser `hitSlop` si le visuel est plus petit).
 2. **Safe areas** : chaque écran enveloppé via react-native-safe-area-context ; jamais de contenu sous l'encoche ou le home indicator.
 3. **Zone du pouce** : action principale de l'écran en bas ; pas d'action critique uniquement en haut à droite.
-4. **Chaque écran gère 4 états** : loading (skeletons, pas de spinner plein écran), erreur (message + bouton réessayer), vide (illustration + texte encourageant + CTA), succès. Aucun écran ne peut afficher un blanc.
+4. **Chaque écran gère 4 états** : loading (skeletons, pas de spinner plein écran ; `GrowiLoader` pour une attente longue), erreur (message + bouton réessayer), vide (illustration + texte encourageant + CTA), succès. Aucun écran ne peut afficher un blanc.
 5. **Feedback immédiat** : actions rapides (« J'ai arrosé ») = optimistic update + toast discret ; jamais d'attente bloquante pour une action simple.
 6. **Clavier** : formulaires dans `KeyboardAvoidingView` (+ `keyboardShouldPersistTaps="handled"`) ; le champ actif reste visible ; `returnKeyType` cohérent (next/done).
 7. **Pull-to-refresh** sur toutes les listes (RefreshControl teinté lime).

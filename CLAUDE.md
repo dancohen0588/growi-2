@@ -425,6 +425,32 @@ Typo : `font-poppins` pour les titres, `font-raleway` pour le body (via CSS vari
 
 Ombres custom : `shadow-card`, `shadow-card-hover`, `shadow-cta`.
 
+#### Logo et loader
+
+Le logo est la **pousse** : deux feuilles forest à nervure lime (`#9CC86E`), une tige — viewBox
+`182 222 660 660` dans le repère 1024 de l'icône d'app. Le loader est la même pousse, animée.
+Maquettes : Claude Design « Growi — Loader pousse ».
+
+| Fichier (`apps/web/public/brand/`) | Usage |
+|---|---|
+| `growi-mark.svg` · `growi-mark-light.svg` | Logo statique, fond clair · fond forest |
+| `growi-loader-pousse[-light].svg` | Loader animé, attente longue |
+| `growi-loader-balance[-light].svg` | Loader animé, page qui tarde |
+| `growi-loader-souffle[-light].svg` | Loader animé, petite taille |
+
+- Ces SVG sont **autonomes** (animation CSS embarquée, `prefers-reduced-motion` respecté) : ils
+  s'emploient tels quels en `<img>`, dans un email, une doc ou un deck — servis à
+  `https://growi-garden.fr/brand/…`. Dans l'app, préférer les composants :
+  `components/ui/growi-loader.tsx` (web) et `apps/mobile/components/ui/GrowiLoader.tsx`.
+- **Trois mouvements, trois usages** : `pousse` (identification, diagnostic, génération — avec un
+  message qui change), `balance` (page ou bloc qui tarde au-delà de 2 s), `souffle` (moins de
+  24 px, dans un bouton). Pour un chargement ordinaire, le **squelette** reste la règle.
+- **Ne jamais redessiner la pousse** ni la remplacer par l'emoji 🌱 là où elle représente la marque : les
+  tracés sont dupliqués à quatre endroits (les deux composants, `public/brand/`, la maquette) et
+  toute retouche se reporte partout. L'en-tête du site affiche encore « Growi 🌱 » en texte :
+  à remplacer par `growi-mark.svg` lors d'une prochaine passe sur le header.
+- Règles mobiles détaillées : skill `growi-mobile-design`, section « Logo et loader ».
+
 ### Conventions de composants
 
 - **`SectionWrapper`** (`components/ui/section-wrapper.tsx`) — à utiliser pour chaque section marketing. Gère `py-20 md:py-28`, `max-w-7xl` container, animations Framer Motion au scroll. Prop `variant` : `sand | white | forest | gradient`.
@@ -1542,7 +1568,7 @@ Maquettes : Claude Design « Growi — Loader pousse ».
   en `iad1` : chaque requête SQL traversait l'Atlantique. Ne pas changer de
   région sans déplacer la base — l'en-tête `x-vercel-id` (`cdg1::dub1::…`)
   dit où une requête a été servie.
-- **Le loader de marque** est la pousse du logo, en vecteur, en trois
+- **Le loader de marque** (voir « Design system › Logo et loader ») est la pousse du logo, en vecteur, en trois
   mouvements : `pousse` (attentes longues : identification, diagnostic),
   `balance` (page qui tarde), `souffle` (moins de 24 px, dans un bouton).
   Web : `components/ui/growi-loader.tsx`, animations en CSS dans
