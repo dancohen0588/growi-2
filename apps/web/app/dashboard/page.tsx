@@ -1,5 +1,6 @@
 // growi-frontend/app/dashboard/page.tsx
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { auth } from '@/auth'
 import Link from 'next/link'
 import {
@@ -71,15 +72,6 @@ export default async function DashboardPage() {
   const session = await auth()
   const firstName = session?.user?.firstName ?? 'Jardinier'
 
-  // Les indicateurs ne valent pas la page : si le moteur ou la base bronche,
-  // l'accueil s'affiche sans eux plutôt que de ne pas s'afficher.
-  const summary = session?.user?.id
-    ? await getDashboardSummary(session.user.id).catch((error) => {
-        console.error('[dashboard] indicateurs indisponibles :', error)
-        return null
-      })
-    : null
-
   return (
     <div className="flex flex-col gap-8">
       {/* Welcome */}
@@ -92,8 +84,13 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Overview stats row */}
-      {summary && <SummaryStats summary={summary} />}
+      {/* Overview stats row — en flux : le reste de la page, statique,
+          s'affiche sans attendre le moteur de conseils. */}
+      {session?.user?.id && (
+        <Suspense fallback={<SummaryStatsSkeleton />}>
+          <SummarySection userId={session.user.id} />
+        </Suspense>
+      )}
 
       {/* Identifier hero CTA */}
       <Link
@@ -129,6 +126,29 @@ export default async function DashboardPage() {
           Elle vendait une offre qui n'existe pas — ni paiement, ni diagnostics
           limités, ni météo pro — à quelqu'un déjà inscrit : la rediriger vers
           `/register` n'aurait eu aucun sens. Elle reviendra avec Stripe. */}
+    </div>
+  )
+}
+
+/**
+ * Les indicateurs ne valent pas la page : si le moteur ou la base bronche,
+ * l'accueil s'affiche sans eux plutôt que de ne pas s'afficher.
+ */
+async function SummarySection({ userId }: { userId: string }) {
+  const summary = await getDashboardSummary(userId).catch((error) => {
+    console.error('[dashboard] indicateurs indisponibles :', error)
+    return null
+  })
+  return summary ? <SummaryStats summary={summary} /> : null
+}
+
+/** Même grille que `SummaryStats`, pour que rien ne saute à l'arrivée. */
+function SummaryStatsSkeleton() {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-busy="true">
+      {Array.from({ length: 4 }, (_, i) => (
+        <div key={i} className="h-[116px] animate-pulse rounded-2xl bg-sand-dark" />
+      ))}
     </div>
   )
 }

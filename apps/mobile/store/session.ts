@@ -9,6 +9,7 @@ import { clearKeychainOnFreshInstall } from '@/lib/fresh-install'
 import { analytics, applyAnalyticsConsent } from '@/lib/analytics/posthog'
 import { forgetUser, identifyUser } from '@/lib/observability/sentry'
 import { hasSeenOnboarding } from '@/lib/onboarding-storage'
+import { clearQueryCache } from '@/lib/query-persist'
 import { forgetDeviceForPush } from '@/lib/push'
 import { requestAppleIdentity, requestGoogleIdentity } from '@/lib/social-auth'
 
@@ -157,6 +158,7 @@ export const useSession = create<SessionState>((set) => ({
       // neuve détacherait de son compte tout ce qu'il fait avant de se
       // reconnecter, et la reconnexion ne les recollerait jamais.
       await clearTokens()
+      await clearQueryCache()
       forgetUser()
       set({ status: 'unauthenticated', user: null })
     }
@@ -164,6 +166,11 @@ export const useSession = create<SessionState>((set) => ({
 
   signIn: async ({ email, password }) => {
     const tokens = await publicApi.auth.login({ email, password, deviceInfo: deviceInfo() })
+    // Une connexion repart d'un cache vide : rien de ce qu'a vu le compte
+    // précédent sur cet appareil ne doit s'afficher à celui-ci. **Avant**
+    // `saveTokens` : une app tuée entre les deux relancerait sinon la session
+    // du nouveau compte sur le cache disque de l'ancien.
+    await clearQueryCache()
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
     attachIdentity(tokens.user.id, tokens.user.analyticsConsent)
     set({
@@ -180,6 +187,11 @@ export const useSession = create<SessionState>((set) => ({
       password,
       deviceInfo: deviceInfo(),
     })
+    // Une connexion repart d'un cache vide : rien de ce qu'a vu le compte
+    // précédent sur cet appareil ne doit s'afficher à celui-ci. **Avant**
+    // `saveTokens` : une app tuée entre les deux relancerait sinon la session
+    // du nouveau compte sur le cache disque de l'ancien.
+    await clearQueryCache()
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
     attachIdentity(tokens.user.id, tokens.user.analyticsConsent)
     set({
@@ -201,6 +213,11 @@ export const useSession = create<SessionState>((set) => ({
     if (!identity) return false
 
     const tokens = await publicApi.auth.social(provider, identity)
+    // Une connexion repart d'un cache vide : rien de ce qu'a vu le compte
+    // précédent sur cet appareil ne doit s'afficher à celui-ci. **Avant**
+    // `saveTokens` : une app tuée entre les deux relancerait sinon la session
+    // du nouveau compte sur le cache disque de l'ancien.
+    await clearQueryCache()
     await saveTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
     attachIdentity(tokens.user.id, tokens.user.analyticsConsent)
     set({
@@ -231,6 +248,7 @@ export const useSession = create<SessionState>((set) => ({
       await publicApi.auth.logout(refreshToken).catch(() => {})
     }
     await clearTokens()
+    await clearQueryCache()
     // Après l'effacement des jetons : les erreurs qui suivent ne sont plus
     // celles de personne en particulier.
     forgetUser()
@@ -246,6 +264,9 @@ export const useSession = create<SessionState>((set) => ({
 // Quand le rafraîchissement échoue définitivement, l'app doit revenir au login.
 setSessionLostHandler(() => {
   forgetUser()
+  // Ce compte-là n'est plus là : ses données non plus, ni en mémoire ni sur
+  // le disque. Ne lève jamais.
+  void clearQueryCache()
   // Pas de `reset()` ici : une session perdue en cours de route n'est pas un
   // départ. L'identité analytique est conservée, et la reconnexion la retrouve
   // au lieu d'ouvrir un profil de plus.

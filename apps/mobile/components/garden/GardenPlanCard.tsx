@@ -4,7 +4,7 @@ import { Expand, Monitor } from 'lucide-react-native'
 import { isApiError } from '@growi/api-client'
 
 import { GardenPlanView } from '@/components/garden/GardenPlanView'
-import { Skeleton } from '@/components/ui/states'
+import { Pulse, Skeleton } from '@/components/ui/states'
 import { useGardenPlan } from '@/lib/queries/gardens'
 
 /**
@@ -22,7 +22,9 @@ export function GardenPlanCard({ gardenId }: { gardenId: string }) {
   if (plan.isPending) {
     return (
       <View className="overflow-hidden rounded-2xl bg-card" style={{ aspectRatio: 4 / 3 }}>
-        <Skeleton className="h-full w-full" />
+        <Pulse style={{ flex: 1 }}>
+          <Skeleton className="h-full w-full" />
+        </Pulse>
       </View>
     )
   }

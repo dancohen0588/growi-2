@@ -9,13 +9,13 @@ import {
   Camera,
   ImageIcon,
   Leaf,
-  Loader2,
   RefreshCw,
   ScanSearch,
   Search,
   Sparkles,
 } from 'lucide-react'
 
+import { GrowiLoader } from '@/components/ui/growi-loader'
 import { prepareImageFile } from '@/lib/image-compression'
 import type {
   IdentifyApiResponse,
@@ -184,11 +184,7 @@ export function IdentifyFlow({ title, intro, renderActions }: IdentifyFlowProps)
 
       {step === 'loading' && (
         <div className="bg-white rounded-2xl shadow-card p-10 flex flex-col items-center gap-4">
-          <Loader2
-            size={36}
-            className="text-forest animate-spin"
-            aria-hidden
-          />
+          <GrowiLoader motion="pousse" size={72} label={null} />
           <p
             key={loadingIdx}
             className="font-raleway text-sm text-forest/70 animate-in fade-in duration-500"

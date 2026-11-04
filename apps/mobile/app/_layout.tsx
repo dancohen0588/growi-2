@@ -6,7 +6,7 @@ import { Stack, useNavigationContainerRef } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import {
   Poppins_400Regular,
   Poppins_500Medium,
@@ -24,6 +24,7 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { useScreenTracking } from '@/lib/analytics/use-screen-tracking'
 import { initSentry, navigationIntegration } from '@/lib/observability/sentry'
 import { queryClient } from '@/lib/query-client'
+import { persistOptions } from '@/lib/query-persist'
 import { useSession } from '@/store/session'
 
 // Au chargement du module, avant le premier rendu : le layout racine est le
@@ -85,7 +86,9 @@ function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
+      {/* Les données du dernier passage s'affichent dès l'ouverture, puis
+          chaque requête périmée se rafraîchit (voir `lib/query-persist.ts`). */}
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
         <ToastProvider>
         <StatusBar style="dark" />
         <Stack
@@ -109,7 +112,7 @@ function RootLayout() {
           <Stack.Screen name="supprimer-compte" options={{ presentation: 'modal' }} />
         </Stack>
         </ToastProvider>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </SafeAreaProvider>
   )
 }

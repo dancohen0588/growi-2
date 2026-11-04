@@ -1,4 +1,15 @@
-import { Text, View } from 'react-native'
+import { useEffect } from 'react'
+import { Text, View, type StyleProp, type ViewStyle } from 'react-native'
+import Animated, {
+  Easing,
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated'
+
+import { useReducedMotion } from '@/lib/use-reduced-motion'
 
 import { Button } from './Button'
 
@@ -7,7 +18,51 @@ import { Button } from './Button'
  * Aucun écran de l'app ne doit pouvoir rester blanc.
  */
 
-/** Bloc gris animé qui préfigure la forme du contenu à venir. */
+/**
+ * Fait respirer ce qu'il enveloppe : un squelette immobile se lit comme un
+ * écran cassé, pas comme un écran qui charge. Même rythme que `animate-pulse`
+ * du web (opacité 1 → 0,5, 2 s), figé quand « Réduire les animations » est
+ * actif.
+ *
+ * L'animation porte sur ce conteneur et non sur chaque `Skeleton` : le `style`
+ * va sur l'`Animated.View`, l'apparence sur des `View` internes — même
+ * découpage que `Toast.tsx` et `Pagination.tsx`, qui évite de faire dépendre
+ * le rendu de l'interop entre NativeWind et les composants animés. `style`
+ * sert à placer le conteneur (`{ flex: 1 }`, un `gap`).
+ */
+export function Pulse({
+  children,
+  style,
+}: {
+  children: React.ReactNode
+  style?: StyleProp<ViewStyle>
+}) {
+  const reduced = useReducedMotion()
+  const opacity = useSharedValue(1)
+
+  useEffect(() => {
+    if (reduced) {
+      cancelAnimation(opacity)
+      opacity.value = 1
+      return
+    }
+    opacity.value = withRepeat(
+      withTiming(0.5, { duration: 1000, easing: Easing.bezier(0.4, 0, 0.6, 1) }),
+      -1,
+      true,
+    )
+    return () => cancelAnimation(opacity)
+  }, [reduced, opacity])
+
+  const pulse = useAnimatedStyle(() => ({ opacity: opacity.value }))
+
+  return <Animated.View style={[style, pulse]}>{children}</Animated.View>
+}
+
+/**
+ * Bloc gris qui préfigure la forme du contenu à venir. Il respire quand il
+ * est placé dans un `Pulse` — ce que font déjà `CardSkeleton` et `ListSkeleton`.
+ */
 export function Skeleton({ className = '' }: { className?: string }) {
   return <View className={`rounded-lg bg-sand-dark ${className}`} />
 }
@@ -15,9 +70,11 @@ export function Skeleton({ className = '' }: { className?: string }) {
 /** Silhouette d'une carte, pendant le chargement d'une liste. */
 export function CardSkeleton() {
   return (
-    <View className="rounded-xl bg-card p-4 gap-2">
-      <Skeleton className="h-5 w-1/2" />
-      <Skeleton className="h-4 w-1/3" />
+    <View className="rounded-xl bg-card p-4">
+      <Pulse style={{ gap: 8 }}>
+        <Skeleton className="h-5 w-1/2" />
+        <Skeleton className="h-4 w-1/3" />
+      </Pulse>
     </View>
   )
 }

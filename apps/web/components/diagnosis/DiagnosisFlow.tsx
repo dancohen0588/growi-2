@@ -4,12 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Camera,
   ImageIcon,
-  Loader2,
   RefreshCw,
   ScanSearch,
   Sparkles,
   Stethoscope,
 } from 'lucide-react'
+import { GrowiLoader } from '@/components/ui/growi-loader'
 import type { DiagnoseApiResponse, DiagnosisSuccess, HealthStatus } from '@growi/shared'
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -313,7 +313,7 @@ export function DiagnosisFlow({
 
         {step === 'loading' && (
           <div className="py-10 flex flex-col items-center gap-4">
-            <Loader2 size={32} className="text-forest animate-spin" aria-hidden />
+            <GrowiLoader motion="pousse" size={64} label={null} />
             <p
               key={loadingIdx}
               className="font-raleway text-sm text-forest/70 animate-in fade-in duration-500"
