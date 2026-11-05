@@ -28,6 +28,7 @@
  */
 
 import { SECRET_ART_LOT1 } from './art-lot1'
+import { SECRET_ART_LOT2 } from './art-lot2'
 
 const SOL = '<rect x="0" y="198" width="320" height="42" fill="#ede9cc"/><path d="M0 198 H320" stroke="#1E5631" stroke-width="3"/>'
 
@@ -109,6 +110,7 @@ const SECRET_ART_EAU_CUISSON: Readonly<Record<string, string>> = {
 export const SECRET_ART: Readonly<Record<string, string>> = {
   ...SECRET_ART_EAU_CUISSON,
   ...SECRET_ART_LOT1,
+  ...SECRET_ART_LOT2,
 }
 
 /** Une clé de dessin connue du registre. */

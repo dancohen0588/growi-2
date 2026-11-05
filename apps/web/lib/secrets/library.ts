@@ -18,6 +18,7 @@
 import type { SecretConditions, SecretEvidence, SecretPlanche } from '@growi/shared'
 
 import { PLANCHES_LOT1 } from './planches/lot1'
+import { PLANCHES_LOT2 } from './planches/lot2'
 
 export interface SecretSeed {
   slug: string
@@ -110,7 +111,7 @@ const BASE_LIBRARY: SecretSeed[] = [
       'Hache-les grossièrement et plonge-les dans 10 litres d’eau de pluie, dans un seau non métallique.',
       'Couvre sans fermer, et remue chaque jour.',
       'Quand il ne se forme plus de bulles (10 à 15 jours), filtre.',
-      'Dilue à 10 % — un litre de purin pour dix d’eau — et arrose au pied.',
+      'Dilue à 10 % — un litre de purin pour neuf litres d’eau — et arrose au pied.',
     ].join('\n'),
     ingredients: ['1 kg d’orties', '10 L d’eau de pluie', 'un seau'],
     evidence: 'PLAUSIBLE',
@@ -510,7 +511,7 @@ const BASE_LIBRARY: SecretSeed[] = [
 ]
 
 /** Les planches livrées par lots (`planches/`), validées dans Claude Design. */
-const PLANCHES: Readonly<Record<string, SecretPlanche>> = { ...PLANCHES_LOT1 }
+const PLANCHES: Readonly<Record<string, SecretPlanche>> = { ...PLANCHES_LOT1, ...PLANCHES_LOT2 }
 
 export const SECRET_LIBRARY: SecretSeed[] = BASE_LIBRARY.map((seed) =>
   seed.planche || !PLANCHES[seed.slug] ? seed : { ...seed, planche: PLANCHES[seed.slug] },
