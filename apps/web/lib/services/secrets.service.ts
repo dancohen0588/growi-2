@@ -16,13 +16,16 @@
 import {
   SECRET_RULE_IDS,
   secretConditionsSchema,
+  secretPlancheSchema,
   type GardenSecret,
   type Grimoire,
   type GrimoireEntry,
   type SecretEvidence,
   type SecretFeedbackInput,
+  type SecretPlanche,
   type SecretStage,
   type SecretVerdict,
+  type TrySecretInput,
 } from '@growi/shared'
 
 import { trackServer } from '@/lib/analytics/server'
@@ -37,7 +40,8 @@ import {
   type SecretWeather,
 } from '@/lib/secrets/select'
 import { ServiceError } from '@/lib/services/errors'
-import { safeTimeZone } from '@/lib/zoned-day'
+import { planSecretTask } from '@/lib/services/task.service'
+import { safeTimeZone, zonedDayIso } from '@/lib/zoned-day'
 
 const DAY_MS = 86_400_000
 
@@ -73,6 +77,7 @@ export interface TipRecord {
   effortMinutes: number | null
   cooldownDays: number
   conditions: ReturnType<typeof secretConditionsSchema.parse>
+  planche: SecretPlanche | null
 }
 
 /**
@@ -101,6 +106,7 @@ function toRecord(row: {
   effortMinutes: number | null
   cooldownDays: number
   conditions: unknown
+  planche?: unknown
 }): TipRecord | null {
   const conditions = secretConditionsSchema.safeParse(row.conditions ?? {})
   if (!conditions.success) {
@@ -109,7 +115,27 @@ function toRecord(row: {
     console.error('[secrets.service] conditions invalides :', row.slug, conditions.error.message)
     return null
   }
-  return { ...row, evidence: row.evidence as SecretEvidence, conditions: conditions.data }
+  // Une planche qui cite un dessin retiré du registre est écartée : le secret
+  // s'affiche alors en texte, plutôt qu'avec une case vide.
+  const planche = row.planche == null ? null : secretPlancheSchema.safeParse(row.planche)
+  if (planche && !planche.success) {
+    console.error('[secrets.service] planche invalide :', row.slug, planche.error.message)
+  }
+  return {
+    slug: row.slug,
+    title: row.title,
+    teaser: row.teaser,
+    story: row.story,
+    recipe: row.recipe,
+    ingredients: row.ingredients,
+    evidence: row.evidence as SecretEvidence,
+    cautions: row.cautions,
+    prepDays: row.prepDays,
+    effortMinutes: row.effortMinutes,
+    cooldownDays: row.cooldownDays,
+    conditions: conditions.data,
+    planche: planche?.success ? planche.data : null,
+  }
 }
 
 export async function listPublishedTips(): Promise<TipRecord[]> {
@@ -154,6 +180,7 @@ function toSecret(tip: TipRecord, stage: SecretStage, trialCareLogId?: string): 
     cautions: tip.cautions,
     prepDays: tip.prepDays,
     effortMinutes: tip.effortMinutes,
+    planche: tip.planche,
     ...(trialCareLogId ? { trialCareLogId } : {}),
   }
 }
@@ -403,8 +430,23 @@ async function buildSecretActions(userId: string, gardenId: string, today: strin
     const published = await findPublishedTip(pick.slug)
     // Un secret lunaire tiré avant que l'option soit coupée ne s'affiche plus.
     const tip = published?.conditions.lunarOnly && !user?.lunarCalendar ? null : published
-    const [dismissed, triedThisWeek] = await Promise.all([
+    const [dismissed, planned, triedThisWeek] = await Promise.all([
       prisma.userTip.findFirst({ where: { userId, slug: pick.slug, dismissedAt: { not: null } }, select: { id: true } }),
+      // « Je tente » l'a mis à faire : la tâche le porte désormais au planning,
+      // la carte n'a plus à le proposer — ni cette semaine, ni tant qu'elle
+      // reste ouverte.
+      prisma.plantTask.findFirst({
+        where: {
+          userId,
+          source: 'SECRET',
+          tipSlug: pick.slug,
+          OR: [
+            { doneAt: null, supersededAt: null },
+            { createdAt: { gte: new Date(Date.parse(`${weekStart}T00:00:00Z`) - DAY_MS) } },
+          ],
+        },
+        select: { id: true },
+      }),
       // Une version de l'app qui ignore les secrets coche l'action sans
       // `tipSlug` : la règle suffit à dire que c'est fait.
       Promise.resolve(
@@ -417,7 +459,7 @@ async function buildSecretActions(userId: string, gardenId: string, today: strin
       ),
     ])
 
-    if (plant && tip && !dismissed && !triedThisWeek) {
+    if (plant && tip && !dismissed && !planned && !triedThisWeek) {
       actions.push({
         id: `${SECRET_RULE_IDS.discover}:${gardenId}:${isoWeekKey(today)}`,
         type: 'autre',
@@ -572,6 +614,46 @@ export async function revealSecret(userId: string, slug: string): Promise<void> 
   trackServer(userId, 'tip_revealed', { slug, evidence: tip.evidence })
 }
 
+/**
+ * « Je tente » : le secret s'ajoute au calendrier en tâche à faire, pour la
+ * plante de la carte, datée du jour de l'utilisateur. Rien n'est inscrit au
+ * journal ici — l'essai le sera quand la tâche sera cochée.
+ *
+ * @throws ServiceError('NOT_FOUND') si le secret, le jardin ou la plante ne
+ *   sont pas à l'utilisateur.
+ */
+export async function trySecret(
+  userId: string,
+  slug: string,
+  input: TrySecretInput,
+  now: Date = new Date(),
+): Promise<GardenAction> {
+  const tip = await assertTip(userId, slug)
+  const [plant, user] = await Promise.all([
+    prisma.plantInstance.findFirst({
+      where: { id: input.plantId, userId, garden: { id: input.gardenId, userId } },
+      select: { id: true },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } }),
+  ])
+  if (!plant) throw new ServiceError('NOT_FOUND', 'Plante introuvable')
+
+  // Le tenter vaut l'avoir dévoilé, même si l'ouverture n'a pas été notée.
+  await prisma.userTip.upsert({
+    where: { userId_slug: { userId, slug } },
+    create: { userId, slug, revealedAt: now },
+    update: {},
+  })
+
+  return planSecretTask(userId, {
+    plantInstanceId: plant.id,
+    tipSlug: slug,
+    title: tip.title,
+    recipe: tip.recipe,
+    dueDate: zonedDayIso(now, safeTimeZone(user?.timezone ?? 'Europe/Paris')),
+  })
+}
+
 /** « Pas pour moi » : le secret ne sera plus proposé. Idempotent. */
 export async function dismissSecret(userId: string, slug: string): Promise<void> {
   const tip = await assertTip(userId, slug)
@@ -677,6 +759,7 @@ export async function getGrimoire(userId: string): Promise<Grimoire> {
         story: discovered ? tip.story : null,
         ingredients: discovered ? tip.ingredients : [],
         cautions: discovered ? tip.cautions : null,
+        planche: discovered ? tip.planche : null,
       }
     })
     .sort((a, b) => Number(b.discovered) - Number(a.discovered) || a.title.localeCompare(b.title, 'fr'))

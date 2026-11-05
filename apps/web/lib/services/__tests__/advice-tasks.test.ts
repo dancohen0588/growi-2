@@ -19,6 +19,9 @@ const taskService = vi.hoisted(() => ({
   listOpenTasksAsActions: vi.fn(),
   completeTask: vi.fn(),
   reopenTask: vi.fn(),
+  // La vraie règle : une tâche SECRET porte la règle des secrets et son slug.
+  secretOfTask: (task: { source?: string; tipSlug?: string | null } | null | undefined) =>
+    task?.source === 'SECRET' && task.tipSlug ? { ruleId: 'r20-secret', tipSlug: task.tipSlug } : null,
 }))
 const userService = vi.hoisted(() => ({ getUserTimezone: vi.fn() }))
 const secretsService = vi.hoisted(() => ({
@@ -242,6 +245,21 @@ describe('cocher une action', () => {
     expect(secretsService.trackSecretTried).toHaveBeenCalledWith(USER, 'feuilles-mortes', 'discover')
   })
 
+  it('cocher un secret mis à faire inscrit l’essai, avec le slug de la tâche', async () => {
+    taskService.completeTask.mockResolvedValue({ id: 't_secret', source: 'SECRET', tipSlug: 'purin-ortie' })
+    secretsService.secretTitle.mockResolvedValue('Le purin d’ortie')
+
+    // Ce que coche une version de l'app qui ignore les secrets : ni règle, ni slug.
+    await markActionDone(USER, { gardenId: GARDEN, actionType: 'autre', plantId: 'p1', taskId: 't_secret' })
+
+    expect(logService.logCare).toHaveBeenCalledWith('p1', USER, { type: 'other' }, undefined, 'planning', {
+      ruleId: 'r20-secret',
+      tipSlug: 'purin-ortie',
+      note: 'Le purin d’ortie',
+    })
+    expect(secretsService.trackSecretTried).toHaveBeenCalledWith(USER, 'purin-ortie', 'discover')
+  })
+
   it('refuse avant d’écrire quoi que ce soit si le jardin n’est pas à l’utilisateur', async () => {
     gardenService.assertGardenOwned.mockRejectedValue(new Error('Jardin introuvable'))
 
@@ -376,6 +394,24 @@ describe('cocher plusieurs actions d’un coup', () => {
       where: { id: { in: ['t1'] }, doneAt: null },
       data: { doneAt: expect.any(Date) },
     })
+  })
+
+  it('un secret mis à faire, coché dans la tournée, garde sa règle et son slug', async () => {
+    prismaMock.plantTask.findMany.mockResolvedValue([{ id: 't_secret', source: 'SECRET', tipSlug: 'prele' }])
+
+    await markActionsDone(USER, {
+      gardenId: GARDEN,
+      items: [{ actionType: 'autre', plantId: 'p1', taskId: 't_secret' }],
+    })
+
+    expect(logService.logCareBatch).toHaveBeenCalledWith(
+      USER,
+      [expect.objectContaining({ plantInstanceId: 'p1', type: 'other', ruleId: 'r20-secret', tipSlug: 'prele' })],
+      prismaMock,
+      expect.any(Date),
+      'planning',
+      { skipIfLoggedSince: expect.any(Date) },
+    )
   })
 
   it('ne réécrit pas ce qui est déjà noté depuis minuit, heure de l’utilisateur', async () => {

@@ -15,7 +15,11 @@
  * - jamais le mot « IA ».
  */
 
-import type { SecretConditions, SecretEvidence } from '@growi/shared'
+import type { SecretConditions, SecretEvidence, SecretPlanche } from '@growi/shared'
+
+import { PLANCHES_LOT1 } from './planches/lot1'
+import { PLANCHES_LOT2 } from './planches/lot2'
+import { PLANCHES_LOT3 } from './planches/lot3'
 
 export interface SecretSeed {
   slug: string
@@ -31,13 +35,15 @@ export interface SecretSeed {
   effortMinutes?: number
   cooldownDays?: number
   conditions: SecretConditions
+  /** La planche BD, quand le secret est dessiné (`@growi/shared` `SECRET_ART`). */
+  planche?: SecretPlanche
 }
 
 const ALL_YEAR = undefined
 const GARDEN = ['OUTDOOR', 'BALCONY', 'GREENHOUSE'] as const
 const ACID_LOVERS = ['Hydrangea', 'Rhododendron', 'Camellia', 'Pieris', 'Skimmia', 'Vaccinium', 'Erica', 'Calluna', 'Gardenia', 'Azalea']
 
-export const SECRET_LIBRARY: SecretSeed[] = [
+const BASE_LIBRARY: SecretSeed[] = [
   {
     slug: 'coquilles-godets',
     title: 'Des godets en coquille d’œuf',
@@ -106,7 +112,7 @@ export const SECRET_LIBRARY: SecretSeed[] = [
       'Hache-les grossièrement et plonge-les dans 10 litres d’eau de pluie, dans un seau non métallique.',
       'Couvre sans fermer, et remue chaque jour.',
       'Quand il ne se forme plus de bulles (10 à 15 jours), filtre.',
-      'Dilue à 10 % — un litre de purin pour dix d’eau — et arrose au pied.',
+      'Dilue à 10 % — un litre de purin pour neuf litres d’eau — et arrose au pied.',
     ].join('\n'),
     ingredients: ['1 kg d’orties', '10 L d’eau de pluie', 'un seau'],
     evidence: 'PLAUSIBLE',
@@ -168,7 +174,7 @@ export const SECRET_LIBRARY: SecretSeed[] = [
       'Ajoute une goutte de savon noir pour que le mélange accroche.',
       'Pulvérise le feuillage en fin de journée.',
     ].join('\n'),
-    ingredients: ['bicarbonate de soude', 'savon noir', 'eau'],
+    ingredients: ['bicarbonate de soude', 'savon noir', 'eau', 'un pulvérisateur'],
     evidence: 'PLAUSIBLE',
     cautions: 'Pas plus d’une fois tous les dix jours : le sodium s’accumule dans le sol.',
     effortMinutes: 5,
@@ -273,7 +279,7 @@ export const SECRET_LIBRARY: SecretSeed[] = [
       'Le café en grain est acide, mais l’acidité part dans ta tasse : le marc usé est presque neutre. Il ne changera pas le sol d’une plante de terre de bruyère.',
     recipe: [
       'Pour une plante qui aime l’acidité, arrose à l’eau de pluie plutôt qu’à l’eau du robinet, souvent calcaire.',
-      'Au printemps, ajoute de la terre de bruyère ou un paillis d’aiguilles de pin au pied.',
+      'Au printemps, ajoute de la terre de bruyère au pied.',
       'Le marc peut aller au compost : il y sera utile, mais pour d’autres raisons.',
     ].join('\n'),
     ingredients: ['eau de pluie', 'terre de bruyère'],
@@ -290,9 +296,9 @@ export const SECRET_LIBRARY: SecretSeed[] = [
     recipe: [
       'Pour garder un hortensia bleu, maintiens un sol acide : eau de pluie, terre de bruyère au printemps.',
       'Un engrais « hortensias bleus » apporte l’aluminium qui manque.',
-      'Sur un sol calcaire, il restera rose — et c’est très bien aussi.',
+      'Sur un sol calcaire, il restera rose — et c’est très bien aussi. Un hortensia blanc, lui, reste blanc.',
     ].join('\n'),
-    ingredients: ['eau de pluie', 'terre de bruyère'],
+    ingredients: ['eau de pluie', 'terre de bruyère', 'engrais « hortensias bleus »'],
     evidence: 'MYTH',
     effortMinutes: 5,
     conditions: { months: [3, 4, 5, 6, 7, 8, 9], genera: ['Hydrangea'] },
@@ -338,6 +344,26 @@ export const SECRET_LIBRARY: SecretSeed[] = [
     cautions: 'Jamais salée ni grasse : le sel brûle les racines, surtout en pot.',
     effortMinutes: 2,
     conditions: { months: ALL_YEAR, locations: ['INDOOR', 'BALCONY'] },
+    planche: {
+      panels: [
+        {
+          art: 'eau-cuisson/1',
+          caption: 'Garde l’eau de cuisson des légumes, sans sel ni matière grasse.',
+          emphasis: 'sans sel ni matière grasse',
+        },
+        { art: 'eau-cuisson/2', caption: 'Laisse-la refroidir complètement : tiède, jamais chaude.', emphasis: 'refroidir complètement' },
+        {
+          art: 'eau-cuisson/3',
+          caption: 'Arrose ta plante avec, à la place de l’eau du robinet.',
+          emphasis: 'à la place de l’eau du robinet',
+        },
+      ],
+      caution: {
+        art: 'eau-cuisson/caution',
+        title: 'Jamais salée ni grasse.',
+        text: 'Le sel brûle les racines, surtout en pot. Si tu as salé ta cuisson, cette eau-là va à l’évier.',
+      },
+    },
   },
   {
     slug: 'eau-riz',
@@ -484,3 +510,10 @@ export const SECRET_LIBRARY: SecretSeed[] = [
     conditions: { months: [2, 3, 4, 5, 6, 7, 8, 9, 10], categories: ['VEGETABLE', 'HERBS'], lunarOnly: true },
   },
 ]
+
+/** Les planches livrées par lots (`planches/`), validées dans Claude Design. */
+const PLANCHES: Readonly<Record<string, SecretPlanche>> = { ...PLANCHES_LOT1, ...PLANCHES_LOT2, ...PLANCHES_LOT3 }
+
+export const SECRET_LIBRARY: SecretSeed[] = BASE_LIBRARY.map((seed) =>
+  seed.planche || !PLANCHES[seed.slug] ? seed : { ...seed, planche: PLANCHES[seed.slug] },
+)

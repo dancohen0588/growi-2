@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { isCautionArt, isSecretArt } from '../secrets/art'
 import { idSchema, nullish } from './common'
 
 /**
@@ -85,6 +86,54 @@ export const secretConditionsSchema = z.object({
 
 export type SecretConditions = z.infer<typeof secretConditionsSchema>
 
+// ─── La planche ────────────────────────────────────────────────────────────
+
+const artKeySchema = z
+  .string()
+  .max(80)
+  .refine(isSecretArt, { message: 'Dessin inconnu : il doit exister dans packages/shared/src/secrets/art.ts.' })
+
+/**
+ * Une case de la planche : un dessin du registre et sa légende. `emphasis` est
+ * un fragment exact de la légende, mis en gras.
+ */
+export const secretPanelSchema = z
+  .object({
+    art: artKeySchema.refine((key) => !isCautionArt(key), { message: 'Ce dessin est une précaution, pas une case.' }),
+    caption: z.string().trim().min(3).max(140),
+    emphasis: z.string().trim().max(80).optional(),
+  })
+  .refine((panel) => !panel.emphasis || panel.caption.includes(panel.emphasis), {
+    message: 'Le passage en gras doit être recopié tel quel depuis la légende.',
+    path: ['emphasis'],
+  })
+
+export type SecretPanel = z.infer<typeof secretPanelSchema>
+
+/**
+ * La planche BD d'un secret (direction validée le 05/11/2026) : de une à
+ * quatre cases d'étape, et une case de précaution. Un secret sans planche
+ * s'affiche en texte, comme avant.
+ */
+export const secretPlancheSchema = z.object({
+  panels: z.array(secretPanelSchema).min(1).max(4),
+  caution: nullish(
+    z.object({
+      art: artKeySchema.refine(isCautionArt, { message: 'Ce dessin est une case, pas une précaution.' }),
+      title: z.string().trim().min(3).max(60),
+      text: z.string().trim().min(3).max(200),
+      /**
+       * `warning` (« Attention », défaut) pour un risque ; `note` (« À savoir »)
+       * pour une simple mise en garde sur l'effet — l'ail au pied des rosiers
+       * n'abîme rien, il ne prouve rien non plus.
+       */
+      tone: z.enum(['warning', 'note']).optional(),
+    }),
+  ),
+})
+
+export type SecretPlanche = z.infer<typeof secretPlancheSchema>
+
 // ─── Le secret porté par une action du planning ────────────────────────────
 
 /**
@@ -116,6 +165,8 @@ export const gardenSecretSchema = z.object({
   effortMinutes: nullish(z.number().int()),
   /** Pour `ready` et `feedback` : le geste « je tente » d'origine. */
   trialCareLogId: z.string().optional(),
+  /** La planche BD — absente tant que le secret n'est pas dessiné. */
+  planche: nullish(secretPlancheSchema),
 })
 
 export type GardenSecret = z.infer<typeof gardenSecretSchema>
@@ -153,6 +204,26 @@ export const secretFeedbackSchema = z.object({
 
 export type SecretFeedbackInput = z.infer<typeof secretFeedbackSchema>
 
+/**
+ * Corps de `POST /api/v1/secrets/[slug]/try` — « Je tente ». Le secret
+ * s'ajoute au calendrier en tâche à faire, pour la plante de la carte ; c'est
+ * en cochant cette tâche que l'essai s'inscrit au journal.
+ */
+export const trySecretSchema = z.object({
+  gardenId: idSchema,
+  plantId: idSchema,
+})
+
+export type TrySecretInput = z.infer<typeof trySecretSchema>
+
+/** Réponse de « Je tente » : la tâche ajoutée au calendrier. */
+export const trySecretResultSchema = z.object({
+  taskId: idSchema,
+  dueDate: z.string(),
+})
+
+export type TrySecretResult = z.infer<typeof trySecretResultSchema>
+
 /** Corps de `POST /api/v1/secrets/dismiss` — « Pas pour moi ». */
 export const dismissSecretSchema = z.object({
   slug: secretSlugSchema,
@@ -183,6 +254,8 @@ export const grimoireEntrySchema = z.object({
   story: nullish(z.string()),
   ingredients: z.array(z.string()),
   cautions: nullish(z.string()),
+  /** Seulement pour un secret découvert, et dessiné. */
+  planche: nullish(secretPlancheSchema),
 })
 
 export type GrimoireEntry = z.infer<typeof grimoireEntrySchema>
@@ -218,6 +291,8 @@ export const updateGardenTipSchema = z.object({
   cooldownDays: z.number().int().min(7).max(730),
   conditions: secretConditionsSchema,
   status: secretStatusSchema,
+  /** `null` retire la planche : le secret repasse en texte. */
+  planche: secretPlancheSchema.nullable().optional(),
 })
 
 export type UpdateGardenTipInput = z.infer<typeof updateGardenTipSchema>

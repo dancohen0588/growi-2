@@ -34,6 +34,7 @@ module.exports = {
         raleway: ['Raleway_400Regular'],
         'raleway-medium': ['Raleway_500Medium'],
         'raleway-semibold': ['Raleway_600SemiBold'],
+        'raleway-bold': ['Raleway_700Bold'],
       },
       fontSize: {
         // Échelle imposée par le design system ; 12 est le minimum absolu.

@@ -13,9 +13,11 @@ import {
   SECRET_EVIDENCE_HINTS,
   SECRET_EVIDENCE_LABELS,
   type SecretConditions,
+  type SecretPlanche,
 } from '@growi/shared'
 
 import type { ActionResult } from '@/components/admin/ActionButton'
+import { PlancheEditor } from '@/components/admin/secrets/PlancheEditor'
 import { CONDITION_FIELDS, MONTH_SHORT } from '@/lib/admin/secret-form'
 import { cn } from '@/lib/utils'
 
@@ -32,6 +34,8 @@ export type GardenTipFormValues = {
   effortMinutes: number | null
   cooldownDays: number
   conditions: SecretConditions
+  /** `null` : pas de planche, ou une planche illisible que l'enregistrement remplacera. */
+  planche: SecretPlanche | null
 }
 
 const TITLE_MAX = 80
@@ -333,6 +337,8 @@ export function GardenTipEditor({
           </p>
         </div>
       </fieldset>
+
+      <PlancheEditor planche={tip.planche} />
 
       <div className="flex flex-wrap items-center gap-3">
         <button

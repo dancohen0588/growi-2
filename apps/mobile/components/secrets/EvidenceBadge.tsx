@@ -22,18 +22,40 @@ const ICON: Record<SecretEvidence, typeof Sprout> = {
   MYTH: SearchCheck,
 }
 
-export function EvidenceBadge({ evidence }: { evidence: SecretEvidence }) {
+export interface EvidenceBadgeProps {
+  evidence: SecretEvidence
+  /**
+   * `sun` : la pastille de la planche (carte forest, feuille, grimoire) —
+   * soleil plein quel que soit le niveau, que portent alors le libellé et
+   * l'icône. Sur le fond forest de la carte, les teintes pâles de `default`
+   * ne se distingueraient plus.
+   */
+  tone?: 'default' | 'sun'
+  /** Ajouté après le libellé : « Tradition · 2 min ». */
+  suffix?: string
+}
+
+export function EvidenceBadge({ evidence, tone = 'default', suffix }: EvidenceBadgeProps) {
   const Icon = ICON[evidence] ?? ScrollText
   const label = SECRET_EVIDENCE_LABELS[evidence] ?? SECRET_EVIDENCE_LABELS.FOLK
+  const sun = tone === 'sun'
 
   return (
     <View
-      className={`flex-row items-center gap-1 self-start rounded-full px-2.5 py-1 ${TONE[evidence] ?? TONE.FOLK}`}
+      className={`flex-row items-center gap-1 self-start rounded-full ${
+        sun ? 'bg-sun py-1 pl-2 pr-2.5' : `px-2.5 py-1 ${TONE[evidence] ?? TONE.FOLK}`
+      }`}
       accessible
-      accessibilityLabel={`Niveau de preuve : ${label}`}
+      accessibilityLabel={`Niveau de preuve : ${label}${suffix ? `, ${suffix}` : ''}`}
     >
-      <Icon size={12} color="#1E5631" />
-      <Text className="font-raleway-semibold text-caption text-forest">{label}</Text>
+      <Icon size={sun ? 13 : 12} color="#1E5631" strokeWidth={sun ? 2.2 : 2} />
+      <Text
+        className={`text-caption text-forest ${sun ? 'font-poppins' : 'font-raleway-semibold'}`}
+        numberOfLines={1}
+      >
+        {label}
+        {suffix ? ` · ${suffix}` : ''}
+      </Text>
     </View>
   )
 }

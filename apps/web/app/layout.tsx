@@ -6,14 +6,17 @@ import './globals.css'
 
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  // 800 : les onomatopées des planches (« glou glou »).
+  weight: ['400', '500', '600', '700', '800'],
   variable: '--font-poppins',
   display: 'swap',
 })
 
 const raleway = Raleway({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
+  // 700 : le gras des légendes de planche (secrets), qui ne se distinguait pas
+  // du 500 en 600.
+  weight: ['400', '500', '600', '700'],
   variable: '--font-raleway',
   display: 'swap',
 })

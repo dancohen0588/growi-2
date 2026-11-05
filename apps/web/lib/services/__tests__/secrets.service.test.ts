@@ -9,7 +9,8 @@ const prismaMock = vi.hoisted(() => ({
   // `findMany` sert au tirage, `findUnique` aux secrets hors publication.
   userTip: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), updateMany: vi.fn() },
   careLog: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
-  plantInstance: { findMany: vi.fn() },
+  plantInstance: { findMany: vi.fn(), findFirst: vi.fn() },
+  plantTask: { findFirst: vi.fn(), create: vi.fn() },
   user: { findUnique: vi.fn() },
 }))
 const analytics = vi.hoisted(() => ({ trackServer: vi.fn() }))
@@ -90,6 +91,7 @@ beforeEach(() => {
   prismaMock.userTip.findMany.mockResolvedValue([])
   prismaMock.userTip.findFirst.mockResolvedValue(null)
   prismaMock.careLog.findMany.mockResolvedValue([])
+  prismaMock.plantTask.findFirst.mockResolvedValue(null)
 })
 
 describe('le secret de la semaine', () => {
@@ -137,6 +139,20 @@ describe('le secret de la semaine', () => {
     prismaMock.userTip.findFirst.mockResolvedValue({ id: 'ut_1' })
 
     expect(await service.secretActionsForGarden(USER, GARDEN, TODAY)).toEqual([])
+  })
+
+  it('porte sa planche, et l’écarte quand elle cite un dessin retiré du registre', async () => {
+    const planche = { panels: [{ art: 'eau-cuisson/1', caption: 'Garde l’eau de cuisson.' }] }
+    prismaMock.gardenTip.findMany.mockResolvedValue([tipRow('feuilles-mortes', { planche })])
+    const [action] = await service.secretActionsForGarden(USER, GARDEN, TODAY)
+    expect(action?.secret?.planche).toEqual(planche)
+
+    service.forgetPublishedTips()
+    prismaMock.gardenTip.findMany.mockResolvedValue([
+      tipRow('feuilles-mortes', { planche: { panels: [{ art: 'disparu/1', caption: 'Une case.' }] } }),
+    ])
+    const [fallback] = await service.secretActionsForGarden(USER, GARDEN, TODAY)
+    expect(fallback?.secret?.planche).toBeNull()
   })
 
   it('disparaît aussitôt dépublié, même tiré cette semaine', async () => {
@@ -318,6 +334,81 @@ describe('gestes', () => {
 
   it('refuse un secret inconnu', async () => {
     await expect(service.dismissSecret(USER, 'inconnu')).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+})
+
+describe('« Je tente » met le secret à faire', () => {
+  const NOW = new Date('2026-11-05T21:30:00Z') // 22 h 30 à Paris, toujours le 5
+
+  beforeEach(() => {
+    prismaMock.plantInstance.findFirst.mockResolvedValue({ id: 'p1' })
+    prismaMock.plantTask.create.mockImplementation(async ({ data }) => ({
+      id: 'task_1',
+      ...data,
+      doneAt: null,
+      supersededAt: null,
+      plantInstance: { ...ROSE, gardenId: GARDEN },
+    }))
+  })
+
+  it('ajoute une tâche datée du jour, sans rien inscrire au journal', async () => {
+    const action = await service.trySecret(USER, 'feuilles-mortes', { gardenId: GARDEN, plantId: 'p1' }, NOW)
+
+    expect(prismaMock.plantTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: USER,
+          plantInstanceId: 'p1',
+          source: 'SECRET',
+          tipSlug: 'feuilles-mortes',
+          type: 'autre',
+          shortLabel: 'Titre feuilles-mortes',
+          label: 'Étape 1\nÉtape 2',
+          dueDate: '2026-11-05',
+        }),
+      }),
+    )
+    expect(action).toEqual(
+      expect.objectContaining({ id: 'task:task_1', taskId: 'task_1', ruleId: 'r20-secret', kind: 'dated' }),
+    )
+    expect(action.secret).toBeUndefined()
+    expect(prismaMock.careLog.update).not.toHaveBeenCalled()
+  })
+
+  it('rend la tâche déjà ouverte plutôt que d’en créer une seconde', async () => {
+    prismaMock.plantTask.findFirst.mockResolvedValue({
+      id: 'task_0',
+      source: 'SECRET',
+      tipSlug: 'feuilles-mortes',
+      type: 'autre',
+      label: 'Étape 1',
+      shortLabel: 'Titre',
+      dueDate: '2026-11-04',
+      priority: 'medium',
+      plantInstance: { ...ROSE, gardenId: GARDEN },
+    })
+
+    const action = await service.trySecret(USER, 'feuilles-mortes', { gardenId: GARDEN, plantId: 'p1' }, NOW)
+
+    expect(action.taskId).toBe('task_0')
+    expect(prismaMock.plantTask.create).not.toHaveBeenCalled()
+  })
+
+  it('refuse une plante qui n’est pas à l’utilisateur, dans ce jardin', async () => {
+    prismaMock.plantInstance.findFirst.mockResolvedValue(null)
+
+    await expect(
+      service.trySecret(USER, 'feuilles-mortes', { gardenId: GARDEN, plantId: 'p_autre' }, NOW),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    expect(prismaMock.plantTask.create).not.toHaveBeenCalled()
+  })
+
+  it('retire la carte de la semaine une fois le secret mis à faire', async () => {
+    prismaMock.plantTask.findFirst.mockResolvedValue({ id: 'task_1' })
+
+    const actions = await service.secretActionsForGarden(USER, GARDEN, TODAY)
+
+    expect(actions.find((action) => action.ruleId === 'r20-secret')).toBeUndefined()
   })
 })
 

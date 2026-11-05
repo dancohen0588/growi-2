@@ -468,6 +468,7 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/planning/actions/undo` | POST — efface le geste, rouvre la tâche |
 | `/api/v1/planning/clear-today` | POST — « Ignorer pour aujourd'hui », `undo: true` pour rétablir |
 | `/api/v1/secrets/[slug]/reveal` · `/dismiss` | POST · POST, DELETE (reproposer) — 204 |
+| `/api/v1/secrets/[slug]/try` | POST `{ gardenId, plantId }` — « Je tente » : 200 `{ taskId, dueDate }` |
 | `/api/v1/secrets/feedback` · `/grimoire` | POST `{ careLogId, verdict }` · GET |
 | `/api/v1/me` | GET, PATCH, DELETE — suppression du compte, corps `{ confirmation, password? }` |
 | `/api/v1/identify` | POST |
@@ -1143,6 +1144,17 @@ d'ortie, eau de banane, légendes démêlées —, avec son niveau de preuve
   sans elle. Jamais deux semaines de suite le même secret, sauf s'il est seul.
 - **Graine FNV-1a + brassage final Murmur** : sans le brassage, des graines
   qui ne diffèrent que par `W45`/`W46` tiraient presque toujours la même chose.
+- **« Je tente » met à faire, il ne fait pas** (décision du 05/11/2026). Le
+  secret s'ajoute au planning en `PlantTask` `source: 'SECRET'`, datée du jour,
+  avec son `tipSlug` ; la carte de la semaine disparaît tant que la tâche est
+  ouverte. C'est **en cochant la tâche** que l'essai s'inscrit au journal
+  (`r20-secret` + `tipSlug`), et que partent ses suites. Règle et slug sont
+  lus **sur la tâche** (`secretOfTask`), jamais sur ce que le client envoie :
+  une version de l'app qui ignore les secrets coche la tâche comme une autre.
+  `completeTasksForGesture` épargne ces tâches — un « autre geste » noté
+  depuis la fiche ne dit pas qu'on a tenté le secret. Une version de l'app
+  antérieure à ce changement coche encore la carte directement : l'essai est
+  alors noté tout de suite, comme avant.
 - **Le verdict vit sur le geste d'essai** (`CareLog.tipVerdict`), pas sur
   `status`, réservé aux notes de santé. Le « Ça a marché ? » vient sept jours
   après l'**usage** — pour une préparation, le jour où elle a servi, pas celui
@@ -1166,6 +1178,29 @@ d'ortie, eau de banane, légendes démêlées —, avec son niveau de preuve
 - Événements : `tip_revealed`, `tip_tried`, `tip_dismissed`, `tip_feedback`,
   `lunar_calendar_toggled` partent **du serveur** ; seuls `tip_shown` et
   `grimoire_viewed` partent des clients.
+- **La planche BD** (direction validée le 05/11/2026, canvas Claude Design
+  « Growi — Secret de jardinier, planche BD ») : des cases dessinées, un
+  encadré de récit, une case précaution. **Les dessins vivent dans le code**
+  (`packages/shared/src/secrets/art.ts`, `SECRET_ART` et `SECRET_EMBLEM_SVG`) ;
+  la base (`GardenTip.planche`) ne porte que des **clés** et les légendes,
+  validées par `secretPlancheSchema` contre ce registre. Une clé inconnue fait
+  écarter la planche — le secret repasse en texte, jamais de case vide.
+- **Seul le registre fournit du SVG.** Le web le rend par
+  `dangerouslySetInnerHTML` (`SecretArt`, `SecretEmblem`), acceptable
+  uniquement parce que la chaîne vient du code ; le mobile par `SvgXml`. D'où
+  les contraintes que `secret-art.test.ts` impose à tout nouveau dessin :
+  palette de la charte, ni `paint-order`, ni `<style>`, ni `class`, ni filtre —
+  react-native-svg les ignorerait sans erreur. Le mobile remplace
+  `font-family="Poppins"` par `Poppins_700Bold` et retire la graisse.
+- Les dessins d'une planche sont **décoratifs** pour les lecteurs d'écran : la
+  légende écrite dessous dit déjà ce qu'ils montrent.
+- Nouvelle planche : dessins dans `art.ts`, cases dans `library.ts`, puis
+  `pnpm --filter web secrets:seed --planches <slug,slug>`. Seuls les slugs
+  **nommés** sont posés, et seulement là où il n'y a pas de planche : un admin
+  qui en a retiré une (`NULL`) ne la verrait sinon revenir au lot suivant.
+- L'éditeur de planche de l'admin n'envoie rien tant que sa section n'a pas
+  été touchée : corriger le titre ne réécrit pas — ni n'efface, si elle est
+  devenue illisible — une planche.
 
 ### Chat contextuel (agent conversationnel)
 

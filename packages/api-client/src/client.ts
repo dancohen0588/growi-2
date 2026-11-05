@@ -82,6 +82,8 @@ import type {
   RegisterPushTokenInput,
   ReportReceipt,
   SecretFeedbackInput,
+  TrySecretInput,
+  TrySecretResult,
   SendListingMessageInput,
   SendMessageInput,
   SocialLoginInput,
@@ -370,6 +372,17 @@ export class GrowiApiClient {
       this.http.request(`/api/v1/secrets/${encodeURIComponent(slug)}/reveal`, {
         ...options,
         method: 'POST',
+      }),
+
+    /**
+     * « Je tente » : le secret s'ajoute au calendrier en tâche à faire.
+     * Idempotent — retaper le bouton rend la même tâche.
+     */
+    try: (slug: string, input: TrySecretInput, options?: CallOptions): Promise<TrySecretResult> =>
+      this.http.request(`/api/v1/secrets/${encodeURIComponent(slug)}/try`, {
+        ...options,
+        method: 'POST',
+        body: input,
       }),
 
     /** « Pas pour moi » : le secret ne sera plus proposé. */

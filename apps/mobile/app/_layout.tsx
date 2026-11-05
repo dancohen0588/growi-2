@@ -18,6 +18,7 @@ import {
   Raleway_400Regular,
   Raleway_500Medium,
   Raleway_600SemiBold,
+  Raleway_700Bold,
 } from '@expo-google-fonts/raleway'
 
 import { ToastProvider } from '@/components/ui/Toast'
@@ -65,6 +66,9 @@ function RootLayout() {
     Raleway_400Regular,
     Raleway_500Medium,
     Raleway_600SemiBold,
+    // Le gras des légendes de planche (secrets de jardinier) : 600 sur 500 ne se
+    // distinguait pas assez.
+    Raleway_700Bold,
   })
 
   const status = useSession((s) => s.status)

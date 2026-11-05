@@ -13,6 +13,7 @@
 
 import {
   CARE_LOG_TYPE_BY_ACTION,
+  SECRET_RULE_IDS,
   type ActionPriority,
   type ActionType,
   type CareLogType,
@@ -360,7 +361,67 @@ function toGardenAction(task: TaskWithPlant): GardenAction {
     kind: 'dated',
     source: 'task',
     taskId: task.id,
+    // Un secret mis à faire : la règle des secrets, pour que le geste coché se
+    // range avec les essais au journal. Le serveur la reprend de toute façon
+    // de la tâche — voir `secretOfTask`.
+    ...(task.source === 'SECRET' ? { ruleId: SECRET_RULE_IDS.discover } : {}),
   }
+}
+
+/**
+ * Le secret qu'une tâche met à faire, s'il y en a un : la règle et le slug à
+ * écrire au journal quand on la coche. Lu sur la tâche, jamais sur ce que le
+ * client envoie — une version de l'app qui ignore les secrets coche la tâche
+ * comme une autre, et l'essai doit quand même avoir ses suites.
+ */
+export function secretOfTask(
+  task: Pick<PlantTask, 'source' | 'tipSlug'> | null | undefined,
+): { ruleId: string; tipSlug: string } | null {
+  return task?.source === 'SECRET' && task.tipSlug ? { ruleId: SECRET_RULE_IDS.discover, tipSlug: task.tipSlug } : null
+}
+
+/**
+ * « Je tente » : le secret s'ajoute au planning en tâche à faire, datée du
+ * jour, pour la plante de la carte. C'est en la cochant que l'essai
+ * s'inscrit au journal — et que viennent « c'est prêt » puis « Ça a
+ * marché ? ».
+ *
+ * Idempotent : tant qu'une tâche ouverte porte ce secret sur cette plante, on
+ * la rend telle quelle — le bouton peut être tapé deux fois.
+ */
+export async function planSecretTask(
+  userId: string,
+  input: { plantInstanceId: string; tipSlug: string; title: string; recipe: string; dueDate: string },
+): Promise<GardenAction> {
+  const existing = await prisma.plantTask.findFirst({
+    where: {
+      userId,
+      plantInstanceId: input.plantInstanceId,
+      source: 'SECRET',
+      tipSlug: input.tipSlug,
+      doneAt: null,
+      supersededAt: null,
+    },
+    include: { plantInstance: { select: PLANT_SELECT } },
+  })
+  if (existing) return toGardenAction(existing)
+
+  const task = await prisma.plantTask.create({
+    data: {
+      userId,
+      plantInstanceId: input.plantInstanceId,
+      source: 'SECRET',
+      tipSlug: input.tipSlug,
+      type: 'autre',
+      shortLabel: input.title,
+      // La recette entière : c'est la consigne que montre la popin de détail.
+      label: input.recipe,
+      dueDate: input.dueDate,
+      priority: 'medium',
+    },
+    include: { plantInstance: { select: PLANT_SELECT } },
+  })
+  return toGardenAction(task)
 }
 
 const PLANT_SELECT = {
@@ -464,6 +525,9 @@ export async function completeTasksForGesture(
       userId,
       plantInstanceId: { in: plantIds },
       type: actionType,
+      // Un « autre geste » noté depuis la fiche ne dit pas qu'on a tenté le
+      // secret : seule la tâche cochée l'inscrit, avec son slug.
+      source: { not: 'SECRET' },
       doneAt: null,
       supersededAt: null,
       dueDate: { lte: isoDay(now) },

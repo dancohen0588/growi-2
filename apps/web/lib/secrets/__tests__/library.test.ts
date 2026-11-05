@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { SECRET_EVIDENCES, secretConditionsSchema, secretSlugSchema, updateGardenTipSchema } from '@growi/shared'
+import { SECRET_EVIDENCES, secretConditionsSchema, secretPlancheSchema, secretSlugSchema, updateGardenTipSchema } from '@growi/shared'
 
 import { SECRET_LIBRARY } from '../library'
-import { seedId, seedInsertSql } from '../seed-sql'
+import { seedId, seedInsertSql, seedPlancheSql } from '../seed-sql'
 
 // La bibliothèque de départ doit passer les contrôles de l'admin : sans quoi
 // la première retouche d'un secret échouerait sur un champ qu'on n'a pas touché.
@@ -55,5 +55,22 @@ describe('bibliothèque de départ', () => {
     expect(sql.match(/^ {2}\('tip_/gm)).toHaveLength(24)
     expect(seedId('lune')).toBe(seedId('lune'))
     expect(seedInsertSql([{ ...SECRET_LIBRARY[0]!, title: "L'apostrophe" }])).toContain("'L''apostrophe'")
+  })
+
+  it('ne cite que des dessins du registre, et tient au moins la première planche', () => {
+    const drawn = SECRET_LIBRARY.filter((tip) => tip.planche)
+    expect(drawn.map((tip) => tip.slug)).toContain('eau-cuisson')
+    for (const tip of drawn) {
+      const parsed = secretPlancheSchema.safeParse(tip.planche)
+      expect(parsed.success, `${tip.slug} : ${parsed.success ? '' : parsed.error.message}`).toBe(true)
+    }
+  })
+
+  it('ne pose une planche que là où il n’y en a pas', () => {
+    const sql = seedPlancheSql(SECRET_LIBRARY, ['eau-cuisson'])
+    expect(sql).toContain('WHERE t."slug" = v.slug AND t."planche" IS NULL')
+    expect(sql).toContain("'eau-cuisson'")
+    // Rien sans slug nommé : une planche retirée par l'admin ne revient pas d'elle-même.
+    expect(seedPlancheSql(SECRET_LIBRARY, [])).toBe('')
   })
 })

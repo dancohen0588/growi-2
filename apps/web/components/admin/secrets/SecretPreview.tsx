@@ -1,11 +1,14 @@
 import { Clock, Hourglass, Sparkles, TriangleAlert } from 'lucide-react'
 import {
+  SECRET_EVIDENCES,
   SECRET_EVIDENCE_HINTS,
   type SecretConditions,
   type SecretEvidence,
+  type SecretPlanche as SecretPlancheData,
 } from '@growi/shared'
 
 import { EvidencePill } from '@/components/admin/secrets/EvidencePill'
+import { SecretPlanche } from '@/components/dashboard/secrets/SecretPlanche'
 import { describeConditions } from '@/lib/admin/secret-form'
 
 /**
@@ -14,11 +17,14 @@ import { describeConditions } from '@/lib/admin/secret-form'
  * d'abord), puis ce qu'il lit une fois le secret dévoilé.
  *
  * Ce n'est pas le composant de l'app : il en reprend la hiérarchie pour relire
- * le texte dans son contexte, sans dépendre des écrans utilisateur.
+ * le texte dans son contexte, sans dépendre des écrans utilisateur. La planche,
+ * elle, est rendue par **le vrai composant** (`SecretPlanche`, disposition
+ * compacte) : un dessin ou une légende se relit mieux dans sa case.
  */
 export function SecretPreview({
   tip,
   conditions,
+  planche,
 }: {
   tip: {
     title: string
@@ -32,9 +38,14 @@ export function SecretPreview({
     effortMinutes: number | null
   }
   conditions: SecretConditions | null
+  planche: SecretPlancheData | null
 }) {
   const steps = tip.recipe.split('\n').map((line) => line.trim()).filter(Boolean)
   const hint = SECRET_EVIDENCE_HINTS[tip.evidence as SecretEvidence]
+  // Un niveau de preuve inconnu (écrit à la main en base ?) se montre en « Tradition ».
+  const evidence: SecretEvidence = (SECRET_EVIDENCES as readonly string[]).includes(tip.evidence)
+    ? (tip.evidence as SecretEvidence)
+    : 'FOLK'
   const audience = conditions ? describeConditions(conditions) : null
 
   return (
@@ -50,7 +61,9 @@ export function SecretPreview({
           </div>
           <p className="mt-2 break-words font-raleway text-forest/85">{tip.teaser}</p>
           <div className="mt-3 flex flex-wrap gap-2" aria-hidden>
-            <span className="rounded-lg bg-forest px-3 py-1.5 text-sm font-medium text-white">Dévoiler</span>
+            <span className="rounded-lg bg-forest px-3 py-1.5 text-sm font-medium text-white">
+              {planche ? 'Ouvrir la planche' : 'Découvrir le secret'}
+            </span>
             <span className="rounded-lg border border-forest/15 px-3 py-1.5 text-sm text-forest/70">Pas pour moi</span>
           </div>
         </div>
@@ -90,8 +103,27 @@ export function SecretPreview({
             </div>
           )}
 
+          {planche && (
+            <div className="mt-4">
+              <h3 className="mb-2 text-sm font-semibold text-forest">La planche</h3>
+              <SecretPlanche
+                planche={planche}
+                story={tip.story}
+                ingredients={tip.ingredients}
+                evidence={evidence}
+                cautions={tip.cautions}
+                layout="compact"
+                headingLevel="h4"
+              />
+              <p className="mt-2 text-xs text-forest/55">
+                La planche remplace la recette en texte dans le calendrier et le grimoire. La recette reste
+                obligatoire : elle sert partout où la planche ne s’affiche pas.
+              </p>
+            </div>
+          )}
+
           <div className="mt-4">
-            <h3 className="text-sm font-semibold text-forest">La recette</h3>
+            <h3 className="text-sm font-semibold text-forest">{planche ? 'La recette (texte)' : 'La recette'}</h3>
             <ol className="mt-1.5 list-decimal space-y-1 pl-5 font-raleway text-sm text-forest/85">
               {steps.map((step, index) => (
                 <li key={index} className="break-words">{step}</li>

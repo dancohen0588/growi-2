@@ -86,13 +86,15 @@ export function effortLabel(minutes: number | null | undefined): string | null {
   return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, '0')}`
 }
 
-/** Le message qui suit « Je tente » : il annonce la suite, sans rien promettre de plus. */
-export function triedMessage(prepDays: number): string {
+/**
+ * Le message qui suit « Je tente » : le secret est au calendrier, à cocher une
+ * fois fait. Pour une préparation, l'attente ne commence qu'à ce moment-là.
+ */
+export function plannedMessage(prepDays: number): string {
   if (prepDays > 0) {
-    const days = prepDays === 1 ? 'demain' : `dans ${prepDays} jours`
-    return `C'est noté ! On te préviendra ici quand ta préparation sera prête, ${days}.`
+    return "C'est dans ton calendrier ! Coche-le quand ta préparation est lancée : on te préviendra quand elle sera prête."
   }
-  return "C'est noté ! Dans une semaine, on te demandera si ça a marché."
+  return "C'est dans ton calendrier ! Coche-le quand c'est fait."
 }
 
 /** « 3 nov. 2026 » — la date d'un essai, dans le grimoire. */
@@ -101,4 +103,57 @@ export function formatTrialDate(iso: string | null | undefined): string | null {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return null
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// ─── Planche ───────────────────────────────────────────────────────────────
+
+/** Un morceau de légende, en gras ou non. */
+export interface CaptionSegment {
+  text: string
+  strong: boolean
+}
+
+/**
+ * Découpe une légende autour de son passage en gras — sans HTML : l'écran
+ * rend des `<strong>`, jamais une chaîne interprétée.
+ *
+ * Seule la **première** occurrence est mise en gras. Un passage absent ou
+ * introuvable (planche écrite avant une correction de la légende) laisse la
+ * légende entière, en maigre : on ne devine pas ce qu'il fallait souligner.
+ */
+export function splitEmphasis(caption: string, emphasis?: string | null): CaptionSegment[] {
+  const strong = emphasis?.trim()
+  const at = strong ? caption.indexOf(strong) : -1
+  if (!strong || at < 0) return [{ text: caption, strong: false }]
+
+  const segments: CaptionSegment[] = []
+  if (at > 0) segments.push({ text: caption.slice(0, at), strong: false })
+  segments.push({ text: strong, strong: true })
+  const rest = caption.slice(at + strong.length)
+  if (rest) segments.push({ text: rest, strong: false })
+  return segments
+}
+
+/** Le bouton de la carte : une planche s'ouvre, un secret en texte se découvre. */
+export function secretOpenLabel(secret: { planche?: unknown }): string {
+  return secret.planche ? 'Ouvrir la planche' : 'Découvrir le secret'
+}
+
+/**
+ * La phrase du pied de la planche, à côté de « Je tente » : ce qui suivra.
+ * Une préparation annonce d'abord le jour où elle sera prête ; le « Ça a
+ * marché ? » ne vient qu'une semaine après son usage.
+ */
+export function plancheFollowUp(prepDays: number): string {
+  if (prepDays <= 0) return '« Je tente » l’ajoute à ton calendrier : coche-le une fois fait.'
+  if (prepDays === 1) return '« Je tente » l’ajoute à ton calendrier. Une fois lancée, ta préparation sera prête le lendemain.'
+  return `« Je tente » l’ajoute à ton calendrier. Une fois lancée, ta préparation sera prête en ${prepDays} jours.`
+}
+
+/** « 2 min · prêt dans 15 jours » — la ligne pratique de la carte et de la planche. */
+export function practicalLine(secret: { effortMinutes?: number | null; prepDays: number }): string | null {
+  const prep = prepLabel(secret.prepDays)
+  const parts = [effortLabel(secret.effortMinutes), prep && prep.charAt(0).toLowerCase() + prep.slice(1)]
+  const line = parts.filter(Boolean).join(' · ')
+  return line || null
 }

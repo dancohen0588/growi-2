@@ -7,10 +7,14 @@ import type { GardenAction } from '@/lib/recommendation/types'
 import {
   effortLabel,
   isSecretAction,
+  plancheFollowUp,
+  practicalLine,
   prepLabel,
   recipeSteps,
+  secretOpenLabel,
+  splitEmphasis,
   splitSecretActions,
-  triedMessage,
+  plannedMessage,
 } from '../display'
 
 function action(id: string, overrides: Partial<GardenAction> = {}): GardenAction {
@@ -130,9 +134,74 @@ describe('libellés', () => {
     expect(effortLabel(95)).toBe('1 h 35')
   })
 
-  it('triedMessage annonce la suite selon la préparation', () => {
-    expect(triedMessage(0)).toMatch(/une semaine/)
-    expect(triedMessage(1)).toMatch(/demain/)
-    expect(triedMessage(15)).toMatch(/dans 15 jours/)
+  it('plannedMessage dit que le secret est au calendrier, à cocher une fois fait', () => {
+    expect(plannedMessage(0)).toBe("C'est dans ton calendrier ! Coche-le quand c'est fait.")
+    expect(plannedMessage(15)).toMatch(/préparation est lancée/)
+  })
+})
+
+describe('splitEmphasis', () => {
+  it('met en gras le passage, au milieu de la légende', () => {
+    expect(
+      splitEmphasis('Garde l’eau de cuisson des légumes, sans sel ni matière grasse.', 'sans sel ni matière grasse'),
+    ).toEqual([
+      { text: 'Garde l’eau de cuisson des légumes, ', strong: false },
+      { text: 'sans sel ni matière grasse', strong: true },
+      { text: '.', strong: false },
+    ])
+  })
+
+  it('ne produit pas de segment vide en début ou en fin de légende', () => {
+    expect(splitEmphasis('Refroidir complètement', 'Refroidir')).toEqual([
+      { text: 'Refroidir', strong: true },
+      { text: ' complètement', strong: false },
+    ])
+    expect(splitEmphasis('Laisse refroidir', 'refroidir')).toEqual([
+      { text: 'Laisse ', strong: false },
+      { text: 'refroidir', strong: true },
+    ])
+  })
+
+  it('ne souligne que la première occurrence', () => {
+    expect(splitEmphasis('eau, puis eau', 'eau').filter((segment) => segment.strong)).toHaveLength(1)
+  })
+
+  it('laisse la légende entière sans passage, ou avec un passage introuvable', () => {
+    const whole = [{ text: 'Arrose ta plante avec.', strong: false }]
+    expect(splitEmphasis('Arrose ta plante avec.')).toEqual(whole)
+    expect(splitEmphasis('Arrose ta plante avec.', '   ')).toEqual(whole)
+    expect(splitEmphasis('Arrose ta plante avec.', 'du robinet')).toEqual(whole)
+  })
+
+  it('ne rend jamais de HTML : un passage balisé reste du texte', () => {
+    const segments = splitEmphasis('Une <b>légende</b>', '<b>légende</b>')
+    expect(segments).toEqual([
+      { text: 'Une ', strong: false },
+      { text: '<b>légende</b>', strong: true },
+    ])
+  })
+})
+
+describe('planche', () => {
+  const planche = {
+    panels: [{ art: 'eau-cuisson/1', caption: 'Garde l’eau de cuisson.' }],
+  }
+
+  it('secretOpenLabel ouvre une planche, et fait découvrir un secret en texte', () => {
+    expect(secretOpenLabel({ planche })).toBe('Ouvrir la planche')
+    expect(secretOpenLabel({ planche: null })).toBe('Découvrir le secret')
+    expect(secretOpenLabel({})).toBe('Découvrir le secret')
+  })
+
+  it("plancheFollowUp annonce l'ajout au calendrier, et la préparation", () => {
+    expect(plancheFollowUp(0)).toBe('« Je tente » l’ajoute à ton calendrier : coche-le une fois fait.')
+    expect(plancheFollowUp(1)).toMatch(/prête le lendemain/)
+    expect(plancheFollowUp(15)).toMatch(/prête en 15 jours/)
+  })
+
+  it('practicalLine réunit l’effort et la préparation, ou ne dit rien', () => {
+    expect(practicalLine({ effortMinutes: 2, prepDays: 0 })).toBe('2 min')
+    expect(practicalLine({ effortMinutes: 20, prepDays: 15 })).toBe('20 min · prêt dans 15 jours')
+    expect(practicalLine({ effortMinutes: null, prepDays: 0 })).toBeNull()
   })
 })

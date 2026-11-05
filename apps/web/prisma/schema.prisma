@@ -497,8 +497,11 @@ model PlantTask {
   userId                  String
   plantInstanceId         String
   diagnosisId             String?
-  /// Voir TASK_SOURCES dans @growi/shared : DIAGNOSIS | CHAT.
+  /// Voir TASK_SOURCES dans @growi/shared : DIAGNOSIS | CHAT | SECRET.
   source                  String    @default("DIAGNOSIS")
+  /// Le secret de jardinier que la tâche met à faire (source `SECRET`) : la
+  /// cocher inscrit l'essai au journal, avec ce slug, pour ses suites.
+  tipSlug                 String?
   /// ActionType de @growi/shared : arrosage | taille | … | autre.
   type                    String
   /// Consigne détaillée — l'action de la recommandation, telle quelle.
@@ -1045,6 +1048,9 @@ model GardenTip {
   cooldownDays  Int      @default(120)
   /// Voir secretConditionsSchema dans @growi/shared.
   conditions    Json     @default("{}")
+  /// La planche BD (secretPlancheSchema) : des clés de dessin du registre
+  /// `@growi/shared` et leurs légendes. Nulle : le secret s'affiche en texte.
+  planche       Json?
   /// DRAFT | PUBLISHED.
   status        String   @default("DRAFT")
   createdAt     DateTime @default(now()) @db.Timestamptz(6)
