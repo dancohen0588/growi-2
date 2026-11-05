@@ -49,6 +49,15 @@ export const summaryKeys = {
   all: ['summary'] as const,
 }
 
+/**
+ * Secrets de jardinier. Le grimoire n'est **pas** persisté (`query-persist`) :
+ * il ne sert pas à l'ouverture de l'app, et change à chaque dévoilement.
+ */
+export const secretKeys = {
+  all: ['secrets'] as const,
+  grimoire: () => [...secretKeys.all, 'grimoire'] as const,
+}
+
 export const weatherKeys = {
   all: ['weather'] as const,
 }

@@ -25,6 +25,7 @@ export default function AccueilLayout() {
       <Stack.Screen name="profil" options={{ presentation: 'modal' }} />
       <Stack.Screen name="conseils/index" />
       <Stack.Screen name="conseils/[slug]" />
+      <Stack.Screen name="grimoire" />
     </Stack>
   )
 }

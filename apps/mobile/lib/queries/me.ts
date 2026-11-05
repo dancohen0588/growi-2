@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { UpdateAlertConfigInput, UpdateProfileInput, UserProfile } from '@growi/shared'
 
 import { api } from '@/lib/api'
-import { meKeys, planningKeys, summaryKeys, weatherKeys } from '@/lib/queries/keys'
+import { meKeys, planningKeys, secretKeys, summaryKeys, weatherKeys } from '@/lib/queries/keys'
 
 /**
  * @param options.enabled à passer à faux quand la session n'est pas encore
@@ -28,6 +28,41 @@ export function useUpdateProfile() {
       void queryClient.invalidateQueries({ queryKey: planningKeys.all })
       void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
       void queryClient.invalidateQueries({ queryKey: weatherKeys.all })
+    },
+  })
+}
+
+/**
+ * Calendrier lunaire, activé ou non.
+ *
+ * L'interrupteur bascule aussitôt ; le planning (bandeau du jour) et le
+ * grimoire (le secret lunaire n'y figure qu'option active) sont rechargés au
+ * règlement. L'événement `lunar_calendar_toggled` part du serveur.
+ */
+export function useSetLunarCalendar() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (enabled: boolean) => api.me.update({ lunarCalendar: enabled }),
+
+    onMutate: async (enabled) => {
+      await queryClient.cancelQueries({ queryKey: meKeys.profile() })
+      const previous = queryClient.getQueryData<UserProfile>(meKeys.profile())
+      queryClient.setQueryData<UserProfile>(meKeys.profile(), (profile) =>
+        profile ? { ...profile, lunarCalendar: enabled } : profile,
+      )
+      return { previous }
+    },
+
+    onError: (_error, _enabled, context) => {
+      if (context?.previous) queryClient.setQueryData(meKeys.profile(), context.previous)
+    },
+
+    onSuccess: (profile) => queryClient.setQueryData(meKeys.profile(), profile),
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: planningKeys.all })
+      void queryClient.invalidateQueries({ queryKey: secretKeys.all })
     },
   })
 }

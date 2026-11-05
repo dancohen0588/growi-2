@@ -10,6 +10,7 @@ export default function CalendrierLayout() {
       }}
     >
       <Stack.Screen name="index" />
+      <Stack.Screen name="grimoire" />
       <Stack.Screen name="plantes/[plantId]/index" />
       <Stack.Screen name="plantes/[plantId]/diagnostic" />
       <Stack.Screen name="plantes/[plantId]/discussion" />
