@@ -55,7 +55,7 @@ export const SECRET_LIBRARY: SecretSeed[] = [
     evidence: 'PROVEN',
     cautions: 'Rince bien les coquilles : un reste de blanc moisit vite au chaud.',
     effortMinutes: 15,
-    conditions: { months: [2, 3, 4], categories: ['VEGETABLE', 'HERBS', 'FLOWERS'] },
+    conditions: { months: [2, 3, 4], categories: ['VEGETABLE', 'HERBS'] },
   },
   {
     slug: 'coquilles-pied',
