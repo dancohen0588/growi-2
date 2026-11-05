@@ -1,5 +1,5 @@
 import type { AdviceRule, PlantContext, GardenAction, PlantAlert } from '../types'
-import { doneSince, isExposed, isoDay, minTempWithin } from '../utils'
+import { doneSince, isExposed, isFinishedAnnual, isoDay, minTempWithin } from '../utils'
 import { FROST_HOW_TO_DEFAULT, WINTER_HOW_TO, winterProtectionOf } from '../winter-protection'
 
 export interface AlertRule extends AdviceRule {
@@ -37,6 +37,8 @@ function frostThreat(ctx: PlantContext): { minTemp: number; sensitivity: 'HIGH' 
   const sensitivity = catalog.frostSensitivity
   if (sensitivity !== 'HIGH' && sensitivity !== 'LIGHT') return null
   if (!isExposed(instance.location)) return null
+  // Une tomate de novembre est déjà morte : rien à protéger.
+  if (isFinishedAnnual(ctx)) return null
 
   const minTemp = minTempWithin(weather, 2)
   if (minTemp == null || minTemp >= FROST_THRESHOLD_C) return null

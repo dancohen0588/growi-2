@@ -154,6 +154,29 @@ export function nightsAbove(weather: WeatherForecast, minC: number, days: number
   return next.length >= days && next.every((d) => d.tempMin > minC)
 }
 
+/**
+ * Mois où une plante en pleine terre se contente de la pluie, en région
+ * parisienne : de novembre à février. Le moteur proposait de les arroser comme
+ * en été — 51 plantes sur 55 « à arroser aujourd'hui » un 5 novembre, faute
+ * d'arrosage noté depuis des semaines.
+ */
+export const WINTER_REST_MONTHS = [11, 12, 1, 2]
+
+/**
+ * Une annuelle gélive restée dehors après l'été : tomate, courgette, basilic
+ * de novembre à mars. Le premier gel l'a emportée ; il n'y a plus rien à
+ * arroser, pailler ni protéger, seulement à arracher (r17).
+ */
+export function isFinishedAnnual(ctx: PlantContext): boolean {
+  const { instance, currentDate } = ctx
+  const catalog = instance.catalogPlant
+  if (!catalog) return false
+  if (catalog.category !== 'VEGETABLE' && catalog.category !== 'HERBS') return false
+  if (catalog.frostSensitivity !== 'HIGH') return false
+  if (!isExposed(instance.location)) return false
+  return [11, 12, 1, 2, 3].includes(currentDate.getMonth() + 1)
+}
+
 /** Minimum prévu sur les `days` prochains jours, ou `null` sans prévision. */
 export function minTempWithin(weather: WeatherForecast, days: number): number | null {
   const next = weather.daily.slice(0, days)
