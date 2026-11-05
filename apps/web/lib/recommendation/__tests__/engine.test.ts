@@ -496,8 +496,8 @@ function before(date: Date, days: number): Date {
 }
 
 describe('R1 — rythme de saison', () => {
-  it('espace l’arrosage d’une plante dehors en dormance', () => {
-    const ctx = at(NOV, { lastWateredAt: before(NOV, 8) }, { dormancyMonths: '[11,12,1,2]' })
+  it('espace l’arrosage d’une plante exposée en dormance', () => {
+    const ctx = at(NOV, { lastWateredAt: before(NOV, 8), location: 'BALCONY' }, { dormancyMonths: '[11,12,1,2]' })
     const watering = engine.evaluate([ctx]).find((a) => a.type === 'arrosage')!
 
     // 7 jours × 3 = 21 : rien aujourd'hui, une annonce dans 13 jours.
@@ -517,9 +517,9 @@ describe('R1 — rythme de saison', () => {
     expect(engine.evaluate([ctx]).find((a) => a.type === 'arrosage')!.priority).toBe('high')
   })
 
-  it('sans donnée, le cœur de l’hiver espace dehors et pas dedans', () => {
-    const outdoor = at(JAN, { lastWateredAt: before(JAN, 10) })
-    expect(engine.evaluate([outdoor]).find((a) => a.type === 'arrosage')!.priority).toBe('low')
+  it('sans donnée, l’hiver espace au balcon et pas dedans', () => {
+    const balcony = at(JAN, { lastWateredAt: before(JAN, 10), location: 'BALCONY' })
+    expect(engine.evaluate([balcony]).find((a) => a.type === 'arrosage')!.priority).toBe('low')
 
     const indoor = at(JAN, { lastWateredAt: before(JAN, 10), location: 'INDOOR' })
     expect(engine.evaluate([indoor]).find((a) => a.type === 'arrosage')!.priority).toBe('high')
@@ -528,7 +528,7 @@ describe('R1 — rythme de saison', () => {
   it('le réglage de l’utilisateur l’emporte sur la saison', () => {
     const ctx = at(
       NOV,
-      { lastWateredAt: before(NOV, 8), customWateringAdjFactor: 1 },
+      { lastWateredAt: before(NOV, 8), customWateringAdjFactor: 1, location: 'BALCONY' },
       { dormancyMonths: '[11]' },
     )
     expect(engine.evaluate([ctx]).find((a) => a.type === 'arrosage')!.priority).toBe('high')
@@ -537,12 +537,12 @@ describe('R1 — rythme de saison', () => {
   it('compte depuis l’ajout une plante jamais arrosée qui dort dehors', () => {
     // Ajoutée il y a 10 jours : prochain arrosage à J+11 (21 jours au rythme
     // d'hiver), annoncé ; ajoutée avant-hier, il est trop loin pour être dit.
-    const added = at(NOV, { dateAdded: before(NOV, 10) }, { dormancyMonths: '[11]' })
+    const added = at(NOV, { dateAdded: before(NOV, 10), location: 'BALCONY' }, { dormancyMonths: '[11]' })
     const watering = engine.evaluate([added]).find((a) => a.type === 'arrosage')!
     expect(watering.priority).toBe('low')
     expect(watering.dueDate).toBe('2026-11-15')
 
-    const fresh = at(NOV, { dateAdded: before(NOV, 2) }, { dormancyMonths: '[11]' })
+    const fresh = at(NOV, { dateAdded: before(NOV, 2), location: 'BALCONY' }, { dormancyMonths: '[11]' })
     expect(engine.evaluate([fresh]).some((a) => a.type === 'arrosage')).toBe(false)
   })
 })
@@ -771,5 +771,52 @@ describe('gestes nommés au journal', () => {
     expect(gestureLabelForRule('r14-winter-prep')).toBe('Hivernage')
     expect(gestureLabelForRule('r1-watering-standard')).toBeUndefined()
     expect(gestureLabelForRule(undefined)).toBeUndefined()
+  })
+})
+
+describe('hiver : la pluie arrose la pleine terre', () => {
+  it('ne propose pas d’arroser une plante en pleine terre de novembre à février', () => {
+    const inGround = at(NOV, { lastWateredAt: before(NOV, 60) })
+    expect(engine.evaluate([inGround]).some((a) => a.type === 'arrosage')).toBe(false)
+  })
+
+  it('garde l’arrosage des pots dehors, espacé', () => {
+    const potted = at(NOV, { lastWateredAt: before(NOV, 20), containerSizeLiters: 10 })
+    const watering = engine.evaluate([potted]).find((a) => a.type === 'arrosage')!
+    expect(watering.priority).toBe('high')
+    expect(watering.why).toContain('En hiver, dehors')
+  })
+
+  it('reprend au printemps', () => {
+    const april = at(NOW, { lastWateredAt: daysAgo(8) })
+    expect(engine.evaluate([april]).find((a) => a.type === 'arrosage')!.priority).toBe('high')
+  })
+})
+
+describe('R17 — fin de saison des annuelles gélives', () => {
+  const tomato = { category: 'VEGETABLE', frostSensitivity: 'HIGH', mulchRecommended: true, edible: true }
+
+  it('remplace arrosage, paillage et protection par « arracher et composter »', () => {
+    const ctx = at(NOV, { lastWateredAt: before(NOV, 30), containerSizeLiters: 20 }, tomato, nights(-2))
+    const actions = engine.evaluate([ctx])
+
+    expect(actions.map((a) => a.ruleId)).toEqual(['r17-end-of-season'])
+    expect(actions[0].shortLabel).toBe('Fin de saison')
+    expect(actions[0].window).toEqual({ start: '2026-11-01', end: '2026-12-31' })
+    expect(engine.generateAlerts([ctx])).toHaveLength(0)
+  })
+
+  it('une fois, et jamais pour une tomate à l’intérieur', () => {
+    const done = at(NOV, {}, tomato, undefined, { 'r17-end-of-season': before(NOV, 2) })
+    expect(engine.evaluate([done]).some((a) => a.ruleId === 'r17-end-of-season')).toBe(false)
+
+    const indoor = at(NOV, { location: 'INDOOR' }, tomato)
+    expect(engine.evaluate([indoor]).some((a) => a.ruleId === 'r17-end-of-season')).toBe(false)
+  })
+
+  it('se tait en janvier, et ne touche pas une laitue qui supporte le froid', () => {
+    expect(engine.evaluate([at(JAN, {}, tomato)])).toHaveLength(0)
+    const lettuce = at(NOV, {}, { ...tomato, frostSensitivity: 'LIGHT' })
+    expect(engine.evaluate([lettuce]).some((a) => a.ruleId === 'r17-end-of-season')).toBe(false)
   })
 })

@@ -1,5 +1,5 @@
 import type { AdviceRule, PlantContext, GardenAction } from '../types'
-import { isExposed, isoDay, parseJsonArray } from '../utils'
+import { WINTER_REST_MONTHS, isExposed, isFinishedAnnual, isoDay, parseJsonArray } from '../utils'
 
 const MS_PER_DAY = 86_400_000
 
@@ -20,12 +20,12 @@ const DORMANCY_FACTOR_EXPOSED = 3
 /** À l'abri, la croissance ralentit sans s'arrêter : on espace moins. */
 const DORMANCY_FACTOR_SHELTERED = 1.5
 /**
- * Sans `dormancyMonths` au catalogue, le cœur de l'hiver suffit à espacer
- * dehors. À l'intérieur on ne devine rien : le chauffage assèche autant qu'il
+ * De novembre à février, une plante exposée qu'on arrose encore — en pot, au
+ * balcon — boit au moins deux fois moins, que le catalogue la dise en dormance
+ * ou non. À l'intérieur on ne devine rien : le chauffage assèche autant qu'il
  * ralentit.
  */
 const WINTER_FACTOR_EXPOSED = 2
-const WINTER_MONTHS = [12, 1, 2]
 
 interface Seasonal {
   factor: number
@@ -40,16 +40,15 @@ function seasonalFactor(ctx: PlantContext): Seasonal {
   const exposed = isExposed(instance.location)
   const dormancy = parseJsonArray(instance.catalogPlant?.dormancyMonths)
 
-  if (dormancy.length > 0) {
-    if (!dormancy.includes(month)) return { factor: 1, note: '' }
+  if (dormancy.includes(month)) {
     return {
       factor: exposed ? DORMANCY_FACTOR_EXPOSED : DORMANCY_FACTOR_SHELTERED,
       note: 'En repos végétatif, elle boit peu',
     }
   }
 
-  if (exposed && WINTER_MONTHS.includes(month)) {
-    return { factor: WINTER_FACTOR_EXPOSED, note: "En plein hiver, dehors, elle boit peu" }
+  if (exposed && WINTER_REST_MONTHS.includes(month)) {
+    return { factor: WINTER_FACTOR_EXPOSED, note: "En hiver, dehors, elle boit peu" }
   }
 
   return { factor: 1, note: '' }
@@ -72,6 +71,19 @@ export const r1WateringStandard: AdviceRule = {
     const catalog = instance.catalogPlant
     const freqDays = instance.wateringFreqDays ?? catalog?.wateringFreqDays
     if (!freqDays) return []
+
+    // Fin de saison : il n'y a plus rien à arroser (r17 propose d'arracher).
+    if (isFinishedAnnual(ctx)) return []
+
+    // En pleine terre, l'hiver, la pluie suffit. Seuls les pots — renseignés
+    // par leur contenance — et le balcon, souvent abrité, gardent un rythme.
+    if (
+      instance.location === 'OUTDOOR' &&
+      instance.containerSizeLiters == null &&
+      WINTER_REST_MONTHS.includes(currentDate.getMonth() + 1)
+    ) {
+      return []
+    }
 
     const plantName = instance.customName ?? catalog?.commonName ?? 'Plante'
     const emoji = instance.emoji ?? catalog?.emoji ?? ''

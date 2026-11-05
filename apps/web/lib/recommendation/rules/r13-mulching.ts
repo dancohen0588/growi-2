@@ -1,7 +1,7 @@
 import type { ActionWindow } from '@growi/shared'
 
 import type { AdviceRule, PlantContext, GardenAction } from '../types'
-import { doneSince, endOfMonth, isExposed, startOfMonth } from '../utils'
+import { doneSince, endOfMonth, isExposed, isFinishedAnnual, startOfMonth } from '../utils'
 import { winterProtectionOf } from '../winter-protection'
 
 /**
@@ -46,6 +46,9 @@ export const r13Mulching: AdviceRule = {
 
     const season = seasonOf(currentDate.getMonth() + 1)
     if (!season) return []
+    // Pailler le pied d'une tomate morte n'a pas de sens : r17 propose de
+    // l'arracher, et le paillage viendra sur la planche libérée.
+    if (isFinishedAnnual(ctx)) return []
     if (season.key === 'autumn' && winterProtectionOf(catalog.winterProtectionType) === 'MULCH') {
       return []
     }

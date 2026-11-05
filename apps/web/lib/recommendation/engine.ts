@@ -15,7 +15,8 @@ import { r13Mulching } from './rules/r13-mulching'
 import { r14WinterPrep } from './rules/r14-winter-prep'
 import { r15Deadheading } from './rules/r15-deadheading'
 import { r16Transplant } from './rules/r16-transplant'
-import { isoDay } from './utils'
+import { r17EndOfSeason } from './rules/r17-end-of-season'
+import { isFinishedAnnual, isoDay } from './utils'
 
 /**
  * Version de la forme du payload mis en cache six heures.
@@ -25,7 +26,7 @@ import { isoDay } from './utils'
  * tailles sans fenêtre, donc rangées « en retard », à côté de tailles qui n'y
  * sont plus. Un cache d'une version antérieure est ignoré et recalculé.
  */
-export const ADVICE_PAYLOAD_VERSION = 3
+export const ADVICE_PAYLOAD_VERSION = 4
 
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
 
@@ -72,6 +73,7 @@ const RULES: AdviceRule[] = [
   r14WinterPrep,
   r15Deadheading,
   r16Transplant,
+  r17EndOfSeason,
 ]
 
 const GESTURE_LABELS = new Map(
@@ -113,7 +115,13 @@ export class RecommendationEngine {
     for (const ctx of contexts) {
       const plantActions: GardenAction[] = []
 
+      // Une annuelle gélive après l'été n'a plus qu'une chose à faire :
+      // être arrachée (r17). Arroser, rempoter ou fertiliser une tomate morte,
+      // c'est ce que le moteur proposait — on filtre ici plutôt que règle par
+      // règle, pour qu'une règle ajoutée demain ne l'oublie pas.
+      const finished = isFinishedAnnual(ctx)
       for (const rule of this.rules) {
+        if (finished && rule.id !== 'r17-end-of-season') continue
         plantActions.push(...rule.evaluate(ctx))
       }
 
@@ -178,6 +186,7 @@ export class RecommendationEngine {
   generateAlerts(contexts: PlantContext[]): PlantAlert[] {
     const alerts: PlantAlert[] = []
     for (const ctx of contexts) {
+      if (isFinishedAnnual(ctx)) continue
       for (const rule of this.rules) {
         if (rule.generateAlerts) {
           alerts.push(...rule.generateAlerts(ctx))

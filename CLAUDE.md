@@ -922,7 +922,7 @@ distinguer de l'identification, qui part d'une photo inconnue.
 
 ### Planning — deux natures d'action, deux sources
 
-Le planning est **calculé** : les `GardenAction` viennent des règles r1–r16 de
+Le planning est **calculé** : les `GardenAction` viennent des règles r1–r17 de
 `lib/recommendation/`, mises en cache six heures dans `GardenAdviceCache`. Une
 recommandation de diagnostic acceptée par l'utilisateur ne peut pas suivre ce
 chemin — elle doit être figée à sa date d'acceptation puis acquittée
@@ -931,7 +931,7 @@ individuellement. D'où une **seconde source** de tâches, persistées.
 | Élément | Rôle |
 |---|---|
 | `packages/shared/src/schemas/planning.ts` | `kind`, `window`, horizons, `actionHorizon`, `groupWateringActions`, schémas des trois gestes de masse |
-| `lib/recommendation/` | Les seize règles, `compareActions`, `ADVICE_PAYLOAD_VERSION` |
+| `lib/recommendation/` | Les dix-sept règles, `compareActions`, `ADVICE_PAYLOAD_VERSION` |
 | Modèle `PlantTask` | Tâche figée ; `source` prépare les tâches saisies à la main |
 | `lib/services/task.service.ts` | Planification, revue, présentation en actions, acquittement |
 | `lib/services/advice.service.ts` | `assemble`, `markActionsDone`, `clearPlanningToday`, `undoAction` |
@@ -980,9 +980,17 @@ Analyse et suite prévue (« Secrets de jardinier ») :
 `~/Growi/Documentation/spec/16-analyse-moteur-reco-secrets.md`.
 
 - **r1 suit la saison.** En `dormancyMonths`, la fréquence est ×3 dehors
-  (`OUTDOOR`/`BALCONY`), ×1,5 à l'abri ; sans donnée, ×2 dehors en
-  décembre-février. `customWateringAdjFactor` l'emporte sur tout. Le moteur
-  proposait d'arroser un hortensia en novembre comme en juin.
+  (`OUTDOOR`/`BALCONY`), ×1,5 à l'abri ; sinon ×2 dehors de novembre à
+  février (`WINTER_REST_MONTHS`). `customWateringAdjFactor` l'emporte sur le
+  rythme. **En pleine terre (`OUTDOOR` sans `containerSizeLiters`), aucun
+  arrosage de novembre à février** : la pluie suffit en région parisienne. Le
+  5/11/2026, 49 des 52 cartes des vrais jardins étaient « Arroser », faute
+  d'arrosage noté depuis des semaines.
+- **Une annuelle gélive dehors après l'été** (`isFinishedAnnual` : légume ou
+  aromatique `frostSensitivity: HIGH`, novembre-mars) ne reçoit plus que
+  **r17 « Fin de saison »** (arracher, composter), en novembre-décembre. Le
+  filtre est dans `engine.ts`, pas dans chaque règle : une règle ajoutée demain
+  ne proposera pas d'arroser une tomate morte. Ses alertes sont tues aussi.
 - **r3 ne concerne que `OUTDOOR`**, et reporte aussi après ≥ 10 mm tombés en
   trois jours (`WeatherForecast.recentPrecipSum`, Open-Meteo `past_days=3`).
   Les jours passés sont **retirés** de `daily` : les règles lisent `daily[0]`
@@ -991,7 +999,7 @@ Analyse et suite prévue (« Secrets de jardinier ») :
   et **les annonces n'y comptent pas** — une action datée d'un jour à venir
   (« prochain arrosage jeudi ») ne chasse plus la taille du moment.
 - **r13 paillage, r14 hivernage, r15 fleurs fanées, r16 mise en place au
-  jardin** lisent des champs catalogue jusque-là ignorés (`mulchRecommended`,
+  jardin, r17 fin de saison** lisent des champs catalogue jusque-là ignorés (`mulchRecommended`,
   `winterProtectionType`, `floweringMonths`, `transplantMonths`). Elles
   produisent des actions **`type: 'autre'`** — un nouveau type d'action ferait
   planter les versions de l'app déjà installées (`ACTION_TYPE_LABELS[type]`).
