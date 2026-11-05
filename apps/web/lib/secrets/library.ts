@@ -19,6 +19,7 @@ import type { SecretConditions, SecretEvidence, SecretPlanche } from '@growi/sha
 
 import { PLANCHES_LOT1 } from './planches/lot1'
 import { PLANCHES_LOT2 } from './planches/lot2'
+import { PLANCHES_LOT3 } from './planches/lot3'
 
 export interface SecretSeed {
   slug: string
@@ -173,7 +174,7 @@ const BASE_LIBRARY: SecretSeed[] = [
       'Ajoute une goutte de savon noir pour que le mélange accroche.',
       'Pulvérise le feuillage en fin de journée.',
     ].join('\n'),
-    ingredients: ['bicarbonate de soude', 'savon noir', 'eau'],
+    ingredients: ['bicarbonate de soude', 'savon noir', 'eau', 'un pulvérisateur'],
     evidence: 'PLAUSIBLE',
     cautions: 'Pas plus d’une fois tous les dix jours : le sodium s’accumule dans le sol.',
     effortMinutes: 5,
@@ -278,7 +279,7 @@ const BASE_LIBRARY: SecretSeed[] = [
       'Le café en grain est acide, mais l’acidité part dans ta tasse : le marc usé est presque neutre. Il ne changera pas le sol d’une plante de terre de bruyère.',
     recipe: [
       'Pour une plante qui aime l’acidité, arrose à l’eau de pluie plutôt qu’à l’eau du robinet, souvent calcaire.',
-      'Au printemps, ajoute de la terre de bruyère ou un paillis d’aiguilles de pin au pied.',
+      'Au printemps, ajoute de la terre de bruyère au pied.',
       'Le marc peut aller au compost : il y sera utile, mais pour d’autres raisons.',
     ].join('\n'),
     ingredients: ['eau de pluie', 'terre de bruyère'],
@@ -295,9 +296,9 @@ const BASE_LIBRARY: SecretSeed[] = [
     recipe: [
       'Pour garder un hortensia bleu, maintiens un sol acide : eau de pluie, terre de bruyère au printemps.',
       'Un engrais « hortensias bleus » apporte l’aluminium qui manque.',
-      'Sur un sol calcaire, il restera rose — et c’est très bien aussi.',
+      'Sur un sol calcaire, il restera rose — et c’est très bien aussi. Un hortensia blanc, lui, reste blanc.',
     ].join('\n'),
-    ingredients: ['eau de pluie', 'terre de bruyère'],
+    ingredients: ['eau de pluie', 'terre de bruyère', 'engrais « hortensias bleus »'],
     evidence: 'MYTH',
     effortMinutes: 5,
     conditions: { months: [3, 4, 5, 6, 7, 8, 9], genera: ['Hydrangea'] },
@@ -511,7 +512,7 @@ const BASE_LIBRARY: SecretSeed[] = [
 ]
 
 /** Les planches livrées par lots (`planches/`), validées dans Claude Design. */
-const PLANCHES: Readonly<Record<string, SecretPlanche>> = { ...PLANCHES_LOT1, ...PLANCHES_LOT2 }
+const PLANCHES: Readonly<Record<string, SecretPlanche>> = { ...PLANCHES_LOT1, ...PLANCHES_LOT2, ...PLANCHES_LOT3 }
 
 export const SECRET_LIBRARY: SecretSeed[] = BASE_LIBRARY.map((seed) =>
   seed.planche || !PLANCHES[seed.slug] ? seed : { ...seed, planche: PLANCHES[seed.slug] },
