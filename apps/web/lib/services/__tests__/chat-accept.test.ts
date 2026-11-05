@@ -213,6 +213,7 @@ describe('cocher une action', () => {
       { type: 'watering' },
       undefined,
       'chat',
+      { ruleId: undefined },
     )
   })
 

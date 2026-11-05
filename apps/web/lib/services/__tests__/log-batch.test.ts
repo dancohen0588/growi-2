@@ -68,7 +68,7 @@ describe('logCareBatch', () => {
         type: { in: ['watering'] },
         occurredAt: { gte: DAY_START },
       },
-      select: { plantInstanceId: true, type: true },
+      select: { plantInstanceId: true, type: true, ruleId: true },
     })
     expect(result.alreadyLogged).toEqual([water('p1')])
     expect(result.logs.map((log) => log.plantInstanceId)).toEqual(['p2'])

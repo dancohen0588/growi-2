@@ -188,7 +188,14 @@ export function PlantDetail({ plantId, onEdit, onDiagnose, onChat }: PlantDetail
 
   const completeTask = (gardenId: string, action: GardenAction) => {
     markDone.mutate(
-      { actionId: action.id, gardenId, actionType: action.type, plantId, taskId: action.taskId },
+      {
+        actionId: action.id,
+        gardenId,
+        actionType: action.type,
+        plantId,
+        taskId: action.taskId,
+        ruleId: action.ruleId,
+      },
       {
         onSuccess: () => toast('Bien noté, ton jardin te remercie 🌱'),
         onError: (error) => toast(errorMessage(error), 'error'),

@@ -1,5 +1,5 @@
 import type { AdviceRule, PlantContext, GardenAction } from '../types'
-import { monthRunWindow, parseJsonArray } from '../utils'
+import { doneSince, monthRunWindow, parseJsonArray } from '../utils'
 
 export const r7SowingOutdoor: AdviceRule = {
   id: 'r7-sowing-outdoor',
@@ -24,6 +24,9 @@ export const r7SowingOutdoor: AdviceRule = {
     // La météo dit que c'est possible maintenant ; le calendrier dit jusqu'à
     // quand. L'action reste donc une fenêtre, pas une urgence du jour.
     const window = monthRunWindow(months, currentDate)
+
+    // Semé dans la fenêtre : rien ne le disait au moteur jusqu'ici.
+    if (doneSince(ctx, this.id, window.start)) return []
 
     return [
       {

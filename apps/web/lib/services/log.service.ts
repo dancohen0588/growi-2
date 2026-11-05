@@ -20,9 +20,10 @@ import { completeTasksForGesture } from '@/lib/services/task.service'
 /**
  * Date de la plante à faire avancer selon le geste.
  *
- * C'est par ces champs que le moteur de conseils raisonne — il ne lit pas les
- * logs. Un geste sans date associée (semis, autre) n'a donc pas d'incidence
- * sur le planning, seulement sur l'historique.
+ * C'est d'abord par ces champs que le moteur de conseils raisonne. Un geste
+ * sans date associée (semis, autre) n'agit sur le planning que s'il porte la
+ * règle qui l'a proposé (`CareLog.ruleId`) : le moteur lit alors le journal
+ * pour fermer cette règle-là, et elle seule.
  *
  * La récolte en fait partie depuis la v2 du planning : rien ne fermait la
  * règle r8, qui reproposait la même récolte chaque matin de toute la saison.
@@ -91,12 +92,26 @@ export async function listPlantLogs(plantInstanceId: string, userId: string) {
  */
 export type CareSource = 'detail' | 'planning' | 'chat'
 
+/**
+ * Ce que le planning sait du geste et que le formulaire du journal ignore.
+ *
+ * `ruleId` est la règle du moteur dont on coche l'action : c'est par elle que
+ * le moteur ferme les règles sans date sur la plante (paillage, hivernage…).
+ * `note` nomme le geste quand son type ne suffit pas — un « autre geste »
+ * nommé « Paillage » se relit dans le journal, pas un « Autre geste » nu.
+ */
+export interface CareMeta {
+  ruleId?: string
+  note?: string
+}
+
 export async function logCare(
   plantInstanceId: string,
   userId: string,
   input: CreateCareLogInput,
   tx?: Prisma.TransactionClient,
   source: CareSource = 'detail',
+  meta: CareMeta = {},
 ) {
   const db = tx ?? prisma
   const { gardenId } = await assertPlantOwned(plantInstanceId, userId, db)
@@ -122,12 +137,13 @@ export async function logCare(
           plantInstanceId,
           type: input.type,
           occurredAt,
-          note: input.note,
+          note: input.note ?? meta.note,
           productUsed: input.productUsed,
           status: input.status,
           quantity: input.quantity,
           unit: input.unit,
           photoUrl: input.photoUrl,
+          ruleId: meta.ruleId,
         },
       }),
       client.plantInstance.update({
@@ -156,6 +172,9 @@ export async function logCare(
 export interface CareBatchEntry {
   plantInstanceId: string
   type: CareLogType
+  /** Voir `CareMeta`. */
+  ruleId?: string
+  note?: string
 }
 
 /**
@@ -199,7 +218,10 @@ export async function logCareBatch(
   const unknownPlantIds = requested.filter((id) => !ownedIds.has(id))
   const ownedEntries = entries.filter((entry) => ownedIds.has(entry.plantInstanceId))
 
-  const key = (entry: CareBatchEntry) => `${entry.plantInstanceId}:${entry.type}`
+  // La règle entre dans la clé : pailler puis protéger du froid le même pied,
+  // c'est deux « autres gestes », pas un doublon.
+  const key = (entry: Pick<CareBatchEntry, 'plantInstanceId' | 'type' | 'ruleId'>) =>
+    `${entry.plantInstanceId}:${entry.type}:${entry.ruleId ?? ''}`
   const done = new Set<string>()
   if (options.skipIfLoggedSince && ownedEntries.length > 0) {
     const existing = await tx.careLog.findMany({
@@ -208,9 +230,17 @@ export async function logCareBatch(
         type: { in: [...new Set(ownedEntries.map((entry) => entry.type))] },
         occurredAt: { gte: options.skipIfLoggedSince },
       },
-      select: { plantInstanceId: true, type: true },
+      select: { plantInstanceId: true, type: true, ruleId: true },
     })
-    for (const log of existing) done.add(key({ plantInstanceId: log.plantInstanceId, type: log.type as CareLogType }))
+    for (const log of existing) {
+      done.add(
+        key({
+          plantInstanceId: log.plantInstanceId,
+          type: log.type as CareLogType,
+          ruleId: log.ruleId ?? undefined,
+        }),
+      )
+    }
   }
 
   const alreadyLogged = ownedEntries.filter((entry) => done.has(key(entry)))
@@ -223,7 +253,13 @@ export async function logCareBatch(
   if (kept.length === 0) return { logs: [], unknownPlantIds, alreadyLogged }
 
   const logs = await tx.careLog.createManyAndReturn({
-    data: kept.map((entry) => ({ plantInstanceId: entry.plantInstanceId, type: entry.type, occurredAt })),
+    data: kept.map((entry) => ({
+      plantInstanceId: entry.plantInstanceId,
+      type: entry.type,
+      occurredAt,
+      ruleId: entry.ruleId,
+      note: entry.note,
+    })),
     select: { id: true, plantInstanceId: true, type: true },
   })
 
@@ -308,6 +344,8 @@ export async function listCareLogsSince(userId: string, since: Date) {
       type: true,
       occurredAt: true,
       plantInstanceId: true,
+      ruleId: true,
+      note: true,
       plantInstance: {
         select: {
           customName: true,

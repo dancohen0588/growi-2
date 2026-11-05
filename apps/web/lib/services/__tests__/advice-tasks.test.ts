@@ -158,6 +158,7 @@ describe('cocher une action', () => {
       { type: 'treatment' },
       undefined,
       'planning',
+      { ruleId: undefined, note: undefined },
     )
     expect(engine.invalidateGardenAdviceCache).toHaveBeenCalledWith(GARDEN)
   })
@@ -173,6 +174,32 @@ describe('cocher une action', () => {
       { type: 'watering' },
       undefined,
       'planning',
+      { ruleId: undefined, note: undefined },
+    )
+  })
+
+  it('nomme un « autre geste » du moteur et garde sa règle au journal', async () => {
+    await markActionDone(USER, {
+      gardenId: GARDEN,
+      actionType: 'autre',
+      plantId: 'p1',
+      ruleId: 'r13-mulching',
+    })
+
+    // Le doublon du jour se juge par règle : pailler puis protéger du froid
+    // le même pied, ce sont deux gestes.
+    expect(prismaMock.careLog.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ type: 'other', ruleId: 'r13-mulching' }),
+      }),
+    )
+    expect(logService.logCare).toHaveBeenCalledWith(
+      'p1',
+      USER,
+      { type: 'other' },
+      undefined,
+      'planning',
+      { ruleId: 'r13-mulching', note: 'Paillage' },
     )
   })
 

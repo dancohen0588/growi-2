@@ -194,6 +194,45 @@ describe('getTodayPlanning', () => {
     })
   })
 
+  it('reconnaît un « autre geste » à sa règle, pas à son type', async () => {
+    const mulching = action({
+      id: 'r13-mulching:plant_1',
+      type: 'autre',
+      shortLabel: 'Pailler',
+      ruleId: 'r13-mulching',
+      kind: 'window',
+      dueDate: '2026-11-30',
+    })
+    const winter = action({
+      id: 'r14-winter-prep:plant_1',
+      type: 'autre',
+      shortLabel: 'Rentrer',
+      ruleId: 'r14-winter-prep',
+      kind: 'window',
+      dueDate: '2026-12-31',
+    })
+    adviceService.getGardensAdvice.mockResolvedValue([garden('g1', 'Potager', [mulching, winter])])
+    logService.listCareLogsSince.mockResolvedValue([
+      { ...careLog('other', 'plant_1'), ruleId: 'r13-mulching', note: 'Paillage' },
+    ])
+
+    const planning = await getTodayPlanning(USER_ID, NOW)
+
+    // Le paillage du matin est fait, même à fenêtre ; l'hivernage reste.
+    expect(planning.gardens[0]!.actions.map((a) => a.ruleId)).toEqual(['r14-winter-prep'])
+    // Et il figure dans « Fait aujourd'hui » sous son nom.
+    expect(planning.doneToday).toEqual([
+      expect.objectContaining({ shortLabel: 'Paillage', type: 'autre', ruleId: 'r13-mulching' }),
+    ])
+  })
+
+  it('n’affiche pas un « autre geste » saisi depuis la fiche dans « Fait aujourd’hui »', async () => {
+    adviceService.getGardensAdvice.mockResolvedValue([garden('g1', 'Potager', [])])
+    logService.listCareLogsSince.mockResolvedValue([careLog('other', 'plant_1')])
+
+    expect((await getTodayPlanning(USER_ID, NOW)).doneToday).toEqual([])
+  })
+
   it('dit quel jardin est mis en pause pour aujourd’hui', async () => {
     adviceService.getGardensAdvice.mockResolvedValue([
       { garden: { id: 'g1', name: 'Potager', clearedToday: true }, advice: { actions: [], alerts: [] } },

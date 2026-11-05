@@ -24,6 +24,7 @@ import {
   getPlantAdvice as computePlantAdvice,
   invalidateGardenAdviceCache,
 } from '@/lib/recommendation/garden-advice-service'
+import { gestureLabelForRule } from '@/lib/recommendation/engine'
 import type { GardenAdviceResult, PlantAdvice } from '@/lib/recommendation/types'
 import {
   assertGardenOwned,
@@ -184,9 +185,16 @@ export async function getGardensAdvice(
  */
 export async function markActionDone(
   userId: string,
-  params: { gardenId: string; actionType?: string; plantId?: string; taskId?: string },
+  params: {
+    gardenId: string
+    actionType?: string
+    plantId?: string
+    taskId?: string
+    /** Règle du moteur de l'action cochée — voir `CareLog.ruleId`. */
+    ruleId?: string
+  },
 ): Promise<{ careLogId: string | null }> {
-  const { gardenId, actionType, plantId, taskId } = params
+  const { gardenId, actionType, plantId, taskId, ruleId } = params
   await assertGardenOwned(gardenId, userId)
 
   const careType = actionType
@@ -207,6 +215,9 @@ export async function markActionDone(
             plantInstanceId: plantId,
             plantInstance: { userId },
             type: careType,
+            // Deux « autres gestes » du même jour — pailler, puis protéger du
+            // froid — ne sont pas un doublon : la règle les distingue.
+            ...(ruleId ? { ruleId } : {}),
             occurredAt: { gte: startOfZonedDay(new Date(), safeTimeZone(await getUserTimezone(userId))) },
           },
           select: { id: true },
@@ -215,7 +226,10 @@ export async function markActionDone(
 
   const log =
     plantId && careType && !alreadyToday
-      ? await logCare(plantId, userId, { type: careType }, undefined, 'planning')
+      ? await logCare(plantId, userId, { type: careType }, undefined, 'planning', {
+          ruleId,
+          note: careType === 'other' ? gestureLabelForRule(ruleId) : undefined,
+        })
       : null
 
   await invalidateGardenAdviceCache(gardenId)
@@ -274,7 +288,14 @@ export async function markActionsDone(
       // Une tâche sans plante ne produit aucun geste ; une tâche inconnue
       // non plus, elle est comptée en échec plus bas.
       if (!item.plantId || !careType || (item.taskId && !ownedTaskIds.has(item.taskId))) return []
-      return [{ plantInstanceId: item.plantId, type: careType }]
+      return [
+        {
+          plantInstanceId: item.plantId,
+          type: careType,
+          ruleId: item.ruleId,
+          note: careType === 'other' ? gestureLabelForRule(item.ruleId) : undefined,
+        },
+      ]
     })
 
     const { logs, unknownPlantIds } = await logCareBatch(userId, entries, tx, now, 'planning', {

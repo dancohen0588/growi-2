@@ -86,6 +86,7 @@ export default function CalendrierScreen() {
         actionType: action.type,
         plantId: action.plantId,
         taskId: action.taskId,
+        ruleId: action.ruleId,
       },
       {
         onSuccess: () => toast('Bien noté, ton jardin te remercie 🌱'),
@@ -117,6 +118,7 @@ export default function CalendrierScreen() {
             actionType: action.type,
             plantId: action.plantId,
             taskId: action.taskId,
+            ruleId: action.ruleId,
           })),
         },
         {

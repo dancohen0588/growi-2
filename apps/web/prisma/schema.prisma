@@ -419,6 +419,11 @@ model CareLog {
   quantity        Float?
   unit            String?
   photoUrl        String?
+  /// Règle du moteur dont l'action a été cochée (`r13-mulching`…), quand le
+  /// geste vient du planning. C'est ce qui ferme les règles sans date
+  /// `last*At` sur la plante — paillage, hivernage, semis : sans elle, un
+  /// geste « autre » ne dit pas lequel, et la carte revenait le lendemain.
+  ruleId          String?
   createdAt       DateTime @default(now()) @db.Timestamptz(6)
 
   plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)

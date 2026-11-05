@@ -1,5 +1,12 @@
 import type { AdviceRule, PlantContext, GardenAction } from '../types'
-import { monthRunWindow, parseJsonArray } from '../utils'
+import { doneSince, monthRunWindow, parseJsonArray } from '../utils'
+
+/**
+ * Ce qu'on sème chaque année. Un Monstera porte parfois des mois de semis au
+ * catalogue ; proposer de « semer » la plante verte qui trône dans le salon
+ * n'avait aucun sens.
+ */
+const SOWN_CATEGORIES = new Set(['VEGETABLE', 'HERBS', 'FLOWERS'])
 
 export const r6SowingIndoor: AdviceRule = {
   id: 'r6-sowing-indoor',
@@ -21,12 +28,18 @@ export const r6SowingIndoor: AdviceRule = {
 
     if (!isIndoor) return []
 
+    if (!SOWN_CATEGORIES.has(catalog.category) || instance.isMultiYear === true) return []
+
     const plantName = instance.customName ?? catalog.commonName ?? 'Plante'
     const emoji = instance.emoji ?? catalog.emoji ?? ''
 
     // Un semis se fait dans une période, pas un jour : l'échéance à trois jours
     // faisait revenir la carte en retard le quatrième, pour un mois entier.
     const window = monthRunWindow(months, currentDate)
+
+    // Semé dans la fenêtre : c'est fait pour la saison. Le semis ne pose
+    // aucune date sur la plante, la carte revenait donc chaque matin.
+    if (doneSince(ctx, this.id, window.start)) return []
 
     return [
       {

@@ -1,5 +1,5 @@
 import type { AdviceRule, PlantContext, GardenAction } from '../types'
-import { parseJsonArray, getCurrentSeason, daysSince, seasonWindow } from '../utils'
+import { getCurrentSeason, daysSince, seasonWindow } from '../utils'
 
 export const r11Repotting: AdviceRule = {
   id: 'r11-repotting',
@@ -16,10 +16,6 @@ export const r11Repotting: AdviceRule = {
     // Rempoter, c'est casser la motte : on ne l'inflige pas à une plante qui
     // ne va déjà pas bien. Elle a besoin d'être soignée d'abord.
     if (instance.healthStatus !== 'HEALTHY') return []
-
-    const seasons = parseJsonArray(catalog.repottingSeasons).length > 0
-      ? parseJsonArray(catalog.repottingSeasons)
-      : null
 
     // repottingSeasons stores strings like ["SPRING","AUTUMN"] — parse as string array
     let seasonStrings: string[] = []

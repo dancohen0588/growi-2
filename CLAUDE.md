@@ -922,7 +922,7 @@ distinguer de l'identification, qui part d'une photo inconnue.
 
 ### Planning — deux natures d'action, deux sources
 
-Le planning est **calculé** : les `GardenAction` viennent des règles r1–r12 de
+Le planning est **calculé** : les `GardenAction` viennent des règles r1–r16 de
 `lib/recommendation/`, mises en cache six heures dans `GardenAdviceCache`. Une
 recommandation de diagnostic acceptée par l'utilisateur ne peut pas suivre ce
 chemin — elle doit être figée à sa date d'acceptation puis acquittée
@@ -931,7 +931,7 @@ individuellement. D'où une **seconde source** de tâches, persistées.
 | Élément | Rôle |
 |---|---|
 | `packages/shared/src/schemas/planning.ts` | `kind`, `window`, horizons, `actionHorizon`, `groupWateringActions`, schémas des trois gestes de masse |
-| `lib/recommendation/` | Les douze règles, `compareActions`, `ADVICE_PAYLOAD_VERSION` |
+| `lib/recommendation/` | Les seize règles, `compareActions`, `ADVICE_PAYLOAD_VERSION` |
 | Modèle `PlantTask` | Tâche figée ; `source` prépare les tâches saisies à la main |
 | `lib/services/task.service.ts` | Planification, revue, présentation en actions, acquittement |
 | `lib/services/advice.service.ts` | `assemble`, `markActionsDone`, `clearPlanningToday`, `undoAction` |
@@ -973,6 +973,43 @@ retard » en rouge dès le 2. Elles couvrent maintenant leur saison.
   payload sans version ou d'une version antérieure est ignoré et recalculé.
   Sans cela, changer la forme d'une action sert six heures de plannings
   hybrides au lendemain d'un déploiement.
+
+#### Saisons, gestes « autres » et journal
+
+Analyse et suite prévue (« Secrets de jardinier ») :
+`~/Growi/Documentation/spec/16-analyse-moteur-reco-secrets.md`.
+
+- **r1 suit la saison.** En `dormancyMonths`, la fréquence est ×3 dehors
+  (`OUTDOOR`/`BALCONY`), ×1,5 à l'abri ; sans donnée, ×2 dehors en
+  décembre-février. `customWateringAdjFactor` l'emporte sur tout. Le moteur
+  proposait d'arroser un hortensia en novembre comme en juin.
+- **r3 ne concerne que `OUTDOOR`**, et reporte aussi après ≥ 10 mm tombés en
+  trois jours (`WeatherForecast.recentPrecipSum`, Open-Meteo `past_days=3`).
+  Les jours passés sont **retirés** de `daily` : les règles lisent `daily[0]`
+  comme le jour même.
+- **Le cap compte un geste par type et par plante** (les « autres » par règle),
+  et **les annonces n'y comptent pas** — une action datée d'un jour à venir
+  (« prochain arrosage jeudi ») ne chasse plus la taille du moment.
+- **r13 paillage, r14 hivernage, r15 fleurs fanées, r16 mise en place au
+  jardin** lisent des champs catalogue jusque-là ignorés (`mulchRecommended`,
+  `winterProtectionType`, `floweringMonths`, `transplantMonths`). Elles
+  produisent des actions **`type: 'autre'`** — un nouveau type d'action ferait
+  planter les versions de l'app déjà installées (`ACTION_TYPE_LABELS[type]`).
+  r10 (gel) en produit aussi : en « traitement », la cocher posait
+  `lastTreatedAt` et taisait trois mois le traitement préventif.
+- **Ces règles se ferment par le journal, pas par une date de la plante.**
+  `CareLog.ruleId` reçoit la règle de l'action cochée (champ facultatif
+  `ruleId` de `/planning/actions/done` et `done-bulk`, envoyé par le web et
+  le mobile) ; le moteur relit le dernier geste par règle sur 400 jours
+  (`PlantContext.ruleLogs`, `loadRuleLogs`). Une version de l'app qui
+  n'envoie pas `ruleId` note bien le geste, mais la carte revient. r6/r7
+  (semis) se ferment aussi ainsi : elles ne se fermaient jamais.
+- Un « autre » coché depuis le planning est **nommé au journal**
+  (`gestureLabel` de la règle → `CareLog.note`) et figure dans « Fait
+  aujourd'hui » ; `isDoneToday` le reconnaît à sa règle, pas à son type.
+- `pnpm --filter web catalog:seasons [--limit N] [--slug s] [--apply]`
+  complète ces champs avec Gemini, **à blanc par défaut** (rapport JSON), et
+  ne remplit que les champs vides.
 
 #### Fusion, masquage, gestes de masse
 

@@ -11,6 +11,11 @@ import { r9Fertilizing } from './rules/r9-fertilizing'
 import { r10FrostAlert } from './rules/r10-frost-alert'
 import { r11Repotting } from './rules/r11-repotting'
 import { r12PreventiveTreatment } from './rules/r12-preventive-treatment'
+import { r13Mulching } from './rules/r13-mulching'
+import { r14WinterPrep } from './rules/r14-winter-prep'
+import { r15Deadheading } from './rules/r15-deadheading'
+import { r16Transplant } from './rules/r16-transplant'
+import { isoDay } from './utils'
 
 /**
  * Version de la forme du payload mis en cache six heures.
@@ -20,7 +25,7 @@ import { r12PreventiveTreatment } from './rules/r12-preventive-treatment'
  * tailles sans fenêtre, donc rangées « en retard », à côté de tailles qui n'y
  * sont plus. Un cache d'une version antérieure est ignoré et recalculé.
  */
-export const ADVICE_PAYLOAD_VERSION = 2
+export const ADVICE_PAYLOAD_VERSION = 3
 
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
 
@@ -29,6 +34,58 @@ const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
  * que l'utilisateur en fasse davantage. Trois, et les plus prioritaires.
  */
 const MAX_ACTIONS_PER_PLANT = 3
+
+/**
+ * Ce qui se range ensemble sous le cap : un geste par type et par plante.
+ *
+ * Les « autres gestes » sont distincts par règle — pailler et préparer
+ * l'hivernage ne se remplacent pas l'un l'autre.
+ */
+function capKey(action: GardenAction): string {
+  return action.type === 'autre' ? `autre:${action.ruleId ?? action.id}` : action.type
+}
+
+/**
+ * Une action datée d'un jour à venir n'est qu'une **annonce** — « prochain
+ * arrosage jeudi ». Elle ne compte pas dans le cap : avant, l'arrosage annoncé
+ * prenait l'une des trois places, et chassait la taille ou le paillage du
+ * moment, qui eux sont à faire maintenant.
+ */
+function isAnnouncement(action: GardenAction, today: string): boolean {
+  return action.kind !== 'window' && action.dueDate > today
+}
+
+const RULES: AdviceRule[] = [
+  r1WateringStandard,
+  r2WateringHeat,
+  r3WateringRain,
+  r4PruningSeasonal,
+  r5PruningOverdue,
+  r6SowingIndoor,
+  r7SowingOutdoor,
+  r8Harvest,
+  r9Fertilizing,
+  r10FrostAlert,
+  r11Repotting,
+  r12PreventiveTreatment,
+  r13Mulching,
+  r14WinterPrep,
+  r15Deadheading,
+  r16Transplant,
+]
+
+const GESTURE_LABELS = new Map(
+  RULES.flatMap((rule) => (rule.gestureLabel ? [[rule.id, rule.gestureLabel] as const] : [])),
+)
+
+/**
+ * Nom du geste à écrire au journal pour une action « autre » de cette règle —
+ * « Paillage », « Hivernage ». `undefined` pour une règle inconnue ou qui
+ * produit un geste déjà nommé par son type.
+ */
+export function gestureLabelForRule(ruleId: string | null | undefined): string | undefined {
+  return ruleId ? GESTURE_LABELS.get(ruleId) : undefined
+}
 
 /**
  * L'ordre du planning : ce qui a un jour d'abord, puis l'urgence, puis la date.
@@ -48,20 +105,7 @@ function compareActions(a: GardenAction, b: GardenAction): number {
 }
 
 export class RecommendationEngine {
-  private rules: AdviceRule[] = [
-    r1WateringStandard,
-    r2WateringHeat,
-    r3WateringRain,
-    r4PruningSeasonal,
-    r5PruningOverdue,
-    r6SowingIndoor,
-    r7SowingOutdoor,
-    r8Harvest,
-    r9Fertilizing,
-    r10FrostAlert,
-    r11Repotting,
-    r12PreventiveTreatment,
-  ]
+  private rules: AdviceRule[] = RULES
 
   evaluate(contexts: PlantContext[]): GardenAction[] {
     const allActions: GardenAction[] = []
@@ -103,8 +147,26 @@ export class RecommendationEngine {
       // survit — un rempotage « plus tard » aurait chassé un arrosage du jour.
       const ranked = [...unique].sort(compareActions)
 
+      // Puis un geste par type : deux cartes « Traiter » ou « Arroser » pour la
+      // même plante n'en font pas faire davantage, et prennent la place d'un
+      // geste différent.
+      const today = isoDay(ctx.currentDate)
+      const seenKeys = new Set<string>()
+      const announced: GardenAction[] = []
+      const current: GardenAction[] = []
+      for (const action of ranked) {
+        const key = capKey(action)
+        if (seenKeys.has(key)) continue
+        seenKeys.add(key)
+        if (isAnnouncement(action, today)) announced.push(action)
+        else current.push(action)
+      }
+
       allActions.push(
-        ...ranked.slice(0, MAX_ACTIONS_PER_PLANT).map((a) => ({ ...a, plantPhotoUrl: photoUrl })),
+        ...[...current.slice(0, MAX_ACTIONS_PER_PLANT), ...announced].map((a) => ({
+          ...a,
+          plantPhotoUrl: photoUrl,
+        })),
       )
     }
 

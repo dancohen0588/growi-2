@@ -806,6 +806,7 @@ async function executeProposal(
       actionType,
       plantId: plantInstanceId,
       taskId: conversation.taskId ?? undefined,
+      ruleId: action.ruleId,
     })
     return {}
   }
@@ -816,6 +817,10 @@ async function executeProposal(
   // invalider.
   if (conversation.taskId) await completeTask(userId, conversation.taskId, now)
   const careType = CARE_LOG_TYPE_BY_ACTION[actionType]
-  if (careType) await logCare(plantInstanceId, userId, { type: careType }, undefined, 'chat')
+  if (careType) {
+    await logCare(plantInstanceId, userId, { type: careType }, undefined, 'chat', {
+      ruleId: action.ruleId,
+    })
+  }
   return {}
 }
