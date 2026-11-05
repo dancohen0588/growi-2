@@ -44,6 +44,11 @@ export const ADMIN_ACTIONS = {
   'blog.delete': "Suppression d'un article",
   'blog.regenerate_cover': "Régénération d'une couverture",
   'blog.cadence': 'Cadence de génération des articles',
+  'secret.create': "Création d'un secret de jardinier",
+  'secret.update': "Modification d'un secret de jardinier",
+  'secret.publish': "Publication d'un secret de jardinier",
+  'secret.unpublish': "Dépublication d'un secret de jardinier",
+  'secret.delete': "Suppression d'un secret de jardinier",
 } as const
 
 export type AdminAction = keyof typeof ADMIN_ACTIONS
@@ -67,6 +72,9 @@ export const AUDIT_TARGET_TYPES = {
   blog_post: 'Article',
   /// Réglage applicatif (`app_settings`) ; `targetId` en porte la clé.
   app_setting: 'Réglage',
+  /// Secret de jardinier (`garden_tips`) ; `targetId` en est l'identifiant, le
+  /// slug voyage dans `details`.
+  garden_tip: 'Secret',
 } as const
 
 export type AuditTargetType = keyof typeof AUDIT_TARGET_TYPES

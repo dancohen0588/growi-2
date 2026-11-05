@@ -539,9 +539,12 @@ export async function recordSecretFeedback(userId: string, input: SecretFeedback
  *
  * Le secret lunaire n'y figure que si l'option est activée — sans quoi il
  * resterait éternellement verrouillé, sans moyen de le débloquer.
+ *
+ * Un secret dépublié depuis reste dans la collection de qui l'a découvert :
+ * on ne reprend pas ce qu'on a donné. Il cesse seulement d'être tiré.
  */
 export async function getGrimoire(userId: string): Promise<Grimoire> {
-  const [tips, user, userTips, trials] = await Promise.all([
+  const [published, user, userTips, trials] = await Promise.all([
     listPublishedTips(),
     prisma.user.findUnique({ where: { id: userId }, select: { lunarCalendar: true } }),
     prisma.userTip.findMany({ where: { userId } }),
@@ -551,6 +554,16 @@ export async function getGrimoire(userId: string): Promise<Grimoire> {
       orderBy: { occurredAt: 'desc' },
     }),
   ])
+
+  const discoveredSlugs = new Set([
+    ...userTips.filter((tip) => tip.revealedAt).map((tip) => tip.slug),
+    ...trials.flatMap((trial) => (trial.tipSlug ? [trial.tipSlug] : [])),
+  ])
+  const missing = [...discoveredSlugs].filter((slug) => !published.some((tip) => tip.slug === slug))
+  const retired = missing.length
+    ? (await prisma.gardenTip.findMany({ where: { slug: { in: missing } } })).flatMap((row) => toRecord(row) ?? [])
+    : []
+  const tips = [...published, ...retired]
 
   const byUserTip = new Map(userTips.map((tip) => [tip.slug, tip]))
   const trialsBySlug = new Map<string, typeof trials>()

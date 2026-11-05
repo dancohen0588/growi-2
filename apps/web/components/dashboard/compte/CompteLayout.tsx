@@ -118,6 +118,7 @@ export function CompteLayout({ initialSession }: CompteLayoutProps) {
               isLoading={isLoading}
               updateAlerts={updateAlerts}
               resetAlerts={resetAlerts}
+              updateProfile={updateProfile}
             />
           ) : (
             !isLoading && (

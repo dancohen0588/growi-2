@@ -12,6 +12,7 @@ import {
   UserCircle,
   Users,
   Map,
+  BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -34,6 +35,8 @@ const navItems = [
   { href: '/dashboard/communaute',   label: 'Communauté',    icon: Users },
   { href: '/dashboard/diagnostic',   label: 'Diagnostic IA', icon: Stethoscope },
   { href: '/dashboard/meteo',        label: 'Météo',         icon: CloudSun },
+  // Secondaire : on y vient depuis la carte du secret de la semaine.
+  { href: '/dashboard/grimoire',     label: 'Grimoire',      icon: BookOpen },
   // « Mon compte » porte aussi les réglages : profil et alertes y sont réunis,
   // il n'y a plus d'entrée « Paramètres ».
   { href: '/dashboard/compte',       label: 'Mon compte',    icon: UserCircle },

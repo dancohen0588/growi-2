@@ -274,6 +274,18 @@ describe('grimoire', () => {
     expect(feuilles).toEqual(expect.objectContaining({ trials: 1, verdict: 'WORKED', recipe: 'Étape 1\nÉtape 2' }))
   })
 
+  it('garde un secret découvert puis dépublié', async () => {
+    prismaMock.gardenTip.findMany
+      .mockResolvedValueOnce([tipRow('cendres')]) // publiés
+      .mockResolvedValueOnce([tipRow('eau-riz', { status: 'DRAFT' })]) // retirés depuis
+    prismaMock.userTip.findMany.mockResolvedValue([{ slug: 'eau-riz', revealedAt: new Date(), dismissedAt: null }])
+
+    const grimoire = await service.getGrimoire(USER)
+
+    expect(grimoire.entries.map((entry) => entry.slug).sort()).toEqual(['cendres', 'eau-riz'])
+    expect(grimoire.discovered).toBe(1)
+  })
+
   it('ne montre que le titre et l’accroche d’un secret à découvrir', async () => {
     const grimoire = await service.getGrimoire(USER)
 

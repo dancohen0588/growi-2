@@ -197,15 +197,22 @@ export type Grimoire = z.infer<typeof grimoireSchema>
 
 // ─── Administration ────────────────────────────────────────────────────────
 
+/** Un texte facultatif : vide ou blanc vaut absent. */
+const optionalText = (max: number) =>
+  z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().trim().max(max).optional(),
+  )
+
 /** Formulaire de `/admin/secrets/[id]`. */
 export const updateGardenTipSchema = z.object({
   title: z.string().trim().min(3).max(80),
   teaser: z.string().trim().min(10).max(160),
-  story: z.string().trim().max(800).optional().or(z.literal('').transform(() => undefined)),
+  story: optionalText(800),
   recipe: z.string().trim().min(20).max(1500),
   ingredients: z.array(z.string().trim().min(1).max(60)).max(12),
   evidence: secretEvidenceSchema,
-  cautions: z.string().trim().max(500).optional().or(z.literal('').transform(() => undefined)),
+  cautions: optionalText(500),
   prepDays: z.number().int().min(0).max(60),
   effortMinutes: z.number().int().min(1).max(240).optional(),
   cooldownDays: z.number().int().min(7).max(730),
