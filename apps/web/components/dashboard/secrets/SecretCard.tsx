@@ -251,7 +251,7 @@ export function VerdictButtons({
 }
 
 /** Les feuilles en filigrane de la carte — décor pur, hors de l'arbre accessible. */
-function LeavesWatermark() {
+export function LeavesWatermark() {
   return (
     <svg
       aria-hidden
