@@ -139,6 +139,20 @@ describe('le secret de la semaine', () => {
     expect(await service.secretActionsForGarden(USER, GARDEN, TODAY)).toEqual([])
   })
 
+  it('porte sa planche, et l’écarte quand elle cite un dessin retiré du registre', async () => {
+    const planche = { panels: [{ art: 'eau-cuisson/1', caption: 'Garde l’eau de cuisson.' }] }
+    prismaMock.gardenTip.findMany.mockResolvedValue([tipRow('feuilles-mortes', { planche })])
+    const [action] = await service.secretActionsForGarden(USER, GARDEN, TODAY)
+    expect(action?.secret?.planche).toEqual(planche)
+
+    service.forgetPublishedTips()
+    prismaMock.gardenTip.findMany.mockResolvedValue([
+      tipRow('feuilles-mortes', { planche: { panels: [{ art: 'disparu/1', caption: 'Une case.' }] } }),
+    ])
+    const [fallback] = await service.secretActionsForGarden(USER, GARDEN, TODAY)
+    expect(fallback?.secret?.planche).toBeNull()
+  })
+
   it('disparaît aussitôt dépublié, même tiré cette semaine', async () => {
     prismaMock.gardenTip.findMany.mockResolvedValue([])
     prismaMock.gardenTip.findUnique.mockResolvedValue(tipRow('feuilles-mortes', { status: 'DRAFT' }))

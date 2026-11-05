@@ -16,11 +16,13 @@
 import {
   SECRET_RULE_IDS,
   secretConditionsSchema,
+  secretPlancheSchema,
   type GardenSecret,
   type Grimoire,
   type GrimoireEntry,
   type SecretEvidence,
   type SecretFeedbackInput,
+  type SecretPlanche,
   type SecretStage,
   type SecretVerdict,
 } from '@growi/shared'
@@ -73,6 +75,7 @@ export interface TipRecord {
   effortMinutes: number | null
   cooldownDays: number
   conditions: ReturnType<typeof secretConditionsSchema.parse>
+  planche: SecretPlanche | null
 }
 
 /**
@@ -101,6 +104,7 @@ function toRecord(row: {
   effortMinutes: number | null
   cooldownDays: number
   conditions: unknown
+  planche?: unknown
 }): TipRecord | null {
   const conditions = secretConditionsSchema.safeParse(row.conditions ?? {})
   if (!conditions.success) {
@@ -109,7 +113,27 @@ function toRecord(row: {
     console.error('[secrets.service] conditions invalides :', row.slug, conditions.error.message)
     return null
   }
-  return { ...row, evidence: row.evidence as SecretEvidence, conditions: conditions.data }
+  // Une planche qui cite un dessin retiré du registre est écartée : le secret
+  // s'affiche alors en texte, plutôt qu'avec une case vide.
+  const planche = row.planche == null ? null : secretPlancheSchema.safeParse(row.planche)
+  if (planche && !planche.success) {
+    console.error('[secrets.service] planche invalide :', row.slug, planche.error.message)
+  }
+  return {
+    slug: row.slug,
+    title: row.title,
+    teaser: row.teaser,
+    story: row.story,
+    recipe: row.recipe,
+    ingredients: row.ingredients,
+    evidence: row.evidence as SecretEvidence,
+    cautions: row.cautions,
+    prepDays: row.prepDays,
+    effortMinutes: row.effortMinutes,
+    cooldownDays: row.cooldownDays,
+    conditions: conditions.data,
+    planche: planche?.success ? planche.data : null,
+  }
 }
 
 export async function listPublishedTips(): Promise<TipRecord[]> {
@@ -154,6 +178,7 @@ function toSecret(tip: TipRecord, stage: SecretStage, trialCareLogId?: string): 
     cautions: tip.cautions,
     prepDays: tip.prepDays,
     effortMinutes: tip.effortMinutes,
+    planche: tip.planche,
     ...(trialCareLogId ? { trialCareLogId } : {}),
   }
 }
@@ -677,6 +702,7 @@ export async function getGrimoire(userId: string): Promise<Grimoire> {
         story: discovered ? tip.story : null,
         ingredients: discovered ? tip.ingredients : [],
         cautions: discovered ? tip.cautions : null,
+        planche: discovered ? tip.planche : null,
       }
     })
     .sort((a, b) => Number(b.discovered) - Number(a.discovered) || a.title.localeCompare(b.title, 'fr'))

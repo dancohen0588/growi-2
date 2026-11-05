@@ -15,7 +15,7 @@
  * - jamais le mot « IA ».
  */
 
-import type { SecretConditions, SecretEvidence } from '@growi/shared'
+import type { SecretConditions, SecretEvidence, SecretPlanche } from '@growi/shared'
 
 export interface SecretSeed {
   slug: string
@@ -31,6 +31,8 @@ export interface SecretSeed {
   effortMinutes?: number
   cooldownDays?: number
   conditions: SecretConditions
+  /** La planche BD, quand le secret est dessiné (`@growi/shared` `SECRET_ART`). */
+  planche?: SecretPlanche
 }
 
 const ALL_YEAR = undefined
@@ -338,6 +340,26 @@ export const SECRET_LIBRARY: SecretSeed[] = [
     cautions: 'Jamais salée ni grasse : le sel brûle les racines, surtout en pot.',
     effortMinutes: 2,
     conditions: { months: ALL_YEAR, locations: ['INDOOR', 'BALCONY'] },
+    planche: {
+      panels: [
+        {
+          art: 'eau-cuisson/1',
+          caption: 'Garde l’eau de cuisson des légumes, sans sel ni matière grasse.',
+          emphasis: 'sans sel ni matière grasse',
+        },
+        { art: 'eau-cuisson/2', caption: 'Laisse-la refroidir complètement : tiède, jamais chaude.', emphasis: 'refroidir complètement' },
+        {
+          art: 'eau-cuisson/3',
+          caption: 'Arrose ta plante avec, à la place de l’eau du robinet.',
+          emphasis: 'à la place de l’eau du robinet',
+        },
+      ],
+      caution: {
+        art: 'eau-cuisson/caution',
+        title: 'Jamais salée ni grasse.',
+        text: 'Le sel brûle les racines, surtout en pot. Si tu as salé ta cuisson, cette eau-là va à l’évier.',
+      },
+    },
   },
   {
     slug: 'eau-riz',

@@ -6,7 +6,7 @@
 
 import { createHash } from 'node:crypto'
 
-import { secretConditionsSchema } from '@growi/shared'
+import { secretConditionsSchema, secretPlancheSchema } from '@growi/shared'
 
 import type { SecretSeed } from './library'
 
@@ -22,6 +22,24 @@ function textArray(values: string[]): string {
 /** Identifiant stable dérivé du slug : relancer la génération donne le même SQL. */
 export function seedId(slug: string): string {
   return `tip_${createHash('sha256').update(slug).digest('hex').slice(0, 20)}`
+}
+
+/**
+ * Pose la planche des secrets déjà en base qui n'en ont pas encore — chaque
+ * lot de dessins en apporte de nouvelles. Une planche retouchée depuis l'admin
+ * n'est jamais écrasée.
+ */
+export function seedPlancheSql(seeds: SecretSeed[]): string {
+  const drawn = seeds.filter((seed) => seed.planche)
+  if (drawn.length === 0) return ''
+  const rows = drawn.map(
+    (seed) => `  (${literal(seed.slug)}, ${literal(JSON.stringify(secretPlancheSchema.parse(seed.planche)))}::jsonb)`,
+  )
+  return [
+    'UPDATE "garden_tips" AS t SET "planche" = v.planche, "updatedAt" = now()',
+    `FROM (VALUES\n${rows.join(',\n')}\n) AS v(slug, planche)`,
+    'WHERE t."slug" = v.slug AND t."planche" IS NULL;',
+  ].join('\n')
 }
 
 export function seedInsertSql(seeds: SecretSeed[]): string {
@@ -41,12 +59,13 @@ export function seedInsertSql(seeds: SecretSeed[]): string {
       seed.effortMinutes == null ? 'NULL' : String(seed.effortMinutes),
       String(seed.cooldownDays ?? 120),
       `${literal(JSON.stringify(conditions))}::jsonb`,
+      seed.planche ? `${literal(JSON.stringify(secretPlancheSchema.parse(seed.planche)))}::jsonb` : 'NULL',
       `'PUBLISHED'`,
     ].join(', ')})`
   })
 
   return [
-    'INSERT INTO "garden_tips" ("id", "slug", "title", "teaser", "story", "recipe", "ingredients", "evidence", "cautions", "prepDays", "effortMinutes", "cooldownDays", "conditions", "status") VALUES',
+    'INSERT INTO "garden_tips" ("id", "slug", "title", "teaser", "story", "recipe", "ingredients", "evidence", "cautions", "prepDays", "effortMinutes", "cooldownDays", "conditions", "planche", "status") VALUES',
     rows.join(',\n'),
     'ON CONFLICT ("slug") DO NOTHING;',
   ].join('\n')
