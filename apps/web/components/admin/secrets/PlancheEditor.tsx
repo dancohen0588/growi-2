@@ -39,6 +39,10 @@ export function PlancheEditor({ planche }: { planche: SecretPlanche | null }) {
   const idPrefix = useId()
 
   const [enabled, setEnabled] = useState(planche !== null)
+  // Rien n'est envoyé tant que la section n'a pas été touchée : corriger une
+  // faute dans le titre ne doit pas réécrire — ni effacer, si elle est devenue
+  // illisible — une planche à laquelle on n'a pas touché.
+  const [touched, setTouched] = useState(false)
   const [panels, setPanels] = useState<PanelDraft[]>(() =>
     (planche?.panels ?? []).map((panel) => ({
       key: newKey(),
@@ -65,9 +69,15 @@ export function PlancheEditor({ planche }: { planche: SecretPlanche | null }) {
   }
 
   return (
-    <fieldset className="space-y-4 rounded-2xl border border-forest/10 p-4">
+    <fieldset
+      className="space-y-4 rounded-2xl border border-forest/10 p-4"
+      onChangeCapture={() => setTouched(true)}
+      onClickCapture={(event) => {
+        if ((event.target as HTMLElement).closest('button, input, select, textarea, label')) setTouched(true)
+      }}
+    >
       <legend className="px-1 font-poppins text-sm font-semibold text-forest">Planche</legend>
-      <input type="hidden" name={PLANCHE_FIELDS.mode} value={enabled ? 'set' : 'none'} />
+      {touched && <input type="hidden" name={PLANCHE_FIELDS.mode} value={enabled ? 'set' : 'none'} />}
 
       <div className="flex flex-wrap gap-x-5 gap-y-2" role="radiogroup" aria-label="Affichage du secret">
         <label className="flex items-center gap-2 text-sm text-forest/80">

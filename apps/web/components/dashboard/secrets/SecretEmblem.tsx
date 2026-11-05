@@ -13,7 +13,10 @@ import { cn } from '@/lib/utils'
  * L'enfant `<svg>` n'a ni largeur ni hauteur : il prend celles du conteneur,
  * que l'appelant fixe par `size` ou par ses classes.
  */
-export const SVG_FILL = '[&>svg]:block [&>svg]:h-full [&>svg]:w-full'
+// `[&_text]:font-poppins` : `next/font` publie Poppins sous un nom haché, que
+// l'attribut `font-family="Poppins"` des dessins ne trouve pas — la règle CSS
+// l'emporte sur l'attribut de présentation.
+export const SVG_FILL = '[&>svg]:block [&>svg]:h-full [&>svg]:w-full [&_text]:font-poppins'
 
 export const SECRET_EMBLEM_LABEL = 'Emblème des secrets de jardinier'
 

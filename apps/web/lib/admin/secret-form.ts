@@ -177,6 +177,8 @@ const PANEL_ART = /^planche\.panels\.(\d+)\.art$/
  * - sinon `{ panels, caution }` ; un passage en gras vide vaut absent, une
  *   précaution sans dessin vaut pas de précaution.
  */
+const oneLine = (value: string) => value.replace(/\s*\r?\n\s*/g, ' ')
+
 export function readPlanche(formData: FormData): Record<string, unknown> | null | undefined {
   const mode = text(formData, PLANCHE_FIELDS.mode)
   if (mode === '') return undefined
@@ -193,7 +195,9 @@ export function readPlanche(formData: FormData): Record<string, unknown> | null 
     const emphasis = text(formData, PLANCHE_FIELDS.panel(index, 'emphasis')).trim()
     return {
       art: text(formData, PLANCHE_FIELDS.panel(index, 'art')),
-      caption: text(formData, PLANCHE_FIELDS.panel(index, 'caption')),
+      // Une légende tient sur une ligne : un `textarea` envoie du CRLF, et un
+      // retour à la ligne y casserait le gras et la mise en page de la case.
+      caption: oneLine(text(formData, PLANCHE_FIELDS.panel(index, 'caption'))),
       ...(emphasis ? { emphasis } : {}),
     }
   })
@@ -202,8 +206,8 @@ export function readPlanche(formData: FormData): Record<string, unknown> | null 
   const caution = cautionArt
     ? {
         art: cautionArt,
-        title: text(formData, PLANCHE_FIELDS.cautionTitle),
-        text: text(formData, PLANCHE_FIELDS.cautionText),
+        title: oneLine(text(formData, PLANCHE_FIELDS.cautionTitle)),
+        text: oneLine(text(formData, PLANCHE_FIELDS.cautionText)),
       }
     : null
 

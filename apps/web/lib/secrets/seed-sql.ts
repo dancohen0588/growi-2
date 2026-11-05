@@ -25,12 +25,15 @@ export function seedId(slug: string): string {
 }
 
 /**
- * Pose la planche des secrets déjà en base qui n'en ont pas encore — chaque
- * lot de dessins en apporte de nouvelles. Une planche retouchée depuis l'admin
+ * Pose la planche des secrets **nommés** qui n'en ont pas encore en base —
+ * ceux d'un lot de dessins qu'on livre. Une planche retouchée depuis l'admin
  * n'est jamais écrasée.
+ *
+ * Les slugs sont explicites, jamais « toute la bibliothèque » : un admin qui a
+ * retiré une planche (`NULL`) la verrait sinon revenir au lot suivant.
  */
-export function seedPlancheSql(seeds: SecretSeed[]): string {
-  const drawn = seeds.filter((seed) => seed.planche)
+export function seedPlancheSql(seeds: SecretSeed[], slugs: readonly string[]): string {
+  const drawn = seeds.filter((seed) => seed.planche && slugs.includes(seed.slug))
   if (drawn.length === 0) return ''
   const rows = drawn.map(
     (seed) => `  (${literal(seed.slug)}, ${literal(JSON.stringify(secretPlancheSchema.parse(seed.planche)))}::jsonb)`,

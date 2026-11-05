@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { isSecretArt } from '../secrets/art'
+import { isCautionArt, isSecretArt } from '../secrets/art'
 import { idSchema, nullish } from './common'
 
 /**
@@ -99,7 +99,7 @@ const artKeySchema = z
  */
 export const secretPanelSchema = z
   .object({
-    art: artKeySchema,
+    art: artKeySchema.refine((key) => !isCautionArt(key), { message: 'Ce dessin est une précaution, pas une case.' }),
     caption: z.string().trim().min(3).max(140),
     emphasis: z.string().trim().max(80).optional(),
   })
@@ -119,7 +119,7 @@ export const secretPlancheSchema = z.object({
   panels: z.array(secretPanelSchema).min(1).max(4),
   caution: nullish(
     z.object({
-      art: artKeySchema,
+      art: artKeySchema.refine(isCautionArt, { message: 'Ce dessin est une case, pas une précaution.' }),
       title: z.string().trim().min(3).max(60),
       text: z.string().trim().min(3).max(200),
     }),

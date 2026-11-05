@@ -155,7 +155,7 @@ export default function AccueilScreen() {
               de l'élément le plus lumineux. Rien tant que le planning charge
               ou s'il échoue — le Calendrier porte ces états ; rien non plus
               sans secret cette semaine. */}
-          {planning.query.isSuccess && planning.secrets.length > 0 ? (
+          {planning.query.data && planning.secrets.length > 0 ? (
             <SecretsSection
               secrets={planning.secrets}
               showGardenNames={planning.showGardenNames}

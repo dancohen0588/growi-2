@@ -136,7 +136,7 @@ export default async function AdminSecretPage({ params }: { params: { id: string
           <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all text-xs">
             {JSON.stringify(tip.planche, null, 2)}
           </pre>
-          <p className="mt-2">Le formulaire repart sans planche : l’enregistrer la retirera, ou la remplacera si tu en composes une.</p>
+          <p className="mt-2">Elle reste en base telle quelle tant que tu ne touches pas à la section Planche ; y choisir « Pas de planche » la retire, y composer des cases la remplace.</p>
         </section>
       )}
 

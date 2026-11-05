@@ -1183,8 +1183,12 @@ d'ortie, eau de banane, légendes démêlées —, avec son niveau de preuve
 - Les dessins d'une planche sont **décoratifs** pour les lecteurs d'écran : la
   légende écrite dessous dit déjà ce qu'ils montrent.
 - Nouvelle planche : dessins dans `art.ts`, cases dans `library.ts`, puis
-  `pnpm --filter web secrets:seed`, qui ne pose une planche que là où il n'y en
-  a pas encore (une retouche faite dans l'admin n'est jamais écrasée).
+  `pnpm --filter web secrets:seed --planches <slug,slug>`. Seuls les slugs
+  **nommés** sont posés, et seulement là où il n'y a pas de planche : un admin
+  qui en a retiré une (`NULL`) ne la verrait sinon revenir au lot suivant.
+- L'éditeur de planche de l'admin n'envoie rien tant que sa section n'a pas
+  été touchée : corriger le titre ne réécrit pas — ni n'efface, si elle est
+  devenue illisible — une planche.
 
 ### Chat contextuel (agent conversationnel)
 

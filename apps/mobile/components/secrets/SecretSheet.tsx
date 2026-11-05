@@ -171,7 +171,7 @@ export function SecretSheet(props: SecretSheetProps) {
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable className="flex-1 bg-forest/40" onPress={onClose} accessibilityLabel="Fermer" />
+      <Pressable className="flex-1 bg-forest/40" onPress={onClose} accessibilityRole="button" accessibilityLabel="Fermer" />
 
       {planche ? (
         <View className="max-h-[92%] rounded-t-3xl bg-card" accessibilityViewIsModal>

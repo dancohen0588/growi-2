@@ -165,6 +165,12 @@ export function SecretDetailDialog({
                 </span>
               )}
             </footer>
+            {secret.stage === 'discover' && (
+              <p className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 font-raleway text-sm text-[#4b6b55]">
+                « Pas pour moi » : on ne te le proposera plus. Tu pourras changer d&apos;avis depuis ton grimoire.
+                <GrimoireLink />
+              </p>
+            )}
           </div>
         </DialogContent>
       </Dialog>

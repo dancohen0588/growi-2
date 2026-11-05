@@ -23,11 +23,21 @@ export default async function CalendrierPage() {
 
   // Tous les jardins, comme l'Accueil et le Calendrier de l'app : s'en tenir
   // au dernier créé taisait le travail à faire dans les autres.
-  const [gardens, doneToday, lunarEnabled, timeZone] = await Promise.all([
+  // Le compte du grimoire (« Mon grimoire · 3 / 24 ») part en même temps que le
+  // reste : attendu après le planning, il allongeait chaque chargement. Jamais
+  // bloquant — sans lui, le lien dit « Mon grimoire ».
+  const grimoireCount = getGrimoire(session.user.id)
+    .then(({ discovered, total }) => ({ discovered, total }))
+    .catch((error: unknown) => {
+      console.error('[calendrier] grimoire illisible', error)
+      return null
+    })
+  const [gardens, doneToday, lunarEnabled, timeZone, grimoireRead] = await Promise.all([
     getGardensAdvice(session.user.id),
     listDoneTodayActions(session.user.id),
     hasLunarCalendar(session.user.id),
     getUserTimezone(session.user.id),
+    grimoireCount,
   ])
 
   if (gardens.length === 0) {
@@ -73,17 +83,7 @@ export default async function CalendrierPage() {
     (action) => !action.secret && actionHorizon(action, today) === 'today',
   )
 
-  // « Mon grimoire · 3 / 24 » sur la carte du secret. Lu seulement quand une
-  // carte est à l'écran, et jamais bloquant : sans le compte, le lien dit
-  // « Mon grimoire », comme avant.
-  const grimoire = actions.some((action) => action.secret)
-    ? await getGrimoire(session.user.id)
-        .then(({ discovered, total }) => ({ discovered, total }))
-        .catch((error: unknown) => {
-          console.error('[calendrier] grimoire illisible', error)
-          return null
-        })
-    : null
+  const grimoire = actions.some((action) => action.secret) ? grimoireRead : null
 
   // Le jour lunaire se lit dans le jour civil de l'utilisateur, pas en UTC :
   // à 0 h 30 à Paris, c'est déjà le jour suivant qu'il faut annoncer.

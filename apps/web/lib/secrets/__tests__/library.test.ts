@@ -67,8 +67,10 @@ describe('bibliothèque de départ', () => {
   })
 
   it('ne pose une planche que là où il n’y en a pas', () => {
-    const sql = seedPlancheSql(SECRET_LIBRARY)
+    const sql = seedPlancheSql(SECRET_LIBRARY, ['eau-cuisson'])
     expect(sql).toContain('WHERE t."slug" = v.slug AND t."planche" IS NULL')
     expect(sql).toContain("'eau-cuisson'")
+    // Rien sans slug nommé : une planche retirée par l'admin ne revient pas d'elle-même.
+    expect(seedPlancheSql(SECRET_LIBRARY, [])).toBe('')
   })
 })
