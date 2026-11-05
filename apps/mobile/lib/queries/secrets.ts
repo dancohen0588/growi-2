@@ -22,6 +22,23 @@ export function useGrimoire() {
 }
 
 /**
+ * La progression du grimoire (« 3 / 24 ») **si elle est déjà en cache** —
+ * jamais de requête : la carte du secret vit sur l'Accueil et le Calendrier,
+ * et y demander le grimoire ajouterait un appel à chaque ouverture pour un
+ * simple compteur. Désactivée, la requête n'est pas non plus relancée par les
+ * invalidations ; elle suit le cache dès que l'écran du grimoire l'a rempli.
+ */
+export function useCachedGrimoireProgress(): { discovered: number; total: number } | null {
+  const { data } = useQuery({
+    queryKey: secretKeys.grimoire(),
+    queryFn: () => api.secrets.grimoire(),
+    enabled: false,
+    select: (grimoire: Grimoire) => ({ discovered: grimoire.discovered, total: grimoire.total }),
+  })
+  return data ?? null
+}
+
+/**
  * Le secret a été dévoilé : il entre au grimoire. Idempotent côté serveur,
  * donc sans état à surveiller — un échec ne gêne pas la lecture, et la
  * prochaine ouverture le retentera.

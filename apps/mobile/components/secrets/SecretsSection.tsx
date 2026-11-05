@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
-import { BookMarked } from 'lucide-react-native'
+import { View } from 'react-native'
 import { SECRET_RULE_IDS, type SecretVerdict } from '@growi/shared'
 
 import { useToast } from '@/components/ui/Toast'
 import { useTrack } from '@/lib/analytics/posthog'
 import { errorMessage } from '@/lib/errors'
 import { useMarkActionDone, type PlanningTask } from '@/lib/queries/planning'
-import { useDismissSecret, useRevealSecret, useSecretFeedback } from '@/lib/queries/secrets'
+import {
+  useCachedGrimoireProgress,
+  useDismissSecret,
+  useRevealSecret,
+  useSecretFeedback,
+} from '@/lib/queries/secrets'
 
 import { SecretCard } from './SecretCard'
 import { SecretSheet } from './SecretSheet'
@@ -28,10 +32,13 @@ export interface SecretsSectionProps {
 /**
  * Les secrets de jardinier du planning — cartes, feuille et gestes.
  *
- * Autonome pour pouvoir se poser en tête du calendrier comme, demain, sur
- * l'accueil : l'écran hôte n'a qu'à lui passer les actions qui portent un
- * `secret` (`usePlanningTasks().secrets`). Rien n'est rendu sans secret, ce
- * qui couvre aussi un serveur qui n'en envoie pas.
+ * Autonome pour se poser en tête du calendrier comme sur l'accueil : l'écran
+ * hôte n'a qu'à lui passer les actions qui portent un `secret`
+ * (`usePlanningTasks().secrets`). Rien n'est rendu sans secret, ce qui couvre
+ * aussi un serveur qui n'en envoie pas.
+ *
+ * Les deux écrans lisent la même requête (`planningKeys.today()`) : React Query
+ * la dédoublonne, un geste fait sur l'un retire la carte de l'autre.
  */
 export function SecretsSection({ secrets, showGardenNames, onOpenGrimoire }: SecretsSectionProps) {
   const toast = useToast()
@@ -40,6 +47,7 @@ export function SecretsSection({ secrets, showGardenNames, onOpenGrimoire }: Sec
   const reveal = useRevealSecret()
   const dismiss = useDismissSecret()
   const feedback = useSecretFeedback()
+  const grimoireProgress = useCachedGrimoireProgress()
   const [openId, setOpenId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -142,37 +150,22 @@ export function SecretsSection({ secrets, showGardenNames, onOpenGrimoire }: Sec
   }
 
   return (
-    <View className="gap-2 px-4">
-      <View className="flex-row items-center">
-        <Text className="flex-1 font-poppins text-section text-forest">
-          {secrets.length > 1 ? 'Secrets de jardinier' : 'Secret de jardinier'}
-        </Text>
-        <Pressable
-          onPress={onOpenGrimoire}
-          accessibilityRole="link"
-          accessibilityLabel="Ouvrir mon grimoire"
-          hitSlop={8}
-          className="h-11 flex-row items-center gap-1.5 px-1"
-          style={({ pressed }) => (pressed ? { opacity: 0.6 } : null)}
-        >
-          <BookMarked size={16} color="#1E5631" />
-          <Text className="font-raleway-semibold text-secondary text-forest">Mon grimoire</Text>
-        </Pressable>
-      </View>
-
-      <View className="gap-3">
-        {secrets.map((task) =>
-          task.action.secret ? (
-            <SecretCard
-              key={task.action.id}
-              action={task.action}
-              secret={task.action.secret}
-              gardenName={showGardenNames ? task.gardenName : undefined}
-              onOpen={() => openSecret(task)}
-            />
-          ) : null,
-        )}
-      </View>
+    // Pas de titre de section : la carte porte déjà « Secret de la semaine »
+    // (maquette `Mobile.dc`), et le lien du grimoire vit dans la première.
+    <View className="gap-3 px-4">
+      {secrets.map((task, index) =>
+        task.action.secret ? (
+          <SecretCard
+            key={task.action.id}
+            action={task.action}
+            secret={task.action.secret}
+            gardenName={showGardenNames ? task.gardenName : undefined}
+            onOpen={() => openSecret(task)}
+            onOpenGrimoire={index === 0 ? onOpenGrimoire : undefined}
+            grimoireProgress={grimoireProgress}
+          />
+        ) : null,
+      )}
 
       <SecretSheet
         action={open?.action ?? null}

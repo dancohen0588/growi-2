@@ -19,6 +19,8 @@ import { errorMessage } from '@/lib/errors'
 import { useGrimoire, useRestoreSecret } from '@/lib/queries/secrets'
 
 import { EvidenceBadge } from './EvidenceBadge'
+import { SecretEmblem } from './SecretEmblem'
+import { SecretPlanche } from './SecretPlanche'
 import { SecretRecipe } from './SecretRecipe'
 
 /** « Essayé 2 fois · la dernière il y a 3 jours » */
@@ -76,7 +78,9 @@ function EntryCard({
         onPress={() => setOpen((value) => !value)}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        accessibilityLabel={`${entry.title}${open ? '' : ', voir la recette'}`}
+        accessibilityLabel={`${entry.title}${
+          open ? '' : entry.planche ? ', voir la planche' : ', voir la recette'
+        }`}
         className="gap-2 p-4"
         style={({ pressed }) => (pressed ? { opacity: 0.85 } : null)}
       >
@@ -110,14 +114,23 @@ function EntryCard({
       </Pressable>
 
       {open ? (
-        <View className="border-t border-forest/10 px-4 pb-4 pt-3">
-          <SecretRecipe
-            story={entry.story}
-            ingredients={entry.ingredients}
-            recipe={entry.recipe}
-            cautions={entry.cautions}
-          />
-        </View>
+        // Un secret dessiné se relit en planche, comme on l'a découvert ; les
+        // autres gardent leur recette en texte. Fond `card` sous la planche :
+        // ses cases teintées sont réglées sur lui, comme dans la feuille.
+        entry.planche ? (
+          <View className="border-t border-forest/10 bg-card px-3 pb-4 pt-3">
+            <SecretPlanche planche={entry.planche} story={entry.story} />
+          </View>
+        ) : (
+          <View className="border-t border-forest/10 px-4 pb-4 pt-3">
+            <SecretRecipe
+              story={entry.story}
+              ingredients={entry.ingredients}
+              recipe={entry.recipe}
+              cautions={entry.cautions}
+            />
+          </View>
+        )
       ) : null}
 
       {entry.dismissed ? (
@@ -208,6 +221,9 @@ export function GrimoireScreen() {
             Les secrets de jardinier que tu as découverts.
           </Text>
         </View>
+
+        {/* L'emblème des secrets, en tête du recueil qui les rassemble. */}
+        <SecretEmblem size={52} />
       </View>
 
       {grimoire.isPending ? (

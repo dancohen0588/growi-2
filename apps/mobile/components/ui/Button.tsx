@@ -21,7 +21,7 @@ export type ButtonSize = 'default' | 'lg'
  * Poppins — la prop existe pour que ces écrans n'aient pas à styler le texte
  * à la main.
  */
-export type ButtonFont = 'raleway' | 'poppins'
+export type ButtonFont = 'raleway' | 'poppins' | 'poppins-bold'
 
 export interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> {
   label: string
@@ -32,6 +32,14 @@ export interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> 
   /** Icône affichée avant le libellé (lucide-react-native, taille 20). */
   icon?: React.ReactNode
   fullWidth?: boolean
+  /**
+   * Relief « BD » : un bord inférieur plein, plus sombre que le fond, à la
+   * place du halo. Réservé aux secrets de jardinier (cartes et planche), dont
+   * la direction graphique est celle d'une planche dessinée. Le bord est une
+   * ombre de la couleur du fond (noir translucide par-dessus), pas une teinte
+   * de plus.
+   */
+  raised?: boolean
 }
 
 // lime en fond avec du texte forest : le lime n'a pas un contraste suffisant
@@ -75,6 +83,8 @@ const SPINNER: Record<ButtonVariant, string> = {
 const FONT: Record<ButtonFont, string> = {
   raleway: 'font-raleway-semibold',
   poppins: 'font-poppins',
+  // Les boutons des secrets de jardinier (planche dessinée).
+  'poppins-bold': 'font-poppins-bold',
 }
 
 // 44 pt est la zone tactile minimale ; 56 pour un CTA principal.
@@ -92,12 +102,17 @@ export const Button = forwardRef<View, ButtonProps>(function Button(
     loading = false,
     icon,
     fullWidth = true,
+    raised = false,
     disabled,
     ...props
   },
   ref,
 ) {
   const isDisabled = disabled || loading
+  // Le fond s'étend sous la bordure en React Native : un bord noir translucide
+  // y donne la teinte sombre du fond lui-même (lime → vert mousse, forest →
+  // forest profond).
+  const relief = raised && (variant === 'primary' || variant === 'forest')
 
   return (
     <Pressable
@@ -112,11 +127,12 @@ export const Button = forwardRef<View, ButtonProps>(function Button(
         CONTAINER[variant],
         fullWidth ? 'w-full' : 'self-start',
         isDisabled ? 'opacity-50' : '',
+        relief ? 'border-b-[5px] border-black/25' : '',
       ].join(' ')}
       style={({ pressed }) => [
         // Retour tactile immédiat, discret.
         pressed && !isDisabled ? { transform: [{ scale: 0.98 }] } : null,
-        variant === 'primary' && !isDisabled
+        variant === 'primary' && !isDisabled && !relief
           ? {
               shadowColor: '#B4DD7F',
               shadowOpacity: 0.5,

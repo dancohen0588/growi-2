@@ -9,6 +9,7 @@ import { ConseilsSection } from '@/components/blog/ConseilsSection'
 import { AroundYouSection } from '@/components/community/AroundYouSection'
 import { HomeHero } from '@/components/home/HomeHero'
 import { IdentifyCta } from '@/components/home/IdentifyCta'
+import { SecretsSection } from '@/components/secrets/SecretsSection'
 import { ForecastRow } from '@/components/weather/ForecastRow'
 import { GardenContextCard } from '@/components/weather/GardenContextCard'
 import { WeatherNow } from '@/components/weather/WeatherNow'
@@ -17,6 +18,7 @@ import { WeeklyTips } from '@/components/weather/WeeklyTips'
 import { ListSkeleton } from '@/components/ui/states'
 import { formatDayLabel, greeting } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
+import { usePlanningTasks } from '@/lib/queries/planning'
 import { useSummary } from '@/lib/queries/summary'
 import { useGardenWeather } from '@/lib/queries/weather'
 import { useSession } from '@/store/session'
@@ -36,7 +38,8 @@ function heroSubtitle(weather: GardenWeather | undefined): string {
  * En haut, une photo d'une plante de l'utilisateur (tirée au sort chaque jour
  * par le serveur) avec le tableau de bord posé dessus, puis l'identification,
  * mise en avant comme sur le web. Viennent ensuite la météo du jardin, son
- * contexte, les conseils de la semaine, la communauté et le blog.
+ * contexte, les conseils de la semaine, le secret de jardinier de la semaine,
+ * la communauté et le blog.
  *
  * Le hero passe sous la barre d'état : elle est claire le temps que l'écran a
  * le focus, et redevient sombre en le quittant — les autres onglets sont sur
@@ -48,6 +51,11 @@ export default function AccueilScreen() {
   const email = useSession((s) => s.user?.email)
   const summary = useSummary()
   const weather = useGardenWeather()
+  // Pour le secret de la semaine. Même clé que le Calendrier
+  // (`planningKeys.today()`), persistée dans la journée : pas de second appel
+  // en passant d'un onglet à l'autre, et l'accueil s'affiche depuis le cache
+  // au lancement.
+  const planning = usePlanningTasks()
   const [refreshing, setRefreshing] = useState(false)
   // Les onglets restent montés : un <StatusBar> rendu en permanence
   // imposerait le clair à toute l'app. Il n'est rendu que pendant le focus,
@@ -64,11 +72,11 @@ export default function AccueilScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
     try {
-      await Promise.all([summary.refetch(), weather.refetch()])
+      await Promise.all([summary.refetch(), weather.refetch(), planning.query.refetch()])
     } finally {
       setRefreshing(false)
     }
-  }, [summary, weather])
+  }, [summary, weather, planning.query])
 
   const openProfile = () => router.push('/(tabs)/accueil/profil')
   const initial = (firstName || email || '?').trim().charAt(0).toUpperCase()
@@ -140,6 +148,20 @@ export default function AccueilScreen() {
               ) : null}
             </>
           )}
+
+          {/* Le secret de la semaine après la météo et ses conseils : on a vu
+              quoi faire aujourd'hui, la carte forest vient ensuite proposer
+              la découverte, sans disputer au bouton « Identifier » la place
+              de l'élément le plus lumineux. Rien tant que le planning charge
+              ou s'il échoue — le Calendrier porte ces états ; rien non plus
+              sans secret cette semaine. */}
+          {planning.query.isSuccess && planning.secrets.length > 0 ? (
+            <SecretsSection
+              secrets={planning.secrets}
+              showGardenNames={planning.showGardenNames}
+              onOpenGrimoire={() => router.push('/(tabs)/accueil/grimoire')}
+            />
+          ) : null}
 
           {/* La communauté après le jardin, et avant le blog : ce que font les
               voisins vaut un coup d'œil plus souvent qu'un article. Muette tant
