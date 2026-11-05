@@ -275,7 +275,9 @@ export async function sendDailyReminders(
 
     const dueToday = planning.gardens
       .flatMap((garden) => garden.actions)
-      .filter((action) => action.dueDate <= planning.date)
+      // Un secret n'est pas une tâche : « Ça a marché ? » ne vaut pas un
+      // réveil chaque matin, et les écrans ne le comptent pas non plus.
+      .filter((action) => !action.secret && action.dueDate <= planning.date)
 
     // Rien à faire : pas de notification. Une alerte quotidienne vide serait
     // le meilleur moyen de faire couper les notifications.

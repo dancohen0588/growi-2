@@ -33,6 +33,7 @@ import {
 } from '@/lib/services/garden.service'
 import { deleteCareLog, logCare, logCareBatch } from '@/lib/services/log.service'
 import {
+  inferTipSlug,
   secretActionsForGarden,
   secretTitle,
   trackSecretTried,
@@ -206,8 +207,16 @@ export async function markActionDone(
     tipSlug?: string
   },
 ): Promise<{ careLogId: string | null }> {
-  const { gardenId, actionType, plantId, taskId, ruleId, tipSlug } = params
+  const { gardenId, actionType, plantId, taskId, ruleId } = params
   await assertGardenOwned(gardenId, userId)
+
+  // Une version de l'app qui ignore les secrets coche leur carte sans slug :
+  // on le retrouve, sans quoi l'essai n'aurait ni suites ni place au grimoire.
+  const tipSlug =
+    params.tipSlug ??
+    (ruleId?.startsWith('r20-secret') && plantId
+      ? await inferTipSlug(userId, { gardenId, plantId, ruleId, today: await userToday(userId, new Date()) })
+      : undefined)
 
   const careType = actionType
     ? CARE_LOG_TYPE_BY_ACTION[actionType as ActionType]

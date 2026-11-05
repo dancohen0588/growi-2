@@ -474,10 +474,11 @@ export async function publishGardenTip(actorId: string, id: string): Promise<Gar
 }
 
 /**
- * PUBLISHED → DRAFT. Il n'est plus tiré ; ce qui est en cours continue —
- * « c'est prêt » et « Ça a marché ? » relisent un secret dépublié
- * (`secrets.service.findTip`). Il sort aussi du grimoire, qui ne liste que les
- * secrets publiés.
+ * PUBLISHED → DRAFT. Il n'est plus tiré, et sa carte « à découvrir »
+ * disparaît aussitôt des jardins qui l'avaient tirée cette semaine — c'est
+ * l'arrêt d'urgence d'une recette fautive. Ce qui est en cours continue :
+ * « c'est prêt » et « Ça a marché ? » relisent un secret dépublié, et il reste
+ * au grimoire de qui l'avait découvert.
  */
 export async function unpublishGardenTip(actorId: string, id: string): Promise<GardenTip> {
   const tip = await getTipForAdmin(id)

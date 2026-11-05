@@ -37,6 +37,7 @@ import {
   type SecretWeather,
 } from '@/lib/secrets/select'
 import { ServiceError } from '@/lib/services/errors'
+import { safeTimeZone } from '@/lib/zoned-day'
 
 const DAY_MS = 86_400_000
 
@@ -48,6 +49,14 @@ const FEEDBACK_UNTIL_DAYS = 30
 const READY_UNTIL_DAYS = 30
 /** Profondeur du journal relu pour le cooldown et le grimoire. */
 const TRIAL_LOOKBACK_DAYS = 730
+/**
+ * Profondeur relue pour les suites d'un essai : la plus longue préparation
+ * permise à l'admin (60 jours), puis la fenêtre de « c'est prêt », la semaine
+ * d'attente et la fenêtre du « Ça a marché ? ».
+ */
+const SUITES_LOOKBACK_DAYS = 60 + READY_UNTIL_DAYS + FEEDBACK_AFTER_DAYS + FEEDBACK_UNTIL_DAYS + 2
+/** Un jardin sans secret possible cette semaine n'est pas recalculé avant une heure. */
+const NO_PICK_TTL_MS = 60 * 60 * 1000
 
 // ─── Bibliothèque ──────────────────────────────────────────────────────────
 
@@ -111,10 +120,18 @@ export async function listPublishedTips(): Promise<TipRecord[]> {
   return tips
 }
 
+async function findPublishedTip(slug: string): Promise<TipRecord | null> {
+  return (await listPublishedTips()).find((tip) => tip.slug === slug) ?? null
+}
+
+/**
+ * Un secret quel que soit son statut. **Seulement** pour ce que l'utilisateur
+ * a déjà entre les mains — les suites d'un essai, le nom d'un geste : un
+ * brouillon ne doit jamais sortir par là.
+ */
 async function findTip(slug: string): Promise<TipRecord | null> {
-  const published = (await listPublishedTips()).find((tip) => tip.slug === slug)
+  const published = await findPublishedTip(slug)
   if (published) return published
-  // Un secret dépublié depuis l'essai reste lisible dans ses suites.
   const row = await prisma.gardenTip.findUnique({ where: { slug } })
   return row ? toRecord(row) : null
 }
@@ -225,6 +242,12 @@ async function weeklyPick(
   if (existing) return existing
   if (plants.length === 0) return null
 
+  // Un tirage vide n'est pas écrit (une plante ajoutée demain doit pouvoir en
+  // recevoir un) : sans mémoire, il serait refait à chaque ouverture du planning.
+  const memoKey = `${gardenId}:${week}`
+  const memo = noPickUntil.get(memoKey)
+  if (memo && memo > Date.now()) return null
+
   const tips = await listPublishedTips()
   if (tips.length === 0) return null
 
@@ -268,7 +291,10 @@ async function weeklyPick(
     lastTriedAt,
     previous: previousTip ? { slug: previousTip.slug, evidence: previousTip.evidence } : null,
   })
-  if (!pick) return null
+  if (!pick) {
+    noPickUntil.set(memoKey, Date.now() + NO_PICK_TTL_MS)
+    return null
+  }
 
   await prisma.gardenTipPick.createMany({
     data: [{ gardenId, week, slug: pick.slug, plantInstanceId: pick.plantId }],
@@ -278,6 +304,13 @@ async function weeklyPick(
     where: { gardenId_week: { gardenId, week } },
     select: { slug: true, plantInstanceId: true },
   })
+}
+
+const noPickUntil = new Map<string, number>()
+
+/** Pour les tests. */
+export function forgetNoPickMemo(): void {
+  noPickUntil.clear()
 }
 
 function dayOf(date: Date, timeZone: string): string {
@@ -343,12 +376,12 @@ async function buildSecretActions(userId: string, gardenId: string, today: strin
   ])
   if (plants.length === 0) return []
 
-  const timeZone = user?.timezone ?? 'Europe/Paris'
+  const timeZone = safeTimeZone(user?.timezone ?? 'Europe/Paris')
   const plantById = new Map(plants.map((plant) => [plant.id, plant]))
   const { start: weekStart, end: weekEnd } = isoWeekBounds(today)
 
   // Le journal des secrets de ce jardin : essais, préparations utilisées, retours.
-  const since = new Date(Date.parse(`${today}T00:00:00Z`) - (READY_UNTIL_DAYS + FEEDBACK_UNTIL_DAYS + 2) * DAY_MS)
+  const since = new Date(Date.parse(`${today}T00:00:00Z`) - SUITES_LOOKBACK_DAYS * DAY_MS)
   const logs = await prisma.careLog.findMany({
     where: {
       plantInstanceId: { in: plants.map((plant) => plant.id) },
@@ -365,7 +398,11 @@ async function buildSecretActions(userId: string, gardenId: string, today: strin
   const pick = await weeklyPick(userId, gardenId, today, plants, user?.lunarCalendar ?? false)
   if (pick) {
     const plant = plantById.get(pick.plantInstanceId)
-    const tip = await findTip(pick.slug)
+    // Publié, et seulement publié : dépublier un secret en urgence doit le
+    // retirer des jardins qui l'ont déjà tiré cette semaine.
+    const published = await findPublishedTip(pick.slug)
+    // Un secret lunaire tiré avant que l'option soit coupée ne s'affiche plus.
+    const tip = published?.conditions.lunarOnly && !user?.lunarCalendar ? null : published
     const [dismissed, triedThisWeek] = await Promise.all([
       prisma.userTip.findFirst({ where: { userId, slug: pick.slug, dismissedAt: { not: null } }, select: { id: true } }),
       // Une version de l'app qui ignore les secrets coche l'action sans
@@ -414,7 +451,8 @@ async function buildSecretActions(userId: string, gardenId: string, today: strin
         (log) =>
           log.ruleId === ruleId &&
           log.plantInstanceId === trial.plantInstanceId &&
-          log.tipSlug === trial.tipSlug &&
+          // Sans `tipSlug` : une version de l'app qui ignore les secrets.
+          (log.tipSlug === trial.tipSlug || log.tipSlug === null) &&
           log.occurredAt >= trial.occurredAt,
       )
 
@@ -470,15 +508,59 @@ async function buildSecretActions(userId: string, gardenId: string, today: strin
 
 // ─── Gestes ────────────────────────────────────────────────────────────────
 
-async function assertTip(slug: string): Promise<TipRecord> {
-  const tip = await findTip(slug)
+/**
+ * Un secret sur lequel l'utilisateur peut agir : publié, ou déjà entre ses
+ * mains (dévoilé, refusé, essayé). Un brouillon deviné par son slug répond
+ * comme un secret inconnu.
+ */
+async function assertTip(userId: string, slug: string): Promise<TipRecord> {
+  const published = await findPublishedTip(slug)
+  if (published) return published
+
+  const [known, tried] = await Promise.all([
+    prisma.userTip.findUnique({ where: { userId_slug: { userId, slug } }, select: { id: true } }),
+    prisma.careLog.findFirst({ where: { plantInstance: { userId }, tipSlug: slug }, select: { id: true } }),
+  ])
+  const tip = known || tried ? await findTip(slug) : null
   if (!tip) throw new ServiceError('NOT_FOUND', 'Secret introuvable')
   return tip
 }
 
+/**
+ * Le secret d'un geste coché sans `tipSlug` — par une version de l'app qui
+ * ignore les secrets. Sans lui, l'essai n'aurait ni suites, ni délai avant
+ * d'être reproposé, ni place au grimoire.
+ */
+export async function inferTipSlug(
+  userId: string,
+  params: { gardenId: string; plantId: string; ruleId: string; today: string },
+): Promise<string | undefined> {
+  if (params.ruleId === SECRET_RULE_IDS.discover) {
+    const pick = await prisma.gardenTipPick.findUnique({
+      where: { gardenId_week: { gardenId: params.gardenId, week: isoWeekKey(params.today) } },
+      select: { slug: true, plantInstanceId: true, garden: { select: { userId: true } } },
+    })
+    return pick && pick.plantInstanceId === params.plantId && pick.garden.userId === userId ? pick.slug : undefined
+  }
+  if (params.ruleId === SECRET_RULE_IDS.ready || params.ruleId === SECRET_RULE_IDS.feedback) {
+    const trial = await prisma.careLog.findFirst({
+      where: {
+        plantInstanceId: params.plantId,
+        plantInstance: { userId },
+        ruleId: SECRET_RULE_IDS.discover,
+        tipSlug: { not: null },
+      },
+      orderBy: { occurredAt: 'desc' },
+      select: { tipSlug: true },
+    })
+    return trial?.tipSlug ?? undefined
+  }
+  return undefined
+}
+
 /** Le secret a été dévoilé : il entre au grimoire. Idempotent. */
 export async function revealSecret(userId: string, slug: string): Promise<void> {
-  const tip = await assertTip(slug)
+  const tip = await assertTip(userId, slug)
   const existing = await prisma.userTip.findUnique({ where: { userId_slug: { userId, slug } } })
   if (existing?.revealedAt) return
 
@@ -492,7 +574,7 @@ export async function revealSecret(userId: string, slug: string): Promise<void> 
 
 /** « Pas pour moi » : le secret ne sera plus proposé. Idempotent. */
 export async function dismissSecret(userId: string, slug: string): Promise<void> {
-  const tip = await assertTip(slug)
+  const tip = await assertTip(userId, slug)
   await prisma.userTip.upsert({
     where: { userId_slug: { userId, slug } },
     create: { userId, slug, dismissedAt: new Date() },
