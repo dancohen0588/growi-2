@@ -108,6 +108,8 @@ export function readGardenTipForm(formData: FormData): Record<string, unknown> {
     conditions: readConditions(formData),
   }
   if (formData.has('slug')) raw.slug = text(formData, 'slug').trim()
+  const planche = readPlanche(formData)
+  if (planche !== undefined) raw.planche = planche
   return raw
 }
 
@@ -146,4 +148,74 @@ export function describeConditions(conditions: SecretConditions): string[] {
   if (weather?.rainyRecently) lines.push('Après de la pluie récente')
   if (conditions.lunarOnly) lines.push('Seulement avec le calendrier lunaire activé')
   return lines
+}
+
+// ─── Planche ───────────────────────────────────────────────────────────────
+
+/**
+ * Noms des champs de la planche. Les cases sont indexées dans l'ordre
+ * d'affichage (`planche.panels.0.art`) : l'éditeur renumérote à chaque
+ * réordonnancement, la lecture trie par index.
+ */
+export const PLANCHE_FIELDS = {
+  /** `none` (pas de planche) ou `set`. Absent : le formulaire ne touche pas à la planche. */
+  mode: 'planche.mode',
+  panel: (index: number, field: 'art' | 'caption' | 'emphasis') => `planche.panels.${index}.${field}`,
+  cautionArt: 'planche.caution.art',
+  cautionTitle: 'planche.caution.title',
+  cautionText: 'planche.caution.text',
+} as const
+
+const PANEL_ART = /^planche\.panels\.(\d+)\.art$/
+
+/**
+ * La planche saisie, en objet brut — validée ensuite par le service avec
+ * `secretPlancheSchema`, qui en renvoie les défauts en français.
+ *
+ * - `undefined` : le formulaire n'a pas de section planche — on n'y touche pas ;
+ * - `null` : « Pas de planche », le secret repasse en texte ;
+ * - sinon `{ panels, caution }` ; un passage en gras vide vaut absent, une
+ *   précaution sans dessin vaut pas de précaution.
+ */
+export function readPlanche(formData: FormData): Record<string, unknown> | null | undefined {
+  const mode = text(formData, PLANCHE_FIELDS.mode)
+  if (mode === '') return undefined
+  if (mode === 'none') return null
+
+  const indexes = [...formData.keys()]
+    .flatMap((key) => {
+      const match = PANEL_ART.exec(key)
+      return match ? [Number(match[1])] : []
+    })
+    .sort((a, b) => a - b)
+
+  const panels = [...new Set(indexes)].map((index) => {
+    const emphasis = text(formData, PLANCHE_FIELDS.panel(index, 'emphasis')).trim()
+    return {
+      art: text(formData, PLANCHE_FIELDS.panel(index, 'art')),
+      caption: text(formData, PLANCHE_FIELDS.panel(index, 'caption')),
+      ...(emphasis ? { emphasis } : {}),
+    }
+  })
+
+  const cautionArt = text(formData, PLANCHE_FIELDS.cautionArt)
+  const caution = cautionArt
+    ? {
+        art: cautionArt,
+        title: text(formData, PLANCHE_FIELDS.cautionTitle),
+        text: text(formData, PLANCHE_FIELDS.cautionText),
+      }
+    : null
+
+  return { panels, caution }
+}
+
+/** Déplace l'élément `index` de `delta` places ; hors bornes, la liste est rendue telle quelle. */
+export function moveItem<T>(list: readonly T[], index: number, delta: number): T[] {
+  const target = index + delta
+  if (index < 0 || index >= list.length || target < 0 || target >= list.length) return [...list]
+  const next = [...list]
+  const [item] = next.splice(index, 1)
+  next.splice(target, 0, item)
+  return next
 }

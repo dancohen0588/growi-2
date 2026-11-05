@@ -45,6 +45,7 @@ export default async function NewSecretPage() {
             effortMinutes: null,
             cooldownDays: 120,
             conditions: {},
+            planche: null,
           }}
           action={createGardenTipAction}
         />

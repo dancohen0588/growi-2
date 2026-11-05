@@ -1166,6 +1166,25 @@ d'ortie, eau de banane, légendes démêlées —, avec son niveau de preuve
 - Événements : `tip_revealed`, `tip_tried`, `tip_dismissed`, `tip_feedback`,
   `lunar_calendar_toggled` partent **du serveur** ; seuls `tip_shown` et
   `grimoire_viewed` partent des clients.
+- **La planche BD** (direction validée le 05/11/2026, canvas Claude Design
+  « Growi — Secret de jardinier, planche BD ») : des cases dessinées, un
+  encadré de récit, une case précaution. **Les dessins vivent dans le code**
+  (`packages/shared/src/secrets/art.ts`, `SECRET_ART` et `SECRET_EMBLEM_SVG`) ;
+  la base (`GardenTip.planche`) ne porte que des **clés** et les légendes,
+  validées par `secretPlancheSchema` contre ce registre. Une clé inconnue fait
+  écarter la planche — le secret repasse en texte, jamais de case vide.
+- **Seul le registre fournit du SVG.** Le web le rend par
+  `dangerouslySetInnerHTML` (`SecretArt`, `SecretEmblem`), acceptable
+  uniquement parce que la chaîne vient du code ; le mobile par `SvgXml`. D'où
+  les contraintes que `secret-art.test.ts` impose à tout nouveau dessin :
+  palette de la charte, ni `paint-order`, ni `<style>`, ni `class`, ni filtre —
+  react-native-svg les ignorerait sans erreur. Le mobile remplace
+  `font-family="Poppins"` par `Poppins_700Bold` et retire la graisse.
+- Les dessins d'une planche sont **décoratifs** pour les lecteurs d'écran : la
+  légende écrite dessous dit déjà ce qu'ils montrent.
+- Nouvelle planche : dessins dans `art.ts`, cases dans `library.ts`, puis
+  `pnpm --filter web secrets:seed`, qui ne pose une planche que là où il n'y en
+  a pas encore (une retouche faite dans l'admin n'est jamais écrasée).
 
 ### Chat contextuel (agent conversationnel)
 

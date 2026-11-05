@@ -27,8 +27,12 @@ function mobileXml(key: string): string {
 export interface SecretArtProps {
   /** Clé du registre `SECRET_ART` (`eau-cuisson/1`). */
   artKey: string
-  /** Le texte alternatif — la légende de la case. */
-  label: string
+  /**
+   * Le texte alternatif. Absent : dessin décoratif — c'est le cas dans la
+   * planche, où la légende écrite dessous le dit déjà ; la répéter la ferait
+   * lire deux fois.
+   */
+  label?: string
   /**
    * Largeur imposée, pour la précaution posée à côté de son texte. Sans elle,
    * le dessin prend toute la largeur disponible.
@@ -50,9 +54,9 @@ export function SecretArt({ artKey, label, width }: SecretArtProps) {
   return (
     <View
       style={width ? { width, aspectRatio: ratio } : { width: '100%', aspectRatio: ratio }}
-      accessible
-      accessibilityRole="image"
-      accessibilityLabel={label}
+      {...(label
+        ? { accessible: true, accessibilityRole: 'image' as const, accessibilityLabel: label }
+        : { accessible: false, importantForAccessibility: 'no-hide-descendants' as const })}
     >
       <SvgXml xml={mobileXml(artKey)} width="100%" height="100%" />
     </View>

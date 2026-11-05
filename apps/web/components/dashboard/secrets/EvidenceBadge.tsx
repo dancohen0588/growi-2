@@ -21,26 +21,32 @@ const STYLES: Record<SecretEvidence, { icon: LucideIcon; className: string }> = 
 
 interface EvidenceBadgeProps {
   evidence: SecretEvidence
+  /**
+   * `sun` : la pastille pleine de la direction « planche » (carte forest,
+   * planche). Le texte reste forest sur sun — contraste 6,9:1.
+   */
+  tone?: 'soft' | 'sun'
   /** Ajoute la phrase qui dit ce que vaut le badge — dans le détail seulement. */
   withHint?: boolean
   className?: string
 }
 
-export function EvidenceBadge({ evidence, withHint = false, className }: EvidenceBadgeProps) {
-  const { icon: Icon, className: tone } = STYLES[evidence]
+export function EvidenceBadge({ evidence, tone = 'soft', withHint = false, className }: EvidenceBadgeProps) {
+  const { icon: Icon, className: toneClass } = STYLES[evidence]
   const label = SECRET_EVIDENCE_LABELS[evidence]
 
   const badge = (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 font-raleway text-xs font-semibold',
-        tone,
+        tone === 'sun'
+          ? 'inline-flex shrink-0 items-center gap-1.5 rounded-full bg-sun py-[5px] pl-2.5 pr-3 font-poppins text-[13px] font-semibold text-forest'
+          : cn('inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 font-raleway text-xs font-semibold', toneClass),
         !withHint && className,
       )}
       // Sans la phrase à côté, l'infobulle la donne à qui la cherche.
       title={withHint ? undefined : SECRET_EVIDENCE_HINTS[evidence]}
     >
-      <Icon size={13} aria-hidden />
+      <Icon size={tone === 'sun' ? 15 : 13} aria-hidden />
       <span>
         <span className="sr-only">Niveau de preuve : </span>
         {label}

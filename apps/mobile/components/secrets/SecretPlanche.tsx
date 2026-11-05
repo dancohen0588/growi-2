@@ -62,7 +62,7 @@ function PanelCase({ panel, index }: { panel: SecretPanel; index: number }) {
       accessible
       accessibilityLabel={`Étape ${index + 1} : ${panel.caption}`}
     >
-      <SecretArt artKey={panel.art} label={panel.caption} />
+      <SecretArt artKey={panel.art} />
 
       {/* Le numéro, par-dessus le dessin. Taille fixe : c'est un repère, et
           agrandi il masquerait le dessin. */}
@@ -111,7 +111,7 @@ export function SecretPlanche({ planche, story }: SecretPlancheProps) {
           accessibilityLabel={`Précaution : ${caution.title} ${caution.text}`}
         >
           {isSecretArt(caution.art) ? (
-            <SecretArt artKey={caution.art} label={caution.title} width={96} />
+            <SecretArt artKey={caution.art} width={96} />
           ) : null}
           <View className="flex-1 gap-1">
             <Text className="font-poppins-bold text-body text-sand">{caution.title}</Text>

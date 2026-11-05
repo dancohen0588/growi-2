@@ -6,6 +6,7 @@ import { auth } from '@/auth'
 import { TrackView } from '@/components/analytics/TrackView'
 import { GrimoireEntryCard } from '@/components/dashboard/grimoire/GrimoireEntryCard'
 import { PAPER_CLASS, PAPER_INSET } from '@/components/dashboard/secrets/paper'
+import { SecretEmblem } from '@/components/dashboard/secrets/SecretEmblem'
 import { getGrimoire } from '@/lib/services/secrets.service'
 import { cn } from '@/lib/utils'
 
@@ -34,11 +35,15 @@ export default async function GrimoirePage() {
         props={{ discovered: grimoire.discovered, total: grimoire.total }}
       />
 
-      <div>
-        <h1 className="font-poppins text-[1.75rem] font-bold text-forest">Mon grimoire 📖</h1>
-        <p className="mt-1 font-raleway text-forest/70">
-          Les secrets de jardinier que tu as découverts — et ceux qui t&apos;attendent encore.
-        </p>
+      <div className="flex items-center gap-4">
+        {/* L'emblème double le titre : décoratif, pour ne pas le lire deux fois. */}
+        <SecretEmblem variant="full" decorative className="h-14 w-14 sm:h-16 sm:w-16" />
+        <div>
+          <h1 className="font-poppins text-[1.75rem] font-bold text-forest">Mon grimoire</h1>
+          <p className="mt-1 font-raleway text-forest/70">
+            Les secrets de jardinier que tu as découverts — et ceux qui t&apos;attendent encore.
+          </p>
+        </div>
       </div>
 
       <div className={cn(PAPER_CLASS, 'flex flex-col gap-2 rounded-2xl py-4', PAPER_INSET)}>

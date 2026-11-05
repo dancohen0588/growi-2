@@ -4,6 +4,7 @@ import { actionHorizon } from '@growi/shared'
 import { auth } from '@/auth'
 import { TrackView } from '@/components/analytics/TrackView'
 import { getGardensAdvice } from '@/lib/services/advice.service'
+import { getGrimoire } from '@/lib/services/secrets.service'
 import { listDoneTodayActions, lunarDayFor } from '@/lib/services/planning.service'
 import { getUserTimezone, hasLunarCalendar } from '@/lib/services/user.service'
 import { zonedDayIso } from '@/lib/zoned-day'
@@ -72,6 +73,18 @@ export default async function CalendrierPage() {
     (action) => !action.secret && actionHorizon(action, today) === 'today',
   )
 
+  // « Mon grimoire · 3 / 24 » sur la carte du secret. Lu seulement quand une
+  // carte est à l'écran, et jamais bloquant : sans le compte, le lien dit
+  // « Mon grimoire », comme avant.
+  const grimoire = actions.some((action) => action.secret)
+    ? await getGrimoire(session.user.id)
+        .then(({ discovered, total }) => ({ discovered, total }))
+        .catch((error: unknown) => {
+          console.error('[calendrier] grimoire illisible', error)
+          return null
+        })
+    : null
+
   // Le jour lunaire se lit dans le jour civil de l'utilisateur, pas en UTC :
   // à 0 h 30 à Paris, c'est déjà le jour suivant qu'il faut annoncer.
   const lunar = lunarEnabled ? lunarDayFor(zonedDayIso(new Date(), timeZone)) : null
@@ -94,6 +107,7 @@ export default async function CalendrierPage() {
         // sans savoir pourquoi ni comment revenir en arrière.
         clearedToday={gardens.some(({ garden }) => garden.clearedToday)}
         lunar={lunar}
+        grimoire={grimoire}
       />
     </Suspense>
   )

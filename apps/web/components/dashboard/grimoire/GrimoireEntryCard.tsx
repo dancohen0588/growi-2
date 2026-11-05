@@ -8,6 +8,7 @@ import { SECRET_VERDICT_LABELS, type GrimoireEntry } from '@growi/shared'
 import { restoreSecretAction } from '@/app/actions/secrets'
 import { EvidenceBadge } from '@/components/dashboard/secrets/EvidenceBadge'
 import { PAPER_CLASS, PAPER_INSET } from '@/components/dashboard/secrets/paper'
+import { SecretPlanche } from '@/components/dashboard/secrets/SecretPlanche'
 import { SecretRecipe } from '@/components/dashboard/secrets/SecretRecipe'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
@@ -26,7 +27,9 @@ function trialsLine(entry: GrimoireEntry): string | null {
  * Une page du grimoire.
  *
  * - **Non découvert** : titre, accroche, badge — la recette est verrouillée.
- * - **Découvert** : la recette se déplie, avec les essais et le verdict.
+ * - **Découvert** : la recette se déplie, avec les essais et le verdict — la
+ *   planche (cases dessinées) à la place du texte quand le secret en a une,
+ *   en disposition compacte : la colonne du grimoire est étroite.
  * - **Mis de côté** : « Me le reproposer » annule le « Pas pour moi ».
  */
 export function GrimoireEntryCard({ entry }: { entry: GrimoireEntry }) {
@@ -38,6 +41,7 @@ export function GrimoireEntryCard({ entry }: { entry: GrimoireEntry }) {
   const panelId = useId()
 
   const trials = trialsLine(entry)
+  const what = entry.planche ? 'la planche' : 'la recette'
 
   function restore() {
     startTransition(async () => {
@@ -102,7 +106,7 @@ export function GrimoireEntryCard({ entry }: { entry: GrimoireEntry }) {
               aria-hidden
               className={cn('transition-transform', open && 'rotate-180', prefersReduced && 'transition-none')}
             />
-            {open ? 'Replier la recette' : 'Voir la recette'}
+            {open ? `Replier ${what}` : `Voir ${what}`}
           </button>
 
           <AnimatePresence initial={false}>
@@ -115,12 +119,23 @@ export function GrimoireEntryCard({ entry }: { entry: GrimoireEntry }) {
                 transition={{ duration: 0.25, ease: 'easeInOut' }}
                 className="overflow-hidden"
               >
-                <SecretRecipe
-                  story={entry.story}
-                  ingredients={entry.ingredients}
-                  recipe={entry.recipe}
-                  cautions={entry.cautions}
-                />
+                {entry.planche ? (
+                  <SecretPlanche
+                    planche={entry.planche}
+                    story={entry.story}
+                    ingredients={entry.ingredients}
+                    evidence={entry.evidence}
+                    cautions={entry.cautions}
+                    layout="compact"
+                  />
+                ) : (
+                  <SecretRecipe
+                    story={entry.story}
+                    ingredients={entry.ingredients}
+                    recipe={entry.recipe}
+                    cautions={entry.cautions}
+                  />
+                )}
               </motion.div>
             )}
           </AnimatePresence>

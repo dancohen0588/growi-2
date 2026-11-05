@@ -22,9 +22,11 @@ import { z } from 'zod'
 import {
   SECRET_RULE_IDS,
   SECRET_VERDICTS,
+  secretPlancheSchema,
   secretSlugSchema,
   updateGardenTipSchema,
   type SecretConditions,
+  type SecretPlanche,
   type SecretStatus,
   type SecretVerdict,
 } from '@growi/shared'
@@ -61,6 +63,30 @@ const FIELD_LABELS: Record<string, string> = {
   effortMinutes: 'Effort',
   cooldownDays: 'Délai avant de reproposer',
   conditions: 'Conditions',
+  planche: 'Planche',
+}
+
+/** Le chemin d'un défaut dans la planche : « Planche › case 2 › légende ». */
+const PLANCHE_PATH_LABELS: Record<string, string> = {
+  panels: 'case',
+  caution: 'précaution',
+  art: 'dessin',
+  caption: 'légende',
+  emphasis: 'passage en gras',
+  title: 'titre',
+  text: 'texte',
+}
+
+function pathLabel(path: readonly PropertyKey[]): string {
+  const [head, ...rest] = path.map(String)
+  if (head !== 'planche') return [FIELD_LABELS[head] ?? head, ...rest].join(' › ')
+  const parts: string[] = [FIELD_LABELS.planche]
+  for (const segment of rest) {
+    // « case » puis « 2 » font « case 2 » : l'index est montré à partir de 1.
+    if (/^\d+$/.test(segment) && parts.length > 1) parts[parts.length - 1] += ` ${Number(segment) + 1}`
+    else parts.push(PLANCHE_PATH_LABELS[segment] ?? segment)
+  }
+  return parts.join(' › ')
 }
 
 /**
@@ -70,11 +96,7 @@ const FIELD_LABELS: Record<string, string> = {
 export function describeTipIssues(error: z.ZodError): string {
   return error.issues
     .slice(0, 3)
-    .map((issue) => {
-      const [head, ...rest] = issue.path.map(String)
-      const label = [FIELD_LABELS[head] ?? head, ...rest].join(' › ')
-      return `${label} : ${issueText(issue)}`
-    })
+    .map((issue) => `${pathLabel(issue.path)} : ${issueText(issue)}`)
     .join(' ')
 }
 
@@ -175,6 +197,39 @@ export function normalizeConditions(conditions: SecretConditions): SecretConditi
 }
 
 /**
+ * Forme canonique d'une planche : clés dans l'ordre du schéma, `emphasis` et
+ * `caution` seulement s'ils existent. Postgres réordonne les clés d'un `jsonb`
+ * — la comparaison avant/après du journal passe donc par elle aussi, pour
+ * qu'une planche relue de la base ne soit pas notée comme modifiée.
+ */
+export function canonicalPlanche(planche: SecretPlanche): SecretPlanche {
+  return {
+    panels: planche.panels.map(({ art, caption, emphasis }) => (emphasis ? { art, caption, emphasis } : { art, caption })),
+    ...(planche.caution
+      ? { caution: { art: planche.caution.art, title: planche.caution.title, text: planche.caution.text } }
+      : {}),
+  }
+}
+
+/** La planche stockée, comparable — ou telle quelle si elle ne se lit plus. */
+function comparablePlanche(value: unknown): unknown {
+  if (value == null) return null
+  const parsed = secretPlancheSchema.safeParse(value)
+  return parsed.success ? canonicalPlanche(parsed.data) : value
+}
+
+/**
+ * La colonne `planche` à écrire : rien si la saisie n'en parle pas (le
+ * formulaire n'a pas de section planche), `DbNull` pour la retirer — un
+ * `null` JavaScript écrirait le JSON `null`, que `planche IS NULL` ne verrait
+ * pas —, la forme canonique sinon.
+ */
+function plancheColumn(planche: SecretPlanche | null | undefined) {
+  if (planche === undefined) return {}
+  return { planche: planche === null ? Prisma.DbNull : (canonicalPlanche(planche) as Prisma.InputJsonObject) }
+}
+
+/**
  * Ce qu'on écrit en base, à partir d'une saisie validée.
  *
  * `story` et `cautions` vides valent `null` ici et non dans le schéma : la
@@ -194,6 +249,7 @@ function toColumns(input: GardenTipEdit) {
     effortMinutes: input.effortMinutes ?? null,
     cooldownDays: input.cooldownDays,
     conditions: normalizeConditions(input.conditions) as Prisma.InputJsonObject,
+    ...plancheColumn(input.planche),
   }
 }
 
@@ -214,8 +270,17 @@ function readEdit(raw: unknown): GardenTipEdit {
  * liste que le blog (`lib/blog/editorial.ts`), sur tout ce que la carte et le
  * grimoire affichent.
  */
-function assertNoForbiddenTerms(input: Pick<GardenTipEdit, 'title' | 'teaser' | 'story' | 'recipe' | 'ingredients' | 'cautions'>) {
-  const text = [input.title, input.teaser, input.story, input.recipe, ...input.ingredients, input.cautions]
+function assertNoForbiddenTerms(
+  input: Pick<GardenTipEdit, 'title' | 'teaser' | 'story' | 'recipe' | 'ingredients' | 'cautions' | 'planche'>,
+) {
+  const planche = input.planche
+    ? [
+        ...input.planche.panels.map((panel) => panel.caption),
+        input.planche.caution?.title,
+        input.planche.caution?.text,
+      ]
+    : []
+  const text = [input.title, input.teaser, input.story, input.recipe, ...input.ingredients, input.cautions, ...planche]
     .filter(Boolean)
     .join('\n')
   const forbidden = forbiddenTermsIn(text)
@@ -408,6 +473,19 @@ const EDITABLE_FIELDS = [
   'conditions',
 ] as const
 
+/** Les champs changés, sous leur nom de colonne — la planche comprise, quand la saisie en parle. */
+function changedFields(before: GardenTip, input: GardenTipEdit, data: ReturnType<typeof toColumns>): string[] {
+  const canonicalBefore = { ...before, conditions: comparableConditions(before.conditions) }
+  const changed: string[] = EDITABLE_FIELDS.filter(
+    (field) => JSON.stringify(data[field]) !== JSON.stringify(canonicalBefore[field]),
+  )
+  if (input.planche !== undefined) {
+    const after = input.planche === null ? null : canonicalPlanche(input.planche)
+    if (JSON.stringify(after) !== JSON.stringify(comparablePlanche(before.planche))) changed.push('planche')
+  }
+  return changed
+}
+
 /**
  * Enregistre une édition. Le slug n'est jamais écrit : un `slug` présent dans
  * la saisie est ignoré (le schéma d'édition ne le connaît pas).
@@ -418,20 +496,13 @@ export async function updateGardenTip(actorId: string, id: string, raw: unknown)
   const before = await getTipForAdmin(id)
   const input = readEdit(raw)
   const data = toColumns(input)
-
-  const canonicalBefore = {
-    ...before,
-    conditions: comparableConditions(before.conditions),
-  }
-  const changed = EDITABLE_FIELDS.filter(
-    (field) => JSON.stringify(data[field]) !== JSON.stringify(canonicalBefore[field]),
-  )
+  const changed = changedFields(before, input, data)
 
   const tip = await auditWrite(
     (tx) => tx.gardenTip.update({ where: { id }, data }),
     // Les noms des champs, pas leur contenu : le journal s'exporte, et la
     // recette n'y a rien à faire.
-    { actorId, action: 'secret.update', targetType: 'garden_tip', targetId: id, details: { slug: before.slug, champs: [...changed] } },
+    { actorId, action: 'secret.update', targetType: 'garden_tip', targetId: id, details: { slug: before.slug, champs: changed } },
   )
   forgetPublishedTips()
   return tip

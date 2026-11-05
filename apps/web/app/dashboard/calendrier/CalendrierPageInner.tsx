@@ -17,7 +17,7 @@ import { TodoView } from '@/components/dashboard/calendrier/views/TodoView'
 import { CalendarView } from '@/components/dashboard/calendrier/views/CalendarView'
 import { WeatherAlertBanner } from '@/components/dashboard/calendrier/WeatherAlertBanner'
 import { LunarBanner } from '@/components/dashboard/calendrier/LunarBanner'
-import { SecretCard } from '@/components/dashboard/secrets/SecretCard'
+import { SecretCard, type GrimoireProgress } from '@/components/dashboard/secrets/SecretCard'
 import { SecretDetailDialog } from '@/components/dashboard/secrets/SecretDetailDialog'
 import {
   clearPlanningTodayAction,
@@ -50,6 +50,8 @@ interface CalendrierPageInnerProps {
   clearedToday: boolean
   /** Le jour lunaire — `null` tant que l'option n'est pas activée (défaut). */
   lunar: LunarDay | null
+  /** L'avancement du grimoire, pour « Mon grimoire · 3 / 24 » — `null` s'il n'a pas pu être lu. */
+  grimoire?: GrimoireProgress | null
 }
 
 function CalendrierContent({
@@ -61,6 +63,7 @@ function CalendrierContent({
   gardenIds,
   clearedToday,
   lunar,
+  grimoire = null,
 }: CalendrierPageInnerProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -403,6 +406,10 @@ function CalendrierContent({
               key={action.id}
               action={action}
               pending={secretPending === action.id}
+              grimoire={grimoire}
+              // La découverte prend toute la largeur (maquette `Main`) ; les
+              // suites — « c'est prêt », « Ça a marché ? » — vont par deux.
+              className={action.secret.stage === 'discover' ? 'md:col-span-2' : undefined}
               onOpen={openSecret}
               onReadyDone={handleSecretReadyDone}
               onFeedback={handleSecretFeedback}

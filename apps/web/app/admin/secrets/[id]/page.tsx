@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
-import { secretConditionsSchema, type SecretConditions } from '@growi/shared'
+import { secretConditionsSchema, secretPlancheSchema, type SecretConditions, type SecretPlanche } from '@growi/shared'
 
 import {
   deleteGardenTipAction,
@@ -40,6 +40,12 @@ export default async function AdminSecretPage({ params }: { params: { id: string
   // enregistrer les remplacera.
   const parsedConditions = secretConditionsSchema.safeParse(tip.conditions ?? {})
   const conditions: SecretConditions | null = parsedConditions.success ? parsedConditions.data : null
+
+  // Même chose pour la planche : une clé de dessin retirée du registre la rend
+  // illisible, et le planning affiche alors le secret en texte.
+  const parsedPlanche = tip.planche == null ? null : secretPlancheSchema.safeParse(tip.planche)
+  const planche: SecretPlanche | null = parsedPlanche?.success ? parsedPlanche.data : null
+  const plancheUnreadable = parsedPlanche !== null && !parsedPlanche.success
 
   const bound = {
     update: updateGardenTipAction.bind(null, tip.id),
@@ -124,6 +130,16 @@ export default async function AdminSecretPage({ params }: { params: { id: string
         </section>
       )}
 
+      {plancheUnreadable && (
+        <section className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <p className="font-semibold">Planche illisible en base — le planning affiche ce secret en texte.</p>
+          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all text-xs">
+            {JSON.stringify(tip.planche, null, 2)}
+          </pre>
+          <p className="mt-2">Le formulaire repart sans planche : l’enregistrer la retirera, ou la remplacera si tu en composes une.</p>
+        </section>
+      )}
+
       <TipStatsPanel stats={stats} />
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -143,6 +159,7 @@ export default async function AdminSecretPage({ params }: { params: { id: string
               effortMinutes: tip.effortMinutes,
               cooldownDays: tip.cooldownDays,
               conditions: conditions ?? {},
+              planche,
             }}
             action={bound.update}
           />
@@ -150,7 +167,7 @@ export default async function AdminSecretPage({ params }: { params: { id: string
 
         <aside aria-label="Aperçu" className="min-w-0 rounded-2xl border border-forest/10 bg-sand p-4">
           <p className="mb-3 text-xs uppercase tracking-wide text-forest/50">Aperçu de la version enregistrée</p>
-          <SecretPreview tip={tip} conditions={conditions} />
+          <SecretPreview tip={tip} conditions={conditions} planche={planche} />
         </aside>
       </div>
     </>

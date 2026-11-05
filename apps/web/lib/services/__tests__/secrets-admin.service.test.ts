@@ -177,6 +177,115 @@ describe('édition', () => {
   })
 })
 
+describe('planche', () => {
+  const planche = {
+    panels: [
+      {
+        art: 'eau-cuisson/1',
+        caption: 'Garde l’eau de cuisson des légumes, sans sel ni matière grasse.',
+        emphasis: 'sans sel ni matière grasse',
+      },
+      { art: 'eau-cuisson/2', caption: 'Laisse-la refroidir complètement.' },
+    ],
+    caution: {
+      art: 'eau-cuisson/caution',
+      title: 'Jamais salée ni grasse.',
+      text: 'Le sel brûle les racines, surtout en pot.',
+    },
+  }
+
+  it('écrit la planche en forme canonique, et la journalise sous « planche »', async () => {
+    await service.updateGardenTip('admin_1', 'tip_1', form({ planche: { ...planche, panels: [{ ...planche.panels[0] }, { ...planche.panels[1], emphasis: undefined }] } }))
+
+    const { data } = prismaMock.gardenTip.update.mock.calls[0][0]
+    expect(data.planche).toEqual(planche)
+    expect(data.planche.panels[1]).not.toHaveProperty('emphasis')
+    expect(journal[0]).toMatchObject({ details: { champs: ['planche'] } })
+  })
+
+  it('« Pas de planche » écrit DbNull — pas le JSON null', async () => {
+    prismaMock.gardenTip.findUnique.mockResolvedValue(tip({ planche }))
+    await service.updateGardenTip('admin_1', 'tip_1', form({ planche: null }))
+
+    const { Prisma } = await import('@prisma/client')
+    expect(prismaMock.gardenTip.update.mock.calls[0][0].data.planche).toBe(Prisma.DbNull)
+    expect(journal[0]).toMatchObject({ details: { champs: ['planche'] } })
+  })
+
+  it('ne touche pas à la colonne quand la saisie n’en parle pas', async () => {
+    prismaMock.gardenTip.findUnique.mockResolvedValue(tip({ planche }))
+    await service.updateGardenTip('admin_1', 'tip_1', form())
+
+    expect(prismaMock.gardenTip.update.mock.calls[0][0].data).not.toHaveProperty('planche')
+    expect(journal[0]).toMatchObject({ details: { champs: [] } })
+  })
+
+  it('une planche relue de la base, clés réordonnées par Postgres, n’est pas notée comme modifiée', async () => {
+    const reordered = {
+      caution: { text: planche.caution.text, title: planche.caution.title, art: planche.caution.art },
+      panels: planche.panels.map(({ caption, art, emphasis }) => ({ emphasis, caption, art })),
+    }
+    prismaMock.gardenTip.findUnique.mockResolvedValue(tip({ planche: reordered }))
+    await service.updateGardenTip('admin_1', 'tip_1', form({ planche }))
+
+    expect(journal[0]).toMatchObject({ details: { champs: [] } })
+  })
+
+  it('refuse un dessin inconnu ou un gras introuvable, avec le chemin en français', async () => {
+    await expect(
+      service.updateGardenTip(
+        'admin_1',
+        'tip_1',
+        form({ planche: { panels: [planche.panels[0], { art: 'eau-cuisson/9', caption: 'Une case.' }] } }),
+      ),
+    ).rejects.toThrow(/Planche › case 2 › dessin : Dessin inconnu/)
+
+    await expect(
+      service.updateGardenTip(
+        'admin_1',
+        'tip_1',
+        form({ planche: { panels: [{ art: 'eau-cuisson/1', caption: 'Garde l’eau.', emphasis: 'sel' }] } }),
+      ),
+    ).rejects.toThrow(/Planche › case 1 › passage en gras : Le passage en gras/)
+
+    await expect(service.updateGardenTip('admin_1', 'tip_1', form({ planche: { panels: [] } }))).rejects.toThrow(
+      /Planche › case : 1 élément\(s\) au moins/,
+    )
+    expect(prismaMock.gardenTip.update).not.toHaveBeenCalled()
+  })
+
+  it('refuse le mot « IA » dans une légende ou une précaution', async () => {
+    await expect(
+      service.updateGardenTip(
+        'admin_1',
+        'tip_1',
+        form({ planche: { panels: [{ art: 'eau-cuisson/1', caption: 'Conseil validé par une IA.' }] } }),
+      ),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT', message: expect.stringMatching(/IA/) })
+
+    await expect(
+      service.updateGardenTip(
+        'admin_1',
+        'tip_1',
+        form({ planche: { panels: [planche.panels[1]], caution: { ...planche.caution, text: 'Une IA le dit.' } } }),
+      ),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+  })
+
+  it('crée un secret avec sa planche', async () => {
+    prismaMock.gardenTip.findUnique.mockResolvedValue(null)
+    await service.createGardenTip('admin_1', { ...form({ planche }), slug: 'eau-cuisson' })
+    expect(prismaMock.gardenTip.create.mock.calls[0][0].data.planche).toEqual(planche)
+  })
+
+  it('refuse de publier une planche devenue illisible', async () => {
+    prismaMock.gardenTip.findUnique.mockResolvedValue(
+      tip({ planche: { panels: [{ art: 'retire/1', caption: 'Un dessin disparu.' }] } }),
+    )
+    await expect(service.publishGardenTip('admin_1', 'tip_1')).rejects.toThrow(/Publication impossible — Planche › case 1 › dessin/)
+  })
+})
+
 describe('cycle de vie', () => {
   it('publie la version enregistrée, et vide le cache du planning', async () => {
     await service.publishGardenTip('admin_1', 'tip_1')

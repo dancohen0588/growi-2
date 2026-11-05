@@ -102,3 +102,56 @@ export function formatTrialDate(iso: string | null | undefined): string | null {
   if (Number.isNaN(date.getTime())) return null
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 }
+
+// ─── Planche ───────────────────────────────────────────────────────────────
+
+/** Un morceau de légende, en gras ou non. */
+export interface CaptionSegment {
+  text: string
+  strong: boolean
+}
+
+/**
+ * Découpe une légende autour de son passage en gras — sans HTML : l'écran
+ * rend des `<strong>`, jamais une chaîne interprétée.
+ *
+ * Seule la **première** occurrence est mise en gras. Un passage absent ou
+ * introuvable (planche écrite avant une correction de la légende) laisse la
+ * légende entière, en maigre : on ne devine pas ce qu'il fallait souligner.
+ */
+export function splitEmphasis(caption: string, emphasis?: string | null): CaptionSegment[] {
+  const strong = emphasis?.trim()
+  const at = strong ? caption.indexOf(strong) : -1
+  if (!strong || at < 0) return [{ text: caption, strong: false }]
+
+  const segments: CaptionSegment[] = []
+  if (at > 0) segments.push({ text: caption.slice(0, at), strong: false })
+  segments.push({ text: strong, strong: true })
+  const rest = caption.slice(at + strong.length)
+  if (rest) segments.push({ text: rest, strong: false })
+  return segments
+}
+
+/** Le bouton de la carte : une planche s'ouvre, un secret en texte se découvre. */
+export function secretOpenLabel(secret: { planche?: unknown }): string {
+  return secret.planche ? 'Ouvrir la planche' : 'Découvrir le secret'
+}
+
+/**
+ * La phrase du pied de la planche, à côté de « Je tente » : ce qui suivra.
+ * Une préparation annonce d'abord le jour où elle sera prête ; le « Ça a
+ * marché ? » ne vient qu'une semaine après son usage.
+ */
+export function plancheFollowUp(prepDays: number): string {
+  if (prepDays <= 0) return 'Dans une semaine, on te demandera si ça a marché.'
+  if (prepDays === 1) return 'Ta préparation sera prête demain : on te préviendra ici.'
+  return `Ta préparation sera prête dans ${prepDays} jours : on te préviendra ici.`
+}
+
+/** « 2 min · prêt dans 15 jours » — la ligne pratique de la carte et de la planche. */
+export function practicalLine(secret: { effortMinutes?: number | null; prepDays: number }): string | null {
+  const prep = prepLabel(secret.prepDays)
+  const parts = [effortLabel(secret.effortMinutes), prep && prep.charAt(0).toLowerCase() + prep.slice(1)]
+  const line = parts.filter(Boolean).join(' · ')
+  return line || null
+}
