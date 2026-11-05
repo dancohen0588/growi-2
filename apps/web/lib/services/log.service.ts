@@ -103,6 +103,8 @@ export type CareSource = 'detail' | 'planning' | 'chat'
 export interface CareMeta {
   ruleId?: string
   note?: string
+  /** Secret de jardinier essayé — voir `CareLog.tipSlug`. */
+  tipSlug?: string
 }
 
 export async function logCare(
@@ -144,6 +146,7 @@ export async function logCare(
           unit: input.unit,
           photoUrl: input.photoUrl,
           ruleId: meta.ruleId,
+          tipSlug: meta.tipSlug,
         },
       }),
       client.plantInstance.update({
@@ -175,6 +178,7 @@ export interface CareBatchEntry {
   /** Voir `CareMeta`. */
   ruleId?: string
   note?: string
+  tipSlug?: string
 }
 
 /**
@@ -259,6 +263,7 @@ export async function logCareBatch(
       occurredAt,
       ruleId: entry.ruleId,
       note: entry.note,
+      tipSlug: entry.tipSlug,
     })),
     select: { id: true, plantInstanceId: true, type: true },
   })

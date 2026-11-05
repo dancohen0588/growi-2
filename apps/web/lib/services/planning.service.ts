@@ -12,15 +12,17 @@
 import {
   ACTION_TYPE_LABELS,
   CARE_LOG_TYPE_BY_ACTION,
+  computeLunarDay,
   type ActionType,
   type CareLogType,
   type GardenAction,
+  type LunarDay,
   type TodayPlanning,
 } from '@growi/shared'
 
 import { getGardensAdvice } from '@/lib/services/advice.service'
 import { listCareLogsSince } from '@/lib/services/log.service'
-import { getUserLocation, getUserTimezone } from '@/lib/services/user.service'
+import { getUserLocation, getUserTimezone, hasLunarCalendar } from '@/lib/services/user.service'
 import { getWeatherForecast } from '@/lib/services/weather.service'
 import { safeTimeZone, startOfZonedDay, zonedDayIso } from '@/lib/zoned-day'
 
@@ -58,10 +60,11 @@ export async function getTodayPlanning(
   userId: string,
   now = new Date(),
 ): Promise<TodayPlanning> {
-  const [{ date, logs: logsToday }, gardensAdvice, weather] = await Promise.all([
+  const [{ date, logs: logsToday }, gardensAdvice, weather, lunarEnabled] = await Promise.all([
     readToday(userId, now),
     getGardensAdvice(userId, now),
     getTodayWeather(userId),
+    hasLunarCalendar(userId),
   ])
 
   const doneTypesByPlant = new Map<string, Set<CareLogType>>()
@@ -132,7 +135,16 @@ export async function getTodayPlanning(
           today: weather.forecast.find((day) => day.date === date) ?? weather.forecast[0] ?? null,
         }
       : null,
+    lunar: lunarEnabled ? lunarDayFor(date) : null,
   }
+}
+
+/**
+ * Le jour lunaire d'un jour civil. Midi UTC plutôt que midi local : l'écart
+ * d'une ou deux heures ne déplace la Lune que d'un degré, sur un signe de 30.
+ */
+export function lunarDayFor(date: string): LunarDay {
+  return computeLunarDay(new Date(`${date}T12:00:00.000Z`), date)
 }
 
 type CareLogRow = Awaited<ReturnType<typeof listCareLogsSince>>[number]

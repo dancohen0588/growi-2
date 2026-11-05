@@ -1,5 +1,5 @@
 import type { PlantInstance, PlantCatalog, GardenZone, Garden } from '@prisma/client'
-import type { ActionKind, ActionWindow } from '@growi/shared'
+import type { ActionKind, ActionWindow, GardenSecret } from '@growi/shared'
 import type { ActionType, ActionPriority } from '@/lib/mock-actions'
 
 // ─── Weather ───────────────────────────────────────────────────────────────
@@ -99,6 +99,8 @@ export interface GardenAction {
   ruleId?: string
   /** Geste écrit au journal — renseigné par la liste « Fait aujourd'hui ». */
   careLogId?: string
+  /** Secret de jardinier porté par l'action — voir `lib/secrets/`. */
+  secret?: GardenSecret
 }
 
 // ─── Alerts ────────────────────────────────────────────────────────────────

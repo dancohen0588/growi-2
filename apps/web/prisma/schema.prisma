@@ -49,6 +49,9 @@ model User {
   /// avec la version acceptée (= LEGAL_VERSION du jour).
   termsAcceptedAt    DateTime? @db.Timestamptz(6)
   termsVersion       String?
+  /// Calendrier lunaire du jardinier : bandeau « jour fruit » et secret lunaire.
+  /// Désactivé par défaut — une tradition, que chacun choisit d'afficher.
+  lunarCalendar      Boolean   @default(false)
 
   // ── Communauté (opt-in) ──────────────────────────────────────────────────
   /// Pseudo public unique, 3 à 30 caractères `[a-z0-9_]`, normalisé en
@@ -100,6 +103,7 @@ model User {
   refreshTokens      RefreshToken[]
   sessions           Session[]
   blogPostsPublished BlogPost[]       @relation("blogPublisher")
+  tips               UserTip[]
 
   @@index([role])
   @@index([createdAt])
@@ -263,6 +267,7 @@ model Garden {
   zones             GardenZone[]
   user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   plantInstances    PlantInstance[]
+  tipPicks          GardenTipPick[]
 
   @@map("gardens")
 }
@@ -389,6 +394,7 @@ model PlantInstance {
   conversations           Conversation[]
   diagnoses               Diagnosis[]
   tasks                   PlantTask[]
+  tipPicks                GardenTipPick[]
   catalogPlant            PlantCatalog?  @relation(fields: [catalogPlantId], references: [id])
   garden                  Garden?        @relation(fields: [gardenId], references: [id])
   user                    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -424,12 +430,20 @@ model CareLog {
   /// `last*At` sur la plante — paillage, hivernage, semis : sans elle, un
   /// geste « autre » ne dit pas lequel, et la carte revenait le lendemain.
   ruleId          String?
-  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  /// Secret de jardinier essayé (« Je tente ») — `garden_tips.slug`, sans clé
+  /// étrangère : un secret retiré de la bibliothèque ne doit pas effacer le
+  /// journal de ceux qui l'ont essayé.
+  tipSlug         String?
+  /// « Ça a marché ? » — WORKED | MEH | FAILED, voir SECRET_VERDICTS.
+  tipVerdict      String?
+  tipVerdictAt    DateTime? @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
 
   plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
 
   @@index([plantInstanceId, occurredAt])
   @@index([type])
+  @@index([tipSlug])
   @@map("care_logs")
 }
 
@@ -1003,4 +1017,79 @@ model AppSetting {
   updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
   @@map("app_settings")
+}
+
+// ─── Secrets de jardinier ──────────────────────────────────────────────────
+
+/// Une astuce de tradition — coquilles d'œuf, purin d'ortie, eau de banane…
+/// Données, pas code : éditable depuis /admin/secrets. Spec :
+/// Documentation/spec/16-analyse-moteur-reco-secrets.md §5.
+model GardenTip {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  /// L'accroche, visible avant le dévoilement.
+  teaser        String
+  /// L'histoire, le pourquoi de la tradition.
+  story         String?
+  /// Étapes courtes, une par ligne.
+  recipe        String
+  ingredients   String[] @default([])
+  /// PROVEN | PLAUSIBLE | FOLK | MYTH — affiché sur la carte.
+  evidence      String
+  cautions      String?
+  /// > 0 : une carte « c'est prêt » paraît prepDays jours après « Je tente ».
+  prepDays      Int      @default(0)
+  effortMinutes Int?
+  /// Délai avant de reproposer un secret déjà essayé.
+  cooldownDays  Int      @default(120)
+  /// Voir secretConditionsSchema dans @growi/shared.
+  conditions    Json     @default("{}")
+  /// DRAFT | PUBLISHED.
+  status        String   @default("DRAFT")
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([status])
+  @@map("garden_tips")
+}
+
+/// Le secret de la semaine d'un jardin, figé au premier calcul de la semaine.
+///
+/// Sans lui, le tirage dépendrait de ce qui change en cours de semaine — une
+/// plante ajoutée, la météo — et le secret changerait sous les yeux de
+/// l'utilisateur, d'un appareil à l'autre. C'est aussi l'historique de ce qui
+/// lui a été proposé.
+model GardenTipPick {
+  id              String   @id @default(cuid())
+  gardenId        String
+  /// Semaine ISO, `2026-W45`.
+  week            String
+  slug            String
+  plantInstanceId String
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+
+  garden        Garden        @relation(fields: [gardenId], references: [id], onDelete: Cascade)
+  plantInstance PlantInstance @relation(fields: [plantInstanceId], references: [id], onDelete: Cascade)
+
+  @@unique([gardenId, week])
+  @@index([plantInstanceId])
+  @@map("garden_tip_picks")
+}
+
+/// Ce que l'utilisateur a fait d'un secret, hors essai : dévoilé, refusé.
+/// L'essai, lui, est un geste du journal (`CareLog.tipSlug`).
+model UserTip {
+  id          String    @id @default(cuid())
+  userId      String
+  slug        String
+  revealedAt  DateTime? @db.Timestamptz(6)
+  /// « Pas pour moi » : ne plus jamais le proposer.
+  dismissedAt DateTime? @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, slug])
+  @@map("user_tips")
 }

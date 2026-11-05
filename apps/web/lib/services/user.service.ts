@@ -46,6 +46,7 @@ const PROFILE_SELECT = {
   longitude: true,
   analyticsConsent: true,
   analyticsConsentAt: true,
+  lunarCalendar: true,
   // Lu pour en déduire `hasPassword`, jamais recopié : `toProfile` construit
   // son résultat champ par champ.
   password: true,
@@ -66,6 +67,7 @@ type ProfileRow = {
   longitude: number | null
   analyticsConsent: boolean | null
   analyticsConsentAt: Date | null
+  lunarCalendar: boolean
   password: string | null
 }
 
@@ -91,6 +93,7 @@ export function toProfile(user: ProfileRow): UserProfile {
     longitude: user.longitude,
     analyticsConsent: user.analyticsConsent,
     analyticsConsentAt: user.analyticsConsentAt?.toISOString() ?? null,
+    lunarCalendar: user.lunarCalendar,
     hasPassword: user.password !== null,
   }
 }
@@ -156,6 +159,10 @@ export async function updateProfile(
     // Le choix prend effet sur cette instance à l'instant, sans attendre que
     // la mémoire d'une heure expire : l'événement `care_logged` qui suivrait
     // un retrait dans la même minute ne partirait pas.
+    if (input.lunarCalendar !== undefined) {
+      trackServer(userId, 'lunar_calendar_toggled', { enabled: input.lunarCalendar })
+    }
+
     if (analyticsConsent !== undefined) {
       rememberConsent(userId, updated.analyticsConsent)
       if (analyticsConsent && before) await replaySignupOnConsent(userId, before)
@@ -408,6 +415,12 @@ async function recountAfterDeletion(
  * Le planning et le quota du chat en dépendent : en UTC, la journée d'un
  * Français bascule à 2 h du matin, au milieu de sa soirée.
  */
+/** L'option calendrier lunaire — désactivée par défaut. */
+export async function hasLunarCalendar(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { lunarCalendar: true } })
+  return user?.lunarCalendar ?? false
+}
+
 export async function getUserTimezone(userId: string): Promise<string> {
   const user = await prisma.user.findUnique({
     where: { id: userId },

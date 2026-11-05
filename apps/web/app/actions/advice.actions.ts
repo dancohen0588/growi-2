@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import {
   clearPlanningTodaySchema,
   engineRuleIdSchema,
+  secretSlugSchema,
   markActionsDoneBulkSchema,
   undoActionSchema,
   type ClearPlanningTodayInput,
@@ -44,6 +45,8 @@ export async function markActionDoneAction(
   taskId?: string,
   /** Règle du moteur — ferme les règles sans date sur la plante (paillage…). */
   ruleId?: string,
+  /** Secret de jardinier essayé — « Je tente ». */
+  tipSlug?: string,
 ): Promise<{ careLogId: string | null }> {
   const session = await auth()
   if (!session?.user?.id) throw new Error('Non authentifié')
@@ -54,6 +57,7 @@ export async function markActionDoneAction(
     plantId,
     taskId,
     ruleId: ruleId ? engineRuleIdSchema.parse(ruleId) : undefined,
+    tipSlug: tipSlug ? secretSlugSchema.parse(tipSlug) : undefined,
   })
 
   revalidatePlanning()

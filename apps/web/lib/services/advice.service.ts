@@ -33,6 +33,11 @@ import {
 } from '@/lib/services/garden.service'
 import { deleteCareLog, logCare, logCareBatch } from '@/lib/services/log.service'
 import {
+  secretActionsForGarden,
+  secretTitle,
+  trackSecretTried,
+} from '@/lib/services/secrets.service'
+import {
   completeTask,
   listOpenTasksAsActions,
   reopenTask,
@@ -82,8 +87,13 @@ async function assemble(
   garden: { id: string; planningClearedOn: string | null },
   today: string,
 ): Promise<GardenAdviceResult> {
-  const tasks = await listOpenTasksAsActions(userId, { gardenId: garden.id })
-  const actions = applyClear(advice.actions, garden.planningClearedOn, today)
+  const [tasks, secrets] = await Promise.all([
+    listOpenTasksAsActions(userId, { gardenId: garden.id }),
+    // Les secrets ne passent pas par le cache du moteur : « Je tente » doit
+    // retirer la carte tout de suite. Ils ne lèvent jamais.
+    secretActionsForGarden(userId, garden.id, today),
+  ])
+  const actions = applyClear([...advice.actions, ...secrets], garden.planningClearedOn, today)
 
   // En tête de liste : ce sont des actions que l'utilisateur a lui-même
   // validées depuis un diagnostic, là où le reste est proposé par le moteur.
@@ -192,9 +202,11 @@ export async function markActionDone(
     taskId?: string
     /** Règle du moteur de l'action cochée — voir `CareLog.ruleId`. */
     ruleId?: string
+    /** Secret de jardinier essayé — « Je tente », ou sa préparation utilisée. */
+    tipSlug?: string
   },
 ): Promise<{ careLogId: string | null }> {
-  const { gardenId, actionType, plantId, taskId, ruleId } = params
+  const { gardenId, actionType, plantId, taskId, ruleId, tipSlug } = params
   await assertGardenOwned(gardenId, userId)
 
   const careType = actionType
@@ -218,6 +230,7 @@ export async function markActionDone(
             // Deux « autres gestes » du même jour — pailler, puis protéger du
             // froid — ne sont pas un doublon : la règle les distingue.
             ...(ruleId ? { ruleId } : {}),
+            ...(tipSlug ? { tipSlug } : {}),
             occurredAt: { gte: startOfZonedDay(new Date(), safeTimeZone(await getUserTimezone(userId))) },
           },
           select: { id: true },
@@ -228,9 +241,19 @@ export async function markActionDone(
     plantId && careType && !alreadyToday
       ? await logCare(plantId, userId, { type: careType }, undefined, 'planning', {
           ruleId,
-          note: careType === 'other' ? gestureLabelForRule(ruleId) : undefined,
+          tipSlug,
+          // Un secret est nommé au journal par son titre : « Secret de
+          // jardinier » ne dirait pas, dans un an, ce qui a été essayé.
+          note:
+            careType === 'other'
+              ? (tipSlug ? await secretTitle(tipSlug) : undefined) ?? gestureLabelForRule(ruleId)
+              : undefined,
         })
       : null
+
+  if (log && tipSlug && ruleId?.startsWith('r20-secret')) {
+    void trackSecretTried(userId, tipSlug, ruleId === 'r20-secret-ready' ? 'ready' : 'discover')
+  }
 
   await invalidateGardenAdviceCache(gardenId)
 
@@ -293,6 +316,7 @@ export async function markActionsDone(
           plantInstanceId: item.plantId,
           type: careType,
           ruleId: item.ruleId,
+          tipSlug: item.tipSlug,
           note: careType === 'other' ? gestureLabelForRule(item.ruleId) : undefined,
         },
       ]

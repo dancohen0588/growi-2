@@ -51,6 +51,7 @@ import type {
   GardenPlan,
   GardenWeather,
   GardenWithStats,
+  Grimoire,
   HandleAvailability,
   HealthStatus,
   LikeResult,
@@ -80,6 +81,7 @@ import type {
   PlantInstanceWithRelations,
   RegisterPushTokenInput,
   ReportReceipt,
+  SecretFeedbackInput,
   SendListingMessageInput,
   SendMessageInput,
   SocialLoginInput,
@@ -358,6 +360,43 @@ export class GrowiApiClient {
         method: 'POST',
         body: input,
       }),
+  }
+
+  // ─── Secrets de jardinier ────────────────────────────────────────────────
+
+  readonly secrets = {
+    /** Le secret a été dévoilé : il entre au grimoire. Idempotent. */
+    reveal: (slug: string, options?: CallOptions): Promise<void> =>
+      this.http.request(`/api/v1/secrets/${encodeURIComponent(slug)}/reveal`, {
+        ...options,
+        method: 'POST',
+      }),
+
+    /** « Pas pour moi » : le secret ne sera plus proposé. */
+    dismiss: (slug: string, options?: CallOptions): Promise<void> =>
+      this.http.request(`/api/v1/secrets/${encodeURIComponent(slug)}/dismiss`, {
+        ...options,
+        method: 'POST',
+      }),
+
+    /** Revient sur un « Pas pour moi ». */
+    restore: (slug: string, options?: CallOptions): Promise<void> =>
+      this.http.request(`/api/v1/secrets/${encodeURIComponent(slug)}/dismiss`, {
+        ...options,
+        method: 'DELETE',
+      }),
+
+    /** « Ça a marché ? » — `careLogId` est le `secret.trialCareLogId` de la carte. */
+    feedback: (input: SecretFeedbackInput, options?: CallOptions): Promise<void> =>
+      this.http.request('/api/v1/secrets/feedback', {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
+
+    /** La collection : découverts, essayés, et ceux qui restent à trouver. */
+    grimoire: (options?: CallOptions): Promise<Grimoire> =>
+      this.http.request('/api/v1/secrets/grimoire', { ...options }),
   }
 
   // ─── Photos ──────────────────────────────────────────────────────────────

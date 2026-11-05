@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 import { type CareLogType } from '../constants/enums'
 import { idSchema, nullish } from './common'
+import { lunarDaySchema } from './lunar'
+import { gardenSecretSchema, secretSlugSchema } from './secrets'
 
 /**
  * Contrat de `GET /api/v1/planning/today` — l'écran d'accueil du mobile.
@@ -154,6 +156,13 @@ export const gardenActionSchema = z.object({
    * que « Annuler » a besoin d'effacer. Une action à faire n'en a pas.
    */
   careLogId: z.string().optional(),
+  /**
+   * Un « secret de jardinier » — astuce de tradition, avec son niveau de
+   * preuve. Les écrans qui le connaissent le sortent du flux pour lui donner
+   * sa propre carte ; une version de l'app qui l'ignore affiche une action
+   * « autre » ordinaire, cochable comme les autres.
+   */
+  secret: gardenSecretSchema.optional(),
 })
 
 export type GardenAction = z.infer<typeof gardenActionSchema>
@@ -396,6 +405,11 @@ export const todayPlanningSchema = z.object({
   doneToday: z.array(gardenActionSchema).optional(),
   /** `null` si l'utilisateur n'a pas de coordonnées ou si la météo est indisponible. */
   weather: nullish(planningWeatherSchema),
+  /**
+   * Le jour lunaire, seulement si l'utilisateur a activé l'option — désactivée
+   * par défaut. Une tradition, présentée comme telle.
+   */
+  lunar: nullish(lunarDaySchema),
 })
 
 export type TodayPlanning = z.infer<typeof todayPlanningSchema>
@@ -427,6 +441,11 @@ export const markActionDoneSchema = z.object({
   actionType: actionTypeSchema,
   plantId: idSchema.optional(),
   ruleId: engineRuleIdSchema.optional(),
+  /**
+   * Le secret essayé, quand l'action en porte un : « Je tente ». C'est ce qui
+   * débloque la carte « c'est prêt » d'une préparation, puis « Ça a marché ? ».
+   */
+  tipSlug: secretSlugSchema.optional(),
   /**
    * Tâche persistée à acquitter, quand l'action en est une.
    *
@@ -469,6 +488,7 @@ export const markActionsDoneBulkSchema = z.object({
         plantId: idSchema.optional(),
         taskId: idSchema.optional(),
         ruleId: engineRuleIdSchema.optional(),
+        tipSlug: secretSlugSchema.optional(),
       }),
     )
     .min(1)

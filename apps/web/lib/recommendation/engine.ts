@@ -76,9 +76,16 @@ const RULES: AdviceRule[] = [
   r17EndOfSeason,
 ]
 
-const GESTURE_LABELS = new Map(
-  RULES.flatMap((rule) => (rule.gestureLabel ? [[rule.id, rule.gestureLabel] as const] : [])),
-)
+const GESTURE_LABELS = new Map<string, string>([
+  ...RULES.flatMap((rule) => (rule.gestureLabel ? [[rule.id, rule.gestureLabel] as const] : [])),
+  // Les secrets ne sont pas des règles du moteur (voir `lib/secrets/`), mais
+  // leurs gestes passent par le même journal. Le titre du secret est préféré
+  // quand on le connaît ; ces noms servent aux versions de l'app qui ne
+  // l'envoient pas.
+  ['r20-secret', 'Secret de jardinier'],
+  ['r20-secret-ready', 'Préparation utilisée'],
+  ['r20-secret-feedback', 'Retour sur un secret'],
+])
 
 /**
  * Nom du geste à écrire au journal pour une action « autre » de cette règle —
