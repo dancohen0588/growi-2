@@ -78,7 +78,9 @@ export function SecretCard({
   const { icon: Icon, label } = EYEBROW[secret.stage]
   const headingId = `secret-${action.id}`
   const effort = effortLabel(secret.effortMinutes)
-  const plantLine = [action.plantName && `Pour ${action.plantName}`, secret.stage === 'discover' && effort]
+  // Le nom seul, comme sur mobile : « Pour Basilic » sonnait faux, et « ton » ou
+  // « ta » demanderait le genre de la plante, que rien ne donne.
+  const plantLine = [action.plantName, secret.stage === 'discover' && effort]
     .filter(Boolean)
     .join(' · ')
 

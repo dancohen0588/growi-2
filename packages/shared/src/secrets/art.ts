@@ -65,7 +65,7 @@ export const SECRET_ART: Readonly<Record<string, string>> = {
       '<path d="M214 150 H240 V162 C262 170 266 182 266 194 V196 H188 V194 C188 182 192 170 214 162 Z" fill="#FFFFFF" stroke="#1E5631" stroke-width="4" stroke-linejoin="round"/>' +
       '<path d="M194 180 C210 176 244 176 262 180 V196 H192 Z" fill="#DCEFC0"/>' +
       '<path d="M80 34 c-8 -8 8 -14 0 -24 M104 28 c-8 -8 8 -14 0 -24" fill="none" stroke="#1E5631" stroke-width="3" stroke-linecap="round" opacity="0.7"/>' +
-      sfx('glou glou', 206, 62, 26, ' transform="rotate(-8 240 56)"'),
+      sfx('glou glou', 190, 64, 24, ' transform="rotate(-8 240 56)"'),
   ),
   'eau-cuisson/2': panel(
     '<path d="M132 92 H178 V112 C210 124 216 146 216 168 V196 H94 V168 C94 146 100 124 132 112 Z" fill="#FFFFFF" stroke="#1E5631" stroke-width="4" stroke-linejoin="round"/>' +
