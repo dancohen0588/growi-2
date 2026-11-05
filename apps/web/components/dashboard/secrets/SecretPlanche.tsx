@@ -57,7 +57,7 @@ export function SecretPlanche({
   const wide = layout === 'wide'
   const Heading = headingLevel
   const hint = `${SECRET_EVIDENCE_LABELS[evidence]} : ${lowerFirst(SECRET_EVIDENCE_HINTS[evidence])}`
-  const caution = planche.caution ?? (cautions ? { art: null, title: 'Précautions', text: cautions } : null)
+  const caution = planche.caution ?? (cautions ? { art: null, title: 'Précautions', text: cautions, tone: 'warning' as const } : null)
 
   return (
     <div className={cn('flex flex-col', wide ? 'gap-[22px]' : 'gap-4')}>
@@ -155,7 +155,7 @@ export function SecretPlanche({
             />
           )}
           <div className={cn('flex flex-col gap-1.5', !caution.art && 'px-2')}>
-            <span className={cn(BD_EYEBROW, 'text-sun')}>Attention</span>
+            <span className={cn(BD_EYEBROW, 'text-sun')}>{cautionEyebrow(caution)}</span>
             <p
               className={cn(
                 'm-0 font-poppins font-semibold leading-snug text-sand',
@@ -173,6 +173,9 @@ export function SecretPlanche({
     </div>
   )
 }
+
+/** « Attention » pour un risque, « À savoir » pour une mise en garde sur l'effet. */
+const cautionEyebrow = (caution: { tone?: 'warning' | 'note' }) => (caution.tone === 'note' ? 'À savoir' : 'Attention')
 
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1)
 const upperFirst = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)

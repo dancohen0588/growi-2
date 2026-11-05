@@ -17,6 +17,8 @@
 
 import type { SecretConditions, SecretEvidence, SecretPlanche } from '@growi/shared'
 
+import { PLANCHES_LOT1 } from './planches/lot1'
+
 export interface SecretSeed {
   slug: string
   title: string
@@ -39,7 +41,7 @@ const ALL_YEAR = undefined
 const GARDEN = ['OUTDOOR', 'BALCONY', 'GREENHOUSE'] as const
 const ACID_LOVERS = ['Hydrangea', 'Rhododendron', 'Camellia', 'Pieris', 'Skimmia', 'Vaccinium', 'Erica', 'Calluna', 'Gardenia', 'Azalea']
 
-export const SECRET_LIBRARY: SecretSeed[] = [
+const BASE_LIBRARY: SecretSeed[] = [
   {
     slug: 'coquilles-godets',
     title: 'Des godets en coquille d’œuf',
@@ -506,3 +508,10 @@ export const SECRET_LIBRARY: SecretSeed[] = [
     conditions: { months: [2, 3, 4, 5, 6, 7, 8, 9, 10], categories: ['VEGETABLE', 'HERBS'], lunarOnly: true },
   },
 ]
+
+/** Les planches livrées par lots (`planches/`), validées dans Claude Design. */
+const PLANCHES: Readonly<Record<string, SecretPlanche>> = { ...PLANCHES_LOT1 }
+
+export const SECRET_LIBRARY: SecretSeed[] = BASE_LIBRARY.map((seed) =>
+  seed.planche || !PLANCHES[seed.slug] ? seed : { ...seed, planche: PLANCHES[seed.slug] },
+)

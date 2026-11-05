@@ -108,12 +108,15 @@ export function SecretPlanche({ planche, story }: SecretPlancheProps) {
         <View
           className="flex-row items-center gap-3.5 rounded-md bg-forest px-4 py-3.5"
           accessible
-          accessibilityLabel={`Précaution : ${caution.title} ${caution.text}`}
+          accessibilityLabel={`${caution.tone === 'note' ? 'À savoir' : 'Attention'} : ${caution.title} ${caution.text}`}
         >
           {isSecretArt(caution.art) ? (
             <SecretArt artKey={caution.art} width={96} />
           ) : null}
           <View className="flex-1 gap-1">
+            <Text className="font-poppins-bold text-caption uppercase tracking-wide text-sun">
+              {caution.tone === 'note' ? 'À savoir' : 'Attention'}
+            </Text>
             <Text className="font-poppins-bold text-body text-sand">{caution.title}</Text>
             <Text className="font-raleway text-secondary text-lime">{caution.text}</Text>
           </View>

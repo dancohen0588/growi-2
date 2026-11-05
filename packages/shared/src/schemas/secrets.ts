@@ -122,6 +122,12 @@ export const secretPlancheSchema = z.object({
       art: artKeySchema.refine(isCautionArt, { message: 'Ce dessin est une case, pas une précaution.' }),
       title: z.string().trim().min(3).max(60),
       text: z.string().trim().min(3).max(200),
+      /**
+       * `warning` (« Attention », défaut) pour un risque ; `note` (« À savoir »)
+       * pour une simple mise en garde sur l'effet — l'ail au pied des rosiers
+       * n'abîme rien, il ne prouve rien non plus.
+       */
+      tone: z.enum(['warning', 'note']).optional(),
     }),
   ),
 })

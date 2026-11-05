@@ -27,6 +27,8 @@
  * dessinées en clair pour le fond forest de leur case.
  */
 
+import { SECRET_ART_LOT1 } from './art-lot1'
+
 const SOL = '<rect x="0" y="198" width="320" height="42" fill="#ede9cc"/><path d="M0 198 H320" stroke="#1E5631" stroke-width="3"/>'
 
 const panel = (body: string) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240">${SOL}${body}</svg>`
@@ -49,7 +51,8 @@ const CAUTION_SEL_HUILE = caution(
     '<path d="M68 28 L148 108" stroke="#F6C445" stroke-width="7" stroke-linecap="round"/>',
 )
 
-export const SECRET_ART: Readonly<Record<string, string>> = {
+/** Le premier secret dessiné, la maquette validée : « L'eau des légumes ». */
+const SECRET_ART_EAU_CUISSON: Readonly<Record<string, string>> = {
   // ── L'eau des légumes, deuxième service ─────────────────────────────────
   'eau-cuisson/1': panel(
     '<g transform="translate(50 70) rotate(32 60 40)">' +
@@ -100,6 +103,12 @@ export const SECRET_ART: Readonly<Record<string, string>> = {
       '<text x="272" y="70" text-anchor="middle" font-family="Poppins" font-size="16" font-weight="700" fill="#1E5631">Merci !</text>',
   ),
   'eau-cuisson/caution': CAUTION_SEL_HUILE,
+}
+
+/** Le registre complet — chaque lot de planches ajoute son fichier ici. */
+export const SECRET_ART: Readonly<Record<string, string>> = {
+  ...SECRET_ART_EAU_CUISSON,
+  ...SECRET_ART_LOT1,
 }
 
 /** Une clé de dessin connue du registre. */
