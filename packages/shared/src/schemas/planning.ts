@@ -66,10 +66,12 @@ export type ActionPriority = z.infer<typeof actionPrioritySchema>
  * D'où vient une tâche persistée (`PlantTask.source`).
  *
  * Une tâche n'est jamais créée d'office : elle vient d'une recommandation de
- * diagnostic acceptée, ou d'une proposition du chat confirmée. Savoir laquelle
- * est ce qui permettra un jour de dire à l'utilisateur pourquoi elle est là.
+ * diagnostic acceptée, d'une proposition du chat confirmée, ou d'un secret de
+ * jardinier que l'utilisateur a décidé de tenter (« Je tente »). Savoir
+ * laquelle est ce qui permettra un jour de dire à l'utilisateur pourquoi elle
+ * est là.
  */
-export const TASK_SOURCES = ['DIAGNOSIS', 'CHAT'] as const
+export const TASK_SOURCES = ['DIAGNOSIS', 'CHAT', 'SECRET'] as const
 export const taskSourceSchema = z.enum(TASK_SOURCES)
 export type TaskSource = z.infer<typeof taskSourceSchema>
 

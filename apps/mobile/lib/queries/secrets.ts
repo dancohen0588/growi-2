@@ -8,9 +8,10 @@ import { dropActions, invalidatePlanning } from '@/lib/queries/planning'
 /**
  * Secrets de jardinier — dévoilement, refus, retour d'expérience, grimoire.
  *
- * « Je tente » et « C'est fait » d'une préparation ne passent pas par ici :
- * ce sont des gestes du planning (`useMarkActionDone` avec `tipSlug`), écrits
- * au journal comme les autres.
+ * « Je tente » met le secret à faire (`useTrySecret`) : il revient au
+ * planning en tâche, et c'est en la cochant que l'essai s'inscrit au journal.
+ * « C'est fait » d'une préparation est un geste du planning
+ * (`useMarkActionDone` avec `tipSlug`).
  */
 
 export function useGrimoire() {
@@ -74,6 +75,30 @@ export function useDismissSecret() {
       invalidatePlanning(queryClient, [])
       void queryClient.invalidateQueries({ queryKey: secretKeys.all })
     },
+  })
+}
+
+/**
+ * « Je tente » : le secret s'ajoute au calendrier en tâche à faire. La carte
+ * disparaît sous le doigt ; la tâche arrive au rechargement du planning.
+ */
+export function useTrySecret() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: { slug: string; actionId: string; gardenId: string; plantId: string }) =>
+      api.secrets.try(input.slug, { gardenId: input.gardenId, plantId: input.plantId }),
+
+    onMutate: async ({ actionId }) => {
+      await queryClient.cancelQueries({ queryKey: planningKeys.today() })
+      return { previous: dropActions(queryClient, [actionId]) }
+    },
+
+    onError: (_error, _input, context) => {
+      if (context?.previous) queryClient.setQueryData(planningKeys.today(), context.previous)
+    },
+
+    onSettled: (_data, _error, { plantId }) => invalidatePlanning(queryClient, [plantId]),
   })
 }
 

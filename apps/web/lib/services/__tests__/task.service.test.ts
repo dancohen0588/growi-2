@@ -361,6 +361,8 @@ describe('un geste accomplit les tâches échues du même type', () => {
         userId: USER,
         plantInstanceId: { in: [PLANT] },
         type: 'arrosage',
+        // Un secret mis à faire ne se clôt qu'en cochant sa tâche.
+        source: { not: 'SECRET' },
         doneAt: null,
         // Une tâche retirée par un diagnostic plus récent n'est plus ouverte :
         // la cocher au passage lui inventerait un accomplissement.

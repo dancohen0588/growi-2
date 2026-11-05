@@ -30,8 +30,9 @@ import {
   revealSecretAction,
   secretFeedbackAction,
   setLunarCalendarAction,
+  trySecretAction,
 } from '@/app/actions/secrets'
-import { splitSecretActions, triedMessage, type SecretAction } from '@/lib/secrets/display'
+import { plannedMessage, splitSecretActions, type SecretAction } from '@/lib/secrets/display'
 import { useToast } from '@/components/ui/toast'
 import { fadeIn } from '@/lib/animations'
 
@@ -88,8 +89,12 @@ function CalendrierContent({
   /** Dévoilés pendant cette visite : `revealSecret` est idempotent, inutile de le rappeler. */
   const revealed = useRef(new Set<string>())
 
+  /** Jardin des tâches ajoutées pendant la visite (« Je tente »), inconnues du rendu serveur. */
+  const addedGardenIds = useRef(new Map<string, string>())
+
   const gardenOf = useCallback(
-    (action: GardenAction) => actionGardenIds[action.id] ?? fallbackGardenId,
+    (action: GardenAction) =>
+      actionGardenIds[action.id] ?? addedGardenIds.current.get(action.id) ?? fallbackGardenId,
     [actionGardenIds, fallbackGardenId],
   )
 
@@ -302,9 +307,33 @@ function CalendrierContent({
     [gardenOf, settle, toast, withSecret],
   )
 
+  /**
+   * « Je tente » : le secret s'ajoute au calendrier en tâche à faire, à la
+   * place de sa carte. Rien n'est écrit au journal — l'essai le sera quand la
+   * tâche sera cochée, comme n'importe quelle autre.
+   */
   const handleSecretTry = useCallback(
-    (action: SecretAction) => void markSecretDone(action, triedMessage(action.secret.prepDays)),
-    [markSecretDone],
+    (action: SecretAction) =>
+      void withSecret(action, async () => {
+        const gardenId = gardenOf(action)
+        // Un secret est toujours tiré pour une plante ; sans elle, rien à mettre à faire.
+        if (!action.plantId) return false
+        try {
+          const result = await trySecretAction(action.secret.slug, { gardenId, plantId: action.plantId })
+          if (!result.ok) {
+            toast(result.error)
+            return false
+          }
+          addedGardenIds.current.set(result.action.id, gardenId)
+          setActions((prev) => [result.action, ...prev.filter((a) => a.id !== result.action.id)])
+          toast(plannedMessage(action.secret.prepDays))
+          return true
+        } catch {
+          toast('Erreur lors de la sauvegarde. Réessaie.')
+          return false
+        }
+      }),
+    [gardenOf, toast, withSecret],
   )
 
   const handleSecretReadyDone = useCallback(

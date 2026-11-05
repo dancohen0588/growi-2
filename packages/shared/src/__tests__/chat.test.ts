@@ -261,6 +261,6 @@ describe('constantes de rattachement', () => {
   })
 
   it('sait qu’une tâche peut venir du chat', () => {
-    expect(TASK_SOURCES).toEqual(['DIAGNOSIS', 'CHAT'])
+    expect(TASK_SOURCES).toEqual(['DIAGNOSIS', 'CHAT', 'SECRET'])
   })
 })

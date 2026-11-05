@@ -11,6 +11,7 @@ import {
   useDismissSecret,
   useRevealSecret,
   useSecretFeedback,
+  useTrySecret,
 } from '@/lib/queries/secrets'
 
 import { SecretCard } from './SecretCard'
@@ -46,6 +47,7 @@ export function SecretsSection({ secrets, showGardenNames, onOpenGrimoire }: Sec
   const markDone = useMarkActionDone()
   const reveal = useRevealSecret()
   const dismiss = useDismissSecret()
+  const trySecret = useTrySecret()
   const feedback = useSecretFeedback()
   const grimoireProgress = useCachedGrimoireProgress()
   const [openId, setOpenId] = useState<string | null>(null)
@@ -76,27 +78,21 @@ export function SecretsSection({ secrets, showGardenNames, onOpenGrimoire }: Sec
 
   const close = () => setOpenId(null)
 
+  // « Je tente » : le secret s'ajoute au calendrier en tâche à faire. Rien
+  // n'est inscrit au journal — l'essai le sera quand la tâche sera cochée.
   const tryIt = () => {
-    if (!open || !secret) return
+    const plantId = open?.action.plantId
+    if (!open || !secret || !plantId) return
     const { action, gardenId } = open
     close()
-    markDone.mutate(
-      {
-        actionId: action.id,
-        gardenId,
-        actionType: 'autre',
-        plantId: action.plantId,
-        ruleId: SECRET_RULE_IDS.discover,
-        tipSlug: secret.slug,
-      },
+    trySecret.mutate(
+      { slug: secret.slug, actionId: action.id, gardenId, plantId },
       {
         onSuccess: () =>
           toast(
             secret.prepDays > 0
-              ? `C'est lancé ! On te fait signe dans ${secret.prepDays} jour${
-                  secret.prepDays > 1 ? 's' : ''
-                }, quand ce sera prêt 🫙`
-              : 'Bien noté ! On te demandera dans une semaine si ça a marché 🌱',
+              ? "C'est dans ton calendrier ! Coche-le quand ta préparation est lancée 🫙"
+              : "C'est dans ton calendrier ! Coche-le quand c'est fait 🌱",
           ),
         onError: (error) => toast(errorMessage(error), 'error'),
       },

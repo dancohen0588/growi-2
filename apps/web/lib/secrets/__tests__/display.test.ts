@@ -14,7 +14,7 @@ import {
   secretOpenLabel,
   splitEmphasis,
   splitSecretActions,
-  triedMessage,
+  plannedMessage,
 } from '../display'
 
 function action(id: string, overrides: Partial<GardenAction> = {}): GardenAction {
@@ -134,10 +134,9 @@ describe('libellés', () => {
     expect(effortLabel(95)).toBe('1 h 35')
   })
 
-  it('triedMessage annonce la suite selon la préparation', () => {
-    expect(triedMessage(0)).toMatch(/une semaine/)
-    expect(triedMessage(1)).toMatch(/demain/)
-    expect(triedMessage(15)).toMatch(/dans 15 jours/)
+  it('plannedMessage dit que le secret est au calendrier, à cocher une fois fait', () => {
+    expect(plannedMessage(0)).toBe("C'est dans ton calendrier ! Coche-le quand c'est fait.")
+    expect(plannedMessage(15)).toMatch(/préparation est lancée/)
   })
 })
 
@@ -194,10 +193,10 @@ describe('planche', () => {
     expect(secretOpenLabel({})).toBe('Découvrir le secret')
   })
 
-  it('plancheFollowUp annonce la suite : le verdict, ou la préparation prête', () => {
-    expect(plancheFollowUp(0)).toBe('Dans une semaine, on te demandera si ça a marché.')
-    expect(plancheFollowUp(1)).toBe('Ta préparation sera prête demain : on te préviendra ici.')
-    expect(plancheFollowUp(15)).toBe('Ta préparation sera prête dans 15 jours : on te préviendra ici.')
+  it("plancheFollowUp annonce l'ajout au calendrier, et la préparation", () => {
+    expect(plancheFollowUp(0)).toBe('« Je tente » l’ajoute à ton calendrier : coche-le une fois fait.')
+    expect(plancheFollowUp(1)).toMatch(/prête le lendemain/)
+    expect(plancheFollowUp(15)).toMatch(/prête en 15 jours/)
   })
 
   it('practicalLine réunit l’effort et la préparation, ou ne dit rien', () => {

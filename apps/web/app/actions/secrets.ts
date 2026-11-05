@@ -7,15 +7,24 @@
  * comme le reste du tableau de bord. **L'authentification est refaite ici** :
  * une Server Action est un point d'entrée à part entière.
  *
- * « Je tente » et « C'est fait » d'une préparation prête ne passent pas par
- * ce module : ce sont des gestes du planning, écrits au journal par
- * `markActionDoneAction` (`ruleId` `r20-secret` / `r20-secret-ready`, `tipSlug`).
+ * « Je tente » ajoute le secret au calendrier en tâche à faire
+ * (`trySecretAction`) ; c'est en cochant cette tâche, comme n'importe quelle
+ * autre, que l'essai s'inscrit au journal. « C'est fait » d'une préparation
+ * prête, lui, est un geste du planning (`markActionDoneAction`,
+ * `r20-secret-ready`).
  */
 
 import { revalidatePath } from 'next/cache'
-import { secretFeedbackSchema, secretSlugSchema, type SecretFeedbackInput } from '@growi/shared'
+import {
+  secretFeedbackSchema,
+  secretSlugSchema,
+  trySecretSchema,
+  type SecretFeedbackInput,
+  type TrySecretInput,
+} from '@growi/shared'
 
 import { auth } from '@/auth'
+import type { GardenAction } from '@/lib/recommendation/types'
 import { isServiceError, ServiceError } from '@/lib/services/errors'
 import * as secretsService from '@/lib/services/secrets.service'
 import * as userService from '@/lib/services/user.service'
@@ -59,6 +68,28 @@ export async function revealSecretAction(slug: string): Promise<SecretActionResu
     await secretsService.revealSecret(userId, parseSlug(slug))
     revalidatePath('/dashboard/grimoire')
   })
+}
+
+/**
+ * « Je tente » : le secret s'ajoute au calendrier en tâche à faire. Rend
+ * l'action de la tâche, que l'écran pose aussitôt dans « Aujourd'hui ».
+ */
+export async function trySecretAction(
+  slug: string,
+  input: TrySecretInput,
+): Promise<{ ok: true; action: GardenAction } | { ok: false; error: string }> {
+  try {
+    const userId = await requireUser()
+    const parsed = trySecretSchema.safeParse(input)
+    if (!parsed.success) throw new ServiceError('INVALID_INPUT', 'Plante introuvable')
+    const action = await secretsService.trySecret(userId, parseSlug(slug), parsed.data)
+    revalidatePath('/dashboard/grimoire')
+    return { ok: true, action }
+  } catch (err) {
+    if (isServiceError(err)) return { ok: false, error: err.message }
+    console.error('[secrets] try en échec', err)
+    return { ok: false, error: 'Une erreur est survenue. Réessaie dans un instant.' }
+  }
 }
 
 /** « Pas pour moi » : le secret ne sera plus proposé. */

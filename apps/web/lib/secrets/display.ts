@@ -86,13 +86,15 @@ export function effortLabel(minutes: number | null | undefined): string | null {
   return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, '0')}`
 }
 
-/** Le message qui suit « Je tente » : il annonce la suite, sans rien promettre de plus. */
-export function triedMessage(prepDays: number): string {
+/**
+ * Le message qui suit « Je tente » : le secret est au calendrier, à cocher une
+ * fois fait. Pour une préparation, l'attente ne commence qu'à ce moment-là.
+ */
+export function plannedMessage(prepDays: number): string {
   if (prepDays > 0) {
-    const days = prepDays === 1 ? 'demain' : `dans ${prepDays} jours`
-    return `C'est noté ! On te préviendra ici quand ta préparation sera prête, ${days}.`
+    return "C'est dans ton calendrier ! Coche-le quand ta préparation est lancée : on te préviendra quand elle sera prête."
   }
-  return "C'est noté ! Dans une semaine, on te demandera si ça a marché."
+  return "C'est dans ton calendrier ! Coche-le quand c'est fait."
 }
 
 /** « 3 nov. 2026 » — la date d'un essai, dans le grimoire. */
@@ -143,9 +145,9 @@ export function secretOpenLabel(secret: { planche?: unknown }): string {
  * marché ? » ne vient qu'une semaine après son usage.
  */
 export function plancheFollowUp(prepDays: number): string {
-  if (prepDays <= 0) return 'Dans une semaine, on te demandera si ça a marché.'
-  if (prepDays === 1) return 'Ta préparation sera prête demain : on te préviendra ici.'
-  return `Ta préparation sera prête dans ${prepDays} jours : on te préviendra ici.`
+  if (prepDays <= 0) return '« Je tente » l’ajoute à ton calendrier : coche-le une fois fait.'
+  if (prepDays === 1) return '« Je tente » l’ajoute à ton calendrier. Une fois lancée, ta préparation sera prête le lendemain.'
+  return `« Je tente » l’ajoute à ton calendrier. Une fois lancée, ta préparation sera prête en ${prepDays} jours.`
 }
 
 /** « 2 min · prêt dans 15 jours » — la ligne pratique de la carte et de la planche. */

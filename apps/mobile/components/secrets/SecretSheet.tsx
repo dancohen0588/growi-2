@@ -231,10 +231,14 @@ export function SecretSheet(props: SecretSheetProps) {
               />
             ) : null}
 
-            {stage === 'discover' && secret.prepDays > 0 ? (
+            {stage === 'discover' ? (
               <Text className="font-raleway-medium text-secondary text-forest">
-                ⏳ Prêt dans {secret.prepDays} jour{secret.prepDays > 1 ? 's' : ''} : on te fait
-                signe quand ce sera le moment.
+                📅 « Je tente » l&apos;ajoute à ton calendrier : coche-le une fois fait.
+                {secret.prepDays > 0
+                  ? ` Ta préparation sera prête ${secret.prepDays} jour${
+                      secret.prepDays > 1 ? 's' : ''
+                    } après.`
+                  : ''}
               </Text>
             ) : null}
           </ScrollView>

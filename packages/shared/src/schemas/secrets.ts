@@ -204,6 +204,26 @@ export const secretFeedbackSchema = z.object({
 
 export type SecretFeedbackInput = z.infer<typeof secretFeedbackSchema>
 
+/**
+ * Corps de `POST /api/v1/secrets/[slug]/try` — « Je tente ». Le secret
+ * s'ajoute au calendrier en tâche à faire, pour la plante de la carte ; c'est
+ * en cochant cette tâche que l'essai s'inscrit au journal.
+ */
+export const trySecretSchema = z.object({
+  gardenId: idSchema,
+  plantId: idSchema,
+})
+
+export type TrySecretInput = z.infer<typeof trySecretSchema>
+
+/** Réponse de « Je tente » : la tâche ajoutée au calendrier. */
+export const trySecretResultSchema = z.object({
+  taskId: idSchema,
+  dueDate: z.string(),
+})
+
+export type TrySecretResult = z.infer<typeof trySecretResultSchema>
+
 /** Corps de `POST /api/v1/secrets/dismiss` — « Pas pour moi ». */
 export const dismissSecretSchema = z.object({
   slug: secretSlugSchema,

@@ -42,6 +42,7 @@ import {
   completeTask,
   listOpenTasksAsActions,
   reopenTask,
+  secretOfTask,
 } from '@/lib/services/task.service'
 import { getUserTimezone } from '@/lib/services/user.service'
 import { safeTimeZone, startOfZonedDay, zonedDayIso } from '@/lib/zoned-day'
@@ -207,12 +208,23 @@ export async function markActionDone(
     tipSlug?: string
   },
 ): Promise<{ careLogId: string | null }> {
-  const { gardenId, actionType, plantId, taskId, ruleId } = params
+  const { gardenId, actionType, plantId } = params
   await assertGardenOwned(gardenId, userId)
+
+  // Une tâche planifiée s'acquitte par son identifiant : deux tâches de même
+  // geste, issues de deux diagnostics, ne doivent pas se cocher ensemble.
+  // L'appartenance est vérifiée là, et le geste est noté comme pour le moteur.
+  const task = params.taskId ? await completeTask(userId, params.taskId) : null
+
+  // Un secret mis à faire par « Je tente » : la tâche cochée **est** l'essai.
+  // Règle et slug viennent de la tâche, quoi que le client envoie.
+  const fromTask = secretOfTask(task)
+  const ruleId = fromTask?.ruleId ?? params.ruleId
 
   // Une version de l'app qui ignore les secrets coche leur carte sans slug :
   // on le retrouve, sans quoi l'essai n'aurait ni suites ni place au grimoire.
   const tipSlug =
+    fromTask?.tipSlug ??
     params.tipSlug ??
     (ruleId?.startsWith('r20-secret') && plantId
       ? await inferTipSlug(userId, { gardenId, plantId, ruleId, today: await userToday(userId, new Date()) })
@@ -221,11 +233,6 @@ export async function markActionDone(
   const careType = actionType
     ? CARE_LOG_TYPE_BY_ACTION[actionType as ActionType]
     : undefined
-
-  // Une tâche planifiée s'acquitte par son identifiant : deux tâches de même
-  // geste, issues de deux diagnostics, ne doivent pas se cocher ensemble.
-  // L'appartenance est vérifiée là, et le geste est noté comme pour le moteur.
-  if (taskId) await completeTask(userId, taskId)
 
   // Déjà noté aujourd'hui sur cette plante : ne pas écrire de doublon. Le
   // geste est fait, la tâche est close ; seul « Annuler » n'a rien à défaire.
@@ -311,22 +318,32 @@ export async function markActionsDone(
     // même geste issues de deux diagnostics ne se cochent pas ensemble.
     const taskIds = [...new Set(input.items.flatMap((item) => (item.taskId ? [item.taskId] : [])))]
     const ownedTasks = taskIds.length
-      ? await tx.plantTask.findMany({ where: { id: { in: taskIds }, userId }, select: { id: true } })
+      ? await tx.plantTask.findMany({
+          where: { id: { in: taskIds }, userId },
+          select: { id: true, source: true, tipSlug: true },
+        })
       : []
     const ownedTaskIds = new Set(ownedTasks.map((task) => task.id))
+    // Un secret mis à faire, coché dans « Tout marquer fait » : c'est l'essai.
+    const secretByTask = new Map(ownedTasks.flatMap((task) => {
+      const secret = secretOfTask(task)
+      return secret ? [[task.id, secret] as const] : []
+    }))
 
     const entries = input.items.flatMap((item) => {
       const careType = CARE_LOG_TYPE_BY_ACTION[item.actionType]
       // Une tâche sans plante ne produit aucun geste ; une tâche inconnue
       // non plus, elle est comptée en échec plus bas.
       if (!item.plantId || !careType || (item.taskId && !ownedTaskIds.has(item.taskId))) return []
+      const secret = item.taskId ? secretByTask.get(item.taskId) : undefined
+      const ruleId = secret?.ruleId ?? item.ruleId
       return [
         {
           plantInstanceId: item.plantId,
           type: careType,
-          ruleId: item.ruleId,
-          tipSlug: item.tipSlug,
-          note: careType === 'other' ? gestureLabelForRule(item.ruleId) : undefined,
+          ruleId,
+          tipSlug: secret?.tipSlug ?? item.tipSlug,
+          note: careType === 'other' ? gestureLabelForRule(ruleId) : undefined,
         },
       ]
     })
