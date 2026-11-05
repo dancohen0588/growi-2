@@ -100,9 +100,16 @@ export type CareSource = 'detail' | 'planning' | 'chat'
  * `note` nomme le geste quand son type ne suffit pas — un « autre geste »
  * nommé « Paillage » se relit dans le journal, pas un « Autre geste » nu.
  */
+/** Les gestes d'un secret de jardinier — voir `SECRET_RULE_IDS`. */
+function isSecretRule(ruleId: string | undefined): boolean {
+  return !!ruleId && ruleId.startsWith('r20-secret')
+}
+
 export interface CareMeta {
   ruleId?: string
   note?: string
+  /** Secret de jardinier essayé — voir `CareLog.tipSlug`. */
+  tipSlug?: string
 }
 
 export async function logCare(
@@ -144,6 +151,7 @@ export async function logCare(
           unit: input.unit,
           photoUrl: input.photoUrl,
           ruleId: meta.ruleId,
+          tipSlug: meta.tipSlug,
         },
       }),
       client.plantInstance.update({
@@ -159,7 +167,11 @@ export async function logCare(
   // arroser depuis la fiche masquerait la tâche « Arrose ce soir » du planning
   // — le moteur écarte ce qui a été fait aujourd'hui — sans jamais la clore.
   // Elle reviendrait le lendemain, alors que l'utilisateur a bien arrosé.
-  await completeTasksForGesture(userId, plantInstanceId, input.type, occurredAt, db)
+  // Un secret essayé n'accomplit rien d'autre que lui-même : poser des
+  // coquilles d'œuf ne clôt pas le traitement prescrit par un diagnostic.
+  if (!isSecretRule(meta.ruleId)) {
+    await completeTasksForGesture(userId, plantInstanceId, input.type, occurredAt, db)
+  }
 
   if (gardenId && !tx) await invalidateGardenAdviceCache(gardenId)
 
@@ -175,6 +187,7 @@ export interface CareBatchEntry {
   /** Voir `CareMeta`. */
   ruleId?: string
   note?: string
+  tipSlug?: string
 }
 
 /**
@@ -259,6 +272,7 @@ export async function logCareBatch(
       occurredAt,
       ruleId: entry.ruleId,
       note: entry.note,
+      tipSlug: entry.tipSlug,
     })),
     select: { id: true, plantInstanceId: true, type: true },
   })
@@ -266,8 +280,12 @@ export async function logCareBatch(
   // Les dates de la plante et les tâches échues, par type de geste : c'est
   // sur elles que le moteur raisonne, pas sur le journal.
   const plantsByType = new Map<CareLogType, string[]>()
+  const completingByType = new Map<CareLogType, string[]>()
   for (const entry of kept) {
     plantsByType.set(entry.type, [...(plantsByType.get(entry.type) ?? []), entry.plantInstanceId])
+    if (!isSecretRule(entry.ruleId)) {
+      completingByType.set(entry.type, [...(completingByType.get(entry.type) ?? []), entry.plantInstanceId])
+    }
   }
 
   for (const [type, plantIds] of plantsByType) {
@@ -278,7 +296,8 @@ export async function logCareBatch(
         data: { [dateField]: occurredAt },
       })
     }
-    await completeTasksForGesture(userId, plantIds, type, occurredAt, tx)
+    const completing = completingByType.get(type) ?? []
+    if (completing.length > 0) await completeTasksForGesture(userId, completing, type, occurredAt, tx)
   }
 
   for (const entry of kept) trackServer(userId, 'care_logged', { type: entry.type, from: source })

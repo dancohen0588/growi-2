@@ -82,7 +82,9 @@ export async function getDashboardSummary(
   const health = (status: HealthStatus) =>
     byHealth.find((row) => row.healthStatus === status)?._count._all ?? 0
 
-  const actions = planning.gardens.flatMap((garden) => garden.actions)
+  // Les secrets ont leur propre carte : les compter ici ferait annoncer sur
+  // l'Accueil plus de tâches que le planning n'en montre.
+  const actions = planning.gardens.flatMap((garden) => garden.actions).filter((a) => !a.secret)
   const alerts = planning.gardens.flatMap((garden) => garden.alerts)
 
   // L'horizon se lit sur l'action entière : une action à fenêtre en cours va

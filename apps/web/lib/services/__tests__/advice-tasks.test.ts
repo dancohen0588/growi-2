@@ -21,6 +21,11 @@ const taskService = vi.hoisted(() => ({
   reopenTask: vi.fn(),
 }))
 const userService = vi.hoisted(() => ({ getUserTimezone: vi.fn() }))
+const secretsService = vi.hoisted(() => ({
+  secretActionsForGarden: vi.fn(),
+  secretTitle: vi.fn(),
+  trackSecretTried: vi.fn(),
+}))
 const prismaMock = vi.hoisted(() => ({
   plantInstance: { findFirst: vi.fn() },
   plantTask: { findMany: vi.fn(), updateMany: vi.fn() },
@@ -36,6 +41,7 @@ vi.mock('@/lib/services/garden.service', () => gardenService)
 vi.mock('@/lib/services/log.service', () => logService)
 vi.mock('@/lib/services/task.service', () => taskService)
 vi.mock('@/lib/services/user.service', () => userService)
+vi.mock('@/lib/services/secrets.service', () => secretsService)
 
 const {
   clearPlanningToday,
@@ -74,6 +80,8 @@ beforeEach(() => {
   ])
   taskService.listOpenTasksAsActions.mockResolvedValue([taskAction])
   userService.getUserTimezone.mockResolvedValue('Europe/Paris')
+  secretsService.secretActionsForGarden.mockResolvedValue([])
+  secretsService.secretTitle.mockResolvedValue(undefined)
   prismaMock.plantInstance.findFirst.mockResolvedValue({ garden: { planningClearedOn: null } })
   prismaMock.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prismaMock))
   logService.logCare.mockResolvedValue({ id: 'log_1' })
@@ -90,6 +98,18 @@ describe('fusion sur les trois portes d’entrée', () => {
     // Les tâches passent devant : l'utilisateur les a validées lui-même.
     expect(result.actions).toEqual([taskAction, engineAction])
     expect(taskService.listOpenTasksAsActions).toHaveBeenCalledWith(USER, { gardenId: GARDEN })
+  })
+
+  it('ajoute le secret de la semaine après les actions du moteur, avec le jour de l’utilisateur', async () => {
+    const secret = { id: 'r20-secret:garden_1:2026-W34', type: 'autre', label: 'Secret', shortLabel: 'Secret de jardinier',
+      dueDate: '2026-08-23', done: false, priority: 'low', kind: 'window',
+      window: { start: '2026-08-17', end: '2026-08-23' }, ruleId: 'r20-secret' }
+    secretsService.secretActionsForGarden.mockResolvedValue([secret])
+
+    const result = await getGardenAdvice(GARDEN, USER, LATE_NIGHT)
+
+    expect(result.actions).toEqual([taskAction, engineAction, secret])
+    expect(secretsService.secretActionsForGarden).toHaveBeenCalledWith(USER, GARDEN, TODAY)
   })
 
   it('getGardensAdvice aussi — c’est par là que passent l’Accueil mobile et le calendrier web', async () => {
@@ -201,6 +221,25 @@ describe('cocher une action', () => {
       'planning',
       { ruleId: 'r13-mulching', note: 'Paillage' },
     )
+  })
+
+  it('nomme un secret essayé par son titre et garde son slug au journal', async () => {
+    secretsService.secretTitle.mockResolvedValue('L’or brun de novembre')
+
+    await markActionDone(USER, {
+      gardenId: GARDEN,
+      actionType: 'autre',
+      plantId: 'p1',
+      ruleId: 'r20-secret',
+      tipSlug: 'feuilles-mortes',
+    })
+
+    expect(logService.logCare).toHaveBeenCalledWith('p1', USER, { type: 'other' }, undefined, 'planning', {
+      ruleId: 'r20-secret',
+      tipSlug: 'feuilles-mortes',
+      note: 'L’or brun de novembre',
+    })
+    expect(secretsService.trackSecretTried).toHaveBeenCalledWith(USER, 'feuilles-mortes', 'discover')
   })
 
   it('refuse avant d’écrire quoi que ce soit si le jardin n’est pas à l’utilisateur', async () => {

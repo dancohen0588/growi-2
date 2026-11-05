@@ -467,6 +467,8 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/planning/actions/done-bulk` | POST — « Tout arrosé », « Tout marquer fait » |
 | `/api/v1/planning/actions/undo` | POST — efface le geste, rouvre la tâche |
 | `/api/v1/planning/clear-today` | POST — « Ignorer pour aujourd'hui », `undo: true` pour rétablir |
+| `/api/v1/secrets/[slug]/reveal` · `/dismiss` | POST · POST, DELETE (reproposer) — 204 |
+| `/api/v1/secrets/feedback` · `/grimoire` | POST `{ careLogId, verdict }` · GET |
 | `/api/v1/me` | GET, PATCH, DELETE — suppression du compte, corps `{ confirmation, password? }` |
 | `/api/v1/identify` | POST |
 | `/api/v1/plants/[id]/diagnose` | POST |
@@ -1110,6 +1112,61 @@ coexistaient, y compris quand le second disait « plante saine ».
 > et les deux compteurs de `admin-stats.service` prévus au §12 de la spec
 > (`Documentation/spec/spec-planning-simplifie.md`).
 
+### Secrets de jardinier et calendrier lunaire
+
+Une astuce de tradition par semaine et par jardin — coquilles d'œuf, purin
+d'ortie, eau de banane, légendes démêlées —, avec son niveau de preuve
+**affiché sur la carte**. Spec et décisions du 05/11/2026 :
+`~/Growi/Documentation/spec/16-analyse-moteur-reco-secrets.md` §5 et §8.
+
+| Élément | Rôle |
+|---|---|
+| `packages/shared/src/schemas/secrets.ts` · `lunar.ts` | Preuves, conditions, `GardenSecret`, grimoire ; calcul lunaire |
+| `lib/secrets/library.ts` | Les 24 secrets de départ — **source de la migration**, pas de la base |
+| `lib/secrets/select.ts` | Conditions et tirage, fonctions pures |
+| `lib/services/secrets.service.ts` | Tirage figé, suites, gestes, grimoire |
+| `lib/services/secrets-admin.service.ts` · `app/admin/secrets/` | Bibliothèque éditable, statistiques |
+| Modèles | `GardenTip`, `GardenTipPick`, `UserTip`, `CareLog.tipSlug/tipVerdict`, `User.lunarCalendar` |
+
+- **Pas de type d'action nouveau.** Un secret est une action `autre` qui porte
+  `secret` et un `ruleId` `r20-secret` / `r20-secret-ready` /
+  `r20-secret-feedback` : un type inconnu ferait planter les versions de l'app
+  déjà installées. Une version qui ignore `secret` montre une action ordinaire,
+  et la cocher sans `tipSlug` suffit à clore le secret de la semaine.
+- **Hors du moteur et de son cache.** Les secrets sont ajoutés par
+  `advice.service.assemble`, comme les tâches : « Je tente » doit retirer la
+  carte à l'instant. `secretActionsForGarden` ne lève jamais.
+- **Le tirage est figé** dans `garden_tip_picks (gardenId, week)` au premier
+  calcul de la semaine ISO, du jour **de l'utilisateur**. Sans cela, une plante
+  ajoutée mercredi ou la météo changeraient le secret sous ses yeux. La météo
+  n'est lue qu'à ce moment-là ; un secret à condition météo n'est pas tiré
+  sans elle. Jamais deux semaines de suite le même secret, sauf s'il est seul.
+- **Graine FNV-1a + brassage final Murmur** : sans le brassage, des graines
+  qui ne diffèrent que par `W45`/`W46` tiraient presque toujours la même chose.
+- **Le verdict vit sur le geste d'essai** (`CareLog.tipVerdict`), pas sur
+  `status`, réservé aux notes de santé. Le « Ça a marché ? » vient sept jours
+  après l'**usage** — pour une préparation, le jour où elle a servi, pas celui
+  où elle a été lancée — et cesse d'être demandé après trente jours.
+- **Familles en deux langues** : le catalogue écrit « Solanacées » et
+  « Solanaceae » ; `normalizeFamily` les ramène à la même forme. Les conditions
+  ciblent de préférence des **genres** (`Rosa`, `Hydrangea`), plus stables
+  qu'un slug du catalogue.
+- **La base fait foi** une fois la migration passée : `secrets:seed` n'insère
+  que les slugs absents et n'écrase jamais une retouche faite dans l'admin. Le
+  slug est **figé** à la création — il est recopié dans le journal des
+  utilisateurs. On ne supprime ni un secret publié ni un brouillon qui a déjà
+  servi ; le statut ne change que par Publier / Dépublier, chacun journalisé.
+- **Un secret dépublié reste au grimoire** de qui l'a découvert ; il cesse
+  seulement d'être tiré.
+- **Calendrier lunaire : option, désactivée par défaut**, badge « Tradition »
+  permanent. Calcul local (termes principaux de Meeus, zodiaque **sidéral**
+  en signes égaux) : aucun service tiers. `lunar` n'est dans `/planning/today`
+  que si l'option est active ; le secret `lune` (`lunarOnly`) n'est tiré, et ne
+  paraît au grimoire, qu'à cette condition.
+- Événements : `tip_revealed`, `tip_tried`, `tip_dismissed`, `tip_feedback`,
+  `lunar_calendar_toggled` partent **du serveur** ; seuls `tip_shown` et
+  `grimoire_viewed` partent des clients.
+
 ### Chat contextuel (agent conversationnel)
 
 Un fil de discussion avec « Growi », **toujours ancré** sur une plante, un
@@ -1683,6 +1740,7 @@ et celui de l'app mobile. Ici, les pièges qui ont chacun coûté un build.
 | `/dashboard/catalogue` | Encyclopédie de plantes |
 | `/dashboard/jardin` | Canvas du jardin (Konva), avec sélecteur de jardin |
 | `/dashboard/calendrier` | Calendrier + alertes météo |
+| `/dashboard/grimoire` | Les secrets de jardinier découverts, essayés, à découvrir |
 | `/dashboard/meteo` | Météo locale |
 | `/dashboard/identifier` | Identification photo (Gemini) |
 | `/dashboard/diagnostic` | Choix de la plante à diagnostiquer (le parcours vit sur sa fiche) |
@@ -1698,5 +1756,6 @@ et celui de l'app mobile. Ici, les pièges qui ont chacun coûté un build.
 | `/admin/messages` · `/admin/messages/[id]` | Boîte de réception et fil de réponse |
 | `/admin/administrateurs` | Comptes ayant accès au portail, promotion et retrait |
 | `/admin/signalements` | File de modération, groupée par contenu et triée par nombre |
+| `/admin/secrets` · `/admin/secrets/[id]` | Bibliothèque des secrets de jardinier : édition, publication, statistiques |
 | `/admin/conseils` · `/admin/conseils/[id]` | Articles du blog : relecture, édition, publication, génération, cadence |
 | `/admin/journal` | Journal d'audit des actions d'administration |

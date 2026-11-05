@@ -13,7 +13,15 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import * as Location from 'expo-location'
 import * as WebBrowser from 'expo-web-browser'
-import { ChevronRight, ExternalLink, LocateFixed, LogOut, Map, Sparkles } from 'lucide-react-native'
+import {
+  BookMarked,
+  ChevronRight,
+  ExternalLink,
+  LocateFixed,
+  LogOut,
+  Map,
+  Sparkles,
+} from 'lucide-react-native'
 import type { UpdateAlertConfigInput, UserProfile } from '@growi/shared'
 
 import { CommunitySection } from '@/components/profil/CommunitySection'
@@ -27,7 +35,12 @@ import { ErrorState, ListSkeleton } from '@/components/ui/states'
 import { useTrack } from '@/lib/analytics/posthog'
 import { WEB_BASE_URL } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
-import { useProfile, useUpdateAlerts, useUpdateProfile } from '@/lib/queries/me'
+import {
+  useProfile,
+  useSetLunarCalendar,
+  useUpdateAlerts,
+  useUpdateProfile,
+} from '@/lib/queries/me'
 import { useSession } from '@/store/session'
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -48,6 +61,7 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
   const toast = useToast()
   const updateProfile = useUpdateProfile()
   const updateAlerts = useUpdateAlerts()
+  const setLunar = useSetLunarCalendar()
   const track = useTrack()
   const signOut = useSession((s) => s.signOut)
   const analyticsConsent = useSession((s) => s.analyticsConsent)
@@ -256,6 +270,48 @@ function ProfilContent({ profile }: { profile: UserProfile }) {
             hint="Un article de saison, le matin de sa sortie"
             value={alerts.blogArticles}
             onChange={(v) => saveAlerts({ blogArticles: v })}
+          />
+        </View>
+      </View>
+
+      {/* Secrets de jardinier */}
+      <View className="gap-3">
+        <SectionTitle>Mes secrets de jardinier</SectionTitle>
+
+        <Pressable
+          onPress={() => {
+            // Le profil est une modale : on la referme avant d'ouvrir le
+            // grimoire dans la pile de l'accueil, sinon il s'y empilerait.
+            router.back()
+            router.push('/(tabs)/accueil/grimoire')
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir mon grimoire"
+          className="flex-row items-center gap-3 rounded-xl bg-card p-4"
+          style={({ pressed }) => (pressed ? { transform: [{ scale: 0.99 }] } : null)}
+        >
+          <BookMarked size={22} color="#1E5631" />
+          <View className="flex-1">
+            <Text className="font-raleway-medium text-body text-forest">Mon grimoire</Text>
+            <Text className="font-raleway text-caption text-muted-foreground">
+              Les astuces découvertes, tes essais et ce qu&apos;ils ont donné.
+            </Text>
+          </View>
+          <ChevronRight size={18} color="hsl(139 20% 40%)" />
+        </Pressable>
+
+        <View className="rounded-xl bg-card px-4">
+          <Toggle
+            label="Calendrier lunaire"
+            hint="Jours racine, feuille, fleur ou fruit dans ton calendrier. Une tradition de jardinier, sans preuve scientifique : à suivre pour le plaisir."
+            value={profile.lunarCalendar === true}
+            onChange={(enabled) =>
+              setLunar.mutate(enabled, {
+                onSuccess: () =>
+                  toast(enabled ? 'Calendrier lunaire activé 🌙' : 'Calendrier lunaire désactivé'),
+                onError: (error) => toast(errorMessage(error), 'error'),
+              })
+            }
           />
         </View>
       </View>

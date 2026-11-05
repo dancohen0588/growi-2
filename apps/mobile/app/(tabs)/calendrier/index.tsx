@@ -8,7 +8,9 @@ import { AlertCard } from '@/components/planning/AlertCard'
 import { actionChatQuery } from '@/components/chat/links'
 import { ActionDetailSheet } from '@/components/planning/ActionDetailSheet'
 import { DoneTodayList } from '@/components/planning/DoneTodayList'
+import { LunarBanner } from '@/components/planning/LunarBanner'
 import { PlanningSections } from '@/components/planning/PlanningSections'
+import { SecretsSection } from '@/components/secrets/SecretsSection'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
 import { useTrack } from '@/lib/analytics/posthog'
@@ -209,6 +211,9 @@ export default function CalendrierScreen() {
           />
         ) : (
           <>
+            {/* Option du profil : absent par défaut, et d'un serveur ancien. */}
+            {planning.lunar ? <LunarBanner lunar={planning.lunar} /> : null}
+
             {planning.alerts.length > 0 ? (
               <View className="gap-2 px-4">
                 <Text className="font-poppins text-section text-forest">À surveiller</Text>
@@ -220,6 +225,14 @@ export default function CalendrierScreen() {
                 ))}
               </View>
             ) : null}
+
+            {/* En tête du planning, hors des sections : un secret ne se coche
+                pas comme un arrosage, il se dévoile. */}
+            <SecretsSection
+              secrets={planning.secrets}
+              showGardenNames={planning.showGardenNames}
+              onOpenGrimoire={() => router.push('/(tabs)/calendrier/grimoire')}
+            />
 
             {!planning.hasGarden ? (
               <EmptyState

@@ -46,6 +46,21 @@ describe('logCareBatch', () => {
     expect(taskService.completeTasksForGesture).toHaveBeenCalledWith(USER, ['p1', 'p2'], 'watering', NOW, tx)
   })
 
+  it('ne clôt aucune tâche avec un secret essayé', async () => {
+    await logCareBatch(
+      USER,
+      [
+        { plantInstanceId: 'p1', type: 'other', ruleId: 'r20-secret', tipSlug: 'cendres' },
+        { plantInstanceId: 'p2', type: 'other', ruleId: 'r13-mulching' },
+      ],
+      tx as never,
+      NOW,
+    )
+
+    expect(taskService.completeTasksForGesture).toHaveBeenCalledTimes(1)
+    expect(taskService.completeTasksForGesture).toHaveBeenCalledWith(USER, ['p2'], 'other', NOW, tx)
+  })
+
   it('écarte les plantes qui ne sont plus à l’utilisateur sans bloquer les autres', async () => {
     tx.plantInstance.findMany.mockResolvedValue([{ id: 'p2' }])
 

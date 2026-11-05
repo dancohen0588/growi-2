@@ -10,7 +10,14 @@ import {
 } from '@growi/shared'
 
 import { api } from '@/lib/api'
-import { diagnosisKeys, gardenKeys, planningKeys, plantKeys, summaryKeys } from '@/lib/queries/keys'
+import {
+  diagnosisKeys,
+  gardenKeys,
+  planningKeys,
+  plantKeys,
+  secretKeys,
+  summaryKeys,
+} from '@/lib/queries/keys'
 
 export { planningKeys }
 
@@ -40,8 +47,12 @@ export function useTodayPlanning() {
 export function usePlantActions(plantId: string) {
   return useQuery({
     ...todayQuery,
+    // Un secret a sa propre carte au calendrier : sur la fiche, il deviendrait
+    // une case « autre » qu'on cocherait sans l'avoir dévoilé.
     select: (planning: TodayPlanning) =>
-      planning.gardens.flatMap((garden) => garden.actions).filter((a) => a.plantId === plantId),
+      planning.gardens
+        .flatMap((garden) => garden.actions)
+        .filter((a) => a.plantId === plantId && !a.secret),
   })
 }
 
@@ -63,7 +74,7 @@ export function usePlanningTasks() {
   const query = useTodayPlanning()
   const data = query.data
 
-  const tasks: PlanningTask[] =
+  const all: PlanningTask[] =
     data?.gardens.flatMap((garden) =>
       garden.actions.map((action) => ({
         action,
@@ -73,10 +84,20 @@ export function usePlanningTasks() {
       })),
     ) ?? []
 
+  // Les secrets sortent du flux : ils ont leur carte en tête du planning, et
+  // n'entrent ni dans les sections, ni dans les groupements, ni dans « Tout
+  // marquer fait » — on ne coche pas une astuce qu'on n'a pas lue.
+  const tasks = all.filter((task) => !task.action.secret)
+  const secrets = all.filter((task) => !!task.action.secret)
+
   return {
     query,
     date: data?.date,
     weather: data?.weather ?? null,
+    /** Le jour lunaire — absent si l'option est coupée ou le serveur ancien. */
+    lunar: data?.lunar ?? null,
+    /** Les actions qui portent un secret, dans l'ordre du serveur. */
+    secrets,
     alerts: data?.gardens.flatMap((garden) => garden.alerts) ?? [],
     hasGarden: (data?.gardens.length ?? 0) > 0,
     // Le nom du jardin ne distingue rien quand il n'y en a qu'un.
@@ -92,7 +113,7 @@ export function usePlanningTasks() {
 }
 
 /** Les quatre caches que tout geste sur le planning rend périmés. */
-function invalidatePlanning(queryClient: ReturnType<typeof useQueryClient>, plantIds: string[]) {
+export function invalidatePlanning(queryClient: ReturnType<typeof useQueryClient>, plantIds: string[]) {
   void queryClient.invalidateQueries({ queryKey: planningKeys.today() })
   void queryClient.invalidateQueries({ queryKey: summaryKeys.all })
   // Une tâche cochée disparaît de l'historique ouvert des diagnostics.
@@ -102,10 +123,13 @@ function invalidatePlanning(queryClient: ReturnType<typeof useQueryClient>, plan
     void queryClient.invalidateQueries({ queryKey: plantKeys.logs(plantId) })
   }
   void queryClient.invalidateQueries({ queryKey: gardenKeys.all })
+  // « Je tente » compte un essai au grimoire. Une requête inactive n'est que
+  // marquée périmée : rien ne part tant que l'écran n'est pas ouvert.
+  void queryClient.invalidateQueries({ queryKey: secretKeys.all })
 }
 
 /** Retire des actions du planning en cache, sans attendre le serveur. */
-function dropActions(
+export function dropActions(
   queryClient: ReturnType<typeof useQueryClient>,
   actionIds: string[],
 ): TodayPlanning | undefined {
@@ -173,6 +197,8 @@ export function useMarkActionDone() {
         // La règle du moteur : c'est elle qui ferme paillage, hivernage et
         // semis, qu'aucune date de la plante ne clôt.
         ruleId: input.ruleId,
+        // Le secret essayé : « Je tente » et « C'est fait » d'une préparation.
+        tipSlug: input.tipSlug,
       }),
 
     onMutate: async ({ actionId }) => {

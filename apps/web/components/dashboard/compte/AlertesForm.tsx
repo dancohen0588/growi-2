@@ -6,7 +6,7 @@ import {
   Thermometer, Sun, CloudRain, Wind,
   Droplets, Flower2, Scissors,
   Sprout, Apple, Newspaper,
-  Loader2, Check,
+  Loader2, Check, Moon,
 } from 'lucide-react'
 
 import { AlertToggleCard } from './AlertToggleCard'
@@ -46,11 +46,41 @@ interface AlertesFormProps {
   isLoading: boolean
   updateAlerts: (updates: Partial<AlertConfig>) => Promise<{ error?: string }>
   resetAlerts: () => Promise<{ error?: string }>
+  /**
+   * Réglages du compte hors `alertConfig` — ici, le calendrier lunaire. Passe
+   * par le hook du profil, pour que l'onglet retrouve la bonne valeur quand on
+   * y revient.
+   */
+  updateProfile?: (updates: Partial<UserProfile>) => Promise<{ error?: string }>
 }
 
-export function AlertesForm({ profile, isLoading, updateAlerts, resetAlerts }: AlertesFormProps) {
+export function AlertesForm({ profile, isLoading, updateAlerts, resetAlerts, updateProfile }: AlertesFormProps) {
   const { toast } = useToast()
   const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [lunarSaving, setLunarSaving] = useState(false)
+  const [lunarOn, setLunarOn] = useState(profile.lunarCalendar ?? false)
+
+  /**
+   * Enregistré au basculement, sans attendre « Enregistrer mes alertes » :
+   * ce n'est pas une alerte, et `alertConfig` ne le porte pas.
+   */
+  async function handleLunarToggle(next: boolean) {
+    if (!updateProfile || lunarSaving) return
+    setLunarOn(next)
+    setLunarSaving(true)
+    const result = await updateProfile({ lunarCalendar: next })
+    setLunarSaving(false)
+    if (result.error) {
+      setLunarOn(!next)
+      toast(result.error)
+      return
+    }
+    toast(
+      next
+        ? 'Calendrier lunaire activé 🌙 Il s\u2019affiche en haut de ton calendrier.'
+        : 'Calendrier lunaire désactivé.',
+    )
+  }
 
   const ac = profile.alertConfig
 
@@ -139,7 +169,7 @@ export function AlertesForm({ profile, isLoading, updateAlerts, resetAlerts }: A
           <AlertToggleCard
             icon={<Sun size={18} />}
             title="Alerte canicule"
-            description="Je t\u2019alerte quand les températures dépassent 35°C."
+            description="Je t’alerte quand les températures dépassent 35°C."
             enabled={ac.heatAlert}
             onToggle={(v) => updateAlerts({ heatAlert: v })}
             switchAriaLabel="Activer les alertes canicule"
@@ -148,7 +178,7 @@ export function AlertesForm({ profile, isLoading, updateAlerts, resetAlerts }: A
           <AlertToggleCard
             icon={<CloudRain size={18} />}
             title="Pluie forte"
-            description="Je t\u2019alerte en cas de précipitations supérieures à 20mm dans la journée."
+            description="Je t’alerte en cas de précipitations supérieures à 20mm dans la journée."
             enabled={ac.rainAlert}
             onToggle={(v) => updateAlerts({ rainAlert: v })}
             switchAriaLabel="Activer les alertes pluie forte"
@@ -157,7 +187,7 @@ export function AlertesForm({ profile, isLoading, updateAlerts, resetAlerts }: A
           <AlertToggleCard
             icon={<Wind size={18} />}
             title="Vent violent"
-            description="Je t\u2019alerte si les vents dépassent 50 km/h."
+            description="Je t’alerte si les vents dépassent 50 km/h."
             enabled={ac.windAlert}
             onToggle={(v) => updateAlerts({ windAlert: v })}
             switchAriaLabel="Activer les alertes vent violent"
@@ -179,8 +209,8 @@ export function AlertesForm({ profile, isLoading, updateAlerts, resetAlerts }: A
         <div className="space-y-3">
           <AlertToggleCard
             icon={<Droplets size={18} />}
-            title="Rappels d\u2019arrosage"
-            description="Je te rappelle d\u2019arroser tes plantes selon leur besoin."
+            title="Rappels d’arrosage"
+            description="Je te rappelle d’arroser tes plantes selon leur besoin."
             enabled={ac.wateringReminder}
             onToggle={(v) => updateAlerts({ wateringReminder: v })}
             switchAriaLabel="Activer les rappels d'arrosage"
@@ -216,7 +246,7 @@ export function AlertesForm({ profile, isLoading, updateAlerts, resetAlerts }: A
           <AlertToggleCard
             icon={<Flower2 size={18} />}
             title="Rempotage saisonnier"
-            description="Je t\u2019avertis quand c\u2019est le bon moment pour rempoter."
+            description="Je t’avertis quand c’est le bon moment pour rempoter."
             enabled={ac.repottingReminder}
             onToggle={(v) => updateAlerts({ repottingReminder: v })}
             switchAriaLabel="Activer les rappels de rempotage"
@@ -248,7 +278,7 @@ export function AlertesForm({ profile, isLoading, updateAlerts, resetAlerts }: A
           <AlertToggleCard
             icon={<Sprout size={18} />}
             title="Périodes de semis"
-            description="Je t\u2019alerte quand c\u2019est le bon moment pour semer selon ta zone climatique."
+            description="Je t’alerte quand c’est le bon moment pour semer selon ta zone climatique."
             enabled={ac.seedingAlerts}
             onToggle={(v) => updateAlerts({ seedingAlerts: v })}
             switchAriaLabel="Activer les alertes de semis"
@@ -276,13 +306,35 @@ export function AlertesForm({ profile, isLoading, updateAlerts, resetAlerts }: A
           <AlertToggleCard
             icon={<Newspaper size={18} />}
             title="Nouveaux conseils"
-            description="Je te préviens le matin de la sortie d\u2019un nouvel article de saison sur le blog."
+            description="Je te préviens le matin de la sortie d’un nouvel article de saison sur le blog."
             enabled={ac.blogArticles}
             onToggle={(v) => updateAlerts({ blogArticles: v })}
             switchAriaLabel="Activer les notifications de nouveaux conseils"
           />
         </div>
       </section>
+
+      {/* ── Calendrier lunaire ────────────────────────────────────── */}
+      {updateProfile && (
+        <section aria-labelledby="section-lune">
+          <h2
+            id="section-lune"
+            className="font-poppins font-semibold text-forest mb-3 flex items-center gap-2"
+          >
+            Calendrier lunaire
+          </h2>
+          <AlertToggleCard
+            icon={<Moon size={18} />}
+            title="Afficher le calendrier lunaire"
+            badge="Tradition"
+            badgeColor="forest"
+            description="Jour racine, feuille, fleur ou fruit, lune montante ou descendante, en haut de ton calendrier. C’est une tradition de jardinier : aucune étude n’a montré d’effet de la Lune sur les cultures. À suivre pour le plaisir, sans obligation."
+            enabled={lunarOn}
+            onToggle={handleLunarToggle}
+            switchAriaLabel="Afficher le calendrier lunaire"
+          />
+        </section>
+      )}
 
       {/* ── Comment te contacter ──────────────────────────────────── */}
       <section aria-labelledby="section-livraison">

@@ -175,6 +175,17 @@ describe('sendDailyReminders', () => {
     expect(expoPush.sendPushMessages).toHaveBeenCalledWith([], expect.anything())
   })
 
+  it('ne réveille personne pour un secret de jardinier', async () => {
+    prismaMock.user.findMany.mockResolvedValue([userWithToken])
+    planningService.getTodayPlanning.mockResolvedValue(
+      planning([action({ secret: { slug: 'cendres', stage: 'feedback' } })]),
+    )
+
+    await sendDailyReminders(NOW)
+
+    expect(expoPush.sendPushMessages).toHaveBeenCalledWith([], expect.anything())
+  })
+
   it('saute un compte qui a coupé le push', async () => {
     prismaMock.user.findMany.mockResolvedValue([
       { ...userWithToken, alertConfig: { ...DEFAULT_ALERT_CONFIG, channel: 'none' } },

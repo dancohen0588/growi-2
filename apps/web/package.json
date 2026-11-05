@@ -14,6 +14,7 @@
     "posthog:testers": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/posthog-mark-testers.ts",
     "blog:generate": "tsx --tsconfig tsconfig.scripts.json scripts/blog-generate.ts",
     "catalog:seasons": "tsx --tsconfig tsconfig.scripts.json scripts/catalog-enrich-seasons.ts",
+    "secrets:seed": "tsx --tsconfig tsconfig.scripts.json scripts/secrets-seed.ts",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui"
   },

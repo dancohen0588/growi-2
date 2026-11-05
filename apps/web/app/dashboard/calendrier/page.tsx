@@ -4,7 +4,9 @@ import { actionHorizon } from '@growi/shared'
 import { auth } from '@/auth'
 import { TrackView } from '@/components/analytics/TrackView'
 import { getGardensAdvice } from '@/lib/services/advice.service'
-import { listDoneTodayActions } from '@/lib/services/planning.service'
+import { listDoneTodayActions, lunarDayFor } from '@/lib/services/planning.service'
+import { getUserTimezone, hasLunarCalendar } from '@/lib/services/user.service'
+import { zonedDayIso } from '@/lib/zoned-day'
 import { CalendrierPageInner } from './CalendrierPageInner'
 import type { GardenAction, PlantAlert } from '@/lib/recommendation/types'
 
@@ -20,9 +22,11 @@ export default async function CalendrierPage() {
 
   // Tous les jardins, comme l'Accueil et le Calendrier de l'app : s'en tenir
   // au dernier créé taisait le travail à faire dans les autres.
-  const [gardens, doneToday] = await Promise.all([
+  const [gardens, doneToday, lunarEnabled, timeZone] = await Promise.all([
     getGardensAdvice(session.user.id),
     listDoneTodayActions(session.user.id),
+    hasLunarCalendar(session.user.id),
+    getUserTimezone(session.user.id),
   ])
 
   if (gardens.length === 0) {
@@ -63,7 +67,14 @@ export default async function CalendrierPage() {
 
   // `actionHorizon` compare des jours en chaîne `YYYY-MM-DD`, pas des dates.
   const today = new Date().toISOString().slice(0, 10)
-  const actionsToday = actions.filter((action) => actionHorizon(action, today) === 'today')
+  // Les secrets ont leur carte à part : ils ne comptent pas dans les gestes du jour.
+  const actionsToday = actions.filter(
+    (action) => !action.secret && actionHorizon(action, today) === 'today',
+  )
+
+  // Le jour lunaire se lit dans le jour civil de l'utilisateur, pas en UTC :
+  // à 0 h 30 à Paris, c'est déjà le jour suivant qu'il faut annoncer.
+  const lunar = lunarEnabled ? lunarDayFor(zonedDayIso(new Date(), timeZone)) : null
 
   return (
     <Suspense>
@@ -82,6 +93,7 @@ export default async function CalendrierPage() {
         // section du jour le dit — sinon l'utilisateur verrait sa liste maigrir
         // sans savoir pourquoi ni comment revenir en arrière.
         clearedToday={gardens.some(({ garden }) => garden.clearedToday)}
+        lunar={lunar}
       />
     </Suspense>
   )

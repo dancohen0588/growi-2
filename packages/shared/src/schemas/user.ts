@@ -141,6 +141,11 @@ export const userProfileSchema = z.object({
   analyticsConsent: z.boolean().nullable(),
   analyticsConsentAt: isoDateTimeSchema.nullable(),
   /**
+   * Calendrier lunaire du jardinier — option désactivée par défaut. Absent
+   * des réponses des serveurs antérieurs : on le lit comme `false`.
+   */
+  lunarCalendar: z.boolean().optional(),
+  /**
    * Le compte a un mot de passe — faux pour un compte ouvert par Apple ou
    * Google. Décide si la suppression du compte le redemande. Jamais le mot de
    * passe lui-même, ni son empreinte.
@@ -167,6 +172,7 @@ export const updateProfileSchema = z.object({
    * en écriture : une question à laquelle on a répondu ne se « désrépond » pas.
    */
   analyticsConsent: z.boolean().optional(),
+  lunarCalendar: z.boolean().optional(),
 })
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>

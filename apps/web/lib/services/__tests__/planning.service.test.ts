@@ -5,7 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const adviceService = vi.hoisted(() => ({ getGardensAdvice: vi.fn() }))
 const logService = vi.hoisted(() => ({ listCareLogsSince: vi.fn() }))
-const userService = vi.hoisted(() => ({ getUserLocation: vi.fn(), getUserTimezone: vi.fn() }))
+const userService = vi.hoisted(() => ({
+  getUserLocation: vi.fn(),
+  getUserTimezone: vi.fn(),
+  hasLunarCalendar: vi.fn(),
+}))
 const weatherService = vi.hoisted(() => ({ getWeatherForecast: vi.fn() }))
 
 vi.mock('@/lib/services/advice.service', () => adviceService)
@@ -58,6 +62,7 @@ beforeEach(() => {
   logService.listCareLogsSince.mockResolvedValue([])
   userService.getUserLocation.mockResolvedValue(null)
   userService.getUserTimezone.mockResolvedValue('Europe/Paris')
+  userService.hasLunarCalendar.mockResolvedValue(false)
 })
 
 describe('getTodayPlanning', () => {
@@ -254,5 +259,17 @@ describe('getTodayPlanning', () => {
     expect(planning.weather).toBeNull()
     expect(planning.gardens[0]!.actions).toHaveLength(1)
     consoleError.mockRestore()
+  })
+
+  it('n’ajoute le jour lunaire que si l’option est activée', async () => {
+    adviceService.getGardensAdvice.mockResolvedValue([garden('g1', 'Potager', [])])
+
+    expect((await getTodayPlanning(USER_ID, NOW)).lunar).toBeNull()
+
+    userService.hasLunarCalendar.mockResolvedValue(true)
+    const planning = await getTodayPlanning(USER_ID, NOW)
+    expect(planning.lunar).toEqual(
+      expect.objectContaining({ date: planning.date, dayType: expect.any(String), phase: expect.any(String) }),
+    )
   })
 })

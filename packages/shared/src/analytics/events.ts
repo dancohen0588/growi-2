@@ -25,6 +25,7 @@
  */
 
 import type { ActionHorizon, AlertType } from '../schemas/planning'
+import type { SecretEvidence, SecretStage, SecretVerdict } from '../schemas/secrets'
 import type { SocialProvider } from '../schemas/auth'
 import type { CareLogType, HealthStatus } from '../constants/enums'
 import type { ListingKind, ReportReason } from '../constants/community'
@@ -152,6 +153,17 @@ export type GrowiEvent =
    * que le geste lui-même.
    */
   | { name: 'planning_cleared_today'; props: { count: number | null } }
+  /**
+   * Secrets de jardinier. `slug` est une clé de la bibliothèque, jamais un
+   * texte saisi. `tip_shown` part du client quand la carte est à l'écran.
+   */
+  | { name: 'tip_shown'; props: { slug: string; evidence: SecretEvidence; stage: SecretStage } }
+  | { name: 'tip_revealed'; props: { slug: string; evidence: SecretEvidence } }
+  | { name: 'tip_tried'; props: { slug: string; evidence: SecretEvidence; stage: SecretStage } }
+  | { name: 'tip_dismissed'; props: { slug: string; evidence: SecretEvidence } }
+  | { name: 'tip_feedback'; props: { slug: string; evidence: SecretEvidence; verdict: SecretVerdict } }
+  | { name: 'grimoire_viewed'; props: { discovered: number; total: number } }
+  | { name: 'lunar_calendar_toggled'; props: { enabled: boolean } }
   | { name: 'alert_shown'; props: { kind: AlertType } }
   | { name: 'alert_opened'; props: { kind: AlertType } }
 
