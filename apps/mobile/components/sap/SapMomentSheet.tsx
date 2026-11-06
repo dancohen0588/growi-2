@@ -1,9 +1,12 @@
 import { Modal, Pressable, Text, View } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
-import { sapRingOrdinal, type SapRings } from '@growi/shared'
+import {
+  sapRingOrdinal,
+  sapRingsLabel,
+  type SapRings,
+} from '@growi/shared'
 
 import { Button } from '@/components/ui/Button'
-import { ringsLabel } from '@/lib/sap'
 
 import { SapProgressBar } from './SapProgressBar'
 import { TrunkRings } from './TrunkRings'
@@ -106,7 +109,7 @@ export function SapMomentSheet({ moment, onClose, onOpenSeve }: SapMomentSheetPr
             count={moment.rings.count}
             progress={0}
             size={170}
-            label={ringsLabel({ ...moment.rings, progress: 0 })}
+            label={sapRingsLabel({ ...moment.rings, progress: 0 })}
           />
         )}
 

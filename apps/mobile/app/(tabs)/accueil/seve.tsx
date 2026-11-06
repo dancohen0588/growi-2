@@ -15,10 +15,14 @@ import {
 } from 'lucide-react-native'
 import {
   SAP_KINDS,
-  SAP_RULE_DISPLAY,
   SAP_RULES,
+  SAP_RULE_DISPLAY,
+  formatSapAmount,
+  sapEntryLabel,
   sapRingName,
   sapRingThreshold,
+  sapRingsLabel,
+  sapRingsLine,
   type SapEntry,
   type SapKind,
   type SapRuleGroup,
@@ -34,7 +38,6 @@ import { ErrorState, Pulse, Skeleton } from '@/components/ui/states'
 import { formatLogDate } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { useSapHistory, useSapSummary } from '@/lib/queries/sap'
-import { entryLabel, formatSapAmount, ringsLabel, ringsLine } from '@/lib/sap'
 
 const FOREST = '#1E5631'
 const MUTED = 'hsl(139 20% 40%)'
@@ -112,7 +115,7 @@ function TrunkBlock({ summary }: { summary: SapSummary }) {
 
   return (
     <View className="items-center gap-4 rounded-3xl bg-forest px-5 pb-5 pt-6">
-      <TrunkRings count={rings.count} progress={rings.progress} size={220} halo label={ringsLabel(rings)} />
+      <TrunkRings count={rings.count} progress={rings.progress} size={220} halo label={sapRingsLabel(rings)} />
 
       <View className="items-center gap-1">
         <View className="flex-row items-baseline gap-2">
@@ -123,7 +126,7 @@ function TrunkBlock({ summary }: { summary: SapSummary }) {
             de sève
           </Text>
         </View>
-        <Text className="font-raleway-semibold text-secondary text-lime">{ringsLine(rings)}</Text>
+        <Text className="font-raleway-semibold text-secondary text-lime">{sapRingsLine(rings)}</Text>
       </View>
 
       <View className="w-full gap-1.5">
@@ -347,7 +350,7 @@ function HistorySection({ history }: { history: ReturnType<typeof useSapHistory>
               </View>
               <View className="flex-1 gap-0.5">
                 <Text className="font-raleway-semibold text-secondary text-forest" numberOfLines={2}>
-                  {entryLabel(entry)}
+                  {sapEntryLabel(entry)}
                 </Text>
                 <Text className="font-raleway text-caption text-muted-foreground">
                   {capitalize(formatLogDate(entry.createdAt))}

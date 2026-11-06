@@ -1213,8 +1213,7 @@ voisin. Ni classement, ni perte, ni série à tenir : la sève n'est visible que
 par son propriétaire. Plan par phases et questions ouvertes :
 `~/Growi/Documentation/spec/17-plan-seve.md` ; maquettes Claude Design
 « Growi — La Sève ». **Phases 1 (socle), 2 (gains branchés sur les gestes),
-3 (API, client, notification) et 4 (écrans mobile) livrées** ; le web vient en
-phase 5.
+3 (API, client, notification), 4 (écrans mobile) et 5 (web) livrées**.
 
 | Élément | Rôle |
 |---|---|
@@ -1225,6 +1224,8 @@ phase 5.
 | `app/api/v1/sap/*` · `api.sap.*` | Résumé, historique, offrir une goutte — sérialisés par `serializeSapEntry` / `serializeSapSummary` |
 | `apps/mobile/components/sap/` | Goutte, coupe du tronc, pastille du hero, carte de l'Accueil, feuille « Offrir », annonces de gain |
 | `apps/mobile/app/(tabs)/accueil/seve.tsx` | L'écran « Ta sève » : coupe, cernes, barème (`SAP_RULE_DISPLAY`), historique |
+| `apps/web/components/dashboard/seve/` · `app/dashboard/seve/` | Le pendant web : carte de l'accueil, page « Ta sève », boîte « Offrir » |
+| `app/actions/sap.ts` | Server Actions du web : gouttes restantes, offrir, page suivante de l'historique |
 
 - **Un journal, pas un compteur.** Le total est la somme de `sap_entries` ;
   c'est ce qui permet de reprendre un gain précis (`revokeSap`) quand un geste
@@ -1286,8 +1287,16 @@ phase 5.
   de `SAP_RULES` + `SAP_RULE_DISPLAY` (le test partagé vérifie que les
   plafonds cités sont ceux du serveur). Le « +3 diagnostic » et le « +15
   parrainage » des maquettes n'existent pas.
+- **Les phrases sont partagées** (`sapFormingLine`, `sapRingsLabel`,
+  `sapEntryLabel`… dans `constants/sap.ts`), comme le dessin de la goutte et
+  de la coupe est dupliqué à l'identique (`TrunkRings`, `SapDrop`) : toute
+  retouche se reporte des deux côtés.
+- **Web : la sève ne s'annonce pas après un geste** — pas d'équivalent du
+  watcher ; elle se lit sur la carte de l'accueil et sur `/dashboard/seve`.
+  La carte se tait si la lecture échoue (migration non appliquée comprise).
 - « Offrir une goutte » se trouve sous chaque publication d'un autre (fil et
-  détail) et sur son profil (`useGiftSheet`). Plus de gouttes : le bouton se
+  détail, web compris) et sur son profil (`useGiftSheet` sur mobile,
+  `GiftButton` sur le web, qui lit les gouttes restantes à l'ouverture). Plus de gouttes : le bouton se
   désactive avant que le serveur ne refuse.
 
 ### Chat contextuel (agent conversationnel)
@@ -1864,6 +1873,7 @@ et celui de l'app mobile. Ici, les pièges qui ont chacun coûté un build.
 | `/dashboard/jardin` | Canvas du jardin (Konva), avec sélecteur de jardin |
 | `/dashboard/calendrier` | Calendrier + alertes météo |
 | `/dashboard/grimoire` | Les secrets de jardinier découverts, essayés, à découvrir |
+| `/dashboard/seve` | Ta sève : coupe du tronc, cernes, barème, historique des gains |
 | `/dashboard/meteo` | Météo locale |
 | `/dashboard/identifier` | Identification photo (Gemini) |
 | `/dashboard/diagnostic` | Choix de la plante à diagnostiquer (le parcours vit sur sa fiche) |

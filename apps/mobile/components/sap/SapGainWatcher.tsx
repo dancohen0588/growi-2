@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
-import type { SapEntry, SapSummary } from '@growi/shared'
+import { sapEntryLabel, sapGainsLabel, type SapEntry, type SapSummary } from '@growi/shared'
 
 import { useToast } from '@/components/ui/Toast'
 import { sapKeys } from '@/lib/queries/keys'
 import { useSapSummary } from '@/lib/queries/sap'
-import { entryLabel, gainsLabel } from '@/lib/sap'
 
 import { SapDrop } from './SapDrop'
 import { SapMomentSheet, type SapMoment } from './SapMomentSheet'
@@ -98,14 +97,14 @@ export function SapGainWatcher() {
       setMoment({
         kind: 'secret',
         amount: feedback.amount,
-        label: entryLabel(feedback),
+        label: sapEntryLabel(feedback),
         total: current.total,
         rings: current.rings,
       })
       return
     }
 
-    toast(gainsLabel(fresh), 'success', {
+    toast(sapGainsLabel(fresh), 'success', {
       emphasis: `+${gained} de sève`,
       icon: <SapDrop size={26} stroke="#F9F7E8" />,
       action: { label: 'Voir', onPress: () => router.push('/(tabs)/accueil/seve') },

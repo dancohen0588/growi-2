@@ -1,14 +1,13 @@
 import { Pressable, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { ChevronRight } from 'lucide-react-native'
-import type { SapSummary } from '@growi/shared'
+import { formatSapAmount, sapEntryLabel, sapFormingLine, sapRingsLabel, type SapSummary } from '@growi/shared'
 
 import { CARD_SHADOW } from '@/components/ui/Card'
 import { Pulse, Skeleton } from '@/components/ui/states'
 import { formatLogDate } from '@/lib/dates'
 import { useCommunityHome } from '@/lib/queries/community'
 import { useSapSummary } from '@/lib/queries/sap'
-import { entryLabel, formatSapAmount, formingLine, ringsLabel } from '@/lib/sap'
 
 import { SapDrop } from './SapDrop'
 import { SapProgressBar } from './SapProgressBar'
@@ -61,11 +60,11 @@ function SapCardBody({ summary, onOpen }: { summary: SapSummary; onOpen: () => v
       <Pressable
         onPress={onOpen}
         accessibilityRole="button"
-        accessibilityLabel={`Ta sève : ${total}. ${formingLine(rings)}. Ouvrir`}
+        accessibilityLabel={`Ta sève : ${total}. ${sapFormingLine(rings)}. Ouvrir`}
         className="flex-row items-center gap-3.5"
         style={({ pressed }) => (pressed ? { opacity: 0.85 } : null)}
       >
-        <TrunkRings count={rings.count} progress={rings.progress} size={68} label={ringsLabel(rings)} />
+        <TrunkRings count={rings.count} progress={rings.progress} size={68} label={sapRingsLabel(rings)} />
         <View className="min-w-0 flex-1 gap-1.5">
           <View className="flex-row items-baseline gap-1.5">
             <Text className="font-poppins-bold text-forest" style={{ fontSize: 26, lineHeight: 30 }}>
@@ -74,7 +73,7 @@ function SapCardBody({ summary, onOpen }: { summary: SapSummary; onOpen: () => v
             <Text className="font-raleway-medium text-secondary text-muted-foreground">de sève</Text>
           </View>
           <Text className="font-raleway-medium text-caption text-muted-foreground" numberOfLines={1}>
-            {formingLine(rings)}
+            {sapFormingLine(rings)}
           </Text>
           <SapProgressBar progress={rings.progress} />
         </View>
@@ -91,7 +90,7 @@ function SapCardBody({ summary, onOpen }: { summary: SapSummary; onOpen: () => v
             <Text className="font-raleway-bold">
               {formatSapAmount(last.amount)} {formatLogDate(last.createdAt)}.
             </Text>{' '}
-            {entryLabel(last)}
+            {sapEntryLabel(last)}
           </Text>
         </View>
       ) : (

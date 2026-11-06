@@ -7,6 +7,7 @@ import { auth } from '@/auth'
 import { AuthorLine, Tag } from '@/components/community/bits'
 import { CommentSection } from '@/components/community/CommentSection'
 import { LikeButton } from '@/components/community/LikeButton'
+import { GiftButton } from '@/components/dashboard/seve/GiftButton'
 import { getPost } from '@/lib/services/community/post.service'
 import { isServiceError } from '@/lib/services/errors'
 
@@ -117,6 +118,11 @@ export default async function PublicPostPage({ params }: Params) {
         <span className="font-raleway text-sm text-forest/60">
           {post.commentCount} commentaire{post.commentCount > 1 ? 's' : ''}
         </span>
+        {viewerId && !post.isMine && (
+          <span className="ml-auto">
+            <GiftButton handle={post.author.handle} postId={post.id} />
+          </span>
+        )}
       </div>
 
       <CommentSection

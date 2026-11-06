@@ -14,7 +14,11 @@ import {
   ScanSearch,
 } from 'lucide-react'
 import { FeatureCard } from '@/components/dashboard/FeatureCard'
+import { SapCard, SapCardSkeleton } from '@/components/dashboard/seve/SapCard'
 import { SummaryStats } from '@/components/dashboard/SummaryStats'
+import { serializeSapSummary } from '@/lib/api/serializers'
+import { getSettings } from '@/lib/services/community/profile.service'
+import { getSapSummary } from '@/lib/services/sap.service'
 import { getDashboardSummary } from '@/lib/services/summary.service'
 
 export const metadata: Metadata = {
@@ -115,6 +119,14 @@ export default async function DashboardPage() {
         </span>
       </Link>
 
+      {/* La sève après le jardin du jour, comme sur l'app : elle dit ce que
+          les gestes ont fait pousser, et mène aux gouttes à offrir. */}
+      {session?.user?.id && (
+        <Suspense fallback={<SapCardSkeleton />}>
+          <SapSection userId={session.user.id} />
+        </Suspense>
+      )}
+
       {/* Feature grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {featureCards.map((card) => (
@@ -140,6 +152,21 @@ async function SummarySection({ userId }: { userId: string }) {
     return null
   })
   return summary ? <SummaryStats summary={summary} /> : null
+}
+
+/**
+ * La sève, même règle que les indicateurs : une panne la fait disparaître —
+ * y compris tant que la migration `20261106120000_sap` n'est pas appliquée —
+ * sans emporter l'accueil.
+ */
+async function SapSection({ userId }: { userId: string }) {
+  const data = await Promise.all([getSapSummary(userId), getSettings(userId)]).catch((error) => {
+    console.error('[dashboard] sève indisponible :', error)
+    return null
+  })
+  if (!data) return null
+  const [summary, settings] = data
+  return <SapCard summary={serializeSapSummary(summary)} communityEnabled={settings.enabled} />
 }
 
 /** Même grille que `SummaryStats`, pour que rien ne saute à l'arrivée. */

@@ -10,6 +10,12 @@ import {
   SAP_RING_STEP_AFTER,
   SAP_RING_THRESHOLDS,
   SAP_RULE_DISPLAY,
+  formatSapAmount,
+  sapEntryLabel,
+  sapFormingLine,
+  sapGainsLabel,
+  sapRingsLabel,
+  sapRingsLine,
   SAP_RULES,
   sapRingName,
   sapRingOrdinal,
@@ -143,5 +149,24 @@ describe('affichage du barème', () => {
     expect(sapRingName(11)).toBe('11ᵉ cerne')
     expect(sapRingOrdinal(1)).toBe('1ᵉʳ')
     expect(sapRingOrdinal(4)).toBe('4ᵉ')
+  })
+})
+
+describe('phrases de la sève', () => {
+  const rings = sapRings(340)
+
+  it('dit où en est le tronc', () => {
+    expect(sapFormingLine(rings)).toBe('Ton 4ᵉ cerne se forme · encore 160')
+    expect(sapRingsLine(rings)).toBe('3 cernes · ton 4ᵉ se forme')
+    expect(sapRingsLabel(rings)).toBe('Coupe de ton tronc : 3 cernes formés, le 4ᵉ à 20 %')
+    expect(sapRingsLine(sapRings(0))).toBe('Ton 1ᵉʳ cerne se forme')
+  })
+
+  it('nomme un gain, et en regroupe plusieurs', () => {
+    expect(sapEntryLabel({ kind: 'care', label: 'Arrosage' })).toBe('Arrosage')
+    expect(sapEntryLabel({ kind: 'care', label: '  ' })).toBe(SAP_KIND_LABELS.care)
+    expect(sapGainsLabel([{ kind: 'care' }, { kind: 'care' }])).toBe(`${SAP_KIND_LABELS.care} ×2`)
+    expect(sapGainsLabel([{ kind: 'care' }, { kind: 'post' }])).toBe('Merci pour tes gestes')
+    expect(formatSapAmount(2)).toBe('+2')
   })
 })
