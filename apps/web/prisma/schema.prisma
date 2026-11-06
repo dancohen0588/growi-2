@@ -110,6 +110,7 @@ model User {
   sapGiftsSent       SapGift[]        @relation("sapGiftsSent")
   sapGiftsReceived   SapGift[]        @relation("sapGiftsReceived")
   sapRewards         SapReward[]
+  quartierResults    QuartierResult[]
 
   @@index([role])
   @@index([createdAt])
@@ -1186,4 +1187,40 @@ model SapReward {
 
   @@unique([userId, ring])
   @@map("sap_rewards")
+}
+
+/// Le défi de la semaine du quartier (phase 7), **figé** au premier calcul de
+/// la semaine : une retouche de la bibliothèque (`QUARTIER_CHALLENGES`) ne
+/// change pas un défi en cours. `closedAt` est posé quand la tournée du matin
+/// a fini d'en distribuer les résultats.
+model QuartierWeek {
+  /// Semaine ISO, `2026-W45`, comptée à l'heure de Paris.
+  week      String    @id
+  slug      String
+  closedAt  DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@map("quartier_weeks")
+}
+
+/// Le résultat d'un défi pour un jardinier : écrit à la clôture, une ligne
+/// par compte et par semaine — l'unicité rend la clôture rejouable sans
+/// distribuer deux fois sève ni secret.
+model QuartierResult {
+  id          String   @id @default(cuid())
+  userId      String
+  week        String
+  slug        String
+  contributed Int
+  progress    Int
+  target      Int
+  reached     Boolean
+  /// Le secret offert au quartier si le défi est réussi ; nul sinon.
+  secretSlug  String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, week])
+  @@map("quartier_results")
 }

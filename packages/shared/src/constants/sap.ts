@@ -38,6 +38,10 @@ export const SAP_KINDS = [
   'listing_done',
   /** Une goutte offerte par un voisin. */
   'gift_received',
+  /** Avoir contribué au défi de la semaine du quartier (phase 7). */
+  'challenge_participation',
+  /** Le défi de la semaine réussi, ensemble. */
+  'challenge_success',
 ] as const
 export const sapKindSchema = z.enum(SAP_KINDS)
 export type SapKind = z.infer<typeof sapKindSchema>
@@ -70,6 +74,9 @@ export const SAP_RULES: Record<SapKind, SapRule> = {
   comment: { amount: 1, dailyCap: 5 },
   listing_done: { amount: 10, dailyCap: 2 },
   gift_received: { amount: 1, dailyCap: null },
+  // Une fois par semaine au plus, à la clôture du défi : le plafond est là.
+  challenge_participation: { amount: 5, dailyCap: null },
+  challenge_success: { amount: 20, dailyCap: null },
 }
 
 /**
@@ -86,6 +93,8 @@ export const SAP_KIND_LABELS: Record<SapKind, string> = {
   comment: 'Réponse à un voisin',
   listing_done: 'Échange à la bourse',
   gift_received: 'Goutte reçue',
+  challenge_participation: 'Participation au défi du quartier',
+  challenge_success: 'Défi du quartier réussi',
 }
 
 // ─── Les cernes ────────────────────────────────────────────────────────────
@@ -209,6 +218,16 @@ export const SAP_RULE_DISPLAY: Record<SapKind, SapRuleDisplay> = {
   comment: { title: 'Répondre à un voisin', hint: '5 par jour au plus', group: 'partage' },
   listing_done: { title: 'Mener un échange à la bourse', hint: 'Quand ton annonce trouve preneur', group: 'partage' },
   gift_received: { title: 'Recevoir une goutte d’un voisin', hint: 'Son merci pour un conseil, une bouture…', group: 'partage' },
+  challenge_participation: {
+    title: 'Participer au défi du quartier',
+    hint: 'Même si l’objectif n’est pas atteint',
+    group: 'partage',
+  },
+  challenge_success: {
+    title: 'Réussir le défi ensemble',
+    hint: 'Et le quartier découvre un Secret inédit',
+    group: 'partage',
+  },
 }
 
 /** « Premier cerne », « Deuxième cerne »… puis « 11ᵉ cerne ». */

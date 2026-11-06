@@ -23,6 +23,7 @@ export default function CommunauteLayout() {
       <Stack.Screen name="activer" options={{ presentation: 'modal' }} />
       <Stack.Screen name="bloques" />
       <Stack.Screen name="notifications" />
+      <Stack.Screen name="quartier" />
       <Stack.Screen name="publications/[id]" />
       <Stack.Screen name="u/[handle]/index" />
       <Stack.Screen name="u/[handle]/abonnes" />

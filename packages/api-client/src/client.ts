@@ -53,6 +53,7 @@ import type {
   GardenWithStats,
   GiveSapDropInput,
   GiveSapDropResult,
+  Quartier,
   SapHomeTheme,
   SetSapHomeThemeInput,
   Grimoire,
@@ -840,6 +841,13 @@ export class GrowiApiClient {
     /** La carte « Autour de toi » de l'Accueil. */
     home: (options?: CallOptions): Promise<CommunityHome> =>
       this.http.request('/api/v1/community/home', { ...options }),
+
+    /**
+     * Ton quartier : défi de la semaine, ce qui a circulé, Secrets qui
+     * marchent ici, tes mercis. 403 sans profil public.
+     */
+    quartier: (options?: CallOptions): Promise<Quartier> =>
+      this.http.request('/api/v1/community/quartier', { ...options }),
 
     createPost: (input: CreatePostInput, options?: CallOptions): Promise<CommunityPost> =>
       this.http.request('/api/v1/community/posts', {

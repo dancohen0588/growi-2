@@ -108,6 +108,7 @@ export const communityKeys = {
   threadMessages: (threadId: string) =>
     [...communityKeys.all, 'thread', threadId, 'messages'] as const,
   home: () => [...communityKeys.all, 'home'] as const,
+  quartier: () => [...communityKeys.all, 'quartier'] as const,
   post: (postId: string) => [...communityKeys.all, 'post', postId] as const,
   comments: (postId: string) => [...communityKeys.all, 'post', postId, 'comments'] as const,
 }

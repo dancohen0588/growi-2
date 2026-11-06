@@ -13,6 +13,8 @@ import {
   Check,
   Lock,
   MessageCircle,
+  Trophy,
+  Users,
 } from 'lucide-react-native'
 import {
   SAP_HOME_THEMES,
@@ -382,6 +384,10 @@ function RuleIcon({ kind }: { kind: SapKind }) {
       return <Gift size={20} color={FOREST} />
     case 'gift_received':
       return <SapDrop size={20} veins={false} />
+    case 'challenge_participation':
+      return <Users size={20} color={FOREST} />
+    case 'challenge_success':
+      return <Trophy size={20} color={FOREST} />
   }
 }
 

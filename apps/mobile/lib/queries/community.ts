@@ -555,3 +555,17 @@ export function useUnblock() {
     },
   })
 }
+
+/**
+ * Ton quartier — défi de la semaine, ce qui a circulé, Secrets qui marchent
+ * ici, tes mercis. Une minute de fraîcheur : le défi avance au rythme des
+ * gestes des voisins, pas à la seconde.
+ */
+export function useQuartier(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: communityKeys.quartier(),
+    queryFn: () => api.community.quartier(),
+    staleTime: 60 * 1000,
+    enabled: options?.enabled ?? true,
+  })
+}

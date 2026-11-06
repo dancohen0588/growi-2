@@ -10,6 +10,8 @@ import {
   Lightbulb,
   Lock,
   MessageCircle,
+  Trophy,
+  Users,
 } from 'lucide-react'
 import {
   formatSapAmount,
@@ -230,6 +232,8 @@ const RULE_ICONS: Record<SapKind, React.ReactNode> = {
   comment: <MessageCircle size={20} aria-hidden />,
   listing_done: <Gift size={20} aria-hidden />,
   gift_received: <SapDrop size={20} veins={false} />,
+  challenge_participation: <Users size={20} aria-hidden />,
+  challenge_success: <Trophy size={20} aria-hidden />,
 }
 
 const GROUPS: { group: SapRuleGroup; title: string }[] = [

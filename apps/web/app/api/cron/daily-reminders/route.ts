@@ -2,6 +2,7 @@ import { rejectUnauthorizedCron } from '@/lib/api/cron-auth'
 import { runListingUpkeep } from '@/lib/services/community/listing.service'
 import { sendOpenReportsAlert } from '@/lib/services/community/moderation.service'
 import { purgeReadNotifications } from '@/lib/services/community/notification.service'
+import { closeQuartierWeek } from '@/lib/services/community/quartier.service'
 import { announceNewArticle } from '@/lib/services/blog-push.service'
 import { sendDailyReminders } from '@/lib/services/push.service'
 
@@ -64,6 +65,16 @@ export async function GET(request: Request): Promise<Response> {
       console.error('[cron] alerte de modération impossible :', error)
     }
 
+    // Le défi du quartier de la semaine passée : sève et Secret distribués le
+    // lundi matin. Rejouable, il ne fait rien les autres jours.
+    let quartier = null as Awaited<ReturnType<typeof closeQuartierWeek>> | null
+    try {
+      quartier = await closeQuartierWeek()
+      if (quartier.week) console.log('[cron] défi du quartier clos :', JSON.stringify(quartier))
+    } catch (error) {
+      console.error('[cron] clôture du défi du quartier impossible :', error)
+    }
+
     // La purge des notifications lues vient en dernier, et son échec n'annule
     // rien : ranger est moins important que prévenir.
     let purged = 0
@@ -75,7 +86,7 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     return Response.json(
-      { data: { ...result, article, listings: upkeep, reports, notificationsPurged: purged } },
+      { data: { ...result, article, listings: upkeep, reports, quartier, notificationsPurged: purged } },
       { headers: { 'cache-control': 'no-store' } },
     )
   } catch (error) {

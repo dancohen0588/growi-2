@@ -674,6 +674,13 @@ describe('sève', () => {
     expect((error as ApiError).message).toBe('Tu as offert toutes tes gouttes de la semaine')
   })
 
+  it('lit le quartier', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { radiusKm: 20, gardeners: 9 } }))
+    const quartier = await makeClient().community.quartier()
+    expect(callArgs().url).toBe('https://growi.test/api/v1/community/quartier')
+    expect(quartier.gardeners).toBe(9)
+  })
+
   it('choisit le thème d’Accueil en PUT', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ data: { homeTheme: 'sous-bois' } }))
 

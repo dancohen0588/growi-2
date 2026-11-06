@@ -491,6 +491,7 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/community/blocks` | GET |
 | `/api/v1/community/feed` | GET (`?scope=nearby\|following&radiusKm=&cursor=`) |
 | `/api/v1/community/home` | GET — la carte « Autour de toi », **séparée de `/summary`** |
+| `/api/v1/community/quartier` | GET — ton quartier : défi de la semaine, ce qui a circulé, Secrets qui marchent ici, tes mercis ; 403 sans profil public |
 | `/api/v1/community/posts` | POST |
 | `/api/v1/community/posts/[id]` | GET (`optionalUserId`), PATCH (texte seul), DELETE |
 | `/api/v1/community/posts/[id]/like` | POST, DELETE |
@@ -1214,8 +1215,8 @@ voisin. Ni classement, ni perte, ni série à tenir : la sève n'est visible que
 par son propriétaire. Plan par phases et questions ouvertes :
 `~/Growi/Documentation/spec/17-plan-seve.md` ; maquettes Claude Design
 « Growi — La Sève ». **Phases 1 (socle), 2 (gains branchés sur les gestes),
-3 (API, client, notification), 4 (écrans mobile), 5 (web) et 6 (récompenses des
-cernes) livrées**.
+3 (API, client, notification), 4 (écrans mobile), 5 (web), 6 (récompenses des
+cernes) et 7 (sève du quartier) livrées**.
 
 | Élément | Rôle |
 |---|---|
@@ -1231,6 +1232,10 @@ cernes) livrées**.
 | `lib/services/sap-rewards.service.ts` | `getSapOverview` (résumé + récompenses + thème), `ensureRingRewards`, `setHomeTheme` |
 | `packages/shared/src/sap/themes.ts` | `sapThemeArt` : la géométrie des thèmes d'Accueil, rendue à l'identique par le web et le mobile |
 | Modèle `SapReward` · `User.homeTheme` | Ce qu'a donné chaque cerne ; le thème choisi — migration `20261106140000_sap_rewards` |
+| `packages/shared/src/constants/quartier.ts` | Bibliothèque des défis (`QUARTIER_CHALLENGES`), objectif, tirage, schéma de l'API |
+| `lib/services/community/quartier.service.ts` | `getQuartier` (lecture), `closeQuartierWeek` (clôture, par la tournée du matin) |
+| Modèles `QuartierWeek` · `QuartierResult` | Le défi figé de la semaine ; le résultat de chacun — migration `20261106160000_quartier` |
+| `app/(tabs)/communaute/quartier.tsx` · `app/dashboard/communaute/quartier/` | « Ton quartier », mobile et web ; bandeau du défi en tête du fil |
 
 - **Un journal, pas un compteur.** Le total est la somme de `sap_entries` ;
   c'est ce qui permet de reprendre un gain précis (`revokeSap`) quand un geste
@@ -1316,6 +1321,29 @@ cernes) livrées**.
   en opacités basses et sur les bords : ils habillent sans gêner la lecture.
   Sur le web, ils habillent le bandeau d'accueil du tableau de bord.
   `PUT /api/v1/sap/theme` refuse en 403 un thème pas encore débloqué.
+- **La sève du quartier** (phase 7, décisions du 06/11/2026) : un défi
+  coopératif par semaine ISO **à l'heure de Paris**, tiré dans
+  `QUARTIER_CHALLENGES` selon la saison et **figé** dans `quartier_weeks` au
+  premier calcul — jamais celui de la semaine précédente. Un slug de défi ne se
+  renomme jamais : il est recopié en base.
+- **Le quartier n'est pas une zone fixe** : c'est le rayon Communauté de
+  chacun, élargi par paliers (50, 100, 200, 500 km, puis toute la France) tant
+  qu'il compte moins de `QUARTIER_MIN_GARDENERS` profils publics. Seuls les
+  **profils publics** y comptent et y lisent (403 sinon). Les distances sont
+  calculées en mémoire : à repasser en SQL `earth_box` au-delà de quelques
+  milliers de profils, la clôture étant en n².
+- **L'objectif grandit avec le quartier** (`quartierTarget` : par jardinier,
+  avec un plancher), et se compte au journal (`CareLog` par type, par règle ou
+  par le nom d'un « autre geste », publications, gouttes, annonces menées à
+  bien). Les participants ne paraissent qu'en **initiales**.
+- **Clôture le lundi matin** (`closeQuartierWeek`, greffée sur
+  `daily-reminders`) : +5 à qui a contribué, +20 aux participants d'un défi
+  réussi, et un Secret inédit à **tout** le quartier qui l'a réussi.
+  Rejouable : `quartier_results (userId, week)` est unique, `closedAt` n'est
+  posé qu'à la fin.
+- **Les gouttes nommées ne sont montrées qu'à ceux qui les ont offertes ou
+  reçues** ; le quartier n'en voit que le nombre. Un Secret n'est cité dans
+  « ceux qui marchent ici » qu'à partir de trois retours.
 - « Offrir une goutte » se trouve sous chaque publication d'un autre (fil et
   détail, web compris) et sur son profil (`useGiftSheet` sur mobile,
   `GiftButton` sur le web, qui lit les gouttes restantes à l'ouverture). Plus de gouttes : le bouton se
@@ -1773,8 +1801,8 @@ cycle d'imports dès qu'une notification est écrite depuis le suivi.
 
 L'entretien quotidien (`app/api/cron/daily-reminders`) enchaîne, dans cet
 ordre : rappels du matin, expiration des annonces puis rappel J‑7, alerte email
-au-delà de cinq signalements ouverts, purge des notifications lues de plus de
-90 jours. Chaque étape est isolée — l'échec de l'une n'annule pas les autres.
+au-delà de cinq signalements ouverts, clôture du défi du quartier de la semaine
+passée (le lundi), purge des notifications lues de plus de 90 jours. Chaque étape est isolée — l'échec de l'une n'annule pas les autres.
 
 > ⚠️ **Trois migrations, trois redémarrages.** Le serveur de dev garde son
 > client Prisma en mémoire : après chaque migration de cette spec, `prisma.post`
@@ -1904,6 +1932,7 @@ et celui de l'app mobile. Ici, les pièges qui ont chacun coûté un build.
 | `/dashboard/communaute/bourse/nouvelle` · `/mes-annonces` | Publier une annonce, et retrouver les siennes |
 | `/dashboard/communaute/messages` · `/messages/[threadId]` | Discussions rattachées aux annonces |
 | `/dashboard/communaute/notifications` | La cloche |
+| `/dashboard/communaute/quartier` | Ton quartier : défi de la semaine, ce qui a circulé, Secrets qui marchent ici, tes mercis |
 | `/dashboard/parametres` | Profil + adresse autocomplete |
 | `/admin` | Portail d'administration — réservé au rôle `ADMIN`, `noindex` |
 | `/admin/utilisateurs` | Liste des comptes (recherche, filtres, export CSV) |
