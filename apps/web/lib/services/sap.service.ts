@@ -36,6 +36,7 @@ import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { isoWeekKey } from '@/lib/secrets/select'
 import { decodeCursor, takePage } from '@/lib/services/community/cursor'
+import { notifySapGift } from '@/lib/services/community/notification.service'
 import { ServiceError } from '@/lib/services/errors'
 import { zonedDayIso } from '@/lib/zoned-day'
 
@@ -402,8 +403,8 @@ export async function giveSapDrop(
     throw new ServiceError('QUOTA_EXCEEDED', 'Tu as offert toutes tes gouttes de la semaine')
   }
 
-  await prisma.$transaction(async (tx) => {
-    const gift = await tx.sapGift.create({
+  const gift = await prisma.$transaction(async (tx) => {
+    const created = await tx.sapGift.create({
       data: {
         fromUserId: giver.id,
         toUserId: receiver.id,
@@ -419,14 +420,23 @@ export async function giveSapDrop(
         userId: receiver.id,
         kind: 'gift_received',
         amount: SAP_RULES.gift_received.amount,
-        sourceId: gift.id,
+        sourceId: created.id,
         day: zonedDayIso(now, receiver.timezone),
-        label: `@${giver.handle} t’a offert une goutte ${SAP_GIFT_REASON_PHRASES[input.reason]}`,
+        label: `${giver.handle} t’a offert une goutte ${SAP_GIFT_REASON_PHRASES[input.reason]}`,
       },
     })
+
+    return created
   })
 
   trackServer(giver.id, 'sap_gift_sent', { reason: input.reason })
+
+  // Comme toute notification : elle ne lève pas, et le geste ne l'attend pas.
+  void notifySapGift({ id: giver.id, handle: giver.handle }, receiver.id, {
+    reason: gift.reason as GiveSapDropInput['reason'],
+    message: gift.message,
+    postId: gift.postId,
+  })
 
   return { giftsLeft: Math.max(0, SAP_GIFTS_PER_WEEK - sent - 1) }
 }

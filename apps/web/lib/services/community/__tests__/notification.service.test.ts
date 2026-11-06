@@ -26,6 +26,7 @@ const {
   listNotifications,
   markAllRead,
   notifyComment,
+  notifySapGift,
   notifyFollow,
   notifyLike,
   purgeReadNotifications,
@@ -105,6 +106,30 @@ describe('notifyComment', () => {
 
     expect(sendToUser).toHaveBeenCalledOnce()
     expect(sendToUser.mock.calls[0][1].data).toMatchObject({ kind: 'comment', postId: 'post_1' })
+  })
+})
+
+describe('notifySapGift', () => {
+  it('écrit dans la cloche, avec le motif et le petit mot', async () => {
+    await notifySapGift(ACTOR, ME, { reason: 'bouture', message: 'Elles ont toutes pris !', postId: 'post_1' })
+
+    const { data } = prismaMock.notification.create.mock.calls[0][0]
+    expect(data).toMatchObject({ userId: ME, actorId: ACTOR.id, kind: 'sap_gift' })
+    expect(data.preview).toBe('pierre t’a offert une goutte de sève pour ta bouture : « Elles ont toutes pris ! »')
+    expect(data.target).toMatchObject({ postId: 'post_1', handle: 'pierre' })
+  })
+
+  it('sans publication, mène au profil du donneur', async () => {
+    await notifySapGift(ACTOR, ME, { reason: 'conseil', message: null, postId: null })
+
+    const { data } = prismaMock.notification.create.mock.calls[0][0]
+    expect(data.preview).toBe('pierre t’a offert une goutte de sève pour ton conseil')
+    expect(data.target).toMatchObject({ postId: null, handle: 'pierre' })
+  })
+
+  it('ne fait pas sonner le téléphone — pas encore', async () => {
+    await notifySapGift(ACTOR, ME, { reason: 'aide', message: null, postId: null })
+    expect(sendToUser).not.toHaveBeenCalled()
   })
 })
 

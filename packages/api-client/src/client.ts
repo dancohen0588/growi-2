@@ -51,6 +51,8 @@ import type {
   GardenPlan,
   GardenWeather,
   GardenWithStats,
+  GiveSapDropInput,
+  GiveSapDropResult,
   Grimoire,
   HandleAvailability,
   HealthStatus,
@@ -81,6 +83,8 @@ import type {
   PlantInstanceWithRelations,
   RegisterPushTokenInput,
   ReportReceipt,
+  SapEntryPage,
+  SapSummary,
   SecretFeedbackInput,
   TrySecretInput,
   TrySecretResult,
@@ -447,6 +451,35 @@ export class GrowiApiClient {
     /** Compteurs de l'accueil : jardins, plantes, gestes du jour, alertes. */
     get: (options?: CallOptions): Promise<DashboardSummary> =>
       this.http.request('/api/v1/summary', { ...options }),
+  }
+
+  // ─── La Sève ─────────────────────────────────────────────────────────────
+
+  readonly sap = {
+    /**
+     * Ta sève : total, cernes, gouttes qu'il reste à offrir, derniers gains.
+     * À relire après un geste — le gain y est déjà quand la réponse arrive.
+     */
+    summary: (options?: CallOptions): Promise<SapSummary> =>
+      this.http.request('/api/v1/sap', { ...options }),
+
+    /** L'historique complet, du plus récent au plus ancien. */
+    history: (params?: { cursor?: string }, options?: CallOptions): Promise<SapEntryPage> =>
+      this.http.request('/api/v1/sap/history', {
+        ...options,
+        query: { cursor: params?.cursor },
+      }),
+
+    /**
+     * Offre une goutte à un voisin, désigné par son pseudo. Échoue en
+     * `QUOTA_EXCEEDED` (429) une fois les gouttes de la semaine offertes.
+     */
+    give: (input: GiveSapDropInput, options?: CallOptions): Promise<GiveSapDropResult> =>
+      this.http.request('/api/v1/sap/gifts', {
+        ...options,
+        method: 'POST',
+        body: input,
+      }),
   }
 
   // ─── Profil ──────────────────────────────────────────────────────────────

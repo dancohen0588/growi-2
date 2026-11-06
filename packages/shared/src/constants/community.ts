@@ -315,6 +315,13 @@ export const NOTIFICATION_KINDS = [
   'listing_expiring',
   /** Un contenu a été masqué le temps d'une vérification. Sans acteur non plus. */
   'moderation',
+  /**
+   * Un voisin a offert une goutte de sève (voir `constants/sap.ts`). In-app
+   * seulement pour l'instant : le push viendra en fin de chantier (décision du
+   * 06/11/2026). Une version de l'app qui ne connaît pas ce type l'affiche avec
+   * l'icône par défaut et suit sa cible comme les autres.
+   */
+  'sap_gift',
 ] as const
 export const notificationKindSchema = z.enum(NOTIFICATION_KINDS)
 export type NotificationKind = z.infer<typeof notificationKindSchema>

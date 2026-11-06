@@ -1,9 +1,11 @@
 import {
   NOTIFICATION_RETENTION_DAYS,
+  SAP_GIFT_REASON_PHRASES,
   type CommunityNotification,
   type CommunityNotificationPage,
   type NotificationKind,
   type NotificationTarget,
+  type SapGiftReason,
   type UnreadCount,
 } from '@growi/shared'
 import { Prisma } from '@prisma/client'
@@ -143,6 +145,35 @@ export async function notifyComment(
     target: { postId: post.id, handle: actor.handle, threadId: null, listingId: null },
     preview: `${who} a commenté ta publication : « ${excerpt} »`,
     push: { title: `${who} a commenté 💬`, body: excerpt },
+  })
+}
+
+/**
+ * Un voisin a offert une goutte de sève.
+ *
+ * **In-app seulement** pour l'instant : pas de `push`, le téléphone ne sonne
+ * pas (décision du 06/11/2026, le push viendra en fin de chantier). La cible
+ * est la publication depuis laquelle on a remercié, sinon le profil du
+ * donneur — de quoi lui répondre, ou le remercier à son tour.
+ */
+export async function notifySapGift(
+  actor: { id: string; handle: string | null },
+  receiverId: string,
+  gift: { reason: SapGiftReason; message: string | null; postId: string | null },
+): Promise<void> {
+  const who = actor.handle ?? 'Un jardinier'
+  const phrase = SAP_GIFT_REASON_PHRASES[gift.reason]
+  const excerpt =
+    gift.message && gift.message.length > 80 ? `${gift.message.slice(0, 79)}…` : gift.message
+
+  await notify({
+    userId: receiverId,
+    actorId: actor.id,
+    kind: 'sap_gift',
+    target: { postId: gift.postId, handle: actor.handle, threadId: null, listingId: null },
+    preview: excerpt
+      ? `${who} t’a offert une goutte de sève ${phrase} : « ${excerpt} »`
+      : `${who} t’a offert une goutte de sève ${phrase}`,
   })
 }
 

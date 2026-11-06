@@ -25,6 +25,8 @@ const analytics = vi.hoisted(() => ({ trackServer: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/analytics/server', () => analytics)
 vi.mock('@vercel/functions', () => ({ waitUntil: vi.fn() }))
+const notifications = vi.hoisted(() => ({ notifySapGift: vi.fn() }))
+vi.mock('@/lib/services/community/notification.service', () => notifications)
 
 const {
   awardSap,
@@ -60,7 +62,7 @@ beforeEach(() => {
   prismaMock.sapEntry.aggregate.mockResolvedValue({ _sum: { amount: null } })
   prismaMock.sapEntry.findMany.mockResolvedValue([])
   prismaMock.sapGift.count.mockResolvedValue(0)
-  prismaMock.sapGift.create.mockResolvedValue({ id: 'gift_1' })
+  prismaMock.sapGift.create.mockResolvedValue({ id: 'gift_1', reason: 'bouture', message: 'Merci !', postId: 'post_1' })
   prismaMock.block.findFirst.mockResolvedValue(null)
 })
 
@@ -319,10 +321,16 @@ describe('giveSapDrop', () => {
         amount: 1,
         sourceId: 'gift_1',
         day: '2026-11-06',
-        label: '@dan t’a offert une goutte pour ta bouture',
+        label: 'dan t’a offert une goutte pour ta bouture',
       },
     })
     expect(analytics.trackServer).toHaveBeenCalledWith(GIVER.id, 'sap_gift_sent', { reason: 'bouture' })
+    // Le receveur l'apprend dans sa cloche, avec de quoi remonter jusqu'au donneur.
+    expect(notifications.notifySapGift).toHaveBeenCalledWith({ id: GIVER.id, handle: 'dan' }, RECEIVER.id, {
+      reason: 'bouture',
+      message: 'Merci !',
+      postId: 'post_1',
+    })
   })
 
   it('exige un profil public pour remercier', async () => {
@@ -373,5 +381,6 @@ describe('giveSapDrop', () => {
     await expect(giveSapDrop(GIVER.id, { handle: 'camille', reason: 'aide' }, NOW)).rejects.toMatchObject({
       code: 'QUOTA_EXCEEDED',
     })
+    expect(notifications.notifySapGift).not.toHaveBeenCalled()
   })
 })

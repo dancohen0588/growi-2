@@ -503,6 +503,9 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/community/threads/[id]/messages` | GET, POST |
 | `/api/v1/community/notifications` · `/read` · `/unread-count` | GET · POST · GET |
 | `/api/v1/community/reports` | POST — idempotent |
+| `/api/v1/sap` | GET — ta sève : total, cernes, gouttes restantes, derniers gains |
+| `/api/v1/sap/history` | GET (`?cursor=`) — l'historique des gains |
+| `/api/v1/sap/gifts` | POST `{ handle, reason, message?, postId? }` — offrir une goutte : 201 `{ giftsLeft }`, 429 `QUOTA_EXCEEDED` |
 
 Chaque route suit le même squelette, à respecter pour toute nouvelle route :
 
@@ -1209,8 +1212,9 @@ elle forme des **cernes** (paliers), et l'on peut **offrir des gouttes** à un
 voisin. Ni classement, ni perte, ni série à tenir : la sève n'est visible que
 par son propriétaire. Plan par phases et questions ouvertes :
 `~/Growi/Documentation/spec/17-plan-seve.md` ; maquettes Claude Design
-« Growi — La Sève ». **Phases 1 (socle) et 2 (gains branchés sur les gestes)
-livrées** ; rien n'est encore exposé par l'API (phase 3).
+« Growi — La Sève ». **Phases 1 (socle), 2 (gains branchés sur les gestes)
+et 3 (API, client, notification) livrées** ; les écrans viennent en phases 4
+(mobile) et 5 (web).
 
 | Élément | Rôle |
 |---|---|
@@ -1218,6 +1222,7 @@ livrées** ; rien n'est encore exposé par l'API (phase 3).
 | `packages/shared/src/schemas/sap.ts` | Résumé, historique, corps de « offrir une goutte » |
 | `lib/services/sap.service.ts` | `awardSap`, `awardSapMany`, `awardSapLater`, `revokeSap`, `getSapSummary`, `listSapHistory`, `giveSapDrop` |
 | Modèles | `SapEntry` (journal des gains), `SapGift` (gouttes offertes) — migration `20261106120000_sap` |
+| `app/api/v1/sap/*` · `api.sap.*` | Résumé, historique, offrir une goutte — sérialisés par `serializeSapEntry` / `serializeSapSummary` |
 
 - **Un journal, pas un compteur.** Le total est la somme de `sap_entries` ;
   c'est ce qui permet de reprendre un gain précis (`revokeSap`) quand un geste
@@ -1255,6 +1260,15 @@ livrées** ; rien n'est encore exposé par l'API (phase 3).
   inconnu, désactivé ou séparé par un blocage. Le blocage est relu par
   `prisma.block` et non par `hiddenUserIds` : `profile.service` importera
   bientôt ce service, et l'inverse ferait un cycle.
+- **Un gain sort champ par champ** (`serializeSapEntry`) : ni `userId`, ni
+  `sourceId` — l'identifiant d'un geste ou d'une goutte —, ni `day`.
+- **La goutte reçue s'annonce dans la cloche** (`notifySapGift`, kind
+  `sap_gift`), **sans push** pour l'instant (décision du 06/11/2026 : en fin de
+  chantier). Les versions installées de l'app ne connaissent pas ce `kind` :
+  la cloche mobile lui donne l'icône par défaut et le tap suit sa cible
+  (publication, sinon profil du donneur) — rien ne casse, c'est vérifié dans
+  `notifications.tsx` et `lib/notifications.ts`. L'icône dédiée vient avec la
+  phase 4.
 
 ### Chat contextuel (agent conversationnel)
 
