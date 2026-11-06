@@ -61,6 +61,8 @@ const SAMPLE: GrowiEvent[] = [
   },
   { name: 'listing_published', props: { kind: 'swap' } },
   { name: 'content_reported', props: { reason: 'spam' } },
+  { name: 'sap_awarded', props: { kind: 'care', amount: 1 } },
+  { name: 'sap_gift_sent', props: { reason: 'bouture' } },
   { name: 'push_sent', props: { kind: 'planning', tokens_count: 87 } },
   {
     name: 'article_viewed',

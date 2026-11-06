@@ -104,6 +104,9 @@ model User {
   sessions           Session[]
   blogPostsPublished BlogPost[]       @relation("blogPublisher")
   tips               UserTip[]
+  sapEntries         SapEntry[]
+  sapGiftsSent       SapGift[]        @relation("sapGiftsSent")
+  sapGiftsReceived   SapGift[]        @relation("sapGiftsReceived")
 
   @@index([role])
   @@index([createdAt])
@@ -1098,4 +1101,67 @@ model UserTip {
 
   @@unique([userId, slug])
   @@map("user_tips")
+}
+
+// ─── La Sève ───────────────────────────────────────────────────────────────
+// Plan : ~/Growi/Documentation/spec/17-plan-seve.md. Barème, plafonds et
+// cernes : `constants/sap.ts` dans @growi/shared.
+
+/// Un gain de sève. Le total d'un compte est la somme de ses lignes : un
+/// journal plutôt qu'un compteur, pour pouvoir annuler un gain précis (un
+/// arrosage effacé par « Annuler ») et rejouer le barème au besoin.
+model SapEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  /// Voir SAP_KINDS dans @growi/shared.
+  kind      String
+  amount    Int
+  /// Ce qui a rapporté : l'id du CareLog, de la tâche, de la plante, de la
+  /// publication, du commentaire, de l'annonce ou de la goutte reçue.
+  /// **Sans clé étrangère** : la sève gagnée survit au contenu qui l'a
+  /// rapportée (une publication supprimée ne reprend pas ce qu'elle a donné).
+  sourceId  String
+  /// Jour de l'utilisateur (`YYYY-MM-DD`, son fuseau) : c'est sur lui que se
+  /// comptent les plafonds quotidiens.
+  day       String
+  /// Libellé figé à l'écriture (« Rosiers paillés à temps »), comme le
+  /// `preview` d'une notification. Nul : l'écran prend le libellé du type.
+  label     String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// L'idempotence : un double tap, un rejeu ou une tournée « Tout arrosé »
+  /// relancée ne créditent jamais deux fois le même geste.
+  @@unique([userId, kind, sourceId])
+  /// Le décompte du plafond du jour.
+  @@index([userId, kind, day])
+  /// L'historique paginé et le total.
+  @@index([userId, createdAt])
+  @@map("sap_entries")
+}
+
+/// Une goutte offerte à un voisin. Elle **ne sort pas** de la sève du donneur :
+/// c'est un merci en plus. Le receveur gagne une `SapEntry` `gift_received`.
+model SapGift {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  /// Voir SAP_GIFT_REASONS dans @growi/shared.
+  reason     String
+  /// Petit mot facultatif, ≤ 140 caractères, passé à la liste noire.
+  message    String?
+  /// Publication depuis laquelle on remercie — sans clé étrangère, comme la
+  /// cible d'une notification.
+  postId     String?
+  /// Semaine ISO du donneur (`2026-W45`, son fuseau) : le quota se compte dessus.
+  week       String
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  from User @relation("sapGiftsSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  to   User @relation("sapGiftsReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([fromUserId, week])
+  @@index([toUserId, createdAt])
+  @@map("sap_gifts")
 }

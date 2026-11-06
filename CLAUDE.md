@@ -1202,6 +1202,41 @@ d'ortie, eau de banane, légendes démêlées —, avec son niveau de preuve
   été touchée : corriger le titre ne réécrit pas — ni n'efface, si elle est
   devenue illisible — une planche.
 
+### La Sève (gamification sans compétition)
+
+Chaque geste utile au jardin ou aux autres fait monter la **sève** du compte ;
+elle forme des **cernes** (paliers), et l'on peut **offrir des gouttes** à un
+voisin. Ni classement, ni perte, ni série à tenir : la sève n'est visible que
+par son propriétaire. Plan par phases et questions ouvertes :
+`~/Growi/Documentation/spec/17-plan-seve.md` ; maquettes Claude Design
+« Growi — La Sève ». **Phase 1 (socle) seulement** : rien n'est encore branché
+sur les gestes, ni exposé par l'API.
+
+| Élément | Rôle |
+|---|---|
+| `packages/shared/src/constants/sap.ts` | Types de gains, barème et plafonds (`SAP_RULES`), cernes (`sapRings`), motifs d'une goutte |
+| `packages/shared/src/schemas/sap.ts` | Résumé, historique, corps de « offrir une goutte » |
+| `lib/services/sap.service.ts` | `awardSap`, `awardSapMany`, `awardSapLater`, `revokeSap`, `getSapSummary`, `listSapHistory`, `giveSapDrop` |
+| Modèles | `SapEntry` (journal des gains), `SapGift` (gouttes offertes) — migration `20261106120000_sap` |
+
+- **Un journal, pas un compteur.** Le total est la somme de `sap_entries` ;
+  c'est ce qui permet de reprendre un gain précis (`revokeSap`) quand un geste
+  est annulé.
+- **Idempotence par `(userId, kind, sourceId)`** : un double tap ou une tournée
+  « Tout arrosé » rejouée ne créditent jamais deux fois. `sourceId` n'a pas de
+  clé étrangère — une publication supprimée ne reprend pas sa sève.
+- **Les plafonds se comptent dans le jour de l'utilisateur** (`zonedDayIso`),
+  comme le quota du chat. Lus puis écrits sans verrou : deux gains simultanés
+  peuvent dépasser d'une unité, c'est assumé.
+- **Créditer ne lève jamais** (rend 0) ; `awardSapLater` ne fait pas attendre
+  l'appelant et garde la fonction Vercel en vie par `waitUntil`. Lire et offrir
+  lèvent des `ServiceError` comme les autres services.
+- **Une goutte ne sort pas de la sève du donneur** : 3 par semaine ISO du
+  donneur, profil public exigé des deux côtés, la même 404 pour un receveur
+  inconnu, désactivé ou séparé par un blocage. Le blocage est relu par
+  `prisma.block` et non par `hiddenUserIds` : `profile.service` importera
+  bientôt ce service, et l'inverse ferait un cycle.
+
 ### Chat contextuel (agent conversationnel)
 
 Un fil de discussion avec « Growi », **toujours ancré** sur une plante, un
