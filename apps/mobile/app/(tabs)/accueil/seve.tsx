@@ -10,34 +10,45 @@ import {
   ImageIcon,
   Leaf,
   Lightbulb,
+  Check,
   Lock,
   MessageCircle,
 } from 'lucide-react-native'
 import {
+  SAP_HOME_THEMES,
+  SAP_HOME_THEME_LABELS,
   SAP_KINDS,
   SAP_RULES,
   SAP_RULE_DISPLAY,
+  SAP_THEME_RINGS,
   formatSapAmount,
   sapEntryLabel,
   sapRingName,
   sapRingThreshold,
   sapRingsLabel,
   sapRingsLine,
+  sapRewardPendingLine,
+  sapRewardUnlockedLine,
+  sapRingOrdinal,
   type SapEntry,
+  type SapHomeTheme,
+  type SapReward,
   type SapKind,
   type SapRuleGroup,
   type SapSummary,
 } from '@growi/shared'
 
+import { HomeThemeLayer } from '@/components/sap/HomeThemeLayer'
 import { SapDrop } from '@/components/sap/SapDrop'
 import { SapProgressBar } from '@/components/sap/SapProgressBar'
 import { TrunkRings } from '@/components/sap/TrunkRings'
 import { Button } from '@/components/ui/Button'
 import { CARD_SHADOW } from '@/components/ui/Card'
+import { useToast } from '@/components/ui/Toast'
 import { ErrorState, Pulse, Skeleton } from '@/components/ui/states'
 import { formatLogDate } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
-import { useSapHistory, useSapSummary } from '@/lib/queries/sap'
+import { useSapHistory, useSapSummary, useSetHomeTheme } from '@/lib/queries/sap'
 
 const FOREST = '#1E5631'
 const MUTED = 'hsl(139 20% 40%)'
@@ -50,9 +61,9 @@ const UPCOMING_RINGS = 1
  * « Ta sève » — la coupe du tronc, les cernes, le barème et l'historique.
  *
  * L'écran ne compare à personne : pas de classement, pas de « meilleurs
- * jardiniers », et le bloc forest le dit en clair. Les récompenses des cernes
- * et les chiffres du mois des maquettes viendront avec leur phase (plan §6) :
- * l'écran n'annonce rien qui n'existe pas encore.
+ * jardiniers », et le bloc forest le dit en clair. Chaque cerne dit ce qu'il a
+ * débloqué — un Secret en avant-première, un thème d'Accueil — ou ce qu'il
+ * débloquera ; les thèmes acquis se choisissent plus bas.
  */
 export default function SeveScreen() {
   const router = useRouter()
@@ -100,6 +111,7 @@ export default function SeveScreen() {
         >
           <TrunkBlock summary={summary.data} />
           <RingsList summary={summary.data} />
+          <ThemePicker summary={summary.data} />
           <RulesSection />
           <HistorySection history={history} />
         </ScrollView>
@@ -161,11 +173,13 @@ type RingState = 'formed' | 'forming' | 'upcoming'
 
 function RingsList({ summary }: { summary: SapSummary }) {
   const { rings } = summary
+  // Un serveur antérieur à la phase 6 ne rend pas de récompenses.
+  const rewards = new Map((summary.rewards ?? []).map((reward) => [reward.ring, reward]))
   const shown = rings.count + 1 + UPCOMING_RINGS
   const items = Array.from({ length: shown }, (_, index) => {
     const n = index + 1
     const state: RingState = n <= rings.count ? 'formed' : n === rings.count + 1 ? 'forming' : 'upcoming'
-    return { n, state, threshold: sapRingThreshold(n) }
+    return { n, state, threshold: sapRingThreshold(n), reward: rewards.get(n) }
   })
 
   return (
@@ -187,26 +201,24 @@ function RingRow({
   state,
   threshold,
   remaining,
+  reward,
 }: {
   n: number
   state: RingState
   threshold: number
   remaining: number
+  reward: SapReward | undefined
 }) {
-  const detail =
+  const router = useRouter()
+  const progress =
     state === 'formed' ? 'Formé' : state === 'forming' ? `Encore ${remaining} de sève` : 'À venir'
+  const rewardLine =
+    state === 'formed' ? (reward ? sapRewardUnlockedLine(reward) : null) : sapRewardPendingLine(n)
+  // Un secret offert se lit au grimoire : la ligne y mène.
+  const opensGrimoire = state === 'formed' && reward?.kind === 'secret' && Boolean(reward.value)
 
-  return (
-    <View
-      accessible
-      accessibilityLabel={`${sapRingName(n)}, à ${threshold} de sève : ${detail}`}
-      className={[
-        'flex-row items-center gap-3 rounded-xl px-3.5 py-3',
-        state === 'forming' ? 'border-2 border-forest bg-card' : 'bg-card',
-        state === 'upcoming' ? 'opacity-70' : '',
-      ].join(' ')}
-      style={state === 'forming' ? undefined : CARD_SHADOW}
-    >
+  const content = (
+    <>
       <View
         className={[
           'h-9 w-9 items-center justify-center rounded-full',
@@ -225,13 +237,127 @@ function RingRow({
         <Text className="font-raleway-semibold text-body text-forest">
           {sapRingName(n)} · {threshold}
         </Text>
-        <Text className="font-raleway text-caption text-muted-foreground">{detail}</Text>
+        <Text className="font-raleway text-caption text-muted-foreground">
+          {rewardLine ? `${progress} · ${rewardLine}` : progress}
+        </Text>
       </View>
       {state === 'forming' ? (
         <View className="rounded-full bg-sun px-2.5 py-1">
           <Text className="font-raleway-bold text-caption text-forest">En cours</Text>
         </View>
       ) : null}
+    </>
+  )
+
+  const className = [
+    'flex-row items-center gap-3 rounded-xl px-3.5 py-3',
+    state === 'forming' ? 'border-2 border-forest bg-card' : 'bg-card',
+    state === 'upcoming' ? 'opacity-70' : '',
+  ].join(' ')
+  const label = `${sapRingName(n)}, à ${threshold} de sève : ${progress}${rewardLine ? `. ${rewardLine}` : ''}`
+
+  if (opensGrimoire) {
+    return (
+      <Pressable
+        onPress={() => router.push('/(tabs)/accueil/grimoire')}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}. Ouvrir le grimoire`}
+        className={className}
+        style={({ pressed }) => [CARD_SHADOW, pressed ? { transform: [{ scale: 0.98 }] } : null]}
+      >
+        {content}
+      </Pressable>
+    )
+  }
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={label}
+      className={className}
+      style={state === 'forming' ? undefined : CARD_SHADOW}
+    >
+      {content}
+    </View>
+  )
+}
+
+// ─── Les thèmes d'Accueil ──────────────────────────────────────────────────
+
+type ThemeChoice = SapHomeTheme | null
+
+/**
+ * Le classique et les trois thèmes, chacun avec sa vignette. Un thème pas
+ * encore débloqué reste visible — on voit ce qu'on vise — mais grisé, avec le
+ * cerne qui l'apporte.
+ */
+function ThemePicker({ summary }: { summary: SapSummary }) {
+  const toast = useToast()
+  const setTheme = useSetHomeTheme()
+  const unlocked = new Set(
+    (summary.rewards ?? []).flatMap((reward) => (reward.kind === 'theme' && reward.value ? [reward.value] : [])),
+  )
+  const current: ThemeChoice = summary.homeTheme ?? null
+  const choices: ThemeChoice[] = [null, ...SAP_HOME_THEMES]
+
+  const choose = (theme: ThemeChoice) => {
+    if (theme === current) return
+    setTheme.mutate(theme, {
+      onSuccess: () => toast(theme ? `Ton Accueil passe en « ${SAP_HOME_THEME_LABELS[theme]} »` : 'Retour à l’Accueil classique'),
+      onError: (error) => toast(errorMessage(error), 'error'),
+    })
+  }
+
+  return (
+    <View className="gap-3">
+      <View className="gap-0.5">
+        <Text className="font-poppins text-section text-forest" accessibilityRole="header">
+          Ton thème d’Accueil
+        </Text>
+        <Text className="font-raleway text-secondary text-muted-foreground">
+          Il habille le haut de ton Accueil. Les cernes en débloquent de nouveaux.
+        </Text>
+      </View>
+      <View className="flex-row flex-wrap gap-2.5">
+        {choices.map((theme) => {
+          const open = theme === null || unlocked.has(theme)
+          const selected = theme === current
+          const name = theme ? SAP_HOME_THEME_LABELS[theme] : 'Classique'
+          const hint = open ? (selected ? 'Choisi' : 'Disponible') : `Au ${sapRingOrdinal(SAP_THEME_RINGS[theme!])} cerne`
+          return (
+            <Pressable
+              key={theme ?? 'classique'}
+              onPress={() => choose(theme)}
+              disabled={!open}
+              accessibilityRole="radio"
+              accessibilityState={{ selected, disabled: !open }}
+              accessibilityLabel={`${name} : ${hint}`}
+              className={[
+                'overflow-hidden rounded-xl bg-card',
+                selected ? 'border-2 border-forest' : 'border-2 border-transparent',
+                open ? '' : 'opacity-60',
+              ].join(' ')}
+              style={({ pressed }) => [{ width: '48%' }, CARD_SHADOW, pressed ? { transform: [{ scale: 0.98 }] } : null]}
+            >
+              <View className="h-[72px] bg-forest">
+                {theme ? <HomeThemeLayer theme={theme} id={`picker-${theme}`} /> : null}
+                {!open ? (
+                  <View className="absolute inset-0 items-center justify-center">
+                    <Lock size={20} color="#F9F7E8" />
+                  </View>
+                ) : null}
+              </View>
+              <View className="flex-row items-center gap-2 px-3 py-2">
+                <View className="flex-1">
+                  <Text className="font-raleway-semibold text-secondary text-forest">{name}</Text>
+                  <Text className="font-raleway text-caption text-muted-foreground">{hint}</Text>
+                </View>
+                {selected ? <Check size={18} color={FOREST} /> : null}
+              </View>
+            </Pressable>
+          )
+        })}
+      </View>
     </View>
   )
 }

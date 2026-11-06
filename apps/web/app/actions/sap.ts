@@ -11,11 +11,12 @@
  */
 
 import { revalidatePath } from 'next/cache'
-import { giveSapDropSchema, type SapEntryPage } from '@growi/shared'
+import { giveSapDropSchema, setSapHomeThemeSchema, type SapEntryPage, type SapHomeTheme } from '@growi/shared'
 
 import { auth } from '@/auth'
 import { serializeSapEntry } from '@/lib/api/serializers'
 import { isServiceError, ServiceError } from '@/lib/services/errors'
+import { setHomeTheme } from '@/lib/services/sap-rewards.service'
 import * as sapService from '@/lib/services/sap.service'
 
 export type SapActionResult<T> = { ok: true; data: T } | { ok: false; error: string; code?: string }
@@ -71,5 +72,17 @@ export async function loadSapHistoryAction(cursor: string | null): Promise<SapAc
   return run(async (userId) => {
     const page = await sapService.listSapHistory(userId, cursor)
     return { items: page.items.map(serializeSapEntry), nextCursor: page.nextCursor }
+  })
+}
+
+/** Choisir le thème d'Accueil débloqué par un cerne — `null` revient au classique. */
+export async function setHomeThemeAction(input: unknown): Promise<SapActionResult<{ homeTheme: SapHomeTheme | null }>> {
+  return run(async (userId) => {
+    const parsed = setSapHomeThemeSchema.safeParse(input)
+    if (!parsed.success) throw new ServiceError('INVALID_INPUT', 'Thème inconnu')
+    const homeTheme = await setHomeTheme(userId, parsed.data.theme)
+    revalidatePath('/dashboard')
+    revalidatePath('/dashboard/seve')
+    return { homeTheme }
   })
 }

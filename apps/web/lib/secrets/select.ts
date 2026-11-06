@@ -192,7 +192,7 @@ export interface WeeklyPick {
  * `W46`) tombent sur des valeurs voisines, et le tirage ne varie presque pas
  * d'une semaine à l'autre. Rien de cryptographique ici.
  */
-function unitHash(seed: string): number {
+export function unitHash(seed: string): number {
   let hash = 0x811c9dc5
   for (let i = 0; i < seed.length; i++) {
     hash ^= seed.charCodeAt(i)

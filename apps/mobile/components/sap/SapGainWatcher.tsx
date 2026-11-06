@@ -5,7 +5,7 @@ import { sapEntryLabel, sapGainsLabel, type SapEntry, type SapSummary } from '@g
 
 import { useToast } from '@/components/ui/Toast'
 import { sapKeys } from '@/lib/queries/keys'
-import { useSapSummary } from '@/lib/queries/sap'
+import { useSapSummary, useSetHomeTheme } from '@/lib/queries/sap'
 
 import { SapDrop } from './SapDrop'
 import { SapMomentSheet, type SapMoment } from './SapMomentSheet'
@@ -49,6 +49,7 @@ export function SapGainWatcher() {
   const summary = useSapSummary()
   const previous = useRef<SapSummary | null>(null)
   const [moment, setMoment] = useState<SapMoment | null>(null)
+  const setTheme = useSetHomeTheme()
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null
@@ -88,7 +89,14 @@ export function SapGainWatcher() {
     const fresh = freshEntries(before, current)
 
     if (current.rings.count > before.rings.count) {
-      setMoment({ kind: 'ring', total: current.total, rings: current.rings })
+      setMoment({
+        kind: 'ring',
+        total: current.total,
+        rings: current.rings,
+        // La lecture qui annonce le cerne est celle qui l'a remis : sa
+        // récompense est déjà dans la réponse.
+        reward: (current.rewards ?? []).find((reward) => reward.ring === current.rings.count),
+      })
       return
     }
 
@@ -118,6 +126,18 @@ export function SapGainWatcher() {
       onOpenSeve={() => {
         setMoment(null)
         router.push('/(tabs)/accueil/seve')
+      }}
+      onTryTheme={(theme) => {
+        setMoment(null)
+        setTheme.mutate(theme, {
+          onError: () => toast('Impossible de changer de thème pour l’instant — réessaie depuis « Ta sève ».', 'error'),
+        })
+        // Le thème se voit sur l'Accueil : on y retourne.
+        router.navigate('/(tabs)/accueil')
+      }}
+      onOpenGrimoire={() => {
+        setMoment(null)
+        router.push('/(tabs)/accueil/grimoire')
       }}
     />
   )

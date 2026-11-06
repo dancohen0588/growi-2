@@ -503,9 +503,10 @@ Les routes `/api/v1/*` (`apps/web/app/api/v1/`) sont la surface consommée par l
 | `/api/v1/community/threads/[id]/messages` | GET, POST |
 | `/api/v1/community/notifications` · `/read` · `/unread-count` | GET · POST · GET |
 | `/api/v1/community/reports` | POST — idempotent |
-| `/api/v1/sap` | GET — ta sève : total, cernes, gouttes restantes, derniers gains |
+| `/api/v1/sap` | GET — ta sève : total, cernes, gouttes restantes, derniers gains, récompenses, thème d'Accueil |
 | `/api/v1/sap/history` | GET (`?cursor=`) — l'historique des gains |
 | `/api/v1/sap/gifts` | POST `{ handle, reason, message?, postId? }` — offrir une goutte : 201 `{ giftsLeft }`, 429 `QUOTA_EXCEEDED` |
+| `/api/v1/sap/theme` | PUT `{ theme }` — le thème d'Accueil débloqué (`null` : classique) : 200 `{ homeTheme }`, 403 s'il n'est pas débloqué |
 
 Chaque route suit le même squelette, à respecter pour toute nouvelle route :
 
@@ -1213,7 +1214,8 @@ voisin. Ni classement, ni perte, ni série à tenir : la sève n'est visible que
 par son propriétaire. Plan par phases et questions ouvertes :
 `~/Growi/Documentation/spec/17-plan-seve.md` ; maquettes Claude Design
 « Growi — La Sève ». **Phases 1 (socle), 2 (gains branchés sur les gestes),
-3 (API, client, notification), 4 (écrans mobile) et 5 (web) livrées**.
+3 (API, client, notification), 4 (écrans mobile), 5 (web) et 6 (récompenses des
+cernes) livrées**.
 
 | Élément | Rôle |
 |---|---|
@@ -1225,7 +1227,10 @@ par son propriétaire. Plan par phases et questions ouvertes :
 | `apps/mobile/components/sap/` | Goutte, coupe du tronc, pastille du hero, carte de l'Accueil, feuille « Offrir », annonces de gain |
 | `apps/mobile/app/(tabs)/accueil/seve.tsx` | L'écran « Ta sève » : coupe, cernes, barème (`SAP_RULE_DISPLAY`), historique |
 | `apps/web/components/dashboard/seve/` · `app/dashboard/seve/` | Le pendant web : carte de l'accueil, page « Ta sève », boîte « Offrir » |
-| `app/actions/sap.ts` | Server Actions du web : gouttes restantes, offrir, page suivante de l'historique |
+| `app/actions/sap.ts` | Server Actions du web : gouttes restantes, offrir, page suivante de l'historique, thème d'Accueil |
+| `lib/services/sap-rewards.service.ts` | `getSapOverview` (résumé + récompenses + thème), `ensureRingRewards`, `setHomeTheme` |
+| `packages/shared/src/sap/themes.ts` | `sapThemeArt` : la géométrie des thèmes d'Accueil, rendue à l'identique par le web et le mobile |
+| Modèle `SapReward` · `User.homeTheme` | Ce qu'a donné chaque cerne ; le thème choisi — migration `20261106140000_sap_rewards` |
 
 - **Un journal, pas un compteur.** Le total est la somme de `sap_entries` ;
   c'est ce qui permet de reprendre un gain précis (`revokeSap`) quand un geste
@@ -1294,6 +1299,23 @@ par son propriétaire. Plan par phases et questions ouvertes :
 - **Web : la sève ne s'annonce pas après un geste** — pas d'équivalent du
   watcher ; elle se lit sur la carte de l'accueil et sur `/dashboard/seve`.
   La carte se tait si la lecture échoue (migration non appliquée comprise).
+- **Ce que débloquent les cernes** (décisions du 06/11/2026) : un thème
+  d'Accueil aux cernes 2, 4 et 6 (« Sous-bois », « Prairie », « Crépuscule »),
+  un **Secret en avant-première** à tous les autres, y compris au-delà, tant
+  qu'il en reste à découvrir (`sapRingReward`). Une récompense ne se reprend
+  jamais, même si un geste annulé fait repasser sous le seuil.
+- **Les récompenses se remettent à la lecture** (`getSapOverview`), pas au
+  gain : `awardSap` reste tel quel, et une remise ratée se rattrape d'elle-même.
+  La ligne `sap_rewards` est écrite **avant** de dévoiler le secret : deux
+  lectures simultanées se disputent l'unicité `(userId, ring)` et une seule
+  dévoile. `sap-rewards.service` vit à part de `sap.service` parce qu'il
+  importe `secrets.service`, qui importe déjà `sap.service`.
+- **Le secret offert** (`revealRewardSecret`) n'est jamais un secret déjà
+  découvert, essayé ou mis de côté, ni un secret lunaire sans l'option.
+- **Les thèmes se dessinent par-dessus la photo et son voile, sous le texte**,
+  en opacités basses et sur les bords : ils habillent sans gêner la lecture.
+  Sur le web, ils habillent le bandeau d'accueil du tableau de bord.
+  `PUT /api/v1/sap/theme` refuse en 403 un thème pas encore débloqué.
 - « Offrir une goutte » se trouve sous chaque publication d'un autre (fil et
   détail, web compris) et sur son profil (`useGiftSheet` sur mobile,
   `GiftButton` sur le web, qui lit les gouttes restantes à l'ouverture). Plus de gouttes : le bouton se

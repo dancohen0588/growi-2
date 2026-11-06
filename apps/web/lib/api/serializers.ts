@@ -18,6 +18,7 @@ import type {
   PlantInstance,
   PlantInstanceWithRelations,
   SapEntry,
+  SapReward,
   SapSummary,
 } from '@growi/shared'
 import type {
@@ -30,7 +31,7 @@ import type {
 } from '@prisma/client'
 
 import { absoluteUrl } from '@/lib/site-url'
-import type { SapSummaryRecord } from '@/lib/services/sap.service'
+import type { SapOverviewRecord, SapRewardRecord } from '@/lib/services/sap-rewards.service'
 
 const iso = (d: Date): string => d.toISOString()
 const isoOrNull = (d: Date | null): string | null => (d ? d.toISOString() : null)
@@ -138,13 +139,25 @@ export function serializeSapEntry(entry: PrismaSapEntry): SapEntry {
   }
 }
 
-export function serializeSapSummary(summary: SapSummaryRecord): SapSummary {
+export function serializeSapReward(reward: SapRewardRecord): SapReward {
+  return {
+    ring: reward.ring,
+    kind: reward.kind,
+    value: reward.value,
+    title: reward.title,
+    createdAt: iso(reward.createdAt),
+  }
+}
+
+export function serializeSapSummary(summary: SapOverviewRecord): SapSummary {
   return {
     total: summary.total,
     rings: summary.rings,
     giftsLeft: summary.giftsLeft,
     giftsPerWeek: summary.giftsPerWeek,
     recent: summary.recent.map(serializeSapEntry),
+    rewards: summary.rewards.map(serializeSapReward),
+    homeTheme: summary.homeTheme,
   }
 }
 

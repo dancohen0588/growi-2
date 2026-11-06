@@ -3,7 +3,9 @@ import { z } from 'zod'
 import {
   SAP_GIFT_MESSAGE_MAX_LENGTH,
   sapGiftReasonSchema,
+  sapHomeThemeSchema,
   sapKindSchema,
+  sapRewardKindSchema,
 } from '../constants/sap'
 import { handleSchema } from './community'
 import { cursorPageSchema, idSchema, isoDateTimeSchema, nullish } from './common'
@@ -51,6 +53,13 @@ export const sapSummarySchema = z.object({
   giftsPerWeek: z.number().int().min(0),
   /** Les derniers gains, du plus récent au plus ancien. */
   recent: z.array(sapEntrySchema),
+  /**
+   * Ce que les cernes formés ont débloqué, du premier au dernier. Absent
+   * d'un serveur antérieur à la phase 6 : un client le lit comme `[]`.
+   */
+  rewards: z.array(z.lazy(() => sapRewardSchema)).default([]),
+  /** Le thème d'Accueil choisi ; `null` : l'Accueil classique. */
+  homeTheme: nullish(sapHomeThemeSchema),
 })
 export type SapSummary = z.infer<typeof sapSummarySchema>
 
@@ -74,3 +83,23 @@ export const giveSapDropResultSchema = z.object({
   giftsLeft: z.number().int().min(0),
 })
 export type GiveSapDropResult = z.infer<typeof giveSapDropResultSchema>
+
+/**
+ * Ce qu'un cerne formé a débloqué. `value` est le slug du secret ou la clé du
+ * thème ; il est nul quand il ne restait aucun secret à découvrir. `title`
+ * est ce qu'on affiche : le titre du secret, le nom du thème.
+ */
+export const sapRewardSchema = z.object({
+  ring: z.number().int().min(1),
+  kind: sapRewardKindSchema,
+  value: nullish(z.string()),
+  title: nullish(z.string()),
+  createdAt: isoDateTimeSchema,
+})
+export type SapReward = z.infer<typeof sapRewardSchema>
+
+/** `PUT /api/v1/sap/theme` — `null` revient à l'Accueil classique. */
+export const setSapHomeThemeSchema = z.object({
+  theme: sapHomeThemeSchema.nullable(),
+})
+export type SetSapHomeThemeInput = z.infer<typeof setSapHomeThemeSchema>

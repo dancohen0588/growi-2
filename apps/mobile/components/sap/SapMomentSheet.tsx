@@ -1,8 +1,12 @@
 import { Modal, Pressable, Text, View } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 import {
+  SAP_HOME_THEME_LABELS,
+  sapHomeThemeSchema,
   sapRingOrdinal,
   sapRingsLabel,
+  type SapHomeTheme,
+  type SapReward,
   type SapRings,
 } from '@growi/shared'
 
@@ -23,12 +27,39 @@ const SUN = '#F6C445'
  */
 export type SapMoment =
   | { kind: 'secret'; amount: number; label: string; total: number; rings: SapRings }
-  | { kind: 'ring'; total: number; rings: SapRings }
+  | { kind: 'ring'; total: number; rings: SapRings; reward?: SapReward }
 
 export interface SapMomentSheetProps {
   moment: SapMoment | null
   onClose: () => void
   onOpenSeve: () => void
+  /** « Essayer » le thème que le cerne vient de débloquer. */
+  onTryTheme: (theme: SapHomeTheme) => void
+  /** « Lire le secret » offert en avant-première. */
+  onOpenGrimoire: () => void
+}
+
+/** Ce que dit la feuille du cadeau d'un cerne, et le bouton qui va avec. */
+function ringRewardCopy(reward: SapReward | undefined): {
+  text: string
+  theme?: SapHomeTheme
+  secret?: boolean
+} {
+  const base = 'Des semaines de soins et de partage, gravées dans ton tronc.'
+  if (!reward) return { text: base }
+  if (reward.kind === 'theme') {
+    const theme = sapHomeThemeSchema.safeParse(reward.value)
+    if (!theme.success) return { text: base }
+    return {
+      text: `${base} Tu débloques le thème d’Accueil « ${SAP_HOME_THEME_LABELS[theme.data]} ».`,
+      theme: theme.data,
+    }
+  }
+  if (!reward.value) return { text: `${base} Tu as déjà découvert tous les secrets du grimoire !` }
+  return {
+    text: `${base} En cadeau, « ${reward.title ?? 'un secret'} » rejoint ton grimoire en avant-première.`,
+    secret: true,
+  }
 }
 
 /** La goutte qui rayonne, avec son « +5 » en étiquette posée de biais. */
@@ -86,8 +117,10 @@ function RadiantDrop({ amount }: { amount: number }) {
   )
 }
 
-export function SapMomentSheet({ moment, onClose, onOpenSeve }: SapMomentSheetProps) {
+export function SapMomentSheet({ moment, onClose, onOpenSeve, onTryTheme, onOpenGrimoire }: SapMomentSheetProps) {
   if (!moment) return null
+
+  const ringCopy = moment.kind === 'ring' ? ringRewardCopy(moment.reward) : null
 
   const title = moment.kind === 'secret' ? 'Merci pour ton retour !' : `Ton ${sapRingOrdinal(moment.rings.count)} cerne est formé`
 
@@ -127,7 +160,7 @@ export function SapMomentSheet({ moment, onClose, onOpenSeve }: SapMomentSheetPr
           <Text className="text-center font-raleway text-body text-forest-light">
             {moment.kind === 'secret'
               ? `${moment.label} est noté dans ton grimoire. Chaque retour aide à démêler les astuces qui marchent des légendes.`
-              : 'Des semaines de soins et de partage, gravées dans ton tronc.'}
+              : ringCopy?.text}
           </Text>
         </View>
 
@@ -144,15 +177,43 @@ export function SapMomentSheet({ moment, onClose, onOpenSeve }: SapMomentSheetPr
         ) : null}
 
         <View className="w-full gap-2.5">
-          <Button
-            label="Voir ma sève"
-            variant="forest"
-            size="lg"
-            font="poppins-bold"
-            raised
-            onPress={onOpenSeve}
-          />
-          <Button label="Continuer" variant="outline" font="poppins" onPress={onClose} />
+          {ringCopy?.theme ? (
+            <>
+              <Button
+                label={`Essayer « ${SAP_HOME_THEME_LABELS[ringCopy.theme]} »`}
+                variant="forest"
+                size="lg"
+                font="poppins-bold"
+                raised
+                onPress={() => onTryTheme(ringCopy.theme!)}
+              />
+              <Button label="Plus tard" variant="outline" font="poppins" onPress={onClose} />
+            </>
+          ) : ringCopy?.secret ? (
+            <>
+              <Button
+                label="Lire le secret"
+                variant="forest"
+                size="lg"
+                font="poppins-bold"
+                raised
+                onPress={onOpenGrimoire}
+              />
+              <Button label="Plus tard" variant="outline" font="poppins" onPress={onClose} />
+            </>
+          ) : (
+            <>
+              <Button
+                label="Voir ma sève"
+                variant="forest"
+                size="lg"
+                font="poppins-bold"
+                raised
+                onPress={onOpenSeve}
+              />
+              <Button label="Continuer" variant="outline" font="poppins" onPress={onClose} />
+            </>
+          )}
         </View>
       </View>
     </Modal>

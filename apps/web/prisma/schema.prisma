@@ -52,6 +52,8 @@ model User {
   /// Calendrier lunaire du jardinier : bandeau « jour fruit » et secret lunaire.
   /// Désactivé par défaut — une tradition, que chacun choisit d'afficher.
   lunarCalendar      Boolean   @default(false)
+  /// Thème d'Accueil débloqué par un cerne (SAP_HOME_THEMES). Nul : l'Accueil classique.
+  homeTheme          String?
 
   // ── Communauté (opt-in) ──────────────────────────────────────────────────
   /// Pseudo public unique, 3 à 30 caractères `[a-z0-9_]`, normalisé en
@@ -107,6 +109,7 @@ model User {
   sapEntries         SapEntry[]
   sapGiftsSent       SapGift[]        @relation("sapGiftsSent")
   sapGiftsReceived   SapGift[]        @relation("sapGiftsReceived")
+  sapRewards         SapReward[]
 
   @@index([role])
   @@index([createdAt])
@@ -1164,4 +1167,23 @@ model SapGift {
   @@index([fromUserId, week])
   @@index([toUserId, createdAt])
   @@map("sap_gifts")
+}
+
+/// Ce qu'un cerne formé a débloqué (phase 6). Une ligne par cerne et par
+/// compte : l'unicité rend la remise idempotente, et une récompense ne se
+/// reprend jamais — même si un geste annulé fait repasser sous le seuil.
+model SapReward {
+  id        String   @id @default(cuid())
+  userId    String
+  ring      Int
+  /// secret | theme (SAP_REWARD_KINDS).
+  kind      String
+  /// Slug du secret ou clé du thème ; nul quand il ne restait aucun secret.
+  value     String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ring])
+  @@map("sap_rewards")
 }

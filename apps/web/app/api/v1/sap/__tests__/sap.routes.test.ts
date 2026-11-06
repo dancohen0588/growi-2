@@ -6,17 +6,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const authContext = vi.hoisted(() => ({ requireUserId: vi.fn() }))
 const sapService = vi.hoisted(() => ({
-  getSapSummary: vi.fn(),
   listSapHistory: vi.fn(),
   giveSapDrop: vi.fn(),
 }))
+const rewardsService = vi.hoisted(() => ({ getSapOverview: vi.fn(), setHomeTheme: vi.fn() }))
 
 vi.mock('@/lib/api/auth-context', () => authContext)
 vi.mock('@/lib/services/sap.service', () => sapService)
+vi.mock('@/lib/services/sap-rewards.service', () => rewardsService)
 
 const summaryRoute = await import('../route')
 const historyRoute = await import('../history/route')
 const giftsRoute = await import('../gifts/route')
+const themeRoute = await import('../theme/route')
 const { ServiceError } = await import('@/lib/services/errors')
 
 const CREATED_AT = new Date('2026-11-06T09:30:00Z')
@@ -51,23 +53,36 @@ beforeEach(() => {
 
 describe('GET /api/v1/sap', () => {
   it('rend le résumé, gains sérialisés champ par champ', async () => {
-    sapService.getSapSummary.mockResolvedValue({
+    rewardsService.getSapOverview.mockResolvedValue({
       total: 340,
       rings: { count: 3, floor: 300, next: 500, progress: 0.2, remaining: 160 },
       giftsLeft: 2,
       giftsPerWeek: 3,
       recent: [entryRow()],
+      rewards: [
+        { ring: 1, kind: 'secret', value: 'purin-ortie', title: 'Le purin d’ortie', createdAt: CREATED_AT },
+        { ring: 2, kind: 'theme', value: 'sous-bois', title: 'Sous-bois', createdAt: CREATED_AT },
+      ],
+      homeTheme: 'sous-bois',
     })
 
     const response = await summaryRoute.GET()
     const { data } = await response.json()
 
     expect(response.status).toBe(200)
-    expect(sapService.getSapSummary).toHaveBeenCalledWith('u1')
+    expect(rewardsService.getSapOverview).toHaveBeenCalledWith('u1')
     expect(data).toMatchObject({ total: 340, giftsLeft: 2, rings: { count: 3 } })
     expect(data.recent).toEqual([
       { id: 'e1', kind: 'task_on_time', amount: 2, label: 'Pailler à temps', createdAt: CREATED_AT.toISOString() },
     ])
+    expect(data.homeTheme).toBe('sous-bois')
+    expect(data.rewards[1]).toEqual({
+      ring: 2,
+      kind: 'theme',
+      value: 'sous-bois',
+      title: 'Sous-bois',
+      createdAt: CREATED_AT.toISOString(),
+    })
     // Rien d'interne ne sort, ni dans le résumé ni en cache.
     expect(response.headers.get('cache-control')).toMatch(/no-store/)
   })
@@ -76,7 +91,7 @@ describe('GET /api/v1/sap', () => {
     authContext.requireUserId.mockRejectedValue(new ServiceError('UNAUTHENTICATED', 'Authentification requise'))
     const response = await summaryRoute.GET()
     expect(response.status).toBe(401)
-    expect(sapService.getSapSummary).not.toHaveBeenCalled()
+    expect(rewardsService.getSapOverview).not.toHaveBeenCalled()
   })
 })
 
@@ -133,5 +148,41 @@ describe('POST /api/v1/sap/gifts', () => {
 
     expect(response.status).toBe(status)
     expect((await response.json()).error).toEqual({ code, message: 'message à afficher' })
+  })
+})
+
+describe('PUT /api/v1/sap/theme', () => {
+  function put(body: unknown) {
+    return new Request('https://growi.test/api/v1/sap/theme', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it('choisit un thème débloqué', async () => {
+    rewardsService.setHomeTheme.mockResolvedValue('prairie')
+    const response = await themeRoute.PUT(put({ theme: 'prairie' }))
+    expect(response.status).toBe(200)
+    expect((await response.json()).data).toEqual({ homeTheme: 'prairie' })
+    expect(rewardsService.setHomeTheme).toHaveBeenCalledWith('u1', 'prairie')
+  })
+
+  it('null revient au classique', async () => {
+    rewardsService.setHomeTheme.mockResolvedValue(null)
+    await themeRoute.PUT(put({ theme: null }))
+    expect(rewardsService.setHomeTheme).toHaveBeenCalledWith('u1', null)
+  })
+
+  it('400 pour un thème inconnu, sans rien écrire', async () => {
+    const response = await themeRoute.PUT(put({ theme: 'jungle' }))
+    expect(response.status).toBe(400)
+    expect(rewardsService.setHomeTheme).not.toHaveBeenCalled()
+  })
+
+  it('403 pour un thème pas encore débloqué', async () => {
+    rewardsService.setHomeTheme.mockRejectedValue(new ServiceError('FORBIDDEN', 'Pas encore'))
+    const response = await themeRoute.PUT(put({ theme: 'crepuscule' }))
+    expect(response.status).toBe(403)
   })
 })

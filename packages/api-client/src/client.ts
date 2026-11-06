@@ -53,6 +53,8 @@ import type {
   GardenWithStats,
   GiveSapDropInput,
   GiveSapDropResult,
+  SapHomeTheme,
+  SetSapHomeThemeInput,
   Grimoire,
   HandleAvailability,
   HealthStatus,
@@ -478,6 +480,20 @@ export class GrowiApiClient {
       this.http.request('/api/v1/sap/gifts', {
         ...options,
         method: 'POST',
+        body: input,
+      }),
+
+    /**
+     * Choisit le thème d'Accueil débloqué par un cerne (`null` : le
+     * classique). Échoue en 403 pour un thème pas encore débloqué.
+     */
+    setTheme: (
+      input: SetSapHomeThemeInput,
+      options?: CallOptions,
+    ): Promise<{ homeTheme: SapHomeTheme | null }> =>
+      this.http.request('/api/v1/sap/theme', {
+        ...options,
+        method: 'PUT',
         body: input,
       }),
   }

@@ -458,3 +458,43 @@ describe('grimoire', () => {
     )
   })
 })
+
+describe('secret en avant-première (récompense d’un cerne)', () => {
+  it('dévoile un secret jamais vu — ni découvert, ni essayé, ni mis de côté, ni lunaire sans l’option', async () => {
+    prismaMock.gardenTip.findMany.mockResolvedValue([
+      tipRow('cendres'),
+      tipRow('eau-riz'),
+      tipRow('feuilles-mortes'),
+      tipRow('marc-cafe'),
+      tipRow('lune', { conditions: { lunarOnly: true } }),
+    ])
+    prismaMock.userTip.findMany.mockResolvedValue([
+      { slug: 'cendres', revealedAt: new Date(), dismissedAt: null },
+      { slug: 'eau-riz', revealedAt: null, dismissedAt: new Date() },
+    ])
+    prismaMock.careLog.findMany.mockResolvedValue([{ tipSlug: 'feuilles-mortes' }])
+
+    const slug = await service.revealRewardSecret(USER, 'graine')
+
+    expect(slug).toBe('marc-cafe')
+    expect(prismaMock.userTip.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId_slug: { userId: USER, slug: 'marc-cafe' } },
+        create: expect.objectContaining({ userId: USER, slug: 'marc-cafe', revealedAt: expect.any(Date) }),
+      }),
+    )
+  })
+
+  it('le même tirage pour la même graine', async () => {
+    prismaMock.gardenTip.findMany.mockResolvedValue([tipRow('a'), tipRow('b'), tipRow('c'), tipRow('d')])
+    const first = await service.revealRewardSecret(USER, 'user_1:cerne:3')
+    const second = await service.revealRewardSecret(USER, 'user_1:cerne:3')
+    expect(second).toBe(first)
+  })
+
+  it('rien à découvrir : null, sans rien écrire', async () => {
+    prismaMock.userTip.findMany.mockResolvedValue([{ slug: 'feuilles-mortes', revealedAt: new Date(), dismissedAt: null }])
+    expect(await service.revealRewardSecret(USER, 'graine')).toBeNull()
+    expect(prismaMock.userTip.upsert).not.toHaveBeenCalled()
+  })
+})

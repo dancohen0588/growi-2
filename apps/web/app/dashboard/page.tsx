@@ -18,7 +18,8 @@ import { SapCard, SapCardSkeleton } from '@/components/dashboard/seve/SapCard'
 import { SummaryStats } from '@/components/dashboard/SummaryStats'
 import { serializeSapSummary } from '@/lib/api/serializers'
 import { getSettings } from '@/lib/services/community/profile.service'
-import { getSapSummary } from '@/lib/services/sap.service'
+import { ThemeArt } from '@/components/dashboard/seve/ThemeArt'
+import { getHomeTheme, getSapOverview } from '@/lib/services/sap-rewards.service'
 import { getDashboardSummary } from '@/lib/services/summary.service'
 
 export const metadata: Metadata = {
@@ -75,18 +76,30 @@ const featureCards = [
 export default async function DashboardPage() {
   const session = await auth()
   const firstName = session?.user?.firstName ?? 'Jardinier'
+  const homeTheme = session?.user?.id ? await getHomeTheme(session.user.id) : null
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Welcome */}
-      <div>
-        <h1 className="font-poppins font-bold text-2xl text-forest">
-          Bonjour, {firstName} 👋
-        </h1>
-        <p className="font-raleway text-sm text-forest/60 mt-1">
-          Voici un aperçu de ton jardin connecté.
-        </p>
-      </div>
+      {/* Welcome — habillé du thème qu'un cerne a débloqué, s'il y en a un
+          de choisi ; sinon tel qu'il a toujours été. */}
+      {homeTheme ? (
+        <div className="relative overflow-hidden rounded-2xl bg-forest px-6 py-8">
+          <ThemeArt theme={homeTheme} width={1000} height={180} className="absolute inset-0 h-full w-full" />
+          <div className="relative">
+            <h1 className="font-poppins font-bold text-2xl text-sand">Bonjour, {firstName} 👋</h1>
+            <p className="font-raleway text-sm text-[#E6F0DA] mt-1">Voici un aperçu de ton jardin connecté.</p>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <h1 className="font-poppins font-bold text-2xl text-forest">
+            Bonjour, {firstName} 👋
+          </h1>
+          <p className="font-raleway text-sm text-forest/60 mt-1">
+            Voici un aperçu de ton jardin connecté.
+          </p>
+        </div>
+      )}
 
       {/* Overview stats row — en flux : le reste de la page, statique,
           s'affiche sans attendre le moteur de conseils. */}
@@ -160,7 +173,7 @@ async function SummarySection({ userId }: { userId: string }) {
  * sans emporter l'accueil.
  */
 async function SapSection({ userId }: { userId: string }) {
-  const data = await Promise.all([getSapSummary(userId), getSettings(userId)]).catch((error) => {
+  const data = await Promise.all([getSapOverview(userId), getSettings(userId)]).catch((error) => {
     console.error('[dashboard] sève indisponible :', error)
     return null
   })

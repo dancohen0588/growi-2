@@ -18,6 +18,8 @@ const sapService = vi.hoisted(() => ({
   listSapHistory: vi.fn(),
 }))
 vi.mock('@/lib/services/sap.service', () => sapService)
+const rewardsService = vi.hoisted(() => ({ setHomeTheme: vi.fn() }))
+vi.mock('@/lib/services/sap-rewards.service', () => rewardsService)
 vi.mock('@/lib/prisma', () => ({ prisma: {} }))
 
 const { ServiceError } = await import('@/lib/services/errors')
@@ -113,5 +115,25 @@ describe('loadSapHistoryAction', () => {
         nextCursor: 'next',
       },
     })
+  })
+})
+
+describe('setHomeThemeAction', () => {
+  it('valide le thème avant le service', async () => {
+    const result = await actions.setHomeThemeAction({ theme: 'jungle' })
+    expect(result).toEqual({ ok: false, error: 'Thème inconnu', code: 'INVALID_INPUT' })
+    expect(rewardsService.setHomeTheme).not.toHaveBeenCalled()
+  })
+
+  it('pose le thème et revalide l’accueil', async () => {
+    rewardsService.setHomeTheme.mockResolvedValue('prairie')
+    expect(await actions.setHomeThemeAction({ theme: 'prairie' })).toEqual({ ok: true, data: { homeTheme: 'prairie' } })
+    expect(rewardsService.setHomeTheme).toHaveBeenCalledWith('user-1', 'prairie')
+    expect(revalidatePath).toHaveBeenCalledWith('/dashboard')
+  })
+
+  it('un thème pas encore débloqué revient en message', async () => {
+    rewardsService.setHomeTheme.mockRejectedValue(new ServiceError('FORBIDDEN', 'Pas encore débloqué'))
+    expect(await actions.setHomeThemeAction({ theme: 'crepuscule' })).toMatchObject({ ok: false, error: 'Pas encore débloqué' })
   })
 })

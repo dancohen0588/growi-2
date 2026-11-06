@@ -292,3 +292,66 @@ export function sapGainsLabel(entries: SapEntryLike[]): string {
   }
   return 'Merci pour tes gestes'
 }
+
+// ─── Ce que débloquent les cernes (phase 6) ────────────────────────────────
+
+/**
+ * Décisions du 06/11/2026 : deux récompenses en v1, le **Secret en
+ * avant-première** (un secret encore jamais vu rejoint le grimoire) et le
+ * **thème d'Accueil** (un habillage du haut de l'Accueil). Les thèmes tombent
+ * aux cernes 2, 4 et 6 ; **tous les autres cernes**, y compris au-delà,
+ * donnent un secret, tant qu'il en reste à découvrir.
+ *
+ * Une récompense est **acquise pour toujours** : la sève ne se perd pas, et un
+ * geste annulé qui ferait repasser sous un seuil ne reprend rien.
+ */
+export const SAP_HOME_THEMES = ['sous-bois', 'prairie', 'crepuscule'] as const
+export const sapHomeThemeSchema = z.enum(SAP_HOME_THEMES)
+export type SapHomeTheme = z.infer<typeof sapHomeThemeSchema>
+
+export const SAP_HOME_THEME_LABELS: Record<SapHomeTheme, string> = {
+  'sous-bois': 'Sous-bois',
+  prairie: 'Prairie',
+  crepuscule: 'Crépuscule',
+}
+
+/** Le cerne qui débloque chaque thème. */
+export const SAP_THEME_RINGS: Record<SapHomeTheme, number> = {
+  'sous-bois': 2,
+  prairie: 4,
+  crepuscule: 6,
+}
+
+export const SAP_REWARD_KINDS = ['secret', 'theme'] as const
+export const sapRewardKindSchema = z.enum(SAP_REWARD_KINDS)
+export type SapRewardKind = z.infer<typeof sapRewardKindSchema>
+
+/** Ce que débloque le cerne `n` — fixé d'avance, pour pouvoir l'annoncer. */
+export function sapRingReward(n: number): { kind: 'theme'; theme: SapHomeTheme } | { kind: 'secret' } {
+  const theme = SAP_HOME_THEMES.find((key) => SAP_THEME_RINGS[key] === n)
+  return theme ? { kind: 'theme', theme } : { kind: 'secret' }
+}
+
+/** « À débloquer : un Secret en avant-première » — la promesse d'un cerne à venir. */
+export function sapRingRewardPromise(n: number): string {
+  const reward = sapRingReward(n)
+  return reward.kind === 'theme'
+    ? `le thème d’Accueil « ${SAP_HOME_THEME_LABELS[reward.theme]} »`
+    : 'un Secret en avant-première'
+}
+
+/** Ce qu'a donné un cerne formé, pour la liste des cernes. */
+export function sapRewardUnlockedLine(reward: {
+  kind: SapRewardKind
+  value?: string | null
+  title?: string | null
+}): string {
+  if (reward.kind === 'theme') return `Débloqué : le thème d’Accueil « ${reward.title ?? 'nouveau'} »`
+  if (!reward.value) return 'Ton grimoire était déjà complet'
+  return reward.title ? `Débloqué : « ${reward.title} » en avant-première` : 'Débloqué : un Secret en avant-première'
+}
+
+/** Ce que donnera un cerne à venir. */
+export function sapRewardPendingLine(n: number): string {
+  return `À débloquer : ${sapRingRewardPromise(n)}`
+}

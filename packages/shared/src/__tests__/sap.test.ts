@@ -10,6 +10,12 @@ import {
   SAP_RING_STEP_AFTER,
   SAP_RING_THRESHOLDS,
   SAP_RULE_DISPLAY,
+  SAP_HOME_THEMES,
+  SAP_THEME_RINGS,
+  sapRingReward,
+  sapRingRewardPromise,
+  sapRewardPendingLine,
+  sapRewardUnlockedLine,
   formatSapAmount,
   sapEntryLabel,
   sapFormingLine,
@@ -101,7 +107,7 @@ describe('sapRings', () => {
   })
 
   it('le résultat passe le schéma du résumé', () => {
-    const summary = { total: 340, rings: sapRings(340), giftsLeft: 3, giftsPerWeek: 3, recent: [] }
+    const summary = { total: 340, rings: sapRings(340), giftsLeft: 3, giftsPerWeek: 3, recent: [], rewards: [], homeTheme: null }
     expect(sapSummarySchema.parse(summary)).toEqual(summary)
   })
 })
@@ -168,5 +174,71 @@ describe('phrases de la sève', () => {
     expect(sapGainsLabel([{ kind: 'care' }, { kind: 'care' }])).toBe(`${SAP_KIND_LABELS.care} ×2`)
     expect(sapGainsLabel([{ kind: 'care' }, { kind: 'post' }])).toBe('Merci pour tes gestes')
     expect(formatSapAmount(2)).toBe('+2')
+  })
+})
+
+describe('récompenses des cernes', () => {
+  it('donne un thème aux cernes 2, 4 et 6, un secret partout ailleurs', () => {
+    expect(sapRingReward(1)).toEqual({ kind: 'secret' })
+    expect(sapRingReward(2)).toEqual({ kind: 'theme', theme: 'sous-bois' })
+    expect(sapRingReward(4)).toEqual({ kind: 'theme', theme: 'prairie' })
+    expect(sapRingReward(6)).toEqual({ kind: 'theme', theme: 'crepuscule' })
+    expect(sapRingReward(7)).toEqual({ kind: 'secret' })
+    expect(sapRingReward(40)).toEqual({ kind: 'secret' })
+  })
+
+  it('un cerne par thème, jamais deux thèmes au même', () => {
+    const rings = SAP_HOME_THEMES.map((theme) => SAP_THEME_RINGS[theme])
+    expect(new Set(rings).size).toBe(rings.length)
+  })
+
+  it('dit ce qu’un cerne a donné', () => {
+    expect(sapRewardUnlockedLine({ kind: 'theme', value: 'sous-bois', title: 'Sous-bois' })).toBe(
+      'Débloqué : le thème d’Accueil « Sous-bois »',
+    )
+    expect(sapRewardUnlockedLine({ kind: 'secret', value: 'cendres', title: 'Les cendres' })).toBe(
+      'Débloqué : « Les cendres » en avant-première',
+    )
+    expect(sapRewardUnlockedLine({ kind: 'secret', value: null })).toBe('Ton grimoire était déjà complet')
+    expect(sapRewardPendingLine(4)).toBe('À débloquer : le thème d’Accueil « Prairie »')
+  })
+
+  it('annonce ce qui vient', () => {
+    expect(sapRingRewardPromise(1)).toBe('un Secret en avant-première')
+    expect(sapRingRewardPromise(2)).toBe('le thème d’Accueil « Sous-bois »')
+  })
+
+  it('un résumé sans récompenses (serveur antérieur) se lit comme une liste vide', () => {
+    const parsed = sapSummarySchema.parse({
+      total: 0,
+      rings: sapRings(0),
+      giftsLeft: 3,
+      giftsPerWeek: 3,
+      recent: [],
+    })
+    expect(parsed.rewards).toEqual([])
+  })
+})
+
+describe('dessin des thèmes d’Accueil', () => {
+  it('est déterministe et reste dans le bloc', async () => {
+    const { sapThemeArt } = await import('../sap/themes')
+    for (const theme of SAP_HOME_THEMES) {
+      const first = sapThemeArt(theme, 390, 470)
+      expect(sapThemeArt(theme, 390, 470)).toEqual(first)
+      expect(first.shapes.length).toBeGreaterThan(5)
+      for (const shape of first.shapes) {
+        if (shape.kind === 'circle') {
+          expect(shape.cx).toBeGreaterThanOrEqual(-20)
+          expect(shape.cx).toBeLessThanOrEqual(410)
+        }
+        expect(Number.isFinite(shape.kind === 'circle' ? shape.r : shape.fillOpacity)).toBe(true)
+      }
+    }
+  })
+
+  it('rien à dessiner dans un bloc sans taille', async () => {
+    const { sapThemeArt } = await import('../sap/themes')
+    expect(sapThemeArt('prairie', 0, 0).shapes).toEqual([])
   })
 })

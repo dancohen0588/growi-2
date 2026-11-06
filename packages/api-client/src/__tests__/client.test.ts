@@ -673,4 +673,15 @@ describe('sève', () => {
     expect((error as ApiError).code).toBe('QUOTA_EXCEEDED')
     expect((error as ApiError).message).toBe('Tu as offert toutes tes gouttes de la semaine')
   })
+
+  it('choisit le thème d’Accueil en PUT', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { homeTheme: 'sous-bois' } }))
+
+    const result = await makeClient().sap.setTheme({ theme: 'sous-bois' })
+
+    expect(callArgs().url).toBe('https://growi.test/api/v1/sap/theme')
+    expect(callArgs().init.method).toBe('PUT')
+    expect(JSON.parse(callArgs().init.body as string)).toEqual({ theme: 'sous-bois' })
+    expect(result.homeTheme).toBe('sous-bois')
+  })
 })

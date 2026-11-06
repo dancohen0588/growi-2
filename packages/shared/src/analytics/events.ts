@@ -29,7 +29,7 @@ import type { SecretEvidence, SecretStage, SecretVerdict } from '../schemas/secr
 import type { SocialProvider } from '../schemas/auth'
 import type { CareLogType, HealthStatus } from '../constants/enums'
 import type { ListingKind, ReportReason } from '../constants/community'
-import type { SapGiftReason, SapKind } from '../constants/sap'
+import type { SapGiftReason, SapHomeTheme, SapKind, SapRewardKind } from '../constants/sap'
 
 /** Canal d'inscription ou de connexion. */
 export type AuthMethod = 'email' | SocialProvider
@@ -202,6 +202,9 @@ export type GrowiEvent =
   /** Émis par le serveur à chaque gain réellement écrit — pas sur un geste plafonné. */
   | { name: 'sap_awarded'; props: { kind: SapKind; amount: number } }
   | { name: 'sap_gift_sent'; props: { reason: SapGiftReason } }
+  /** Émis par le serveur quand un cerne formé délivre sa récompense. */
+  | { name: 'sap_reward_unlocked'; props: { ring: number; kind: SapRewardKind } }
+  | { name: 'home_theme_changed'; props: { theme: SapHomeTheme | 'classique' } }
 
   // ─── Notifications et contenu ────────────────────────────────────────────
   | { name: 'push_sent'; props: { kind: PushKind; tokens_count: number } }

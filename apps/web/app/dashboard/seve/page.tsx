@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import {
   CalendarCheck,
@@ -19,6 +20,10 @@ import {
   sapRingsLabel,
   sapRingsLine,
   sapRingThreshold,
+  sapRewardPendingLine,
+  sapRewardUnlockedLine,
+  sapHomeThemeSchema,
+  type SapHomeTheme,
   type SapKind,
   type SapRuleGroup,
   type SapSummary,
@@ -27,9 +32,11 @@ import {
 import { auth } from '@/auth'
 import { SapDrop } from '@/components/dashboard/seve/SapDrop'
 import { SapHistory } from '@/components/dashboard/seve/SapHistory'
+import { ThemePicker } from '@/components/dashboard/seve/ThemePicker'
 import { SapProgressBar, TrunkRings } from '@/components/dashboard/seve/TrunkRings'
 import { serializeSapEntry, serializeSapSummary } from '@/lib/api/serializers'
-import { getSapSummary, listSapHistory } from '@/lib/services/sap.service'
+import { getSapOverview } from '@/lib/services/sap-rewards.service'
+import { listSapHistory } from '@/lib/services/sap.service'
 import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = { title: 'Ta sève — Growi', robots: { index: false } }
@@ -39,16 +46,16 @@ export const dynamic = 'force-dynamic'
  * « Ta sève » — la coupe du tronc, les cernes, le barème et l'historique.
  * Même écran que l'app mobile (`app/(tabs)/accueil/seve.tsx`).
  *
- * Rien n'y compare à personne, et le bloc forest le dit en clair. Les
- * récompenses de cernes et les chiffres du mois des maquettes viendront avec
- * leur phase : l'écran n'annonce rien qui n'existe pas encore.
+ * Rien n'y compare à personne, et le bloc forest le dit en clair. Chaque cerne
+ * dit ce qu'il a débloqué — un Secret en avant-première, un thème d'Accueil —
+ * ou ce qu'il débloquera ; les thèmes acquis se choisissent plus bas.
  */
 export default async function SevePage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/login')
   const userId = session.user.id
 
-  const [summaryRecord, history] = await Promise.all([getSapSummary(userId), listSapHistory(userId, null)])
+  const [summaryRecord, history] = await Promise.all([getSapOverview(userId), listSapHistory(userId, null)])
   const summary = serializeSapSummary(summaryRecord)
 
   return (
@@ -62,6 +69,19 @@ export default async function SevePage() {
 
       <TrunkBlock summary={summary} />
       <RingsList summary={summary} />
+
+      <section aria-labelledby="sap-theme-title" className="flex flex-col gap-3">
+        <div>
+          <h2 id="sap-theme-title" className="font-poppins text-lg font-semibold text-forest">
+            Ton thème d’Accueil
+          </h2>
+          <p className="font-raleway text-sm text-forest/60">
+            Il habille le haut de ton Accueil, ici et dans l’app. Les cernes en débloquent de nouveaux.
+          </p>
+        </div>
+        <ThemePicker current={summary.homeTheme ?? null} unlocked={unlockedThemes(summary)} />
+      </section>
+
       <RulesSection />
 
       <section aria-labelledby="sap-history-title" className="flex flex-col gap-3">
@@ -125,10 +145,14 @@ type RingState = 'formed' | 'forming' | 'upcoming'
 
 function RingsList({ summary }: { summary: SapSummary }) {
   const { rings } = summary
+  const rewards = new Map(summary.rewards.map((reward) => [reward.ring, reward]))
   const items = Array.from({ length: rings.count + 2 }, (_, index) => {
     const n = index + 1
     const state: RingState = n <= rings.count ? 'formed' : n === rings.count + 1 ? 'forming' : 'upcoming'
-    return { n, state, threshold: sapRingThreshold(n) }
+    const reward = rewards.get(n)
+    const rewardLine = state === 'formed' ? (reward ? sapRewardUnlockedLine(reward) : null) : sapRewardPendingLine(n)
+    const opensGrimoire = state === 'formed' && reward?.kind === 'secret' && Boolean(reward.value)
+    return { n, state, threshold: sapRingThreshold(n), rewardLine, opensGrimoire }
   })
 
   return (
@@ -137,7 +161,7 @@ function RingsList({ summary }: { summary: SapSummary }) {
         Tes cernes
       </h2>
       <ol className="flex flex-col gap-2">
-        {items.map(({ n, state, threshold }) => (
+        {items.map(({ n, state, threshold, rewardLine, opensGrimoire }) => (
           <li
             key={n}
             className={cn(
@@ -166,7 +190,16 @@ function RingsList({ summary }: { summary: SapSummary }) {
                   : state === 'forming'
                     ? `Encore ${rings.remaining} de sève`
                     : 'À venir'}
+                {rewardLine ? ` · ${rewardLine}` : null}
               </span>
+              {opensGrimoire ? (
+                <Link
+                  href="/dashboard/grimoire"
+                  className="mt-0.5 self-start rounded font-raleway text-xs font-semibold text-forest-light underline underline-offset-2 hover:text-forest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime"
+                >
+                  Le lire dans ton grimoire
+                </Link>
+              ) : null}
             </span>
             {state === 'forming' ? (
               <span className="rounded-full bg-sun px-2.5 py-1 font-raleway text-xs font-bold text-forest">
@@ -178,6 +211,14 @@ function RingsList({ summary }: { summary: SapSummary }) {
       </ol>
     </section>
   )
+}
+
+function unlockedThemes(summary: SapSummary): SapHomeTheme[] {
+  return summary.rewards.flatMap((reward) => {
+    if (reward.kind !== 'theme') return []
+    const theme = sapHomeThemeSchema.safeParse(reward.value)
+    return theme.success ? [theme.data] : []
+  })
 }
 
 const RULE_ICONS: Record<SapKind, React.ReactNode> = {

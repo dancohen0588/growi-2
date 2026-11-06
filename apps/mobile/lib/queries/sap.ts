@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { GiveSapDropInput, SapEntryPage, SapSummary } from '@growi/shared'
+import type { GiveSapDropInput, SapEntryPage, SapHomeTheme, SapSummary } from '@growi/shared'
 
 import { api } from '@/lib/api'
 import { sapKeys } from '@/lib/queries/keys'
@@ -45,6 +45,30 @@ export function useGiveSapDrop() {
       queryClient.setQueryData<SapSummary>(sapKeys.summary(), (current) =>
         current ? { ...current, giftsLeft } : current,
       )
+    },
+  })
+}
+
+/**
+ * Choisir le thème d'Accueil. Optimiste : l'Accueil change dès le tap, et
+ * revient au thème d'avant si le serveur refuse.
+ */
+export function useSetHomeTheme() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationKey: [...sapKeys.all, 'theme'],
+    mutationFn: (theme: SapHomeTheme | null) => api.sap.setTheme({ theme }),
+    onMutate: async (theme) => {
+      await queryClient.cancelQueries({ queryKey: sapKeys.summary() })
+      const previous = queryClient.getQueryData<SapSummary>(sapKeys.summary())
+      queryClient.setQueryData<SapSummary>(sapKeys.summary(), (current) =>
+        current ? { ...current, homeTheme: theme } : current,
+      )
+      return { previous }
+    },
+    onError: (_error, _theme, context) => {
+      if (context?.previous) queryClient.setQueryData(sapKeys.summary(), context.previous)
     },
   })
 }
