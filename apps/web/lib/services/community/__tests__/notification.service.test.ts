@@ -127,9 +127,38 @@ describe('notifySapGift', () => {
     expect(data.target).toMatchObject({ postId: null, handle: 'pierre' })
   })
 
-  it('ne fait pas sonner le téléphone — pas encore', async () => {
+  it('pousse, avec le petit mot, et mène à sa cible', async () => {
+    await notifySapGift(ACTOR, ME, { reason: 'bouture', message: 'Elles ont toutes pris !', postId: 'post_1' })
+
+    expect(sendToUser).toHaveBeenCalledWith(ME, {
+      title: 'pierre t’a offert une goutte de sève 🌿',
+      body: '« Elles ont toutes pris ! »',
+      sound: 'default',
+      data: expect.objectContaining({ kind: 'sap_gift', postId: 'post_1', handle: 'pierre' }),
+    })
+  })
+
+  it('sans petit mot, le motif fait le corps', async () => {
+    await notifySapGift(ACTOR, ME, { reason: 'aide', message: null, postId: null })
+    expect(sendToUser.mock.calls[0][1].body).toBe('Un merci pour ton aide. Ta sève monte d’une goutte.')
+  })
+
+  it('une configuration antérieure à la Sève pousse aussi : absent vaut oui', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      alertConfig: { community: { comments: true, messages: true, follows: false } },
+    })
+    await notifySapGift(ACTOR, ME, { reason: 'aide', message: null, postId: null })
+    expect(sendToUser).toHaveBeenCalled()
+  })
+
+  it('se coupe dans le profil', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      alertConfig: { community: { comments: true, messages: true, follows: false, sapGifts: false } },
+    })
     await notifySapGift(ACTOR, ME, { reason: 'aide', message: null, postId: null })
     expect(sendToUser).not.toHaveBeenCalled()
+    // La cloche, elle, reçoit toujours la ligne.
+    expect(prismaMock.notification.create).toHaveBeenCalled()
   })
 })
 

@@ -40,11 +40,12 @@ const NOTIFICATIONS_PAGE_SIZE = 20
 const LIKE_AGGREGATION_WINDOW_MS = 60 * 60 * 1000
 
 /** Les seuls événements qui font sonner un téléphone, et leur interrupteur. */
-const PUSH_SETTING: Partial<Record<NotificationKind, 'comments' | 'messages' | 'follows'>> = {
+const PUSH_SETTING: Partial<Record<NotificationKind, 'comments' | 'messages' | 'follows' | 'sapGifts'>> = {
   comment: 'comments',
   follow: 'follows',
   listing_interest: 'messages',
   listing_message: 'messages',
+  sap_gift: 'sapGifts',
 }
 
 interface NotifyParams {
@@ -92,8 +93,8 @@ async function notify(params: NotifyParams): Promise<void> {
     const community = (recipient?.alertConfig as { community?: Record<string, boolean> } | null)
       ?.community
 
-    // Absent ⇒ valeur par défaut de `DEFAULT_ALERT_CONFIG` : commentaires et
-    // messages oui, abonnements non.
+    // Absent ⇒ valeur par défaut de `DEFAULT_ALERT_CONFIG` : commentaires,
+    // messages et gouttes de sève oui, abonnements non.
     const wanted = community?.[setting] ?? setting !== 'follows'
     if (!wanted) return
 
@@ -151,10 +152,12 @@ export async function notifyComment(
 /**
  * Un voisin a offert une goutte de sève.
  *
- * **In-app seulement** pour l'instant : pas de `push`, le téléphone ne sonne
- * pas (décision du 06/11/2026, le push viendra en fin de chantier). La cible
+ * Dans la cloche, et **en push** depuis la phase 8 (décision du 06/11/2026) —
+ * coupé par `alertConfig.community.sapGifts`, oui par défaut. Trois gouttes
+ * par semaine et par donneur : le téléphone ne sonnera pas souvent. La cible
  * est la publication depuis laquelle on a remercié, sinon le profil du
- * donneur — de quoi lui répondre, ou le remercier à son tour.
+ * donneur — de quoi lui répondre, ou le remercier à son tour. Une version de
+ * l'app qui ignore ce `kind` suit la cible comme pour un commentaire.
  */
 export async function notifySapGift(
   actor: { id: string; handle: string | null },
@@ -174,6 +177,10 @@ export async function notifySapGift(
     preview: excerpt
       ? `${who} t’a offert une goutte de sève ${phrase} : « ${excerpt} »`
       : `${who} t’a offert une goutte de sève ${phrase}`,
+    push: {
+      title: `${who} t’a offert une goutte de sève 🌿`,
+      body: excerpt ? `« ${excerpt} »` : `Un merci ${phrase}. Ta sève monte d’une goutte.`,
+    },
   })
 }
 

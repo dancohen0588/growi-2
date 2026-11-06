@@ -3,8 +3,10 @@ import { ExternalLink } from 'lucide-react'
 
 import { DateCell, PageHeader, Pill } from '@/components/admin/bits'
 import { KpiCard } from '@/components/admin/KpiCard'
+import { SapStatsSection } from '@/components/admin/SapStatsSection'
 import { CHART_COLORS, WeeklyChart } from '@/components/admin/WeeklyChart'
 import { requireAdmin } from '@/lib/admin/auth'
+import { getAdminSapStats } from '@/lib/services/admin-sap-stats.service'
 import { getAdminStats, STATS_CACHE_SECONDS } from '@/lib/services/admin-stats.service'
 
 export const dynamic = 'force-dynamic'
@@ -16,6 +18,9 @@ export default async function AdminHomePage() {
   await requireAdmin()
 
   const stats = await getAdminStats()
+  // Après, et non en parallèle : le pool de Prisma vaut une connexion en
+  // production (voir `computeStats`).
+  const sap = await getAdminSapStats()
   const { accounts, active, retention, garden, ai, community, ops } = stats
 
   return (
@@ -325,6 +330,11 @@ export default async function AdminHomePage() {
             }
           />
         </div>
+      </Section>
+
+      {/* ─── Sève ────────────────────────────────────────────────────── */}
+      <Section title="La sève">
+        <SapStatsSection stats={sap} />
       </Section>
 
       {/* ─── Exploitation ────────────────────────────────────────────── */}

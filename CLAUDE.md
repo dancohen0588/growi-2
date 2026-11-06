@@ -1216,7 +1216,8 @@ par son propriétaire. Plan par phases et questions ouvertes :
 `~/Growi/Documentation/spec/17-plan-seve.md` ; maquettes Claude Design
 « Growi — La Sève ». **Phases 1 (socle), 2 (gains branchés sur les gestes),
 3 (API, client, notification), 4 (écrans mobile), 5 (web), 6 (récompenses des
-cernes) et 7 (sève du quartier) livrées**.
+cernes), 7 (sève du quartier) et 8 (mesure, push des gouttes) livrées** : le
+chantier est complet.
 
 | Élément | Rôle |
 |---|---|
@@ -1234,6 +1235,7 @@ cernes) et 7 (sève du quartier) livrées**.
 | Modèle `SapReward` · `User.homeTheme` | Ce qu'a donné chaque cerne ; le thème choisi — migration `20261106140000_sap_rewards` |
 | `packages/shared/src/constants/quartier.ts` | Bibliothèque des défis (`QUARTIER_CHALLENGES`), objectif, tirage, schéma de l'API |
 | `lib/services/community/quartier.service.ts` | `getQuartier` (lecture), `closeQuartierWeek` (clôture, par la tournée du matin) |
+| `lib/services/admin-sap-stats.service.ts` · `components/admin/SapStatsSection.tsx` | La section « La sève » du tableau de bord admin |
 | Modèles `QuartierWeek` · `QuartierResult` | Le défi figé de la semaine ; le résultat de chacun — migration `20261106160000_quartier` |
 | `app/(tabs)/communaute/quartier.tsx` · `app/dashboard/communaute/quartier/` | « Ton quartier », mobile et web ; bandeau du défi en tête du fil |
 
@@ -1275,9 +1277,10 @@ cernes) et 7 (sève du quartier) livrées**.
   bientôt ce service, et l'inverse ferait un cycle.
 - **Un gain sort champ par champ** (`serializeSapEntry`) : ni `userId`, ni
   `sourceId` — l'identifiant d'un geste ou d'une goutte —, ni `day`.
-- **La goutte reçue s'annonce dans la cloche** (`notifySapGift`, kind
-  `sap_gift`), **sans push** pour l'instant (décision du 06/11/2026 : en fin de
-  chantier). Les versions installées de l'app ne connaissent pas ce `kind` :
+- **La goutte reçue s'annonce dans la cloche et en push** (`notifySapGift`,
+  kind `sap_gift`) — push ajouté en phase 8, coupé par
+  `alertConfig.community.sapGifts` (facultatif, absent vaut oui : les
+  configurations et les apps antérieures ne le connaissent pas). Les versions installées de l'app ne connaissent pas ce `kind` :
   la cloche mobile lui donne l'icône par défaut et le tap suit sa cible
   (publication, sinon profil du donneur) — rien ne casse, c'est vérifié dans
   `notifications.tsx` et `lib/notifications.ts`. Les versions à partir de la
@@ -1344,6 +1347,16 @@ cernes) et 7 (sève du quartier) livrées**.
 - **Les gouttes nommées ne sont montrées qu'à ceux qui les ont offertes ou
   reçues** ; le quartier n'en voit que le nombre. Un Secret n'est cité dans
   « ceux qui marchent ici » qu'à partir de trois retours.
+- **Mesure (phase 8) : pas de groupe témoin** (décision du 06/11/2026 : à une
+  centaine de testeurs il ne prouverait rien). La section « La sève » de
+  `/admin` compare **avant/après** le lancement — le premier gain écrit — sur
+  des semaines **entières** (la semaine du lancement, mixte, n'est comptée
+  nulle part) : gestes par actif et par semaine, rétention J30 (revu entre J28
+  et J35, cohortes mûres seulement), Secrets essayés, annonces terminées,
+  gouttes, cernes, thèmes, défis clos. Comptages en base : tout compte y
+  figure, consentement PostHog ou non. Elle a **son propre cache** et ne lève
+  jamais (`null` = « indisponible ») : une table absente ne doit pas emporter le
+  tableau de bord. Son SQL a été essayé contre la base, pas par les tests.
 - « Offrir une goutte » se trouve sous chaque publication d'un autre (fil et
   détail, web compris) et sur son profil (`useGiftSheet` sur mobile,
   `GiftButton` sur le web, qui lit les gouttes restantes à l'ouverture). Plus de gouttes : le bouton se
