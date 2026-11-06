@@ -1209,8 +1209,8 @@ elle forme des **cernes** (paliers), et l'on peut **offrir des gouttes** à un
 voisin. Ni classement, ni perte, ni série à tenir : la sève n'est visible que
 par son propriétaire. Plan par phases et questions ouvertes :
 `~/Growi/Documentation/spec/17-plan-seve.md` ; maquettes Claude Design
-« Growi — La Sève ». **Phase 1 (socle) seulement** : rien n'est encore branché
-sur les gestes, ni exposé par l'API.
+« Growi — La Sève ». **Phases 1 (socle) et 2 (gains branchés sur les gestes)
+livrées** ; rien n'est encore exposé par l'API (phase 3).
 
 | Élément | Rôle |
 |---|---|
@@ -1231,6 +1231,25 @@ sur les gestes, ni exposé par l'API.
 - **Créditer ne lève jamais** (rend 0) ; `awardSapLater` ne fait pas attendre
   l'appelant et garde la fonction Vercel en vie par `waitUntil`. Lire et offrir
   lèvent des `ServiceError` comme les autres services.
+- **Où la sève est créditée** (phase 2) : `logCare` (geste noté, hors
+  transaction d'un appelant) et `markActionsDone` (la tournée, **après** sa
+  transaction) ; `completeTask` (tâche à temps, jugée par `awardTasksOnTime`
+  dans le jour de l'utilisateur) et la tournée ; `createPlantInstance` /
+  `addIdentifiedPlant` ; `recordSecretFeedback` ; `createPost` ; `addComment`
+  sous la publication d'un autre ; `updateListing` passée en `done`. Repris
+  par `deleteCareLog` (donc « Annuler ») et `reopenTask`.
+- **Le crédit est attendu, pas différé** : trois petites requêtes, pour que le
+  client qui relit sa sève juste après le geste y trouve déjà le gain. Il ne
+  lève jamais, et une migration non appliquée ne casse donc rien — le gain est
+  simplement perdu, avec une ligne `[sève]` dans les journaux.
+- **Une tâche close par un geste noté depuis la fiche** (`completeTasksForGesture`)
+  ne rapporte pas « à temps » : seul le geste compte. Cocher la tâche elle-même
+  depuis le planning, oui.
+- **L'annonce terminée ne crédite que son auteur** (décision du 06/11/2026 :
+  rien ne dit avec qui l'échange s'est fait), et seulement si au moins un
+  voisin s'y est intéressé (`threadCount > 0`) — une fois par annonce.
+- **Pas de rétroactivité** (décision du 06/11/2026) : chacun part de zéro au
+  lancement.
 - **Une goutte ne sort pas de la sève du donneur** : 3 par semaine ISO du
   donneur, profil public exigé des deux côtés, la même 404 pour un receveur
   inconnu, désactivé ou séparé par un blocage. Le blocage est relu par

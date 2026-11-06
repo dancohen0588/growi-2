@@ -16,7 +16,9 @@ const prismaMock = vi.hoisted(() => ({
 const analytics = vi.hoisted(() => ({ trackServer: vi.fn() }))
 const weather = vi.hoisted(() => ({ fetchWeatherForecast: vi.fn() }))
 
+const sap = vi.hoisted(() => ({ awardSap: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
+vi.mock('@/lib/services/sap.service', () => sap)
 vi.mock('@/lib/analytics/server', () => analytics)
 vi.mock('@/lib/recommendation/weather-adapter', () => weather)
 
@@ -285,6 +287,12 @@ describe('gestes', () => {
       evidence: 'PROVEN',
       verdict: 'MEH',
     })
+    // Le retour rapporte, une fois par essai : c'est l'essai qui fait la clé.
+    expect(sap.awardSap).toHaveBeenCalledWith(USER, {
+      kind: 'secret_feedback',
+      sourceId: 'log_1',
+      label: expect.stringMatching(/^Ton retour sur « .+ »$/),
+    })
   })
 
   it('refuse le verdict sur un essai d’autrui', async () => {
@@ -294,6 +302,7 @@ describe('gestes', () => {
       code: 'NOT_FOUND',
     })
     expect(prismaMock.careLog.update).not.toHaveBeenCalled()
+    expect(sap.awardSap).not.toHaveBeenCalled()
   })
 
   it('répond « introuvable » au slug deviné d’un brouillon', async () => {

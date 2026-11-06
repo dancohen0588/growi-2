@@ -18,11 +18,13 @@
 
 import {
   BLOCKED_TERM_MESSAGE,
+  CARE_LOG_TYPE_LABELS,
   SAP_GIFT_REASON_PHRASES,
   SAP_GIFTS_PER_WEEK,
   SAP_RULES,
   findBlockedTerm,
   sapRings,
+  type CareLogType,
   type GiveSapDropInput,
   type GiveSapDropResult,
   type SapKind,
@@ -35,7 +37,6 @@ import { prisma } from '@/lib/prisma'
 import { isoWeekKey } from '@/lib/secrets/select'
 import { decodeCursor, takePage } from '@/lib/services/community/cursor'
 import { ServiceError } from '@/lib/services/errors'
-import { getUserTimezone } from '@/lib/services/user.service'
 import { zonedDayIso } from '@/lib/zoned-day'
 
 /** Nombre de gains rendus par le résumé — la carte de l'Accueil en montre un. */
@@ -43,6 +44,16 @@ const SUMMARY_RECENT_COUNT = 5
 const HISTORY_PAGE_SIZE = 20
 
 // ─── Créditer ──────────────────────────────────────────────────────────────
+
+/**
+ * Le fuseau du compte, lu ici plutôt que par `user.service` : ce service est
+ * appelé depuis la Communauté, et importer celui des comptes (bcrypt, stockage,
+ * profils) pour une seule colonne ferait un détour — et bientôt un cycle.
+ */
+async function userTimeZone(userId: string): Promise<string> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } })
+  return user?.timezone ?? 'Europe/Paris'
+}
 
 export interface SapAward {
   kind: SapKind
@@ -85,7 +96,7 @@ async function remainingToday(userId: string, kind: SapKind, day: string): Promi
 export async function awardSap(userId: string, award: SapAward): Promise<number> {
   try {
     const rule = SAP_RULES[award.kind]
-    const timeZone = await getUserTimezone(userId)
+    const timeZone = await userTimeZone(userId)
     const day = zonedDayIso(award.at ?? new Date(), timeZone)
 
     if ((await remainingToday(userId, award.kind, day)) <= 0) return 0
@@ -129,7 +140,7 @@ export async function awardSapMany(
 
   try {
     const rule = SAP_RULES[kind]
-    const timeZone = await getUserTimezone(userId)
+    const timeZone = await userTimeZone(userId)
     const day = zonedDayIso(at, timeZone)
 
     const room = await remainingToday(userId, kind, day)
@@ -178,6 +189,51 @@ export async function revokeSap(
 }
 
 /**
+ * Crédite les tâches du planning cochées **à temps** : au plus tard le jour
+ * prévu, dans le jour de l'utilisateur. Une tâche en retard se coche sans
+ * rien rapporter de plus que le geste lui-même — sans reproche non plus.
+ *
+ * L'appelant ne passe que les tâches qui **viennent** d'être cochées : une
+ * tâche déjà faite, recochée, ne doit rien rapporter (l'unicité l'empêcherait
+ * de toute façon).
+ */
+export async function awardTasksOnTime(
+  userId: string,
+  tasks: Array<{ id: string; dueDate: string; shortLabel?: string | null }>,
+  now: Date = new Date(),
+): Promise<number> {
+  if (tasks.length === 0) return 0
+
+  try {
+    const today = zonedDayIso(now, await userTimeZone(userId))
+    // `dueDate` et `today` sont deux `YYYY-MM-DD` : l'ordre lexical est l'ordre des jours.
+    const onTime = tasks.filter((task) => task.dueDate >= today)
+
+    return await awardSapMany(
+      userId,
+      'task_on_time',
+      onTime.map((task) => ({
+        sourceId: task.id,
+        label: task.shortLabel ? `${task.shortLabel} à temps` : null,
+      })),
+      now,
+    )
+  } catch (error) {
+    console.error('[sève] tâches à temps impossibles :', error)
+    return 0
+  }
+}
+
+/**
+ * Le libellé d'un geste dans l'historique : le nom du geste, ou pour un
+ * « autre geste » celui que le planning lui a donné (« Paillage », le titre
+ * d'un Secret). Jamais la note libre de l'utilisateur, qui peut être longue.
+ */
+export function careSapLabel(type: CareLogType, gestureName?: string | null): string {
+  return type === 'other' && gestureName ? gestureName : CARE_LOG_TYPE_LABELS[type]
+}
+
+/**
  * Crédite sans faire attendre l'appelant.
  *
  * `awardSap` ne lève pas, mais il fait trois requêtes : les ajouter au temps
@@ -221,7 +277,7 @@ export interface SapSummaryRecord {
  * Les entités Prisma sont rendues brutes ; la route les sérialise.
  */
 export async function getSapSummary(userId: string, now: Date = new Date()): Promise<SapSummaryRecord> {
-  const timeZone = await getUserTimezone(userId)
+  const timeZone = await userTimeZone(userId)
   const day = zonedDayIso(now, timeZone)
 
   const [total, recent, sent] = await Promise.all([

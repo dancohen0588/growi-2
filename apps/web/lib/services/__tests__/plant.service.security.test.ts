@@ -17,10 +17,13 @@ const prismaMock = vi.hoisted(() => ({
   plantCatalog: { findUnique: vi.fn() },
 }))
 
+const sap = vi.hoisted(() => ({ awardSap: vi.fn() }))
+
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/recommendation/garden-advice-service', () => ({
   invalidateGardenAdviceCache: vi.fn(),
 }))
+vi.mock('@/lib/services/sap.service', () => sap)
 
 const plantService = await import('../plant.service')
 
@@ -32,6 +35,42 @@ beforeEach(() => {
   prismaMock.plantInstance.findUniqueOrThrow.mockResolvedValue({ id: 'plant_1' })
   prismaMock.plantInstance.update.mockResolvedValue({ id: 'plant_1' })
   prismaMock.plantCatalog.findUnique.mockResolvedValue(null)
+})
+
+describe('sève d’une plante ajoutée', () => {
+  it('crédite la plante créée, nommée par sa fiche', async () => {
+    prismaMock.garden.findFirst.mockResolvedValue({ id: 'garden_1' })
+    prismaMock.plantInstance.findUniqueOrThrow.mockResolvedValue({
+      id: 'plant_1',
+      customName: null,
+      catalogPlant: { commonName: 'Sauge officinale' },
+    })
+
+    await plantService.createPlantInstance(USER, { location: 'OUTDOOR', gardenId: 'garden_1' })
+
+    expect(sap.awardSap).toHaveBeenCalledWith(USER, {
+      kind: 'plant_added',
+      sourceId: 'plant_1',
+      label: 'Sauge officinale rejoint ton jardin',
+    })
+  })
+
+  it('crédite aussi une plante identifiée en photo', async () => {
+    prismaMock.garden.findFirst.mockResolvedValue({ id: 'garden_1' })
+    prismaMock.plantInstance.findUniqueOrThrow.mockResolvedValue({ id: 'plant_2', customName: 'Mon basilic', catalogPlant: null })
+
+    await plantService.addIdentifiedPlant(USER, { commonName: 'Basilic', scientificName: 'Ocimum basilicum' } as never)
+
+    expect(sap.awardSap).toHaveBeenCalledWith(USER, expect.objectContaining({ kind: 'plant_added', sourceId: 'plant_2' }))
+  })
+
+  it('une création refusée ne rapporte rien', async () => {
+    prismaMock.garden.findFirst.mockResolvedValue(null)
+    await expect(
+      plantService.createPlantInstance(USER, { location: 'OUTDOOR', gardenId: 'autrui' }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    expect(sap.awardSap).not.toHaveBeenCalled()
+  })
 })
 
 describe('création : jardin ciblé', () => {

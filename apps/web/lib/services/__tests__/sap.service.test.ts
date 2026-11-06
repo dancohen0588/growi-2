@@ -20,17 +20,17 @@ const prismaMock = vi.hoisted(() => ({
   // Une transaction doublée exécute simplement le corps.
   $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(prismaMock)),
 }))
-const userService = vi.hoisted(() => ({ getUserTimezone: vi.fn() }))
 const analytics = vi.hoisted(() => ({ trackServer: vi.fn() }))
 
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
-vi.mock('@/lib/services/user.service', () => userService)
 vi.mock('@/lib/analytics/server', () => analytics)
 vi.mock('@vercel/functions', () => ({ waitUntil: vi.fn() }))
 
 const {
   awardSap,
   awardSapMany,
+  awardTasksOnTime,
+  careSapLabel,
   getSapSummary,
   giveSapDrop,
   listSapHistory,
@@ -52,7 +52,7 @@ function uniqueViolation() {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  userService.getUserTimezone.mockResolvedValue('Europe/Paris')
+  prismaMock.user.findUnique.mockResolvedValue({ timezone: 'Europe/Paris' })
   prismaMock.sapEntry.count.mockResolvedValue(0)
   prismaMock.sapEntry.create.mockResolvedValue({})
   prismaMock.sapEntry.createMany.mockResolvedValue({ count: 0 })
@@ -116,7 +116,7 @@ describe('awardSap', () => {
 
   it('ne lève jamais, même base en panne', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
-    userService.getUserTimezone.mockRejectedValue(new Error('base injoignable'))
+    prismaMock.user.findUnique.mockRejectedValue(new Error('base injoignable'))
 
     await expect(awardSap(USER, { kind: 'care', sourceId: 'log_1' })).resolves.toBe(0)
     expect(error).toHaveBeenCalled()
@@ -141,7 +141,7 @@ describe('awardSapMany', () => {
 
   it('rien à créditer : aucune requête', async () => {
     expect(await awardSapMany(USER, 'care', [])).toBe(0)
-    expect(userService.getUserTimezone).not.toHaveBeenCalled()
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled()
   })
 
   it('plafond déjà atteint : aucune écriture', async () => {
@@ -153,6 +153,52 @@ describe('awardSapMany', () => {
   it('rend la sève réellement écrite, pas celle demandée', async () => {
     prismaMock.sapEntry.createMany.mockResolvedValue({ count: 1 }) // l'autre existait déjà
     expect(await awardSapMany(USER, 'plant_added', [{ sourceId: 'p1' }, { sourceId: 'p2' }])).toBe(2)
+  })
+})
+
+describe('awardTasksOnTime', () => {
+  it('ne crédite que les tâches cochées au plus tard le jour prévu, dans le jour de l’utilisateur', async () => {
+    prismaMock.sapEntry.createMany.mockResolvedValue({ count: 2 })
+
+    // 00 h 30 le 7 à Paris : une tâche du 6 est en retard, une du 7 à temps.
+    const gained = await awardTasksOnTime(
+      USER,
+      [
+        { id: 't_late', dueDate: '2026-11-06', shortLabel: 'Tailler' },
+        { id: 't_today', dueDate: '2026-11-07', shortLabel: 'Pailler' },
+        { id: 't_ahead', dueDate: '2026-11-12', shortLabel: null },
+      ],
+      LATE_EVENING_UTC,
+    )
+
+    expect(gained).toBe(4)
+    const { data } = prismaMock.sapEntry.createMany.mock.calls[0][0]
+    expect(data.map((row: { sourceId: string; label: string | null }) => [row.sourceId, row.label])).toEqual([
+      ['t_today', 'Pailler à temps'],
+      ['t_ahead', null],
+    ])
+  })
+
+  it('aucune tâche à temps : aucune écriture', async () => {
+    expect(await awardTasksOnTime(USER, [{ id: 't', dueDate: '2026-01-01' }], LATE_EVENING_UTC)).toBe(0)
+    expect(prismaMock.sapEntry.createMany).not.toHaveBeenCalled()
+  })
+
+  it('ne lève jamais', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    prismaMock.user.findUnique.mockRejectedValue(new Error('panne'))
+    await expect(awardTasksOnTime(USER, [{ id: 't', dueDate: '2099-01-01' }])).resolves.toBe(0)
+    error.mockRestore()
+  })
+})
+
+describe('careSapLabel', () => {
+  it('nomme le geste, ou l’« autre geste » par le nom que lui donne le planning', () => {
+    expect(careSapLabel('watering')).toBe('Arrosage')
+    expect(careSapLabel('other', 'Paillage')).toBe('Paillage')
+    expect(careSapLabel('other')).toBe('Autre geste')
+    // Un nom ne s'applique qu'aux « autres » : un arrosage reste un arrosage.
+    expect(careSapLabel('watering', 'Paillage')).toBe('Arrosage')
   })
 })
 

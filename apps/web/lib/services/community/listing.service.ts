@@ -21,6 +21,7 @@ import { Prisma } from '@prisma/client'
 import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/errors'
+import { awardSap } from '@/lib/services/sap.service'
 import { deletePhotoByUrl } from '@/lib/storage'
 
 import { decodeCursor, takePage } from './cursor'
@@ -183,7 +184,7 @@ export async function updateListing(
 ): Promise<Listing> {
   const existing = await prisma.listing.findFirst({
     where: { id: listingId, userId, status: { not: 'deleted' } },
-    select: { id: true },
+    select: { id: true, status: true, threadCount: true, title: true },
   })
   if (!existing) throw new ServiceError('NOT_FOUND', 'Annonce introuvable.')
 
@@ -211,6 +212,19 @@ export async function updateListing(
     data,
     include: LISTING_INCLUDE,
   })
+
+  // Une annonce menée à son terme rapporte à son auteur — à lui seul : rien
+  // ne dit avec qui l'échange s'est fait (décision du 06/11/2026). Il faut
+  // qu'au moins un voisin s'y soit intéressé : terminer une annonce que
+  // personne n'a vue n'a rien partagé. Une fois par annonce, la repasser en
+  // `done` ne recrédite pas.
+  if (input.status === 'done' && existing.status !== 'done' && existing.threadCount > 0) {
+    await awardSap(userId, {
+      kind: 'listing_done',
+      sourceId: listingId,
+      label: `« ${existing.title} » a trouvé preneur`,
+    })
+  }
 
   return toListing(updated, null, userId, null)
 }

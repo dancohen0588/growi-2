@@ -16,7 +16,9 @@ const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }))
 
+const sap = vi.hoisted(() => ({ awardSap: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
+vi.mock('@/lib/services/sap.service', () => sap)
 
 const deletePhotoByUrl = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/storage', () => ({ deletePhotoByUrl }))
@@ -87,6 +89,12 @@ describe('createPost', () => {
     prismaMock.user.findUnique.mockResolvedValue(PUBLISHER as never)
     prismaMock.post.count.mockResolvedValue(0)
     prismaMock.post.create.mockResolvedValue(postRow())
+  })
+
+  it('crédite la sève de la publication', async () => {
+    prismaMock.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prismaMock))
+    await createPost(ME, { body: 'Coucou', photos: ['https://storage/a.jpg'] })
+    expect(sap.awardSap).toHaveBeenCalledWith(ME, { kind: 'post', sourceId: POST })
   })
 
   it('refuse de publier sans profil public activé', async () => {
@@ -241,6 +249,21 @@ describe('addComment', () => {
     await expect(addComment(POST, ME, { body: 'Superbe !' })).rejects.toMatchObject({
       code: 'RATE_LIMITED',
     })
+  })
+
+  it('répondre sous la photo d’un voisin rapporte de la sève', async () => {
+    prismaMock.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prismaMock))
+    prismaMock.post.findFirst.mockResolvedValue(postRow({ userId: 'user_voisin' }))
+
+    await addComment(POST, ME, { body: 'Superbe !' })
+
+    expect(sap.awardSap).toHaveBeenCalledWith(ME, { kind: 'comment', sourceId: 'comment_1' })
+  })
+
+  it('se répondre sous sa propre photo, non', async () => {
+    prismaMock.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prismaMock))
+    await addComment(POST, ME, { body: 'Merci à tous' })
+    expect(sap.awardSap).not.toHaveBeenCalled()
   })
 
   it('incrémente le compteur de la publication', async () => {

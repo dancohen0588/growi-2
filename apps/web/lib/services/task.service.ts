@@ -32,6 +32,7 @@ import type { PlantTask } from '@prisma/client'
 import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/errors'
+import { awardTasksOnTime, revokeSap } from '@/lib/services/sap.service'
 
 /** Échéance par défaut quand la recommandation ne porte pas de `dueInDays`. */
 const DUE_IN_DAYS_BY_PRIORITY: Record<DiagnosisPriority, number> = {
@@ -480,7 +481,14 @@ export async function completeTask(
   // Déjà faite : ne pas déplacer la date, cocher deux fois n'est pas une erreur.
   if (task.doneAt) return task
 
-  return db.plantTask.update({ where: { id: taskId }, data: { doneAt: now } })
+  const done = await db.plantTask.update({ where: { id: taskId }, data: { doneAt: now } })
+
+  // La sève d'une tâche faite à temps — seulement hors d'une transaction de
+  // l'appelant, qui créditerait sinon une tâche dont l'acquittement peut
+  // encore être annulé.
+  if (db === prisma) await awardTasksOnTime(userId, [done], now)
+
+  return done
 }
 
 /**
@@ -492,6 +500,8 @@ export async function completeTask(
  */
 export async function reopenTask(userId: string, taskId: string): Promise<void> {
   await prisma.plantTask.updateMany({ where: { id: taskId, userId }, data: { doneAt: null } })
+  // Rouverte, elle ne compte plus comme faite à temps ; la recocher recréditera.
+  await revokeSap(userId, 'task_on_time', taskId)
 }
 
 /**

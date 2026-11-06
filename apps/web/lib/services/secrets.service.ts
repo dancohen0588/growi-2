@@ -40,6 +40,7 @@ import {
   type SecretWeather,
 } from '@/lib/secrets/select'
 import { ServiceError } from '@/lib/services/errors'
+import { awardSap } from '@/lib/services/sap.service'
 import { planSecretTask } from '@/lib/services/task.service'
 import { safeTimeZone, zonedDayIso } from '@/lib/zoned-day'
 
@@ -693,6 +694,14 @@ export async function recordSecretFeedback(userId: string, input: SecretFeedback
 
   const tip = await findTip(trial.tipSlug)
   if (tip) trackServer(userId, 'tip_feedback', { slug: tip.slug, evidence: tip.evidence, verdict: input.verdict })
+
+  // Le retour fait la valeur du Secret pour les autres : c'est lui qui
+  // rapporte, une fois par essai. Changer d'avis ne recrédite pas.
+  await awardSap(userId, {
+    kind: 'secret_feedback',
+    sourceId: trial.id,
+    label: tip ? `Ton retour sur « ${tip.title} »` : null,
+  })
 }
 
 // ─── Grimoire ──────────────────────────────────────────────────────────────

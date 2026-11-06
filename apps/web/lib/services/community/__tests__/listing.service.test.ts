@@ -21,7 +21,9 @@ const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }))
 
+const sap = vi.hoisted(() => ({ awardSap: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
+vi.mock('@/lib/services/sap.service', () => sap)
 
 const deletePhotoByUrl = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/storage', () => ({ deletePhotoByUrl }))
@@ -187,6 +189,38 @@ describe('updateListing', () => {
 
     await expect(updateListing(LISTING, SEEKER, { title: 'À moi' })).rejects.toMatchObject({
       code: 'NOT_FOUND',
+    })
+  })
+
+  describe('sève d’un échange mené à son terme', () => {
+    it('crédite l’auteur, et lui seul, quand un voisin s’y est intéressé', async () => {
+      prismaMock.listing.findFirst.mockResolvedValue({
+        id: LISTING,
+        status: 'reserved',
+        threadCount: 2,
+        title: 'Boutures de sauge',
+      } as never)
+
+      await updateListing(LISTING, OWNER, { status: 'done' })
+
+      expect(sap.awardSap).toHaveBeenCalledTimes(1)
+      expect(sap.awardSap).toHaveBeenCalledWith(OWNER, {
+        kind: 'listing_done',
+        sourceId: LISTING,
+        label: '« Boutures de sauge » a trouvé preneur',
+      })
+    })
+
+    it('une annonce que personne n’a vue ne rapporte rien', async () => {
+      prismaMock.listing.findFirst.mockResolvedValue({ id: LISTING, status: 'active', threadCount: 0, title: 'x' } as never)
+      await updateListing(LISTING, OWNER, { status: 'done' })
+      expect(sap.awardSap).not.toHaveBeenCalled()
+    })
+
+    it('repasser une annonce déjà terminée ne recrédite pas', async () => {
+      prismaMock.listing.findFirst.mockResolvedValue({ id: LISTING, status: 'done', threadCount: 3, title: 'x' } as never)
+      await updateListing(LISTING, OWNER, { status: 'done' })
+      expect(sap.awardSap).not.toHaveBeenCalled()
     })
   })
 })
