@@ -7,6 +7,7 @@ import { Heart, MessageCircle, UserPlus } from 'lucide-react-native'
 import type { CommunityNotification, NotificationKind } from '@growi/shared'
 
 import { CommunityHeader } from '@/components/community/CommunityHeader'
+import { SapDrop } from '@/components/sap/SapDrop'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
 import { formatLogDate } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
@@ -25,6 +26,7 @@ import { useMarkNotificationsRead, useNotifications } from '@/lib/queries/commun
 function KindIcon({ kind }: { kind: NotificationKind }) {
   if (kind === 'follow') return <UserPlus size={20} color="#1E5631" />
   if (kind === 'like') return <Heart size={20} color="#1E5631" fill="#B4DD7F" />
+  if (kind === 'sap_gift') return <SapDrop size={22} />
   return <MessageCircle size={20} color="#1E5631" />
 }
 

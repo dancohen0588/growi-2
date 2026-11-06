@@ -4,6 +4,7 @@ import type { CommunityPost } from '@growi/shared'
 
 import { AuthorLine, Tag } from '@/components/community/bits'
 import { LikeButton } from '@/components/community/LikeButton'
+import { GiftButton } from '@/components/dashboard/seve/GiftButton'
 
 /**
  * Une publication dans le fil web.
@@ -66,6 +67,13 @@ export function PostCard({ post }: { post: CommunityPost }) {
           {post.photos.length > 1 && (
             <span className="font-raleway text-xs text-forest/40">
               {post.photos.length} photos
+            </span>
+          )}
+
+          {/* Un lecteur connecté remercie l'auteur d'un autre jardin. */}
+          {!post.isMine && post.likedByMe !== null && (
+            <span className="ml-auto">
+              <GiftButton handle={post.author.handle} postId={post.id} />
             </span>
           )}
         </div>

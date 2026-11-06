@@ -14,6 +14,7 @@ import {
   Map,
 } from 'lucide-react'
 import { GrimoireIcon } from '@/components/dashboard/secrets/SecretEmblem'
+import { SapDropIcon } from '@/components/dashboard/seve/SapDrop'
 import { cn } from '@/lib/utils'
 
 /**
@@ -38,6 +39,8 @@ const navItems = [
   // Secondaire : on y vient depuis la carte du secret de la semaine. Son
   // icône est l'emblème des secrets, au trait (`currentColor`).
   { href: '/dashboard/grimoire',     label: 'Grimoire',      icon: GrimoireIcon },
+  // Secondaire aussi : la carte de l'accueil y mène.
+  { href: '/dashboard/seve',         label: 'Ta sève',       icon: SapDropIcon },
   // « Mon compte » porte aussi les réglages : profil et alertes y sont réunis,
   // il n'y a plus d'entrée « Paramètres ».
   { href: '/dashboard/compte',       label: 'Mon compte',    icon: UserCircle },

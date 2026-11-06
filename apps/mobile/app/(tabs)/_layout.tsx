@@ -1,6 +1,7 @@
 import { Redirect, Tabs } from 'expo-router'
 import { CalendarDays, Camera, Leaf, LayoutDashboard, Users } from 'lucide-react-native'
 
+import { SapGainWatcher } from '@/components/sap/SapGainWatcher'
 import { usePushNotifications } from '@/lib/use-push'
 import { useSession } from '@/store/session'
 
@@ -41,63 +42,68 @@ export default function TabsLayout() {
   if (analyticsConsent === null) return <Redirect href="/consentement" />
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#1E5631',
-        tabBarInactiveTintColor: 'hsl(139 20% 40%)',
-        tabBarStyle: {
-          backgroundColor: '#F9F7E8',
-          borderTopColor: 'hsl(139 20% 80%)',
-        },
-        tabBarLabelStyle: {
-          fontFamily: 'Raleway_500Medium',
-          // Cinq libellés dans la largeur d'un iPhone SE : 11 pt évite la
-          // troncature de « Mes plantes » et de « Communauté ».
-          fontSize: 11,
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="accueil"
-        options={{
-          title: 'Accueil',
-          tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size} />,
+    <>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: '#1E5631',
+          tabBarInactiveTintColor: 'hsl(139 20% 40%)',
+          tabBarStyle: {
+            backgroundColor: '#F9F7E8',
+            borderTopColor: 'hsl(139 20% 80%)',
+          },
+          tabBarLabelStyle: {
+            fontFamily: 'Raleway_500Medium',
+            // Cinq libellés dans la largeur d'un iPhone SE : 11 pt évite la
+            // troncature de « Mes plantes » et de « Communauté ».
+            fontSize: 11,
+          },
         }}
-      />
-      <Tabs.Screen
-        name="plantes"
-        options={{
-          title: 'Mes plantes',
-          tabBarIcon: ({ color, size }) => <Leaf color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="identifier"
-        options={{
-          title: 'Identifier',
-          tabBarIcon: ({ color, size }) => <Camera color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="calendrier"
-        options={{
-          title: 'Calendrier',
-          tabBarIcon: ({ color, size }) => <CalendarDays color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="communaute"
-        options={{
-          title: 'Communauté',
-          tabBarIcon: ({ color, size }) => <Users color={color} size={size} />,
-        }}
-      />
+      >
+        <Tabs.Screen
+          name="accueil"
+          options={{
+            title: 'Accueil',
+            tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="plantes"
+          options={{
+            title: 'Mes plantes',
+            tabBarIcon: ({ color, size }) => <Leaf color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="identifier"
+          options={{
+            title: 'Identifier',
+            tabBarIcon: ({ color, size }) => <Camera color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="calendrier"
+          options={{
+            title: 'Calendrier',
+            tabBarIcon: ({ color, size }) => <CalendarDays color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="communaute"
+          options={{
+            title: 'Communauté',
+            tabBarIcon: ({ color, size }) => <Users color={color} size={size} />,
+          }}
+        />
 
-      {/* Montée mais hors de la barre : le plan du jardin, la création d'un
-          jardin et l'ajout d'une plante s'y trouvent, et on y accède depuis
-          « Mes plantes ». */}
-      <Tabs.Screen name="jardins" options={{ href: null }} />
-    </Tabs>
+        {/* Montée mais hors de la barre : le plan du jardin, la création d'un
+            jardin et l'ajout d'une plante s'y trouvent, et on y accède depuis
+            « Mes plantes ». */}
+        <Tabs.Screen name="jardins" options={{ href: null }} />
+      </Tabs>
+
+      {/* La sève gagnée s'annonce d'ici, quel que soit l'onglet du geste. */}
+      <SapGainWatcher />
+    </>
   )
 }

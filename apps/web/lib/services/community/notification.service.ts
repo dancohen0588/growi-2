@@ -1,9 +1,11 @@
 import {
   NOTIFICATION_RETENTION_DAYS,
+  SAP_GIFT_REASON_PHRASES,
   type CommunityNotification,
   type CommunityNotificationPage,
   type NotificationKind,
   type NotificationTarget,
+  type SapGiftReason,
   type UnreadCount,
 } from '@growi/shared'
 import { Prisma } from '@prisma/client'
@@ -38,11 +40,12 @@ const NOTIFICATIONS_PAGE_SIZE = 20
 const LIKE_AGGREGATION_WINDOW_MS = 60 * 60 * 1000
 
 /** Les seuls événements qui font sonner un téléphone, et leur interrupteur. */
-const PUSH_SETTING: Partial<Record<NotificationKind, 'comments' | 'messages' | 'follows'>> = {
+const PUSH_SETTING: Partial<Record<NotificationKind, 'comments' | 'messages' | 'follows' | 'sapGifts'>> = {
   comment: 'comments',
   follow: 'follows',
   listing_interest: 'messages',
   listing_message: 'messages',
+  sap_gift: 'sapGifts',
 }
 
 interface NotifyParams {
@@ -90,8 +93,8 @@ async function notify(params: NotifyParams): Promise<void> {
     const community = (recipient?.alertConfig as { community?: Record<string, boolean> } | null)
       ?.community
 
-    // Absent ⇒ valeur par défaut de `DEFAULT_ALERT_CONFIG` : commentaires et
-    // messages oui, abonnements non.
+    // Absent ⇒ valeur par défaut de `DEFAULT_ALERT_CONFIG` : commentaires,
+    // messages et gouttes de sève oui, abonnements non.
     const wanted = community?.[setting] ?? setting !== 'follows'
     if (!wanted) return
 
@@ -143,6 +146,41 @@ export async function notifyComment(
     target: { postId: post.id, handle: actor.handle, threadId: null, listingId: null },
     preview: `${who} a commenté ta publication : « ${excerpt} »`,
     push: { title: `${who} a commenté 💬`, body: excerpt },
+  })
+}
+
+/**
+ * Un voisin a offert une goutte de sève.
+ *
+ * Dans la cloche, et **en push** depuis la phase 8 (décision du 06/11/2026) —
+ * coupé par `alertConfig.community.sapGifts`, oui par défaut. Trois gouttes
+ * par semaine et par donneur : le téléphone ne sonnera pas souvent. La cible
+ * est la publication depuis laquelle on a remercié, sinon le profil du
+ * donneur — de quoi lui répondre, ou le remercier à son tour. Une version de
+ * l'app qui ignore ce `kind` suit la cible comme pour un commentaire.
+ */
+export async function notifySapGift(
+  actor: { id: string; handle: string | null },
+  receiverId: string,
+  gift: { reason: SapGiftReason; message: string | null; postId: string | null },
+): Promise<void> {
+  const who = actor.handle ?? 'Un jardinier'
+  const phrase = SAP_GIFT_REASON_PHRASES[gift.reason]
+  const excerpt =
+    gift.message && gift.message.length > 80 ? `${gift.message.slice(0, 79)}…` : gift.message
+
+  await notify({
+    userId: receiverId,
+    actorId: actor.id,
+    kind: 'sap_gift',
+    target: { postId: gift.postId, handle: actor.handle, threadId: null, listingId: null },
+    preview: excerpt
+      ? `${who} t’a offert une goutte de sève ${phrase} : « ${excerpt} »`
+      : `${who} t’a offert une goutte de sève ${phrase}`,
+    push: {
+      title: `${who} t’a offert une goutte de sève 🌿`,
+      body: excerpt ? `« ${excerpt} »` : `Un merci ${phrase}. Ta sève monte d’une goutte.`,
+    },
   })
 }
 

@@ -45,6 +45,12 @@ vi.mock('@/lib/services/log.service', () => logService)
 vi.mock('@/lib/services/task.service', () => taskService)
 vi.mock('@/lib/services/user.service', () => userService)
 vi.mock('@/lib/services/secrets.service', () => secretsService)
+const sap = vi.hoisted(() => ({
+  awardSapMany: vi.fn(),
+  awardTasksOnTime: vi.fn(),
+  careSapLabel: (type: string, name?: string) => (type === 'other' && name ? name : `label:${type}`),
+}))
+vi.mock('@/lib/services/sap.service', () => sap)
 
 const {
   clearPlanningToday,
@@ -315,6 +321,56 @@ describe('cocher plusieurs actions d’un coup', () => {
     { actionType: 'arrosage' as const, plantId: 'p1' },
     { actionType: 'arrosage' as const, plantId: 'p2' },
   ]
+
+  it('crédite la sève des gestes écrits, après la transaction', async () => {
+    logService.logCareBatch.mockResolvedValue({
+      logs: [
+        { id: 'log_1', plantInstanceId: 'p1', type: 'watering' },
+        { id: 'log_2', plantInstanceId: 'p2', type: 'watering' },
+      ],
+      unknownPlantIds: [],
+    })
+
+    await markActionsDone(USER, { gardenId: GARDEN, items }, LATE_NIGHT)
+
+    expect(sap.awardSapMany).toHaveBeenCalledWith(
+      USER,
+      'care',
+      [
+        { sourceId: 'log_1', label: 'label:watering' },
+        { sourceId: 'log_2', label: 'label:watering' },
+      ],
+      LATE_NIGHT,
+    )
+    // Après la transaction, pas dedans : un gain ne doit pas survivre à son annulation.
+    const txOrder = prismaMock.$transaction.mock.invocationCallOrder[0]
+    expect(sap.awardSapMany.mock.invocationCallOrder[0]).toBeGreaterThan(txOrder)
+  })
+
+  it('ne passe à la sève que les tâches que ce geste vient de cocher', async () => {
+    prismaMock.plantTask.findMany.mockResolvedValue([
+      { id: 't1', doneAt: null, dueDate: TODAY, shortLabel: 'Traiter' },
+      { id: 't2', doneAt: new Date('2026-08-20T08:00:00Z'), dueDate: TODAY, shortLabel: 'Tailler' },
+    ])
+
+    await markActionsDone(
+      USER,
+      {
+        gardenId: GARDEN,
+        items: [
+          { actionType: 'traitement', plantId: 'p1', taskId: 't1' },
+          { actionType: 'taille', plantId: 'p1', taskId: 't2' },
+        ],
+      },
+      LATE_NIGHT,
+    )
+
+    expect(sap.awardTasksOnTime).toHaveBeenCalledWith(
+      USER,
+      [expect.objectContaining({ id: 't1' })],
+      LATE_NIGHT,
+    )
+  })
 
   it('note toute la tournée en une transaction et n’invalide le cache qu’une fois', async () => {
     logService.logCareBatch.mockResolvedValue({

@@ -18,6 +18,7 @@ import type { CommunityComment, CommunityPostDetail } from '@growi/shared'
 import { COMMENT_BODY_MAX_LENGTH } from '@growi/shared'
 
 import { CommunityHeader } from '@/components/community/CommunityHeader'
+import { GiftButton, useGiftSheet } from '@/components/sap/GiftSheet'
 import { useToast } from '@/components/ui/Toast'
 import { ErrorState, ListSkeleton } from '@/components/ui/states'
 import { formatLogDate } from '@/lib/dates'
@@ -84,6 +85,7 @@ function PostContent({ post }: { post: CommunityPostDetail }) {
   const deleteComment = useDeleteComment(post.id)
   const deletePost = useDeletePost()
   const toggleLike = useToggleLike()
+  const gift = useGiftSheet()
 
   const [draft, setDraft] = useState('')
 
@@ -216,6 +218,20 @@ function PostContent({ post }: { post: CommunityPostDetail }) {
           <Text className="font-raleway text-body text-forest">{post.body}</Text>
         ) : null}
 
+        {!post.isMine ? (
+          <View className="flex-row">
+            <GiftButton
+              onPress={() =>
+                gift.open({
+                  handle: post.author.handle,
+                  avatarUrl: post.author.avatarUrl,
+                  postId: post.id,
+                })
+              }
+            />
+          </View>
+        ) : null}
+
         {post.isMine ? (
           <Pressable onPress={confirmDeletePost} hitSlop={8} className="self-start py-2">
             <Text className="font-raleway text-caption text-destructive underline">
@@ -290,6 +306,8 @@ function PostContent({ post }: { post: CommunityPostDetail }) {
           <Send size={20} color="#1E5631" />
         </Pressable>
       </View>
+
+      {gift.sheet}
     </>
   )
 }

@@ -11,6 +11,7 @@ import {
   CARE_LOG_TYPE_BY_ACTION,
   actionHorizon,
   type ActionType,
+  type CareLogType,
   type GardenAction,
   type MarkActionsDoneBulkInput,
   type MarkActionsDoneBulkResult,
@@ -32,6 +33,7 @@ import {
   setPlanningClearedOn,
 } from '@/lib/services/garden.service'
 import { deleteCareLog, logCare, logCareBatch } from '@/lib/services/log.service'
+import { awardSapMany, awardTasksOnTime, careSapLabel } from '@/lib/services/sap.service'
 import {
   inferTipSlug,
   secretActionsForGarden,
@@ -313,14 +315,14 @@ export async function markActionsDone(
   // se réécrit pas. Il compte comme fait — il l'est.
   const dayStart = startOfZonedDay(now, safeTimeZone(await getUserTimezone(userId)))
 
-  const { done, skipped, careLogIds } = await prisma.$transaction(async (tx) => {
+  const { done, skipped, careLogIds, sapCare, sapTasks } = await prisma.$transaction(async (tx) => {
     // Les tâches planifiées s'acquittent par identifiant : deux tâches de
     // même geste issues de deux diagnostics ne se cochent pas ensemble.
     const taskIds = [...new Set(input.items.flatMap((item) => (item.taskId ? [item.taskId] : [])))]
     const ownedTasks = taskIds.length
       ? await tx.plantTask.findMany({
           where: { id: { in: taskIds }, userId },
-          select: { id: true, source: true, tipSlug: true },
+          select: { id: true, source: true, tipSlug: true, doneAt: true, dueDate: true, shortLabel: true },
         })
       : []
     const ownedTaskIds = new Set(ownedTasks.map((task) => task.id))
@@ -374,10 +376,26 @@ export async function markActionsDone(
       }
     }
 
-    return { done, skipped, careLogIds: logs.map((log) => log.id) }
+    // De quoi créditer la sève une fois la transaction aboutie : les gestes
+    // réellement écrits, et les tâches que ce geste-ci vient de cocher — une
+    // tâche déjà faite ne rapporte rien une seconde fois.
+    const noteByEntry = new Map(entries.map((entry) => [`${entry.plantInstanceId}:${entry.type}`, entry.note]))
+    const sapCare = logs.map((log) => ({
+      sourceId: log.id,
+      label: careSapLabel(
+        log.type as CareLogType,
+        noteByEntry.get(`${log.plantInstanceId}:${log.type}`),
+      ),
+    }))
+    const sapTasks = ownedTasks.filter((task) => !task.doneAt)
+
+    return { done, skipped, careLogIds: logs.map((log) => log.id), sapCare, sapTasks }
   })
 
   await invalidateGardenAdviceCache(input.gardenId)
+
+  await awardSapMany(userId, 'care', sapCare, now)
+  await awardTasksOnTime(userId, sapTasks, now)
 
   // Un seul événement pour la tournée, avec son compte : c'est le geste de
   // l'utilisateur — « tout arrosé » — et non quatre gestes séparés. Le type

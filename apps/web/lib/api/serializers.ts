@@ -17,6 +17,9 @@ import type {
   PlantCatalog,
   PlantInstance,
   PlantInstanceWithRelations,
+  SapEntry,
+  SapReward,
+  SapSummary,
 } from '@growi/shared'
 import type {
   CareLog as PrismaCareLog,
@@ -24,9 +27,11 @@ import type {
   GardenZone as PrismaGardenZone,
   PlantCatalog as PrismaPlantCatalog,
   PlantInstance as PrismaPlantInstance,
+  SapEntry as PrismaSapEntry,
 } from '@prisma/client'
 
 import { absoluteUrl } from '@/lib/site-url'
+import type { SapOverviewRecord, SapRewardRecord } from '@/lib/services/sap-rewards.service'
 
 const iso = (d: Date): string => d.toISOString()
 const isoOrNull = (d: Date | null): string | null => (d ? d.toISOString() : null)
@@ -113,6 +118,46 @@ export function serializeCareLog(log: PrismaCareLog): CareLog {
     type: log.type as CareLog['type'],
     occurredAt: iso(log.occurredAt),
     createdAt: iso(log.createdAt),
+  }
+}
+
+// ─── La Sève ───────────────────────────────────────────────────────────────
+
+/**
+ * Un gain, **champ par champ** : ni `userId`, ni `sourceId` (l'identifiant
+ * d'un geste ou d'une goutte), ni `day` ne sortent. Une colonne ajoutée
+ * demain à `SapEntry` ne paraîtra pas toute seule dans l'API.
+ */
+export function serializeSapEntry(entry: PrismaSapEntry): SapEntry {
+  return {
+    id: entry.id,
+    // La colonne est un texte libre en base ; l'énumération vit dans le schéma.
+    kind: entry.kind as SapEntry['kind'],
+    amount: entry.amount,
+    label: entry.label,
+    createdAt: iso(entry.createdAt),
+  }
+}
+
+export function serializeSapReward(reward: SapRewardRecord): SapReward {
+  return {
+    ring: reward.ring,
+    kind: reward.kind,
+    value: reward.value,
+    title: reward.title,
+    createdAt: iso(reward.createdAt),
+  }
+}
+
+export function serializeSapSummary(summary: SapOverviewRecord): SapSummary {
+  return {
+    total: summary.total,
+    rings: summary.rings,
+    giftsLeft: summary.giftsLeft,
+    giftsPerWeek: summary.giftsPerWeek,
+    recent: summary.recent.map(serializeSapEntry),
+    rewards: summary.rewards.map(serializeSapReward),
+    homeTheme: summary.homeTheme,
   }
 }
 

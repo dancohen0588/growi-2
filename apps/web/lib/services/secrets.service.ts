@@ -36,10 +36,12 @@ import {
   isoWeekBounds,
   isoWeekKey,
   selectWeeklySecret,
+  unitHash,
   type SecretPlant,
   type SecretWeather,
 } from '@/lib/secrets/select'
 import { ServiceError } from '@/lib/services/errors'
+import { awardSap } from '@/lib/services/sap.service'
 import { planSecretTask } from '@/lib/services/task.service'
 import { safeTimeZone, zonedDayIso } from '@/lib/zoned-day'
 
@@ -600,6 +602,55 @@ export async function inferTipSlug(
   return undefined
 }
 
+/**
+ * La récompense d'un cerne : un secret **encore jamais vu** rejoint le
+ * grimoire, en avant-première — sans attendre d'être tiré pour un jardin.
+ *
+ * Jamais un secret déjà découvert, essayé ou mis de côté (« Pas pour moi » :
+ * le lui offrir serait le lui reproposer), ni un secret lunaire sans
+ * l'option. Le choix est déterministe pour une graine donnée. Rend le slug,
+ * ou `null` quand il ne reste rien à découvrir.
+ */
+export async function revealRewardSecret(userId: string, seed: string): Promise<string | null> {
+  const [published, user, userTips, trials] = await Promise.all([
+    listPublishedTips(),
+    prisma.user.findUnique({ where: { id: userId }, select: { lunarCalendar: true } }),
+    prisma.userTip.findMany({ where: { userId }, select: { slug: true, revealedAt: true, dismissedAt: true } }),
+    prisma.careLog.findMany({
+      where: { plantInstance: { userId }, tipSlug: { not: null } },
+      select: { tipSlug: true },
+      distinct: ['tipSlug'],
+    }),
+  ])
+
+  const known = new Set([
+    ...userTips.filter((tip) => tip.revealedAt || tip.dismissedAt).map((tip) => tip.slug),
+    ...trials.flatMap((trial) => (trial.tipSlug ? [trial.tipSlug] : [])),
+  ])
+  const candidates = published
+    .filter((tip) => !known.has(tip.slug) && (!tip.conditions.lunarOnly || user?.lunarCalendar))
+    .sort((a, b) => a.slug.localeCompare(b.slug))
+  if (candidates.length === 0) return null
+
+  const { slug } = candidates[Math.floor(unitHash(seed) * candidates.length)]
+  await prisma.userTip.upsert({
+    where: { userId_slug: { userId, slug } },
+    create: { userId, slug, revealedAt: new Date() },
+    update: { revealedAt: new Date() },
+  })
+  return slug
+}
+
+/** Les titres de quelques secrets, pour nommer les récompenses des cernes. */
+export async function secretTitles(slugs: string[]): Promise<Map<string, string>> {
+  const titles = new Map<string, string>()
+  for (const slug of new Set(slugs)) {
+    const tip = await findTip(slug)
+    if (tip) titles.set(slug, tip.title)
+  }
+  return titles
+}
+
 /** Le secret a été dévoilé : il entre au grimoire. Idempotent. */
 export async function revealSecret(userId: string, slug: string): Promise<void> {
   const tip = await assertTip(userId, slug)
@@ -693,6 +744,14 @@ export async function recordSecretFeedback(userId: string, input: SecretFeedback
 
   const tip = await findTip(trial.tipSlug)
   if (tip) trackServer(userId, 'tip_feedback', { slug: tip.slug, evidence: tip.evidence, verdict: input.verdict })
+
+  // Le retour fait la valeur du Secret pour les autres : c'est lui qui
+  // rapporte, une fois par essai. Changer d'avis ne recrédite pas.
+  await awardSap(userId, {
+    kind: 'secret_feedback',
+    sourceId: trial.id,
+    label: tip ? `Ton retour sur « ${tip.title} »` : null,
+  })
 }
 
 // ─── Grimoire ──────────────────────────────────────────────────────────────

@@ -22,6 +22,7 @@ import { Prisma } from '@prisma/client'
 import { trackServer } from '@/lib/analytics/server'
 import { prisma } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/errors'
+import { awardSap } from '@/lib/services/sap.service'
 import { deletePhotoByUrl } from '@/lib/storage'
 
 import { decodeCursor, encodeCursor, takePage } from './cursor'
@@ -218,6 +219,9 @@ export async function createPost(
   })
 
   trackServer(userId, 'post_published', { has_photo: input.photos.length > 0 })
+
+  // Une publication par jour rapporte ; les suivantes restent bienvenues.
+  await awardSap(userId, { kind: 'post', sourceId: post.id })
 
   return toPost(post, null, userId, new Set())
 }
@@ -446,6 +450,11 @@ export async function addComment(
   })
 
   trackServer(userId, 'comment_posted', {})
+
+  // Répondre à un voisin rapporte ; se répondre sous sa propre photo, non.
+  if (post.userId !== userId) {
+    await awardSap(userId, { kind: 'comment', sourceId: comment.id })
+  }
 
   void notifyComment(
     { id: userId, handle: comment.user.handle },

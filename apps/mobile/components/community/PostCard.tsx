@@ -3,6 +3,7 @@ import { Image } from 'expo-image'
 import { Heart, Leaf, MessageCircle } from 'lucide-react-native'
 import type { CommunityPost } from '@growi/shared'
 
+import { GiftButton } from '@/components/sap/GiftSheet'
 import { formatLogDate } from '@/lib/dates'
 
 /**
@@ -17,6 +18,8 @@ export interface PostCardProps {
   onPress: () => void
   onOpenAuthor: () => void
   onToggleLike: () => void
+  /** « Offrir une goutte » — absent sur ses propres publications. */
+  onGift?: () => void
 }
 
 /** Initiale du pseudo, quand le compte n'a pas de photo. */
@@ -45,7 +48,7 @@ function Avatar({ post }: { post: CommunityPost }) {
   )
 }
 
-export function PostCard({ post, onPress, onOpenAuthor, onToggleLike }: PostCardProps) {
+export function PostCard({ post, onPress, onOpenAuthor, onToggleLike, onGift }: PostCardProps) {
   // Photo carrée pleine largeur : la largeur de l'écran moins les marges.
   const { width } = useWindowDimensions()
   const photoSize = width - 32
@@ -154,6 +157,13 @@ export function PostCard({ post, onPress, onOpenAuthor, onToggleLike }: PostCard
             {post.commentCount}
           </Text>
         </Pressable>
+
+        {onGift ? (
+          <>
+            <View className="flex-1" />
+            <GiftButton onPress={onGift} />
+          </>
+        ) : null}
       </View>
     </View>
   )

@@ -17,6 +17,9 @@ import { indicatorTone, type DashboardSummary, type HeroPhoto, type IndicatorTon
 
 import { NotificationBell } from '@/components/community/NotificationBell'
 import { GardenScene } from '@/components/home/illustrations'
+import { HomeThemeLayer } from '@/components/sap/HomeThemeLayer'
+import { SapPill } from '@/components/sap/SapPill'
+import { useSapSummary } from '@/lib/queries/sap'
 import { Button } from '@/components/ui/Button'
 import { Pulse } from '@/components/ui/states'
 
@@ -58,6 +61,8 @@ export function HomeHero({ title, subtitle, summary, onOpenProfile, profileIniti
 
   const photo = summary.data?.heroPhoto ?? null
   const showPhoto = photo !== null && photo.photoUrl !== failedUrl
+  // Le thème qu'un cerne a débloqué, s'il y en a un de choisi.
+  const homeTheme = useSapSummary().data?.homeTheme ?? null
 
   return (
     <View
@@ -79,6 +84,9 @@ export function HomeHero({ title, subtitle, summary, onOpenProfile, profileIniti
         </>
       ) : null}
 
+      {/* Par-dessus la photo et son voile, sous le texte. */}
+      {homeTheme ? <HomeThemeLayer theme={homeTheme} /> : null}
+
       <View className="gap-4 px-4 pb-14">
         <View className="flex-row items-center justify-between gap-3">
           <View className="flex-1 gap-0.5">
@@ -91,6 +99,7 @@ export function HomeHero({ title, subtitle, summary, onOpenProfile, profileIniti
           </View>
 
           <View className="flex-row items-center gap-2">
+            <SapPill />
             <NotificationBell onPhoto />
             <Pressable
               onPress={onOpenProfile}

@@ -19,6 +19,7 @@ import { prisma } from '@/lib/prisma'
 import type { PlantInstanceWithRelations } from '@/lib/plant-mapper'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 import { ServiceError } from '@/lib/services/errors'
+import { awardSap } from '@/lib/services/sap.service'
 import { deletePhotoByUrl } from '@/lib/storage'
 
 // ─── Plantes de l'utilisateur ──────────────────────────────────────────────
@@ -121,6 +122,20 @@ function notePlantAdded(
     })
 }
 
+/**
+ * La sève d'une plante qui rejoint le jardin — plafonnée à cinq par jour :
+ * supprimer puis recréer la même plante ne doit pas devenir une manière de
+ * gagner de la sève.
+ */
+async function awardPlantAdded(userId: string, plant: PlantInstanceWithRelations): Promise<void> {
+  const name = plant.customName ?? plant.catalogPlant?.commonName
+  await awardSap(userId, {
+    kind: 'plant_added',
+    sourceId: plant.id,
+    label: name ? `${name} rejoint ton jardin` : null,
+  })
+}
+
 export async function createPlantInstance(
   userId: string,
   input: CreatePlantInstanceInput,
@@ -167,10 +182,12 @@ export async function createPlantInstance(
 
   notePlantAdded(userId, input.catalogPlantId ? 'catalog' : 'manual', gardenId ?? null)
 
-  return prisma.plantInstance.findUniqueOrThrow({
+  const plant = await prisma.plantInstance.findUniqueOrThrow({
     where: { id: created.id },
     include: { catalogPlant: true, zone: true },
   })
+  await awardPlantAdded(userId, plant)
+  return plant
 }
 
 /**
@@ -220,10 +237,12 @@ export async function addIdentifiedPlant(
 
   // La fiche complète plutôt que le seul identifiant : l'app y navigue juste
   // après, et le web y lit le même `id`.
-  return prisma.plantInstance.findUniqueOrThrow({
+  const plant = await prisma.plantInstance.findUniqueOrThrow({
     where: { id: created.id },
     include: { catalogPlant: true, zone: true },
   })
+  await awardPlantAdded(userId, plant)
+  return plant
 }
 
 /**

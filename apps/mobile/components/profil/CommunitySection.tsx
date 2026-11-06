@@ -156,6 +156,12 @@ export function CommunitySection({ alerts, onAlertsChange }: CommunitySectionPro
           value={alerts.follows}
           onChange={(v) => onAlertsChange({ community: { ...alerts, follows: v } })}
         />
+        <Toggle
+          label="Gouttes de sève"
+          hint="Quand un voisin te remercie d’une goutte"
+          value={alerts.sapGifts ?? true}
+          onChange={(v) => onAlertsChange({ community: { ...alerts, sapGifts: v } })}
+        />
       </View>
 
       <Pressable

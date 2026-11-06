@@ -18,7 +18,10 @@ const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }))
 
+const sap = vi.hoisted(() => ({ awardTasksOnTime: vi.fn(), revokeSap: vi.fn() }))
+
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
+vi.mock('@/lib/services/sap.service', () => sap)
 
 const {
   completeTask,
@@ -26,6 +29,7 @@ const {
   isoDay,
   listOpenTasksAsActions,
   planDiagnosisActions,
+  reopenTask,
   reviewOpenTasks,
   toTaskDraft,
 } = await import('../task.service')
@@ -347,6 +351,34 @@ describe('acquittement', () => {
 
     await expect(completeTask(USER, 'task_1', NOW)).rejects.toThrow(/Tâche introuvable/)
     expect(prismaMock.plantTask.update).not.toHaveBeenCalled()
+  })
+
+  it('passe la tâche cochée à la sève, qui juge si elle l’est à temps', async () => {
+    const done = { id: 'task_1', doneAt: NOW, dueDate: '2026-08-21', shortLabel: 'Pailler' }
+    prismaMock.plantTask.findFirst.mockResolvedValue({ id: 'task_1', doneAt: null })
+    prismaMock.plantTask.update.mockResolvedValue(done)
+
+    await completeTask(USER, 'task_1', NOW)
+
+    expect(sap.awardTasksOnTime).toHaveBeenCalledWith(USER, [done], NOW)
+  })
+
+  it('une tâche déjà faite ne rapporte rien de plus', async () => {
+    prismaMock.plantTask.findFirst.mockResolvedValue({ id: 'task_1', doneAt: NOW })
+    await completeTask(USER, 'task_1', NOW)
+    expect(sap.awardTasksOnTime).not.toHaveBeenCalled()
+  })
+
+  it('dans la transaction d’un appelant, c’est à lui de créditer', async () => {
+    const tx = { plantTask: { findFirst: vi.fn().mockResolvedValue({ id: 'task_1', doneAt: null }), update: vi.fn() } }
+    await completeTask(USER, 'task_1', NOW, tx as never)
+    expect(sap.awardTasksOnTime).not.toHaveBeenCalled()
+  })
+
+  it('rouvrir une tâche reprend sa sève', async () => {
+    prismaMock.plantTask.updateMany.mockResolvedValue({ count: 1 })
+    await reopenTask(USER, 'task_1')
+    expect(sap.revokeSap).toHaveBeenCalledWith(USER, 'task_on_time', 'task_1')
   })
 })
 

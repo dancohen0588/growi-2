@@ -15,6 +15,7 @@ import { prisma } from '@/lib/prisma'
 import { invalidateGardenAdviceCache } from '@/lib/recommendation/garden-advice-service'
 import { ServiceError } from '@/lib/services/errors'
 import { assertPlantOwned } from '@/lib/services/plant.service'
+import { awardSap, careSapLabel, revokeSap } from '@/lib/services/sap.service'
 import { completeTasksForGesture } from '@/lib/services/task.service'
 
 /**
@@ -177,6 +178,19 @@ export async function logCare(
 
   trackServer(userId, 'care_logged', { type: input.type, from: source })
 
+  // La sève du geste. Attendue — trois petites requêtes — pour que le client,
+  // qui relit sa sève juste après, y trouve déjà le gain. Dans une transaction
+  // ouverte par l'appelant, c'est à lui de créditer une fois qu'elle a abouti :
+  // un gain écrit ici survivrait à son annulation.
+  if (!tx) {
+    await awardSap(userId, {
+      kind: 'care',
+      sourceId: log.id,
+      label: careSapLabel(input.type, meta.note),
+      at: occurredAt,
+    })
+  }
+
   return log
 }
 
@@ -201,7 +215,8 @@ export interface CareBatchEntry {
  *
  * Les plantes qui ne sont pas (ou plus) à l'utilisateur sont rendues dans
  * `unknownPlantIds` et n'empêchent pas les autres d'être notées. L'appelant
- * ouvre la transaction et invalide le cache de conseils une fois à la fin.
+ * ouvre la transaction et invalide le cache de conseils une fois à la fin —
+ * et crédite la sève des gestes écrits, une fois la transaction aboutie.
  *
  * Avec `skipIfLoggedSince` (le début de la journée de l'utilisateur), un geste
  * déjà noté depuis sur la même plante n'est pas réécrit : il est rendu dans
@@ -343,6 +358,10 @@ export async function deleteCareLog(careLogId: string, userId: string) {
 
   const gardenId = log.plantInstance.gardenId
   if (gardenId) await invalidateGardenAdviceCache(gardenId)
+
+  // Un geste effacé ne rapporte plus rien : sans cela, noter puis annuler en
+  // boucle ferait monter la sève sans un seul arrosage.
+  await revokeSap(userId, 'care', log.id)
 
   return { plantInstanceId: log.plantInstanceId, type, gardenId }
 }

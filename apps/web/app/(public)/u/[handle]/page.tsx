@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { auth } from '@/auth'
 import { Avatar, CommunityEmpty } from '@/components/community/bits'
 import { FollowButton } from '@/components/community/FollowButton'
+import { GiftButton } from '@/components/dashboard/seve/GiftButton'
 import { listUserPosts } from '@/lib/services/community/post.service'
 import { getProfileByHandle } from '@/lib/services/community/profile.service'
 import { isServiceError } from '@/lib/services/errors'
@@ -107,12 +108,16 @@ export default async function PublicProfilePage({ params }: Params) {
               Modifier mon profil
             </Link>
           ) : (
-            <FollowButton
-              handle={profile.handle}
-              isFollowing={profile.isFollowing}
-              isBlocked={profile.isBlocked}
-              followerCount={profile.followerCount}
-            />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+              <FollowButton
+                handle={profile.handle}
+                isFollowing={profile.isFollowing}
+                isBlocked={profile.isBlocked}
+                followerCount={profile.followerCount}
+              />
+              {/* Remercier ne demande pas de suivre — ni d'être lu sans compte. */}
+              {viewerId && !profile.isBlocked && <GiftButton handle={profile.handle} variant="button" />}
+            </div>
           )}
         </div>
       </header>

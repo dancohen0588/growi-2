@@ -626,3 +626,69 @@ describe('blog', () => {
     expect((error as ApiError).code).toBe('NOT_FOUND')
   })
 })
+
+describe('sève', () => {
+  it('lit le résumé', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { total: 340, giftsLeft: 2 } }))
+
+    const sap = await makeClient().sap.summary()
+
+    expect(callArgs().url).toBe('https://growi.test/api/v1/sap')
+    expect(callArgs().init.method).toBe('GET')
+    expect(sap.total).toBe(340)
+  })
+
+  it('pagine l’historique par curseur', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { items: [], nextCursor: null } }))
+
+    await makeClient().sap.history({ cursor: 'abc' })
+
+    expect(callArgs().url).toBe('https://growi.test/api/v1/sap/history?cursor=abc')
+  })
+
+  it('offre une goutte en POST, corps en JSON', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { giftsLeft: 2 } }, 201))
+
+    const result = await makeClient().sap.give({ handle: 'camille', reason: 'bouture', postId: 'p1' })
+
+    expect(callArgs().url).toBe('https://growi.test/api/v1/sap/gifts')
+    expect(callArgs().init.method).toBe('POST')
+    expect(JSON.parse(callArgs().init.body as string)).toEqual({ handle: 'camille', reason: 'bouture', postId: 'p1' })
+    expect(result.giftsLeft).toBe(2)
+  })
+
+  it('remonte le quota de la semaine avec son code et son message', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        { error: { code: 'QUOTA_EXCEEDED', message: 'Tu as offert toutes tes gouttes de la semaine' } },
+        429,
+      ),
+    )
+
+    const error = await makeClient()
+      .sap.give({ handle: 'camille', reason: 'aide' })
+      .catch((err: unknown) => err)
+
+    expect(isApiError(error)).toBe(true)
+    expect((error as ApiError).code).toBe('QUOTA_EXCEEDED')
+    expect((error as ApiError).message).toBe('Tu as offert toutes tes gouttes de la semaine')
+  })
+
+  it('lit le quartier', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { radiusKm: 20, gardeners: 9 } }))
+    const quartier = await makeClient().community.quartier()
+    expect(callArgs().url).toBe('https://growi.test/api/v1/community/quartier')
+    expect(quartier.gardeners).toBe(9)
+  })
+
+  it('choisit le thème d’Accueil en PUT', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { homeTheme: 'sous-bois' } }))
+
+    const result = await makeClient().sap.setTheme({ theme: 'sous-bois' })
+
+    expect(callArgs().url).toBe('https://growi.test/api/v1/sap/theme')
+    expect(callArgs().init.method).toBe('PUT')
+    expect(JSON.parse(callArgs().init.body as string)).toEqual({ theme: 'sous-bois' })
+    expect(result.homeTheme).toBe('sous-bois')
+  })
+})

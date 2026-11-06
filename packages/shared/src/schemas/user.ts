@@ -23,6 +23,12 @@ export const communityAlertConfigSchema = z.object({
   comments: z.boolean(),
   messages: z.boolean(),
   follows: z.boolean(),
+  /**
+   * Une goutte de sève reçue d'un voisin. **Facultatif** : les configurations
+   * enregistrées avant la Sève — et les versions de l'app qui renvoient
+   * l'objet entier sans le connaître — ne le portent pas, et absent vaut oui.
+   */
+  sapGifts: z.boolean().optional(),
 })
 
 export type CommunityAlertConfig = z.infer<typeof communityAlertConfigSchema>
@@ -77,7 +83,7 @@ export const DEFAULT_ALERT_CONFIG: AlertConfig = {
   quietHoursEnabled: false,
   quietHoursStart: '22:00',
   quietHoursEnd: '07:00',
-  community: { comments: true, messages: true, follows: false },
+  community: { comments: true, messages: true, follows: false, sapGifts: true },
   blogArticles: true,
 }
 

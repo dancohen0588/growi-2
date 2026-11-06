@@ -182,6 +182,17 @@ export const DATA_COLLECTED = [
       'Jusqu\'à la suppression du compte. Les blocages disparaissent si tu les retires.',
   },
   {
+    category: 'La sève',
+    items:
+      'Le journal de ce que tes gestes t\'ont rapporté, les gouttes que tu offres ou reçois (motif et petit mot), '
+      + 'ce que tes cernes ont débloqué, ton thème d\'Accueil, et tes résultats aux défis du quartier.',
+    why:
+      'Te montrer ta sève et tes cernes — à toi seul : elle n\'est visible de personne d\'autre. Si ton profil '
+      + 'public est activé, tes gestes comptent aussi, additionnés à ceux des voisins, dans les chiffres de ton '
+      + 'quartier ; une goutte nommée n\'est montrée qu\'à celui qui l\'a offerte et à celui qui l\'a reçue.',
+    retention: 'Jusqu\'à la suppression du compte.',
+  },
+  {
     category: 'Notifications de la communauté',
     items:
       'Les notifications reçues — nouvel abonné, commentaire, message — avec leur texte figé et leur date.',

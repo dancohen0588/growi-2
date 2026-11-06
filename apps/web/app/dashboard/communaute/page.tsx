@@ -12,10 +12,12 @@ import {
 
 import { CommunityDisabled, CommunityEmpty, MoreLink } from '@/components/community/bits'
 import { PostCard } from '@/components/community/PostCard'
+import { ChallengeBanner } from '@/components/community/quartier/ChallengeCard'
 import { auth } from '@/auth'
 import { cn } from '@/lib/utils'
 import { getFeed } from '@/lib/services/community/post.service'
 import { getSettings } from '@/lib/services/community/profile.service'
+import { getQuartier } from '@/lib/services/community/quartier.service'
 import { isServiceError } from '@/lib/services/errors'
 import { TrackView } from '@/components/analytics/TrackView'
 
@@ -89,6 +91,13 @@ export default async function CommunautePage({
   const radiusParsed = communityRadiusSchema.safeParse(Number(readParam(searchParams, 'rayon')))
   const radius: CommunityRadiusKm | null = radiusParsed.success ? radiusParsed.data : null
 
+  // Le défi du quartier, en tête du fil, lu en même temps que lui. Une panne
+  // le tait sans emporter le fil.
+  const quartierPromise = getQuartier(session.user.id).catch((error) => {
+    console.error('[communauté] quartier indisponible :', error)
+    return null
+  })
+
   let feed
   try {
     feed = await getFeed(session.user.id, scope, radius, readParam(searchParams, 'apres') ?? null)
@@ -100,6 +109,7 @@ export default async function CommunautePage({
   }
 
   const applied = feed.appliedRadiusKm ?? settings.radiusKm
+  const quartier = await quartierPromise
 
   return (
     <div className="space-y-6">
@@ -136,6 +146,8 @@ export default async function CommunautePage({
           </Link>
         </nav>
       </header>
+
+      {quartier?.challenge ? <ChallengeBanner challenge={quartier.challenge} /> : null}
 
       <div className="flex flex-wrap items-center gap-2">
         {/* Changer d'onglet ou de rayon repart d'une première page : garder le

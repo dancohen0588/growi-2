@@ -16,7 +16,9 @@ const prismaMock = vi.hoisted(() => ({
 const analytics = vi.hoisted(() => ({ trackServer: vi.fn() }))
 const weather = vi.hoisted(() => ({ fetchWeatherForecast: vi.fn() }))
 
+const sap = vi.hoisted(() => ({ awardSap: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
+vi.mock('@/lib/services/sap.service', () => sap)
 vi.mock('@/lib/analytics/server', () => analytics)
 vi.mock('@/lib/recommendation/weather-adapter', () => weather)
 
@@ -285,6 +287,12 @@ describe('gestes', () => {
       evidence: 'PROVEN',
       verdict: 'MEH',
     })
+    // Le retour rapporte, une fois par essai : c'est l'essai qui fait la clé.
+    expect(sap.awardSap).toHaveBeenCalledWith(USER, {
+      kind: 'secret_feedback',
+      sourceId: 'log_1',
+      label: expect.stringMatching(/^Ton retour sur « .+ »$/),
+    })
   })
 
   it('refuse le verdict sur un essai d’autrui', async () => {
@@ -294,6 +302,7 @@ describe('gestes', () => {
       code: 'NOT_FOUND',
     })
     expect(prismaMock.careLog.update).not.toHaveBeenCalled()
+    expect(sap.awardSap).not.toHaveBeenCalled()
   })
 
   it('répond « introuvable » au slug deviné d’un brouillon', async () => {
@@ -447,5 +456,45 @@ describe('grimoire', () => {
     expect(grimoire.entries[0]).toEqual(
       expect.objectContaining({ discovered: false, recipe: null, story: null, ingredients: [], cautions: null }),
     )
+  })
+})
+
+describe('secret en avant-première (récompense d’un cerne)', () => {
+  it('dévoile un secret jamais vu — ni découvert, ni essayé, ni mis de côté, ni lunaire sans l’option', async () => {
+    prismaMock.gardenTip.findMany.mockResolvedValue([
+      tipRow('cendres'),
+      tipRow('eau-riz'),
+      tipRow('feuilles-mortes'),
+      tipRow('marc-cafe'),
+      tipRow('lune', { conditions: { lunarOnly: true } }),
+    ])
+    prismaMock.userTip.findMany.mockResolvedValue([
+      { slug: 'cendres', revealedAt: new Date(), dismissedAt: null },
+      { slug: 'eau-riz', revealedAt: null, dismissedAt: new Date() },
+    ])
+    prismaMock.careLog.findMany.mockResolvedValue([{ tipSlug: 'feuilles-mortes' }])
+
+    const slug = await service.revealRewardSecret(USER, 'graine')
+
+    expect(slug).toBe('marc-cafe')
+    expect(prismaMock.userTip.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId_slug: { userId: USER, slug: 'marc-cafe' } },
+        create: expect.objectContaining({ userId: USER, slug: 'marc-cafe', revealedAt: expect.any(Date) }),
+      }),
+    )
+  })
+
+  it('le même tirage pour la même graine', async () => {
+    prismaMock.gardenTip.findMany.mockResolvedValue([tipRow('a'), tipRow('b'), tipRow('c'), tipRow('d')])
+    const first = await service.revealRewardSecret(USER, 'user_1:cerne:3')
+    const second = await service.revealRewardSecret(USER, 'user_1:cerne:3')
+    expect(second).toBe(first)
+  })
+
+  it('rien à découvrir : null, sans rien écrire', async () => {
+    prismaMock.userTip.findMany.mockResolvedValue([{ slug: 'feuilles-mortes', revealedAt: new Date(), dismissedAt: null }])
+    expect(await service.revealRewardSecret(USER, 'graine')).toBeNull()
+    expect(prismaMock.userTip.upsert).not.toHaveBeenCalled()
   })
 })

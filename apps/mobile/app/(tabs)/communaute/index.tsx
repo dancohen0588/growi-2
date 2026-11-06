@@ -9,6 +9,8 @@ import { COMMUNITY_RADII_KM, COMMUNITY_RADIUS_LABELS } from '@growi/shared'
 import { CommunityDisabled } from '@/components/community/CommunityDisabled'
 import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { PostCard } from '@/components/community/PostCard'
+import { ChallengeBanner } from '@/components/quartier/ChallengeCard'
+import { useGiftSheet } from '@/components/sap/GiftSheet'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
@@ -18,6 +20,7 @@ import {
   useCommunitySettings,
   useFeed,
   useFollowingFeed,
+  useQuartier,
   useToggleLike,
 } from '@/lib/queries/community'
 
@@ -117,6 +120,7 @@ export default function CommunauteScreen() {
   const router = useRouter()
   const toast = useToast()
   const settings = useCommunitySettings()
+  const gift = useGiftSheet()
 
   const [scope, setScope] = useState<FeedScope>('nearby')
 
@@ -133,6 +137,9 @@ export default function CommunauteScreen() {
   // activé. On ne les demande donc pas : l'écran montre l'invitation à
   // rejoindre, comme le fait déjà le web.
   const communityOn = settings.data?.enabled === true
+  // Le défi du quartier, en tête du fil. Muet tant qu'il charge ou s'il
+  // échoue : le fil se lit très bien sans lui.
+  const quartier = useQuartier({ enabled: communityOn })
 
   const nearby = useFeed(applied, {
     enabled: communityOn && scope === 'nearby' && (radius !== null || settings.isSuccess),
@@ -174,6 +181,13 @@ export default function CommunauteScreen() {
 
   const header = (
     <View>
+      {quartier.data?.challenge ? (
+        <ChallengeBanner
+          challenge={quartier.data.challenge}
+          onPress={() => router.push('/(tabs)/communaute/quartier')}
+        />
+      ) : null}
+
       <ScopeSegment value={scope} onChange={setScope} />
 
       {/* Le rayon ne concerne que le fil local : l'afficher sur les abonnements
@@ -285,6 +299,16 @@ export default function CommunauteScreen() {
                 router.push(`/(tabs)/communaute/u/${item.author.handle}`)
               }
               onToggleLike={() => like(item)}
+              onGift={
+                item.isMine
+                  ? undefined
+                  : () =>
+                      gift.open({
+                        handle: item.author.handle,
+                        avatarUrl: item.author.avatarUrl,
+                        postId: item.id,
+                      })
+              }
             />
           )}
         />
@@ -303,6 +327,8 @@ export default function CommunauteScreen() {
           />
         </View>
       ) : null}
+
+      {gift.sheet}
     </SafeAreaView>
   )
 }
