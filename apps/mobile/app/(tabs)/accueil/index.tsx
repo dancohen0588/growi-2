@@ -9,6 +9,7 @@ import { ConseilsSection } from '@/components/blog/ConseilsSection'
 import { AroundYouSection } from '@/components/community/AroundYouSection'
 import { HomeHero } from '@/components/home/HomeHero'
 import { IdentifyCta } from '@/components/home/IdentifyCta'
+import { SapCard } from '@/components/sap/SapCard'
 import { SecretsSection } from '@/components/secrets/SecretsSection'
 import { ForecastRow } from '@/components/weather/ForecastRow'
 import { GardenContextCard } from '@/components/weather/GardenContextCard'
@@ -19,6 +20,7 @@ import { ListSkeleton } from '@/components/ui/states'
 import { formatDayLabel, greeting } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { usePlanningTasks } from '@/lib/queries/planning'
+import { useSapSummary } from '@/lib/queries/sap'
 import { useSummary } from '@/lib/queries/summary'
 import { useGardenWeather } from '@/lib/queries/weather'
 import { useSession } from '@/store/session'
@@ -56,6 +58,7 @@ export default function AccueilScreen() {
   // en passant d'un onglet à l'autre, et l'accueil s'affiche depuis le cache
   // au lancement.
   const planning = usePlanningTasks()
+  const sap = useSapSummary()
   const [refreshing, setRefreshing] = useState(false)
   // Les onglets restent montés : un <StatusBar> rendu en permanence
   // imposerait le clair à toute l'app. Il n'est rendu que pendant le focus,
@@ -72,11 +75,16 @@ export default function AccueilScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
     try {
-      await Promise.all([summary.refetch(), weather.refetch(), planning.query.refetch()])
+      await Promise.all([
+        summary.refetch(),
+        weather.refetch(),
+        planning.query.refetch(),
+        sap.refetch(),
+      ])
     } finally {
       setRefreshing(false)
     }
-  }, [summary, weather, planning.query])
+  }, [summary, weather, planning.query, sap])
 
   const openProfile = () => router.push('/(tabs)/accueil/profil')
   const initial = (firstName || email || '?').trim().charAt(0).toUpperCase()
@@ -162,6 +170,11 @@ export default function AccueilScreen() {
               onOpenGrimoire={() => router.push('/(tabs)/accueil/grimoire')}
             />
           ) : null}
+
+          {/* La sève après le jardin du jour : elle dit ce que ces gestes
+              ont fait pousser, et mène aux gouttes à offrir — donc à la
+              communauté, qui suit. */}
+          <SapCard />
 
           {/* La communauté après le jardin, et avant le blog : ce que font les
               voisins vaut un coup d'œil plus souvent qu'un article. Muette tant

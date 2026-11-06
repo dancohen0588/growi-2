@@ -9,7 +9,10 @@ import {
   SAP_KINDS,
   SAP_RING_STEP_AFTER,
   SAP_RING_THRESHOLDS,
+  SAP_RULE_DISPLAY,
   SAP_RULES,
+  sapRingName,
+  sapRingOrdinal,
   sapRings,
   sapRingThreshold,
 } from '../constants/sap'
@@ -116,5 +119,29 @@ describe('giveSapDropSchema', () => {
 
   it('le mot et la publication sont facultatifs', () => {
     expect(giveSapDropSchema.safeParse({ handle: 'camille', reason: 'aide', message: null }).success).toBe(true)
+  })
+})
+
+describe('affichage du barème', () => {
+  it('décrit chaque type de gain', () => {
+    expect(Object.keys(SAP_RULE_DISPLAY).sort()).toEqual([...SAP_KINDS].sort())
+  })
+
+  it('cite les plafonds que le serveur applique', () => {
+    for (const kind of SAP_KINDS) {
+      const cap = SAP_RULES[kind].dailyCap
+      const hint = SAP_RULE_DISPLAY[kind].hint ?? ''
+      const cited = hint.match(/^(\d+) par jour/)
+      if (cited) expect(Number(cited[1])).toBe(cap)
+      if (/une par jour/i.test(hint)) expect(cap).toBe(1)
+    }
+  })
+
+  it('nomme les cernes', () => {
+    expect(sapRingName(1)).toBe('Premier cerne')
+    expect(sapRingName(4)).toBe('Quatrième cerne')
+    expect(sapRingName(11)).toBe('11ᵉ cerne')
+    expect(sapRingOrdinal(1)).toBe('1ᵉʳ')
+    expect(sapRingOrdinal(4)).toBe('4ᵉ')
   })
 })

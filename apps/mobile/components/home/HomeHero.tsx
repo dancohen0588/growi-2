@@ -17,6 +17,7 @@ import { indicatorTone, type DashboardSummary, type HeroPhoto, type IndicatorTon
 
 import { NotificationBell } from '@/components/community/NotificationBell'
 import { GardenScene } from '@/components/home/illustrations'
+import { SapPill } from '@/components/sap/SapPill'
 import { Button } from '@/components/ui/Button'
 import { Pulse } from '@/components/ui/states'
 
@@ -91,6 +92,7 @@ export function HomeHero({ title, subtitle, summary, onOpenProfile, profileIniti
           </View>
 
           <View className="flex-row items-center gap-2">
+            <SapPill />
             <NotificationBell onPhoto />
             <Pressable
               onPress={onOpenProfile}

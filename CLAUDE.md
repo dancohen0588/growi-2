@@ -1212,9 +1212,9 @@ elle forme des **cernes** (paliers), et l'on peut **offrir des gouttes** à un
 voisin. Ni classement, ni perte, ni série à tenir : la sève n'est visible que
 par son propriétaire. Plan par phases et questions ouvertes :
 `~/Growi/Documentation/spec/17-plan-seve.md` ; maquettes Claude Design
-« Growi — La Sève ». **Phases 1 (socle), 2 (gains branchés sur les gestes)
-et 3 (API, client, notification) livrées** ; les écrans viennent en phases 4
-(mobile) et 5 (web).
+« Growi — La Sève ». **Phases 1 (socle), 2 (gains branchés sur les gestes),
+3 (API, client, notification) et 4 (écrans mobile) livrées** ; le web vient en
+phase 5.
 
 | Élément | Rôle |
 |---|---|
@@ -1223,6 +1223,8 @@ et 3 (API, client, notification) livrées** ; les écrans viennent en phases 4
 | `lib/services/sap.service.ts` | `awardSap`, `awardSapMany`, `awardSapLater`, `revokeSap`, `getSapSummary`, `listSapHistory`, `giveSapDrop` |
 | Modèles | `SapEntry` (journal des gains), `SapGift` (gouttes offertes) — migration `20261106120000_sap` |
 | `app/api/v1/sap/*` · `api.sap.*` | Résumé, historique, offrir une goutte — sérialisés par `serializeSapEntry` / `serializeSapSummary` |
+| `apps/mobile/components/sap/` | Goutte, coupe du tronc, pastille du hero, carte de l'Accueil, feuille « Offrir », annonces de gain |
+| `apps/mobile/app/(tabs)/accueil/seve.tsx` | L'écran « Ta sève » : coupe, cernes, barème (`SAP_RULE_DISPLAY`), historique |
 
 - **Un journal, pas un compteur.** Le total est la somme de `sap_entries` ;
   c'est ce qui permet de reprendre un gain précis (`revokeSap`) quand un geste
@@ -1267,8 +1269,26 @@ et 3 (API, client, notification) livrées** ; les écrans viennent en phases 4
   chantier). Les versions installées de l'app ne connaissent pas ce `kind` :
   la cloche mobile lui donne l'icône par défaut et le tap suit sa cible
   (publication, sinon profil du donneur) — rien ne casse, c'est vérifié dans
-  `notifications.tsx` et `lib/notifications.ts`. L'icône dédiée vient avec la
-  phase 4.
+  `notifications.tsx` et `lib/notifications.ts`. Les versions à partir de la
+  phase 4 lui donnent la goutte.
+- **Mobile : `SapGainWatcher` annonce les gains**, monté une fois dans
+  `app/(tabs)/_layout.tsx`. Il relit la sève après **toute mutation réussie**
+  (abonnement au `MutationCache`) et compare au total précédent : un écran
+  ajouté demain annonce sa sève sans y être branché. Un toast pour un gain
+  ordinaire (« +1 de sève · Arrosage », lien « Voir »), une feuille pour un
+  cerne formé ou un retour sur un Secret ; rien à la première lecture, rien
+  quand le total baisse (geste annulé).
+- **La sève n'est pas dans le cache persisté** (`query-persist`) — et ne doit
+  pas y entrer : une valeur restaurée du disque ferait annoncer au lancement
+  tout ce qui a été gagné ailleurs.
+- **L'écran n'annonce que ce qui existe** : ni récompenses de cernes ni
+  chiffres du mois tant que la phase 6 n'est pas décidée, et le barème vient
+  de `SAP_RULES` + `SAP_RULE_DISPLAY` (le test partagé vérifie que les
+  plafonds cités sont ceux du serveur). Le « +3 diagnostic » et le « +15
+  parrainage » des maquettes n'existent pas.
+- « Offrir une goutte » se trouve sous chaque publication d'un autre (fil et
+  détail) et sur son profil (`useGiftSheet`). Plus de gouttes : le bouton se
+  désactive avant que le serveur ne refuse.
 
 ### Chat contextuel (agent conversationnel)
 

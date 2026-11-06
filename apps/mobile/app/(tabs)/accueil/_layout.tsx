@@ -26,6 +26,7 @@ export default function AccueilLayout() {
       <Stack.Screen name="conseils/index" />
       <Stack.Screen name="conseils/[slug]" />
       <Stack.Screen name="grimoire" />
+      <Stack.Screen name="seve" />
     </Stack>
   )
 }

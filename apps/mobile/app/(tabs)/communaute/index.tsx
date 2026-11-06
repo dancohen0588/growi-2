@@ -9,6 +9,7 @@ import { COMMUNITY_RADII_KM, COMMUNITY_RADIUS_LABELS } from '@growi/shared'
 import { CommunityDisabled } from '@/components/community/CommunityDisabled'
 import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { PostCard } from '@/components/community/PostCard'
+import { useGiftSheet } from '@/components/sap/GiftSheet'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
@@ -117,6 +118,7 @@ export default function CommunauteScreen() {
   const router = useRouter()
   const toast = useToast()
   const settings = useCommunitySettings()
+  const gift = useGiftSheet()
 
   const [scope, setScope] = useState<FeedScope>('nearby')
 
@@ -285,6 +287,16 @@ export default function CommunauteScreen() {
                 router.push(`/(tabs)/communaute/u/${item.author.handle}`)
               }
               onToggleLike={() => like(item)}
+              onGift={
+                item.isMine
+                  ? undefined
+                  : () =>
+                      gift.open({
+                        handle: item.author.handle,
+                        avatarUrl: item.author.avatarUrl,
+                        postId: item.id,
+                      })
+              }
             />
           )}
         />
@@ -303,6 +315,8 @@ export default function CommunauteScreen() {
           />
         </View>
       ) : null}
+
+      {gift.sheet}
     </SafeAreaView>
   )
 }

@@ -175,3 +175,61 @@ export const SAP_GIFT_REASON_PHRASES: Record<SapGiftReason, string> = {
   jardin: 'pour ton jardin',
   aide: 'pour ton aide',
 }
+
+// ─── Ce que montre l'écran « Ta sève » ─────────────────────────────────────
+
+export type SapRuleGroup = 'jardin' | 'partage'
+
+export interface SapRuleDisplay {
+  /** L'action, à l'infinitif : « Noter un geste ». */
+  title: string
+  /** Une précision sous le titre — un plafond, un « pour qui ». */
+  hint: string | null
+  group: SapRuleGroup
+}
+
+/**
+ * La liste « Faire monter ta sève », dans l'ordre d'affichage.
+ *
+ * Partagée pour que le web et le mobile annoncent le même barème que celui
+ * que le serveur applique : les montants viennent de `SAP_RULES`, jamais
+ * d'ici. Les plafonds cités doivent suivre `SAP_RULES[kind].dailyCap`
+ * (`sap.test.ts` le vérifie).
+ */
+export const SAP_RULE_DISPLAY: Record<SapKind, SapRuleDisplay> = {
+  care: { title: 'Noter un geste', hint: '10 par jour au plus', group: 'jardin' },
+  task_on_time: { title: 'Faire une tâche du planning à temps', hint: 'Le jour prévu ou avant', group: 'jardin' },
+  plant_added: { title: 'Ajouter ou identifier une plante', hint: '5 par jour au plus', group: 'jardin' },
+  secret_feedback: {
+    title: 'Dire si un Secret a marché',
+    hint: 'Ton retour aide à démêler les astuces des légendes',
+    group: 'partage',
+  },
+  post: { title: 'Publier une photo', hint: 'Une par jour', group: 'partage' },
+  comment: { title: 'Répondre à un voisin', hint: '5 par jour au plus', group: 'partage' },
+  listing_done: { title: 'Mener un échange à la bourse', hint: 'Quand ton annonce trouve preneur', group: 'partage' },
+  gift_received: { title: 'Recevoir une goutte d’un voisin', hint: 'Son merci pour un conseil, une bouture…', group: 'partage' },
+}
+
+/** « Premier cerne », « Deuxième cerne »… puis « 11ᵉ cerne ». */
+const RING_ORDINALS = [
+  'Premier',
+  'Deuxième',
+  'Troisième',
+  'Quatrième',
+  'Cinquième',
+  'Sixième',
+  'Septième',
+  'Huitième',
+  'Neuvième',
+  'Dixième',
+] as const
+
+export function sapRingName(n: number): string {
+  return n >= 1 && n <= RING_ORDINALS.length ? `${RING_ORDINALS[n - 1]} cerne` : `${n}ᵉ cerne`
+}
+
+/** « 1ᵉʳ », « 4ᵉ » — pour « ton 4ᵉ cerne se forme ». */
+export function sapRingOrdinal(n: number): string {
+  return n === 1 ? '1ᵉʳ' : `${n}ᵉ`
+}

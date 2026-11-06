@@ -111,3 +111,14 @@ export const communityKeys = {
   post: (postId: string) => [...communityKeys.all, 'post', postId] as const,
   comments: (postId: string) => [...communityKeys.all, 'post', postId, 'comments'] as const,
 }
+
+/**
+ * La sève. **Pas persistée** (`query-persist`) : elle bouge à chaque geste, et
+ * c'est en comparant deux lectures successives que `SapGainWatcher` annonce un
+ * gain — une valeur restaurée du disque en ferait annoncer un faux au lancement.
+ */
+export const sapKeys = {
+  all: ['sap'] as const,
+  summary: () => [...sapKeys.all, 'summary'] as const,
+  history: () => [...sapKeys.all, 'history'] as const,
+}

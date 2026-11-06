@@ -7,6 +7,8 @@ import type { CommunityPost, CommunityProfile } from '@growi/shared'
 import { REPORT_REASONS, REPORT_REASON_LABELS } from '@growi/shared'
 
 import { CommunityHeader } from '@/components/community/CommunityHeader'
+import { useGiftSheet } from '@/components/sap/GiftSheet'
+import { SapDrop } from '@/components/sap/SapDrop'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/states'
@@ -47,6 +49,7 @@ function ProfileHeader({ profile }: { profile: CommunityProfile }) {
   const router = useRouter()
   const toast = useToast()
   const follow = useToggleFollow(profile.handle)
+  const gift = useGiftSheet()
   const block = useToggleBlock(profile.handle)
   const report = useReport()
 
@@ -181,17 +184,28 @@ function ProfileHeader({ profile }: { profile: CommunityProfile }) {
           onPress={() => router.push('/(tabs)/communaute/activer')}
         />
       ) : (
-        <Button
-          label={profile.isFollowing ? 'Abonné·e' : 'Suivre'}
-          variant={profile.isFollowing ? 'outline' : 'primary'}
-          loading={follow.isPending}
-          onPress={() =>
-            follow.mutate(!profile.isFollowing, {
-              onError: (error) => toast(errorMessage(error), 'error'),
-            })
-          }
-        />
+        <View className="gap-2">
+          <Button
+            label={profile.isFollowing ? 'Abonné·e' : 'Suivre'}
+            variant={profile.isFollowing ? 'outline' : 'primary'}
+            loading={follow.isPending}
+            onPress={() =>
+              follow.mutate(!profile.isFollowing, {
+                onError: (error) => toast(errorMessage(error), 'error'),
+              })
+            }
+          />
+          {/* Remercier ne demande pas de suivre : un conseil reçu dans un
+              fil d'annonce vaut une goutte, abonné ou non. */}
+          <Button
+            label="Offrir une goutte"
+            variant="outline"
+            icon={<SapDrop size={20} veins={false} />}
+            onPress={() => gift.open({ handle: profile.handle, avatarUrl: profile.avatarUrl })}
+          />
+        </View>
       )}
+      {gift.sheet}
     </View>
   )
 }
