@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="182 222 660 660" width="660" height="660" role="img" aria-label="Chargement en cours">
+  <title>Chargement en cours</title>
+  <style>
+    .plant,.leaves,.leaf-l,.leaf-r{transform-box:view-box}
+    .plant{transform-origin:512px 833px}
+    .leaves,.leaf-l,.leaf-r{transform-origin:512px 545px}
+    .plant{animation:sway 2.6s ease-in-out infinite}
+    .leaf-l{animation:flut-l 2.6s ease-in-out infinite}
+    .leaf-r{animation:flut-r 2.6s ease-in-out infinite}
+    @keyframes sway{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+    @keyframes flut-l{0%,100%{transform:rotate(3deg)}50%{transform:rotate(-4deg)}}
+    @keyframes flut-r{0%,100%{transform:rotate(4deg)}50%{transform:rotate(-3deg)}}
+    @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+  </style>
+  <g class="plant">
+    <path class="stem" d="M 512 833 L 512 530" fill="none" stroke="#1E5631" stroke-width="46" stroke-linecap="round"/>
+    <g class="leaves">
+      <g class="leaf-l">
+        <path d="M 512 528 C 498 420, 400 296, 207 278 C 197 400, 234 505, 318 550 C 388 586, 464 578, 512 562 Z" fill="#1E5631"/>
+        <path class="vein" d="M 488 527 L 275 338" fill="none" stroke="#9CC86E" stroke-width="16" stroke-linecap="round"/>
+      </g>
+      <g class="leaf-r">
+        <path d="M 512 528 C 526 420, 624 296, 817 278 C 827 400, 790 505, 706 550 C 636 586, 560 578, 512 562 Z" fill="#1E5631"/>
+        <path class="vein" d="M 536 527 L 749 338" fill="none" stroke="#9CC86E" stroke-width="16" stroke-linecap="round"/>
+      </g>
+    </g>
+  </g>
+</svg>
